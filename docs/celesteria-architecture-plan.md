@@ -147,6 +147,10 @@ Anime4K Ultra
 
 ## 分步落地 Plan
 
+> 推荐首个实现切片：**Phase 0 / Step 1-4**。
+>
+> 不建议从播放器 UI、播放页交互或单一 Provider 接入直接开工。先冻结分层边界、本地存储、`ProviderGateway` 与 `CacheInvalidationBus`，再进入播放器 Core，可以显著降低后续播放、RSS、Provider、缓存一致性与诊断链路的返工风险。
+
 ### Phase 0：架构地基
 
 | Step | 模块 | 交付 | 扩展点 |
@@ -256,3 +260,14 @@ MVP：Step 1-17
 5. 验证码只支持用户手动完成后的同源会话回填，不支持自动破解。
 6. DNS 策略按域名和 Provider 配置，默认尊重系统 DNS。
 7. iOS 不承诺长期后台 BT 下载；Android 后台下载必须使用前台服务；桌面可使用常驻任务。
+
+## 首个执行切片说明
+
+后续正式实施时，第一批任务应严格限定为 **Phase 0 / Step 1-4**：
+
+1. **Step 1 — 项目分层**：先建立 UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network 的目录和接口边界，禁止跨层直连具体实现。
+2. **Step 2 — 本地存储**：先落地 SQLite、Blob cache、Media cache、Settings 与迁移骨架，为播放记录、RSS 条目、缓存状态、诊断快照提供稳定承载。
+3. **Step 3 — `ProviderGateway`**：统一外部 Provider 的去重、限流、重试、缓存与失败语义，避免 Bangumi、弹弹play、字幕源、RSS 拉取各自实现一套网络治理逻辑。
+4. **Step 4 — `CacheInvalidationBus`**：先定义跨模块事件与缓存失效传播，再接入详情页、播放页、RSS、Bangumi 绑定、Provider 鉴权等上层功能。
+
+只有在这 4 步完成后，才建议进入 `Phase 1` 的播放器 Core，包括 MPV Adapter、Capability Matrix 与播放页基础 UI。也就是说，**不要把播放页 UI 当成项目起点**。
