@@ -1,0 +1,21 @@
+schema: spec-driven
+
+context: |
+  Celesteria (1017) — cross-platform ACG player. Flutter/Dart frontend + MPV/native backend.
+  8-layer architecture: UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network.
+  All external capabilities via Adapter/Provider/Profile extension points.
+  A/V sync red line: drift < 40ms, > 120ms triggers degradation.
+  Currently Phase 0 (planning) — no source code directory yet.
+
+rules:
+  proposal:
+    - Every change must respect 8-layer isolation (no cross-layer direct dependency)
+    - UI must never directly depend on MPV/VLC/Bangumi/Dandanplay/libtorrent/yuc.wiki
+    - Online source parsing must NOT become a prerequisite for core playback loop
+    - Captcha auto-cracking is forbidden; only manual completion + same-origin session backfill
+    - yuc.wiki is just another FeedSource in the RSS Engine, not a special scraper
+    - iOS does not promise long-background BT download
+  tasks:
+    - Break tasks into chunks that align with architecture Steps (1-30)
+    - Phase 0 tasks (Step 1-4) must complete before any playback UI work
+    - Each task must identify which layer(s) it touches

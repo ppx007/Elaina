@@ -1,0 +1,98 @@
+# Dart / Pub / Flutter generated state
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.pub-preload-cache/
+build/
+**/build/
+**/doc/api/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# Platform build outputs and local secrets
+**/android/.gradle/
+**/android/local.properties
+**/android/app/build/
+**/ios/Pods/
+**/ios/.generated/
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/macos/Flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.*
+**/linux/flutter/generated_plugin_registrant.*
+*.jks
+*.keystore
+
+# Python and script caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.venv/
+venv/
+env/
+
+# IDE, editor, and OS noise
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.history/
+*.swp
+*.swo
+*.sublime-*
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Logs, temporary files, and caches
+*.log
+*.tmp
+*.temp
+*.bak
+.tmp/
+tmp/
+temp/
+.cache/
+**/.cache/
+
+# Trellis legacy runtime state
+.trellis/.developer
+.trellis/.current-task
+.trellis/.runtime/
+.trellis/.backup-*/
+.trellis/worktrees/
+.trellis/.template-hashes.json
+.trellis/.cache/
+.trellis/**/*.pyc
+.trellis/**/__pycache__/
+
+# AI session runtime state
+.sisyphus/
+.agent-shell/
+.agents/rules/personal-*
+.agents/skills/personal-*
+.opencode/tmp-*
+
+# Source-of-truth project artifacts are intentionally tracked:
+# - openspec/
+# - docs/
+# - lib/
+# - tools/
+# - AGENTS.md
+# - pubspec.yaml
+# - analysis_options.yaml
