@@ -1,0 +1,152 @@
+import 'capability_matrix.dart';
+import 'player_adapter.dart';
+import 'track_management.dart';
+
+abstract interface class MpvAdapterBinding {
+  Future<PlaybackCommandResult> load(PlaybackSource source);
+
+  Future<PlaybackCommandResult> play();
+
+  Future<PlaybackCommandResult> pause();
+
+  Future<PlaybackCommandResult> seek(Duration position);
+
+  Future<PlaybackCommandResult> stop();
+
+  Future<PlaybackCommandResult> dispose();
+
+  Future<TrackDiscoveryResult> discoverTracks();
+
+  Future<TrackSwitchResult> switchTrack(MediaTrackId trackId);
+}
+
+final class MpvPlayerAdapterFacade implements PlayerAdapter {
+  const MpvPlayerAdapterFacade.unsupported({String reason = 'MPV binding is unavailable.'})
+      : _binding = null,
+        _unavailableReason = reason;
+
+  const MpvPlayerAdapterFacade.bound({required MpvAdapterBinding binding})
+      : _binding = binding,
+        _unavailableReason = null;
+
+  final MpvAdapterBinding? _binding;
+  final String? _unavailableReason;
+
+  @override
+  String get id => 'mpv';
+
+  @override
+  String get displayName => 'MPV';
+
+  @override
+  PlaybackCapabilityMatrix get capabilities {
+    if (_binding == null) {
+      return PlaybackCapabilityMatrix.unsupported(
+        reason: _bindingUnavailableMessage,
+      );
+    }
+
+    return PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+        PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
+        PlaybackCapability.hlsPlayback: CapabilityStatus.supported(),
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+        PlaybackCapability.seek: CapabilityStatus.supported(),
+        PlaybackCapability.stop: CapabilityStatus.supported(),
+        PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+        PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
+        PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+        PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+        PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+        PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+      },
+    );
+  }
+
+  @override
+  Future<PlaybackCommandResult> load(PlaybackSource source) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.load);
+    }
+    return binding.load(source);
+  }
+
+  @override
+  Future<PlaybackCommandResult> play() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.play);
+    }
+    return binding.play();
+  }
+
+  @override
+  Future<PlaybackCommandResult> pause() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.pause);
+    }
+    return binding.pause();
+  }
+
+  @override
+  Future<PlaybackCommandResult> seek(Duration position) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.seek);
+    }
+    return binding.seek(position);
+  }
+
+  @override
+  Future<PlaybackCommandResult> stop() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.stop);
+    }
+    return binding.stop();
+  }
+
+  @override
+  Future<PlaybackCommandResult> dispose() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.dispose);
+    }
+    return binding.dispose();
+  }
+
+  @override
+  Future<TrackDiscoveryResult> discoverTracks() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return TrackDiscoveryResult.unsupported(reason: _bindingUnavailableMessage);
+    }
+    return binding.discoverTracks();
+  }
+
+  @override
+  Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return TrackSwitchResult.unsupported(_bindingUnavailableMessage);
+    }
+    return binding.switchTrack(trackId);
+  }
+
+  PlaybackCommandResult _unsupported(PlaybackOperation operation) {
+    return PlaybackCommandResult.failure(
+      PlaybackFailure(
+        operation: operation,
+        kind: PlaybackFailureKind.adapterUnavailable,
+        message: _bindingUnavailableMessage,
+      ),
+    );
+  }
+
+  String get _bindingUnavailableMessage {
+    return _unavailableReason ?? 'MPV binding is unavailable.';
+  }
+}

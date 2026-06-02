@@ -1,0 +1,96 @@
+$ErrorActionPreference = 'Stop'
+
+$root = Split-Path -Parent $PSScriptRoot
+& (Join-Path $PSScriptRoot 'check_detail_library_seasonal.ps1')
+
+$requiredFiles = @(
+  'lib/src/streaming/bt_task_core.dart',
+  'lib/src/streaming/virtual_media_stream.dart',
+  'lib/src/streaming/piece_priority_scheduler.dart',
+  'lib/src/streaming/timeline_overlay.dart',
+  'lib/src/playback/virtual_stream_playback_source.dart',
+  'docs/phase4-bt-streaming-core.md'
+)
+
+foreach ($file in $requiredFiles) {
+  $path = Join-Path $root $file
+  if (-not (Test-Path -LiteralPath $path)) {
+    throw "Missing required BT streaming file: $file"
+  }
+}
+
+$uiPath = Join-Path $root 'lib/src/ui'
+$forbiddenUiTerms = @('libtorrent', 'torrent', 'BtTask', 'DownloadEngine', 'PiecePriority', 'VirtualMediaStream', 'TimelineOverlaySource')
+$uiFiles = Get-ChildItem -LiteralPath $uiPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $uiFiles) {
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  foreach ($term in $forbiddenUiTerms) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Forbidden BT/streaming UI dependency '$term' found in $($file.FullName)"
+    }
+  }
+}
+
+$streamingFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/streaming') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $streamingFiles) {
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  $forbiddenImplTerms = @('dart:io', 'HttpServer', 'Socket', 'libtorrent', 'ffi', 'RandomAccessFile', 'package:flutter')
+  foreach ($term in $forbiddenImplTerms) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Streaming contract contains forbidden implementation dependency '$term' in $($file.FullName)"
+    }
+  }
+}
+
+$btCore = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/bt_task_core.dart') -Raw
+if ($btCore -notmatch 'BtTaskSource' -or $btCore -notmatch 'BtTaskMetadata' -or $btCore -notmatch 'BtTaskFile' -or $btCore -notmatch 'DownloadEngineAdapter' -or $btCore -notmatch 'BtCapabilityMatrix' -or $btCore -notmatch 'longBackgroundDownload') {
+  throw 'BT task core must define source, metadata, file, adapter, and capability contracts.'
+}
+
+$virtualStream = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/virtual_media_stream.dart') -Raw
+if ($virtualStream -notmatch 'VirtualMediaStream' -or $virtualStream -notmatch 'VirtualByteRangeRequest' -or $virtualStream -notmatch 'VirtualByteRangeChunk' -or $virtualStream -notmatch 'StreamBufferedRange' -or $virtualStream -notmatch 'MediaCacheStore|BufferedRange') {
+  throw 'Virtual media stream must define range and buffered range contracts tied to storage cache contracts.'
+}
+
+$scheduler = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/piece_priority_scheduler.dart') -Raw
+if ($scheduler -notmatch 'PiecePriorityScheduler' -or $scheduler -notmatch 'PlaybackWindow' -or $scheduler -notmatch 'SeekTarget' -or $scheduler -notmatch 'PiecePriorityStrategyProfile' -or $scheduler -notmatch 'PiecePriorityPlanApplier') {
+  throw 'Piece priority scheduler must define playback, seek, profile, and plan application contracts.'
+}
+
+$timeline = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/timeline_overlay.dart') -Raw
+if ($timeline -notmatch 'TimelineOverlaySnapshot' -or $timeline -notmatch 'TimelineOverlayLayer' -or $timeline -notmatch 'TimelinePieceSegment' -or $timeline -notmatch 'TimelineOverlaySource' -or $timeline -match 'Controller') {
+  throw 'Timeline overlay must remain read-only presentation data, not a controller.'
+}
+
+$playbackSource = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/virtual_stream_playback_source.dart') -Raw
+if ($playbackSource -notmatch 'extends PlaybackSource' -or $playbackSource -match 'BtTask|DownloadEngine|PiecePriority') {
+  throw 'Playback source must depend on virtual stream abstraction, not BT task or scheduler internals.'
+}
+
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or $_ -like 'lib/src/**/*.dart' }) {
+  $exportPath = $file.Replace('lib/', '')
+  if ($barrel -notmatch [regex]::Escape("export '$exportPath';")) {
+    throw "Public barrel missing export: $exportPath"
+  }
+}
+
+$phase4Files = @(
+  'lib/src/streaming/bt_task_core.dart',
+  'lib/src/streaming/virtual_media_stream.dart',
+  'lib/src/streaming/piece_priority_scheduler.dart',
+  'lib/src/streaming/timeline_overlay.dart',
+  'lib/src/playback/virtual_stream_playback_source.dart',
+  'docs/phase4-bt-streaming-core.md'
+)
+$forbiddenScopeTerms = @('auto-download', 'autoDownload', 'rule-source', 'ruleSource', 'Anime4K', 'VLC fallback', 'WebView challenge', 'DNS policy', 'diagnostics center')
+foreach ($file in $phase4Files) {
+  $content = Get-Content -LiteralPath (Join-Path $root $file) -Raw
+  foreach ($term in $forbiddenScopeTerms) {
+    if ($file -notlike 'docs/*' -and $content -match [regex]::Escape($term)) {
+      throw "Forbidden out-of-scope term '$term' found in $file"
+    }
+  }
+}
+
+'BT streaming core checks passed.'
