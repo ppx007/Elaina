@@ -44,9 +44,7 @@ $forbiddenUiPlaybackImports = @(
   'src/storage/',
   'src/streaming/',
   'src/network/',
-  'package:celesteria/celesteria.dart',
-  'package:flutter',
-  'dart:ui'
+  'package:celesteria/celesteria.dart'
 )
 $uiPlaybackFiles = Get-ChildItem -LiteralPath $uiPlaybackPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $uiPlaybackFiles) {
@@ -56,6 +54,22 @@ foreach ($file in $uiPlaybackFiles) {
       throw "Forbidden playback UI import or dependency '$term' found in $($file.FullName)"
     }
   }
+}
+
+$frameworkNeutralPlaybackContracts = @(
+  'lib/src/ui/playback/playback_page_contract.dart'
+)
+foreach ($file in $frameworkNeutralPlaybackContracts) {
+  $path = Join-Path $root $file
+  $content = Get-Content -LiteralPath $path -Raw
+  if ($content -match [regex]::Escape('package:flutter') -or $content -match [regex]::Escape('dart:ui')) {
+    throw "Framework-neutral playback contract must not import Flutter: $path"
+  }
+}
+
+$publicBarrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+if ($publicBarrel.Contains('flutter_playback_shell.dart')) {
+  throw 'Public Dart contract barrel must not export the Flutter playback shell.'
 }
 
 $domainPlaybackPaths = @(
@@ -72,6 +86,35 @@ foreach ($layerPath in $domainPlaybackPaths) {
     }
     if ($content.Contains('../../ui') -or $content.Contains('../ui')) {
       throw "Domain/Playback file must not import UI layer: $($file.FullName)"
+    }
+  }
+}
+
+$nonUiLayerPaths = @(
+  'lib/src/domain',
+  'lib/src/playback',
+  'lib/src/provider',
+  'lib/src/foundation/gateway',
+  'lib/src/foundation/storage',
+  'lib/src/streaming',
+  'lib/src/network'
+)
+foreach ($layerPath in $nonUiLayerPaths) {
+  $fullPath = Join-Path $root $layerPath
+  if (-not (Test-Path -LiteralPath $fullPath)) {
+    continue
+  }
+  $dartFiles = Get-ChildItem -LiteralPath $fullPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+  foreach ($file in $dartFiles) {
+    $content = Get-Content -LiteralPath $file.FullName -Raw
+    if ($content -match [regex]::Escape('package:flutter') -or $content -match [regex]::Escape('dart:ui')) {
+      throw "Non-UI layer must not import Flutter: $($file.FullName)"
+    }
+    if ($content.Contains('src/ui/playback/flutter_playback_shell.dart')) {
+      throw "Non-UI layer must not import Flutter playback shell: $($file.FullName)"
+    }
+    if ($content.Contains('../../ui/playback/flutter_playback_shell.dart') -or $content.Contains('../ui/playback/flutter_playback_shell.dart')) {
+      throw "Non-UI layer must not import Flutter playback shell: $($file.FullName)"
     }
   }
 }
