@@ -1,0 +1,212 @@
+import 'package:flutter/material.dart';
+
+import '../../domain/playback/playback_controller.dart';
+import '../../domain/playback/playback_state.dart';
+import 'playback_page_contract.dart';
+
+abstract interface class FlutterPlaybackShellDriver {
+  PlaybackStateSnapshot get snapshot;
+
+  PlaybackPageSurfaceDescriptor get surface;
+
+  PlaybackPageIntentResult? get lastIntentResult;
+
+  PlaybackPagePanelId? get activePanel;
+
+  void addListener(VoidCallback listener);
+
+  void removeListener(VoidCallback listener);
+
+  Future<void> dispatch(PlaybackPageIntent intent);
+}
+
+final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements FlutterPlaybackShellDriver {
+  MockFlutterPlaybackShellDriver({
+    required PlaybackStateSnapshot initialSnapshot,
+    required PlaybackPageSurfaceDescriptor surface,
+  })  : _snapshot = initialSnapshot,
+        _surface = surface;
+
+  PlaybackStateSnapshot _snapshot;
+  final PlaybackPageSurfaceDescriptor _surface;
+  PlaybackPageIntentResult? _lastIntentResult;
+  PlaybackPagePanelId? _activePanel;
+
+  @override
+  PlaybackStateSnapshot get snapshot => _snapshot;
+
+  @override
+  PlaybackPageSurfaceDescriptor get surface => _surface;
+
+  @override
+  PlaybackPageIntentResult? get lastIntentResult => _lastIntentResult;
+
+  @override
+  PlaybackPagePanelId? get activePanel => _activePanel;
+
+  @override
+  Future<void> dispatch(PlaybackPageIntent intent) async {
+    switch (intent.kind) {
+      case PlaybackPageIntentKind.noop:
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell ignored no-op intent.');
+      case PlaybackPageIntentKind.play:
+        _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.playing);
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded play intent.');
+      case PlaybackPageIntentKind.pause:
+        _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.paused);
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded pause intent.');
+      case PlaybackPageIntentKind.seek:
+        _snapshot = _snapshotWith(
+          timeline: PlaybackTimelineState(
+            position: intent.position ?? _snapshot.timeline.position,
+            duration: _snapshot.timeline.duration,
+            observedAt: DateTime.utc(2026, 6, 3, 12, 0),
+          ),
+        );
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded seek intent.');
+      case PlaybackPageIntentKind.stop:
+        _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.ended);
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded stop intent.');
+      case PlaybackPageIntentKind.openPanel:
+        _activePanel = intent.panelId;
+        _lastIntentResult = PlaybackPageIntentResult.executedPanel(intent.panelId!);
+      case PlaybackPageIntentKind.selectTrack:
+        _snapshot = _snapshotWith(
+          activeTracks: switch (intent.trackType!) {
+            DomainMediaTrackType.audio => ActivePlaybackTrackState(
+                audioTrackId: intent.trackId,
+                subtitleTrackId: _snapshot.activeTracks.subtitleTrackId,
+              ),
+            DomainMediaTrackType.subtitle => ActivePlaybackTrackState(
+                audioTrackId: _snapshot.activeTracks.audioTrackId,
+                subtitleTrackId: intent.trackId,
+              ),
+          },
+        );
+        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded track intent.');
+    }
+    notifyListeners();
+  }
+
+  PlaybackStateSnapshot _snapshotWith({
+    PlaybackLifecycleStatus? status,
+    PlaybackTimelineState? timeline,
+    PlaybackBufferingState? buffering,
+    ActivePlaybackTrackState? activeTracks,
+  }) {
+    return PlaybackStateSnapshot(
+      status: status ?? _snapshot.status,
+      timeline: timeline ?? _snapshot.timeline,
+      buffering: buffering ?? _snapshot.buffering,
+      activeTracks: activeTracks ?? _snapshot.activeTracks,
+      sourceUri: _snapshot.sourceUri,
+      failureReason: _snapshot.failureReason,
+    );
+  }
+}
+
+final class FlutterPlaybackPage extends StatefulWidget {
+  const FlutterPlaybackPage({super.key, required this.driver});
+
+  final FlutterPlaybackShellDriver driver;
+
+  @override
+  State<FlutterPlaybackPage> createState() => _FlutterPlaybackPageState();
+}
+
+final class _FlutterPlaybackPageState extends State<FlutterPlaybackPage> {
+  @override
+  void initState() {
+    super.initState();
+    widget.driver.addListener(_handleDriverChanged);
+  }
+
+  @override
+  void didUpdateWidget(FlutterPlaybackPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.driver != widget.driver) {
+      oldWidget.driver.removeListener(_handleDriverChanged);
+      widget.driver.addListener(_handleDriverChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.driver.removeListener(_handleDriverChanged);
+    super.dispose();
+  }
+
+  void _handleDriverChanged() {
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final PlaybackStateSnapshot snapshot = widget.driver.snapshot;
+    final PlaybackPageSurfaceDescriptor surface = widget.driver.surface;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('Status: ${snapshot.status.name}'),
+        Text('Position: ${_formatDuration(snapshot.timeline.position)}'),
+        if (snapshot.timeline.duration != null) Text('Duration: ${_formatDuration(snapshot.timeline.duration!)}'),
+        if (surface.hasActiveControl(PlaybackPageControlId.progress)) const Text('Progress'),
+        if (snapshot.buffering.isBuffering) const Text('Buffering'),
+        if (snapshot.activeTracks.audioTrackId != null) Text('Audio: ${snapshot.activeTracks.audioTrackId!.value}'),
+        if (snapshot.activeTracks.subtitleTrackId != null) Text('Subtitle: ${snapshot.activeTracks.subtitleTrackId!.value}'),
+        Wrap(
+          spacing: 8,
+          children: <Widget>[
+            if (surface.hasActiveControl(PlaybackPageControlId.playPause))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.play()),
+                child: const Text('Play'),
+              ),
+            if (surface.hasActiveControl(PlaybackPageControlId.seek))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.seek(Duration(seconds: 42))),
+                child: const Text('Seek'),
+              ),
+            if (surface.hasActiveControl(PlaybackPageControlId.stop))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.stop()),
+                child: const Text('Stop'),
+              ),
+            if (surface.hasActiveControl(PlaybackPageControlId.audioTracks))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(
+                  const PlaybackPageIntent.selectTrack(
+                    trackId: DomainMediaTrackId('audio-main'),
+                    trackType: DomainMediaTrackType.audio,
+                  ),
+                ),
+                child: const Text('Audio'),
+              ),
+            if (surface.hasActiveControl(PlaybackPageControlId.subtitleTracks))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(
+                  const PlaybackPageIntent.selectTrack(
+                    trackId: DomainMediaTrackId('subtitle-ja'),
+                    trackType: DomainMediaTrackType.subtitle,
+                  ),
+                ),
+                child: const Text('Subtitle'),
+              ),
+            if (surface.hasActivePanel(PlaybackPagePanelId.tracks))
+              OutlinedButton(
+                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.openPanel(PlaybackPagePanelId.tracks)),
+                child: const Text('Tracks'),
+              ),
+          ],
+        ),
+        if (widget.driver.activePanel != null) Text('Panel: ${widget.driver.activePanel!.name}'),
+      ],
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final int minutes = duration.inMinutes;
+    final int seconds = duration.inSeconds.remainder(60);
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+}
