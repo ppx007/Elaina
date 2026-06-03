@@ -105,6 +105,63 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
   }
 }
 
+final class ControllerDrivenFlutterPlaybackShellDriver extends ChangeNotifier
+    implements FlutterPlaybackShellDriver, PlaybackStateObserver {
+  ControllerDrivenFlutterPlaybackShellDriver({required PlaybackControllerContract controller})
+      : _controller = controller,
+        _contract = PlaybackPageContract(controller: controller) {
+    _controller.addPlaybackStateObserver(this);
+  }
+
+  final PlaybackControllerContract _controller;
+  final PlaybackPageContract _contract;
+  PlaybackPageIntentResult? _lastIntentResult;
+  PlaybackPagePanelId? _activePanel;
+  bool _isDispatching = false;
+
+  @override
+  PlaybackStateSnapshot get snapshot => _controller.currentState;
+
+  @override
+  PlaybackPageSurfaceDescriptor get surface => _contract.resolveSurface();
+
+  @override
+  PlaybackPageIntentResult? get lastIntentResult => _lastIntentResult;
+
+  @override
+  PlaybackPagePanelId? get activePanel => _activePanel;
+
+  @override
+  Future<void> dispatch(PlaybackPageIntent intent) async {
+    _isDispatching = true;
+    final PlaybackPageIntentResult result;
+    try {
+      result = await _contract.dispatch(intent);
+    } finally {
+      _isDispatching = false;
+    }
+    _lastIntentResult = result;
+    if (result.panelId != null) {
+      _activePanel = result.panelId;
+    }
+    notifyListeners();
+  }
+
+  @override
+  void onPlaybackState(PlaybackStateSnapshot snapshot) {
+    if (_isDispatching) {
+      return;
+    }
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _controller.removePlaybackStateObserver(this);
+    super.dispose();
+  }
+}
+
 final class FlutterPlaybackPage extends StatefulWidget {
   const FlutterPlaybackPage({super.key, required this.driver});
 

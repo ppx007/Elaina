@@ -1,4 +1,5 @@
 import '../../domain/playback/playback_controller.dart';
+import '../../domain/playback/playback_state.dart';
 
 enum PlaybackPageControlId {
   playPause,
@@ -192,9 +193,9 @@ final class PlaybackPageIntentResult {
 }
 
 final class PlaybackPageContract {
-  const PlaybackPageContract({required PlaybackController controller}) : _controller = controller;
+  const PlaybackPageContract({required PlaybackControllerContract controller}) : _controller = controller;
 
-  final PlaybackController _controller;
+  final PlaybackControllerContract _controller;
 
   PlaybackSurfaceState resolveState() => _controller.resolveSurfaceState();
 
@@ -241,7 +242,9 @@ final class PlaybackPageContract {
         if (!surface.hasActiveControl(controlId)) {
           return const PlaybackPageIntentResult.unsupported('Track selection is unsupported by the active surface.');
         }
-        return PlaybackPageIntentResult.executedTrackSwitch(await _controller.switchTrack(intent.trackId!));
+        return PlaybackPageIntentResult.executedTrackSwitch(
+          await _controller.switchTrack(intent.trackId!, trackType: intent.trackType),
+        );
     }
   }
 }

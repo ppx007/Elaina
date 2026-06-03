@@ -46,6 +46,59 @@ void main() {
     expect(find.text('Subtitle: subtitle-ja'), findsOneWidget);
   });
 
+  testWidgets('renders controller-driven state and dispatches through driver', (WidgetTester tester) async {
+    final ControllerDrivenFlutterPlaybackShellDriver driver = ControllerDrivenFlutterPlaybackShellDriver(
+      controller: MockPlaybackController(
+        matrix: _matrix(),
+        initialState: const PlaybackStateSnapshot(
+          status: PlaybackLifecycleStatus.paused,
+          timeline: PlaybackTimelineState(position: Duration(seconds: 5), duration: Duration(minutes: 2)),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(_host(driver));
+
+    expect(find.text('Status: paused'), findsOneWidget);
+    expect(find.text('Position: 0:05'), findsOneWidget);
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    expect(find.text('Status: playing'), findsOneWidget);
+
+    await tester.tap(find.text('Seek'));
+    await tester.pump();
+    expect(find.text('Position: 0:42'), findsOneWidget);
+
+    await tester.tap(find.text('Audio'));
+    await tester.pump();
+    expect(find.text('Audio: audio-main'), findsOneWidget);
+
+    driver.dispose();
+  });
+
+  test('controller-driven driver notifies once with fresh result after dispatch', () async {
+    final ControllerDrivenFlutterPlaybackShellDriver driver = ControllerDrivenFlutterPlaybackShellDriver(
+      controller: MockPlaybackController(
+        matrix: _matrix(),
+        initialState: const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.paused),
+      ),
+    );
+    final List<PlaybackLifecycleStatus> statuses = <PlaybackLifecycleStatus>[];
+    final List<PlaybackPageIntentOutcome?> outcomes = <PlaybackPageIntentOutcome?>[];
+    driver.addListener(() {
+      statuses.add(driver.snapshot.status);
+      outcomes.add(driver.lastIntentResult?.outcome);
+    });
+
+    await driver.dispatch(const PlaybackPageIntent.play());
+
+    expect(statuses, <PlaybackLifecycleStatus>[PlaybackLifecycleStatus.playing]);
+    expect(outcomes, <PlaybackPageIntentOutcome?>[PlaybackPageIntentOutcome.executed]);
+
+    driver.dispose();
+  });
+
   testWidgets('hides controls absent from the surface descriptor', (WidgetTester tester) async {
     final MockFlutterPlaybackShellDriver driver = MockFlutterPlaybackShellDriver(
       initialSnapshot: const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
@@ -67,11 +120,25 @@ void main() {
   });
 }
 
-Widget _host(MockFlutterPlaybackShellDriver driver) {
+Widget _host(FlutterPlaybackShellDriver driver) {
   return MaterialApp(
     home: Scaffold(
       body: FlutterPlaybackPage(driver: driver),
     ),
+  );
+}
+
+PlaybackCapabilityMatrix _matrix() {
+  return PlaybackCapabilityMatrix(
+    capabilities: const <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.playPause: CapabilityStatus.supported(),
+      PlaybackCapability.seek: CapabilityStatus.supported(),
+      PlaybackCapability.stop: CapabilityStatus.supported(),
+      PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+      PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+    },
   );
 }
 
