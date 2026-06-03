@@ -50,4 +50,6 @@ if ($mpvFacade -match 'MpvAdapterBindingState\.available') {
   throw 'MPV facade must not expose an availability state without an injected binding delegate.'
 }
 
+& dart (Join-Path $root 'tools/player_core_runtime_check.dart')
+
 'Player core checks passed.'
