@@ -217,8 +217,8 @@ Future<void> _verifyPlaybackPageIntentContract() async {
 
   final PlaybackPageIntentResult trackResult = await supportedContract.dispatch(
     const PlaybackPageIntent.selectTrack(
-      trackId: MediaTrackId('audio-main'),
-      trackType: MediaTrackType.audio,
+      trackId: DomainMediaTrackId('audio-main'),
+      trackType: DomainMediaTrackType.audio,
     ),
   );
   _expectIntentOutcome(trackResult, PlaybackPageIntentOutcome.executed);
@@ -253,8 +253,8 @@ Future<void> _verifyPlaybackPageIntentContract() async {
   _expectIntentOutcome(
     await unsupportedContract.dispatch(
       const PlaybackPageIntent.selectTrack(
-        trackId: MediaTrackId('subtitle-ja'),
-        trackType: MediaTrackType.subtitle,
+        trackId: DomainMediaTrackId('subtitle-ja'),
+        trackType: DomainMediaTrackType.subtitle,
       ),
     ),
     PlaybackPageIntentOutcome.unsupported,
@@ -278,8 +278,8 @@ void _verifyPlaybackStateContract() {
       observedAt: observedAt,
     ),
     activeTracks: const ActivePlaybackTrackState(
-      audioTrackId: MediaTrackId('audio-main'),
-      subtitleTrackId: MediaTrackId('subtitle-ja'),
+      audioTrackId: DomainMediaTrackId('audio-main'),
+      subtitleTrackId: DomainMediaTrackId('subtitle-ja'),
     ),
     sourceUri: Uri.parse('file:///D:/media/example.mkv'),
   );
@@ -341,7 +341,7 @@ Future<void> _verifyTrackRuntimeChecks() async {
   _expect(discovery.tracks.first.type == MediaTrackType.audio, 'First track must be audio.');
   _expect(discovery.tracks.last.type == MediaTrackType.subtitle, 'Second track must be subtitle.');
 
-  final TrackSwitchResult switchResult = await controller.switchTrack(const MediaTrackId('subtitle-ja'));
+  final TrackSwitchResult switchResult = await controller.switchTrack(const DomainMediaTrackId('subtitle-ja'));
   _expect(switchResult.isSuccess, 'Known track switch must succeed.');
   _expect(binding.switchedTrackId?.value == 'subtitle-ja', 'Track switch must route through the binding.');
 
@@ -360,7 +360,7 @@ Future<void> _verifyTrackRuntimeChecks() async {
   _expect(!state.visibleControls.contains(PlaybackSurfaceControl.subtitleTracks), 'Unsupported subtitle track switching must be hidden.');
   _expect(!state.availablePanels.contains(PlaybackSurfacePanel.tracks), 'Unsupported track switching must hide tracks panel.');
 
-  final TrackSwitchResult unsupportedSwitch = await unsupportedTrackController.switchTrack(const MediaTrackId('subtitle-ja'));
+  final TrackSwitchResult unsupportedSwitch = await unsupportedTrackController.switchTrack(const DomainMediaTrackId('subtitle-ja'));
   _expect(!unsupportedSwitch.isSuccess, 'Controller must reject unsupported track switching before adapter delegation.');
   _expect(unsupportedTrackAdapter.switchCount == 0, 'Controller must not delegate unsupported track switching.');
 }

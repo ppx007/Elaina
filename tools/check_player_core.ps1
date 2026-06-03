@@ -57,6 +57,7 @@ foreach ($file in $uiPlaybackFiles) {
 }
 
 $frameworkNeutralPlaybackContracts = @(
+  'lib/src/domain/playback/playback_controller.dart',
   'lib/src/ui/playback/playback_page_contract.dart'
 )
 foreach ($file in $frameworkNeutralPlaybackContracts) {
