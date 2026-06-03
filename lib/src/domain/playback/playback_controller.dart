@@ -2,6 +2,11 @@ import '../../playback/capability_matrix.dart';
 import '../../playback/player_adapter.dart';
 import '../../playback/track_management.dart';
 
+typedef DomainPlaybackCommandResult = PlaybackCommandResult;
+typedef DomainMediaTrackId = MediaTrackId;
+typedef DomainMediaTrackType = MediaTrackType;
+typedef DomainTrackSwitchResult = TrackSwitchResult;
+
 abstract interface class ActivePlayerAdapterResolver {
   PlayerAdapter get activeAdapter;
 }
