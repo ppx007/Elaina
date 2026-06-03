@@ -7,6 +7,7 @@ Future<void> main() async {
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
+  _verifyPlaybackStateContract();
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
 }
@@ -267,6 +268,55 @@ Future<void> _verifyPlaybackPageIntentContract() async {
   _expect(unsupportedAdapter.switchCount == 0, 'Unsupported track intent must not delegate to adapter.');
 }
 
+void _verifyPlaybackStateContract() {
+  final DateTime observedAt = DateTime.utc(2026, 6, 3, 10, 0);
+  final PlaybackStateSnapshot pausedSnapshot = PlaybackStateSnapshot(
+    status: PlaybackLifecycleStatus.paused,
+    timeline: PlaybackTimelineState(
+      position: const Duration(minutes: 12, seconds: 4),
+      duration: const Duration(minutes: 24),
+      observedAt: observedAt,
+    ),
+    activeTracks: const ActivePlaybackTrackState(
+      audioTrackId: MediaTrackId('audio-main'),
+      subtitleTrackId: MediaTrackId('subtitle-ja'),
+    ),
+    sourceUri: Uri.parse('file:///D:/media/example.mkv'),
+  );
+
+  _expect(pausedSnapshot.status == PlaybackLifecycleStatus.paused, 'Playback state must preserve lifecycle status.');
+  _expect(pausedSnapshot.timeline.position == const Duration(minutes: 12, seconds: 4), 'Playback state must preserve timeline position.');
+  _expect(pausedSnapshot.timeline.duration == const Duration(minutes: 24), 'Playback state must preserve timeline duration.');
+  _expect(pausedSnapshot.timeline.observedAt == observedAt, 'Playback state must preserve timeline observation timestamp.');
+  _expect(pausedSnapshot.activeTracks.audioTrackId?.value == 'audio-main', 'Playback state must preserve active audio track id.');
+  _expect(pausedSnapshot.activeTracks.subtitleTrackId?.value == 'subtitle-ja', 'Playback state must preserve active subtitle track id.');
+
+  const PlaybackStateSnapshot bufferingSnapshot = PlaybackStateSnapshot(
+    status: PlaybackLifecycleStatus.buffering,
+    buffering: PlaybackBufferingState(
+      isBuffering: true,
+      bufferedPosition: Duration(minutes: 14),
+      bufferedFraction: 0.58,
+    ),
+  );
+  _expect(bufferingSnapshot.buffering.isBuffering, 'Playback state must represent buffering as data.');
+  _expect(bufferingSnapshot.buffering.bufferedPosition == const Duration(minutes: 14), 'Playback state must preserve buffered position.');
+  _expect(bufferingSnapshot.buffering.bufferedFraction == 0.58, 'Playback state must preserve buffered fraction.');
+
+  final _ManualPlaybackStateObservable observable = _ManualPlaybackStateObservable(
+    initialState: const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
+  );
+  final _RecordingPlaybackStateObserver observer = _RecordingPlaybackStateObserver();
+  observable.addPlaybackStateObserver(observer);
+  observable.publish(pausedSnapshot);
+  _expect(observable.currentState == pausedSnapshot, 'Playback state observable must expose the current snapshot.');
+  _expect(observer.snapshots.single == pausedSnapshot, 'Playback state observer must receive published snapshots.');
+
+  observable.removePlaybackStateObserver(observer);
+  observable.publish(bufferingSnapshot);
+  _expect(observer.snapshots.length == 1, 'Removed playback state observer must not receive snapshots.');
+}
+
 void _verifyUndeclaredCapabilitiesRemainUnsupported() {
   final PlaybackCapabilityMatrix matrix = PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
@@ -480,6 +530,44 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
     switchCount += 1;
     switchedTrackId = trackId;
     return _switchResult ?? const TrackSwitchResult.success();
+  }
+}
+
+final class _RecordingPlaybackStateObserver implements PlaybackStateObserver {
+  final List<PlaybackStateSnapshot> snapshots = <PlaybackStateSnapshot>[];
+
+  @override
+  void onPlaybackState(PlaybackStateSnapshot snapshot) {
+    snapshots.add(snapshot);
+  }
+}
+
+final class _ManualPlaybackStateObservable implements PlaybackStateObservable {
+  _ManualPlaybackStateObservable({required PlaybackStateSnapshot initialState}) : _currentState = initialState;
+
+  PlaybackStateSnapshot _currentState;
+  final List<PlaybackStateObserver> _observers = <PlaybackStateObserver>[];
+
+  @override
+  PlaybackStateSnapshot get currentState => _currentState;
+
+  @override
+  void addPlaybackStateObserver(PlaybackStateObserver observer) {
+    if (!_observers.contains(observer)) {
+      _observers.add(observer);
+    }
+  }
+
+  @override
+  void removePlaybackStateObserver(PlaybackStateObserver observer) {
+    _observers.remove(observer);
+  }
+
+  void publish(PlaybackStateSnapshot snapshot) {
+    _currentState = snapshot;
+    for (final PlaybackStateObserver observer in List<PlaybackStateObserver>.of(_observers)) {
+      observer.onPlaybackState(snapshot);
+    }
   }
 }
 
