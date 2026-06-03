@@ -58,6 +58,14 @@ final class PlaybackController implements ActivePlaybackCapabilities {
   }
 
   Future<PlaybackCommandResult> open(PlaybackSource source) {
+    final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
+      source: source,
+      capabilityMatrix: matrix,
+    );
+    if (!sourceSupport.isSuccess) {
+      return Future<PlaybackCommandResult>.value(sourceSupport);
+    }
+
     return activeAdapter.load(source);
   }
 
@@ -71,5 +79,16 @@ final class PlaybackController implements ActivePlaybackCapabilities {
 
   Future<TrackDiscoveryResult> discoverTracks() => activeAdapter.discoverTracks();
 
-  Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) => activeAdapter.switchTrack(trackId);
+  Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) {
+    final PlaybackCapabilityMatrix capabilityMatrix = matrix;
+    final bool canSwitchAudio = capabilityMatrix.supports(PlaybackCapability.audioTrackSwitching);
+    final bool canSwitchSubtitle = capabilityMatrix.supports(PlaybackCapability.subtitleTrackSwitching);
+    if (!canSwitchAudio && !canSwitchSubtitle) {
+      return Future<TrackSwitchResult>.value(
+        const TrackSwitchResult.unsupported('Track switching is unsupported by the active adapter.'),
+      );
+    }
+
+    return activeAdapter.switchTrack(trackId);
+  }
 }

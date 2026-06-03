@@ -83,3 +83,41 @@ abstract interface class PlayerAdapter implements CelesteriaAdapter {
 
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId);
 }
+
+PlaybackCapability? playbackCapabilityForSource(PlaybackSource source) {
+  return switch (source) {
+    LocalFilePlaybackSource() => PlaybackCapability.localFilePlayback,
+    HttpPlaybackSource() => PlaybackCapability.httpPlayback,
+    HlsPlaybackSource() => PlaybackCapability.hlsPlayback,
+    _ => null,
+  };
+}
+
+PlaybackCommandResult playbackSourceSupportResult({
+  required PlaybackSource source,
+  required PlaybackCapabilityMatrix capabilityMatrix,
+}) {
+  final PlaybackCapability? requiredCapability = playbackCapabilityForSource(source);
+  if (requiredCapability == null) {
+    return const PlaybackCommandResult.failure(
+      PlaybackFailure(
+        operation: PlaybackOperation.load,
+        kind: PlaybackFailureKind.invalidSource,
+        message: 'Playback source type is not supported by Player core.',
+      ),
+    );
+  }
+
+  final CapabilityStatus sourceSupport = capabilityMatrix.statusOf(requiredCapability);
+  if (sourceSupport.isSupported) {
+    return const PlaybackCommandResult.success();
+  }
+
+  return PlaybackCommandResult.failure(
+    PlaybackFailure(
+      operation: PlaybackOperation.load,
+      kind: PlaybackFailureKind.unsupported,
+      message: sourceSupport.reason ?? 'Playback source capability is unsupported.',
+    ),
+  );
+}

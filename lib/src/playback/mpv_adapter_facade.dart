@@ -23,13 +23,18 @@ abstract interface class MpvAdapterBinding {
 final class MpvPlayerAdapterFacade implements PlayerAdapter {
   const MpvPlayerAdapterFacade.unsupported({String reason = 'MPV binding is unavailable.'})
       : _binding = null,
+        _boundCapabilities = null,
         _unavailableReason = reason;
 
-  const MpvPlayerAdapterFacade.bound({required MpvAdapterBinding binding})
-      : _binding = binding,
+  const MpvPlayerAdapterFacade.bound({
+    required MpvAdapterBinding binding,
+    PlaybackCapabilityMatrix? capabilities,
+  })  : _binding = binding,
+        _boundCapabilities = capabilities,
         _unavailableReason = null;
 
   final MpvAdapterBinding? _binding;
+  final PlaybackCapabilityMatrix? _boundCapabilities;
   final String? _unavailableReason;
 
   @override
@@ -46,22 +51,23 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
       );
     }
 
-    return PlaybackCapabilityMatrix(
-      capabilities: <PlaybackCapability, CapabilityStatus>{
-        PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
-        PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
-        PlaybackCapability.hlsPlayback: CapabilityStatus.supported(),
-        PlaybackCapability.playPause: CapabilityStatus.supported(),
-        PlaybackCapability.seek: CapabilityStatus.supported(),
-        PlaybackCapability.stop: CapabilityStatus.supported(),
-        PlaybackCapability.progressReporting: CapabilityStatus.supported(),
-        PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
-        PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
-        PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
-        PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
-        PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
-      },
-    );
+    return _boundCapabilities ??
+        PlaybackCapabilityMatrix(
+          capabilities: <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+            PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
+            PlaybackCapability.hlsPlayback: CapabilityStatus.supported(),
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.seek: CapabilityStatus.supported(),
+            PlaybackCapability.stop: CapabilityStatus.supported(),
+            PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+            PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
+            PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+            PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+            PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+            PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+          },
+        );
   }
 
   @override
@@ -69,6 +75,13 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
     final MpvAdapterBinding? binding = _binding;
     if (binding == null) {
       return _unsupported(PlaybackOperation.load);
+    }
+    final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
+      source: source,
+      capabilityMatrix: capabilities,
+    );
+    if (!sourceSupport.isSuccess) {
+      return sourceSupport;
     }
     return binding.load(source);
   }
