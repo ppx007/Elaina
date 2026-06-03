@@ -5,6 +5,7 @@ export 'src/domain/automation/rss_download_handoff.dart';
 export 'src/domain/detail/video_detail.dart';
 export 'src/domain/media/media_library.dart';
 export 'src/domain/playback/playback_controller.dart';
+export 'src/domain/playback/playback_state.dart';
 export 'src/domain/seasonal/seasonal_anime.dart';
 export 'src/domain/subtitle/subtitle_provider_bridge.dart';
 export 'src/foundation/cache_invalidation/cache_invalidation_bus.dart';
