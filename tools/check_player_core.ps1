@@ -43,6 +43,7 @@ $forbiddenUiPlaybackImports = @(
   'src/storage/',
   'src/streaming/',
   'src/network/',
+  'package:celesteria/celesteria.dart',
   'package:flutter',
   'dart:ui'
 )

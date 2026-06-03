@@ -6,6 +6,7 @@ Future<void> main() async {
   await _verifySourceCapabilityGating();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
+  await _verifyPlaybackPageIntentContract();
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
 }
@@ -174,6 +175,98 @@ void _verifyPlaybackPageSurfaceContract() {
   _expect(trackSurface.hasActivePanel(PlaybackPagePanelId.tracks), 'Playback page surface must expose supported tracks panel.');
 }
 
+Future<void> _verifyPlaybackPageIntentContract() async {
+  final _ConfigurablePlayerAdapter supportedAdapter = _ConfigurablePlayerAdapter(
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+        PlaybackCapability.seek: CapabilityStatus.supported(),
+        PlaybackCapability.stop: CapabilityStatus.supported(),
+        PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+        PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+      },
+    ),
+  );
+  final PlaybackPageContract supportedContract = PlaybackPageContract(
+    controller: PlaybackController(adapterResolver: _StaticAdapterResolver(supportedAdapter)),
+  );
+
+  _expectIntentOutcome(
+    await supportedContract.dispatch(const PlaybackPageIntent.play()),
+    PlaybackPageIntentOutcome.executed,
+  );
+  _expectIntentOutcome(
+    await supportedContract.dispatch(const PlaybackPageIntent.pause()),
+    PlaybackPageIntentOutcome.executed,
+  );
+  _expectIntentOutcome(
+    await supportedContract.dispatch(const PlaybackPageIntent.seek(Duration(seconds: 32))),
+    PlaybackPageIntentOutcome.executed,
+  );
+  _expectIntentOutcome(
+    await supportedContract.dispatch(const PlaybackPageIntent.stop()),
+    PlaybackPageIntentOutcome.executed,
+  );
+
+  final PlaybackPageIntentResult panelResult = await supportedContract.dispatch(
+    const PlaybackPageIntent.openPanel(PlaybackPagePanelId.tracks),
+  );
+  _expectIntentOutcome(panelResult, PlaybackPageIntentOutcome.executed);
+  _expect(panelResult.panelId == PlaybackPagePanelId.tracks, 'Open-panel intent must preserve panel id.');
+
+  final PlaybackPageIntentResult trackResult = await supportedContract.dispatch(
+    const PlaybackPageIntent.selectTrack(
+      trackId: MediaTrackId('audio-main'),
+      trackType: MediaTrackType.audio,
+    ),
+  );
+  _expectIntentOutcome(trackResult, PlaybackPageIntentOutcome.executed);
+  _expect(trackResult.trackSwitchResult?.isSuccess ?? false, 'Track intent must preserve switch result.');
+
+  _expect(supportedAdapter.playCount == 1, 'Play intent must dispatch through PlaybackController.play.');
+  _expect(supportedAdapter.pauseCount == 1, 'Pause intent must dispatch through PlaybackController.pause.');
+  _expect(supportedAdapter.seekCount == 1, 'Seek intent must dispatch through PlaybackController.seek.');
+  _expect(supportedAdapter.stopCount == 1, 'Stop intent must dispatch through PlaybackController.stop.');
+  _expect(supportedAdapter.switchCount == 1, 'Track intent must dispatch through PlaybackController.switchTrack.');
+  _expect(supportedAdapter.switchedTrackId?.value == 'audio-main', 'Track intent must use Domain-facing track id.');
+
+  final _ConfigurablePlayerAdapter unsupportedAdapter = _ConfigurablePlayerAdapter(
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+      },
+    ),
+  );
+  final PlaybackPageContract unsupportedContract = PlaybackPageContract(
+    controller: PlaybackController(adapterResolver: _StaticAdapterResolver(unsupportedAdapter)),
+  );
+
+  _expectIntentOutcome(
+    await unsupportedContract.dispatch(const PlaybackPageIntent.seek(Duration(seconds: 4))),
+    PlaybackPageIntentOutcome.unsupported,
+  );
+  _expectIntentOutcome(
+    await unsupportedContract.dispatch(const PlaybackPageIntent.openPanel(PlaybackPagePanelId.tracks)),
+    PlaybackPageIntentOutcome.unsupported,
+  );
+  _expectIntentOutcome(
+    await unsupportedContract.dispatch(
+      const PlaybackPageIntent.selectTrack(
+        trackId: MediaTrackId('subtitle-ja'),
+        trackType: MediaTrackType.subtitle,
+      ),
+    ),
+    PlaybackPageIntentOutcome.unsupported,
+  );
+  _expectIntentOutcome(
+    await unsupportedContract.dispatch(const PlaybackPageIntent.noop()),
+    PlaybackPageIntentOutcome.ignored,
+  );
+
+  _expect(unsupportedAdapter.seekCount == 0, 'Unsupported seek intent must not delegate to adapter.');
+  _expect(unsupportedAdapter.switchCount == 0, 'Unsupported track intent must not delegate to adapter.');
+}
+
 void _verifyUndeclaredCapabilitiesRemainUnsupported() {
   final PlaybackCapabilityMatrix matrix = PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
@@ -331,7 +424,12 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   final TrackDiscoveryResult? _discoveryResult;
   final TrackSwitchResult? _switchResult;
   int loadCount = 0;
+  int playCount = 0;
+  int pauseCount = 0;
+  int seekCount = 0;
+  int stopCount = 0;
   int switchCount = 0;
+  MediaTrackId? switchedTrackId;
 
   @override
   String get id => 'configurable-player-adapter';
@@ -346,16 +444,28 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<PlaybackCommandResult> play() async => const PlaybackCommandResult.success();
+  Future<PlaybackCommandResult> play() async {
+    playCount += 1;
+    return const PlaybackCommandResult.success();
+  }
 
   @override
-  Future<PlaybackCommandResult> pause() async => const PlaybackCommandResult.success();
+  Future<PlaybackCommandResult> pause() async {
+    pauseCount += 1;
+    return const PlaybackCommandResult.success();
+  }
 
   @override
-  Future<PlaybackCommandResult> seek(Duration position) async => const PlaybackCommandResult.success();
+  Future<PlaybackCommandResult> seek(Duration position) async {
+    seekCount += 1;
+    return const PlaybackCommandResult.success();
+  }
 
   @override
-  Future<PlaybackCommandResult> stop() async => const PlaybackCommandResult.success();
+  Future<PlaybackCommandResult> stop() async {
+    stopCount += 1;
+    return const PlaybackCommandResult.success();
+  }
 
   @override
   Future<PlaybackCommandResult> dispose() async => const PlaybackCommandResult.success();
@@ -368,8 +478,13 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) async {
     switchCount += 1;
+    switchedTrackId = trackId;
     return _switchResult ?? const TrackSwitchResult.success();
   }
+}
+
+void _expectIntentOutcome(PlaybackPageIntentResult result, PlaybackPageIntentOutcome outcome) {
+  _expect(result.outcome == outcome, 'Expected playback page intent outcome $outcome, got ${result.outcome}.');
 }
 
 void _expectSuccess(PlaybackCommandResult result) {
