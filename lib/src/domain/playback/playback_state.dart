@@ -1,4 +1,13 @@
-import 'playback_controller.dart';
+final class DomainMediaTrackId {
+  const DomainMediaTrackId(this.value) : assert(value != '', 'Track id must not be empty.');
+
+  final String value;
+}
+
+enum DomainMediaTrackType {
+  audio,
+  subtitle,
+}
 
 enum PlaybackLifecycleStatus {
   idle,
