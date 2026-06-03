@@ -5,6 +5,7 @@ Future<void> main() async {
   await _verifyBoundMpvFacadeDelegation();
   await _verifySourceCapabilityGating();
   _verifySurfaceStateFromCapabilities();
+  _verifyPlaybackPageSurfaceContract();
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
 }
@@ -124,6 +125,53 @@ void _verifySurfaceStateFromCapabilities() {
   _expect(trackState.visibleControls.contains(PlaybackSurfaceControl.audioTracks), 'Track state must expose audio track control.');
   _expect(trackState.visibleControls.contains(PlaybackSurfaceControl.subtitleTracks), 'Track state must expose subtitle track control.');
   _expect(trackState.availablePanels.contains(PlaybackSurfacePanel.tracks), 'Track state must expose tracks panel.');
+}
+
+void _verifyPlaybackPageSurfaceContract() {
+  final PlaybackPageSurfaceDescriptor transportSurface = PlaybackPageContract(
+    controller: PlaybackController(
+      adapterResolver: _StaticAdapterResolver(
+        _ConfigurablePlayerAdapter(
+          capabilities: PlaybackCapabilityMatrix(
+            capabilities: <PlaybackCapability, CapabilityStatus>{
+              PlaybackCapability.playPause: CapabilityStatus.supported(),
+              PlaybackCapability.seek: CapabilityStatus.supported(),
+              PlaybackCapability.stop: CapabilityStatus.supported(),
+              PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+            },
+          ),
+        ),
+      ),
+    ),
+  ).resolveSurface();
+
+  _expect(transportSurface.hasActiveControl(PlaybackPageControlId.playPause), 'Playback page surface must expose active play/pause control.');
+  _expect(transportSurface.hasActiveControl(PlaybackPageControlId.seek), 'Playback page surface must expose active seek control.');
+  _expect(transportSurface.hasActiveControl(PlaybackPageControlId.stop), 'Playback page surface must expose active stop control.');
+  _expect(transportSurface.hasActiveControl(PlaybackPageControlId.progress), 'Playback page surface must expose active progress control.');
+  _expect(!transportSurface.hasActiveControl(PlaybackPageControlId.audioTracks), 'Playback page surface must hide unsupported audio track control.');
+  _expect(!transportSurface.hasActiveControl(PlaybackPageControlId.subtitleTracks), 'Playback page surface must hide unsupported subtitle track control.');
+  _expect(!transportSurface.hasActivePanel(PlaybackPagePanelId.tracks), 'Playback page surface must hide unsupported tracks panel.');
+
+  final PlaybackPageSurfaceDescriptor trackSurface = PlaybackPageContract(
+    controller: PlaybackController(
+      adapterResolver: _StaticAdapterResolver(
+        _ConfigurablePlayerAdapter(
+          capabilities: PlaybackCapabilityMatrix(
+            capabilities: <PlaybackCapability, CapabilityStatus>{
+              PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+              PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+              PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+            },
+          ),
+        ),
+      ),
+    ),
+  ).resolveSurface();
+
+  _expect(trackSurface.hasActiveControl(PlaybackPageControlId.audioTracks), 'Playback page surface must expose supported audio track control.');
+  _expect(trackSurface.hasActiveControl(PlaybackPageControlId.subtitleTracks), 'Playback page surface must expose supported subtitle track control.');
+  _expect(trackSurface.hasActivePanel(PlaybackPagePanelId.tracks), 'Playback page surface must expose supported tracks panel.');
 }
 
 void _verifyUndeclaredCapabilitiesRemainUnsupported() {

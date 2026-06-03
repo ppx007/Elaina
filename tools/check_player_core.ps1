@@ -33,6 +33,47 @@ foreach ($file in $uiFiles) {
   }
 }
 
+$uiPlaybackPath = Join-Path $root 'lib/src/ui/playback'
+$forbiddenUiPlaybackImports = @(
+  'src/playback/mpv_adapter_facade.dart',
+  'src/playback/player_adapter.dart',
+  'src/playback/fallback_adapter.dart',
+  'src/provider/',
+  'src/gateway/',
+  'src/storage/',
+  'src/streaming/',
+  'src/network/',
+  'package:flutter',
+  'dart:ui'
+)
+$uiPlaybackFiles = Get-ChildItem -LiteralPath $uiPlaybackPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $uiPlaybackFiles) {
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  foreach ($term in $forbiddenUiPlaybackImports) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Forbidden playback UI import or dependency '$term' found in $($file.FullName)"
+    }
+  }
+}
+
+$domainPlaybackPaths = @(
+  'lib/src/domain',
+  'lib/src/playback'
+)
+foreach ($layerPath in $domainPlaybackPaths) {
+  $fullPath = Join-Path $root $layerPath
+  $dartFiles = Get-ChildItem -LiteralPath $fullPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+  foreach ($file in $dartFiles) {
+    $content = Get-Content -LiteralPath $file.FullName -Raw
+    if ($content.Contains('src/ui')) {
+      throw "Domain/Playback file must not import UI layer: $($file.FullName)"
+    }
+    if ($content.Contains('../../ui') -or $content.Contains('../ui')) {
+      throw "Domain/Playback file must not import UI layer: $($file.FullName)"
+    }
+  }
+}
+
 $mpvFacade = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/mpv_adapter_facade.dart') -Raw
 if ($mpvFacade -notmatch 'PlaybackCapabilityMatrix\.unsupported') {
   throw 'MPV facade must expose an unsupported capability matrix when no binding is available.'
