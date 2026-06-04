@@ -1,3 +1,7 @@
+import 'seasonal_storage_contracts.dart';
+
+export 'seasonal_storage_contracts.dart';
+
 enum StorageDomain {
   sqliteMetadata,
   blobCache,
@@ -9,6 +13,8 @@ enum StorageDomain {
   providerBinding,
   subtitleCache,
   rssFeed,
+  seasonalCatalog,
+  bangumiMatchQueue,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -369,9 +375,11 @@ final class StoredFeedSourceRecord {
     required this.refreshInterval,
     this.defaultHeaders = const <String, String>{},
   })  : assert(id != '', 'Feed source id must not be empty.'),
-        assert(displayName != '', 'Feed source display name must not be empty.'),
+        assert(
+            displayName != '', 'Feed source display name must not be empty.'),
         assert(format != '', 'Feed format must not be empty.'),
-        assert(refreshInterval > Duration.zero, 'refreshInterval must be positive.');
+        assert(refreshInterval > Duration.zero,
+            'refreshInterval must be positive.');
 
   final String id;
   final String displayName;
@@ -382,8 +390,10 @@ final class StoredFeedSourceRecord {
 }
 
 final class StoredFeedEnclosureRecord {
-  const StoredFeedEnclosureRecord({required this.uri, this.mimeType, this.lengthBytes})
-      : assert(lengthBytes == null || lengthBytes >= 0, 'lengthBytes must not be negative.');
+  const StoredFeedEnclosureRecord(
+      {required this.uri, this.mimeType, this.lengthBytes})
+      : assert(lengthBytes == null || lengthBytes >= 0,
+            'lengthBytes must not be negative.');
 
   final Uri uri;
   final String? mimeType;
@@ -420,7 +430,11 @@ final class StoredFeedItemRecord {
 }
 
 final class StoredFeedCursorRecord {
-  const StoredFeedCursorRecord({required this.sourceId, required this.refreshedAt, this.etag, this.lastModified})
+  const StoredFeedCursorRecord(
+      {required this.sourceId,
+      required this.refreshedAt,
+      this.etag,
+      this.lastModified})
       : assert(sourceId != '', 'Feed source id must not be empty.');
 
   final String sourceId;
@@ -430,7 +444,10 @@ final class StoredFeedCursorRecord {
 }
 
 final class StoredFeedDedupeKeyRecord {
-  const StoredFeedDedupeKeyRecord({required this.sourceId, required this.dedupeKey, required this.acceptedAt})
+  const StoredFeedDedupeKeyRecord(
+      {required this.sourceId,
+      required this.dedupeKey,
+      required this.acceptedAt})
       : assert(sourceId != '', 'Feed source id must not be empty.'),
         assert(dedupeKey != '', 'Feed dedupe key must not be empty.');
 
@@ -456,7 +473,8 @@ abstract interface class RssFeedStore {
 
   Future<void> saveCursor(StoredFeedCursorRecord cursor);
 
-  Future<bool> hasDedupeKey({required String sourceId, required String dedupeKey});
+  Future<bool> hasDedupeKey(
+      {required String sourceId, required String dedupeKey});
 
   Future<void> recordDedupeKey(StoredFeedDedupeKeyRecord record);
 
@@ -464,47 +482,60 @@ abstract interface class RssFeedStore {
 }
 
 final class DeterministicRssFeedStore implements RssFeedStore {
-  DeterministicRssFeedStore({Iterable<StoredFeedSourceRecord> seedSources = const <StoredFeedSourceRecord>[]}) {
+  DeterministicRssFeedStore(
+      {Iterable<StoredFeedSourceRecord> seedSources =
+          const <StoredFeedSourceRecord>[]}) {
     for (final StoredFeedSourceRecord source in seedSources) {
       _sourcesById[source.id] = source;
     }
   }
 
-  final Map<String, StoredFeedSourceRecord> _sourcesById = <String, StoredFeedSourceRecord>{};
-  final Map<String, StoredFeedItemRecord> _itemsBySourceAndDedupeKey = <String, StoredFeedItemRecord>{};
-  final Map<String, StoredFeedCursorRecord> _cursorsBySourceId = <String, StoredFeedCursorRecord>{};
-  final Map<String, StoredFeedDedupeKeyRecord> _dedupeKeysBySourceAndKey = <String, StoredFeedDedupeKeyRecord>{};
+  final Map<String, StoredFeedSourceRecord> _sourcesById =
+      <String, StoredFeedSourceRecord>{};
+  final Map<String, StoredFeedItemRecord> _itemsBySourceAndDedupeKey =
+      <String, StoredFeedItemRecord>{};
+  final Map<String, StoredFeedCursorRecord> _cursorsBySourceId =
+      <String, StoredFeedCursorRecord>{};
+  final Map<String, StoredFeedDedupeKeyRecord> _dedupeKeysBySourceAndKey =
+      <String, StoredFeedDedupeKeyRecord>{};
 
   @override
   Future<List<StoredFeedDedupeKeyRecord>> dedupeKeysForSource(String sourceId) {
     return Future<List<StoredFeedDedupeKeyRecord>>.value(
       <StoredFeedDedupeKeyRecord>[
-        for (final StoredFeedDedupeKeyRecord record in _dedupeKeysBySourceAndKey.values)
+        for (final StoredFeedDedupeKeyRecord record
+            in _dedupeKeysBySourceAndKey.values)
           if (record.sourceId == sourceId) record,
       ],
     );
   }
 
   @override
-  Future<StoredFeedCursorRecord?> cursorFor(String sourceId) => Future<StoredFeedCursorRecord?>.value(_cursorsBySourceId[sourceId]);
+  Future<StoredFeedCursorRecord?> cursorFor(String sourceId) =>
+      Future<StoredFeedCursorRecord?>.value(_cursorsBySourceId[sourceId]);
 
   @override
-  Future<bool> hasDedupeKey({required String sourceId, required String dedupeKey}) {
-    return Future<bool>.value(_dedupeKeysBySourceAndKey.containsKey(_key(sourceId, dedupeKey)));
+  Future<bool> hasDedupeKey(
+      {required String sourceId, required String dedupeKey}) {
+    return Future<bool>.value(
+        _dedupeKeysBySourceAndKey.containsKey(_key(sourceId, dedupeKey)));
   }
 
   @override
   Future<List<StoredFeedItemRecord>> itemsForSource(String sourceId) {
     return Future<List<StoredFeedItemRecord>>.value(
       <StoredFeedItemRecord>[
-        for (final StoredFeedItemRecord item in _itemsBySourceAndDedupeKey.values)
+        for (final StoredFeedItemRecord item
+            in _itemsBySourceAndDedupeKey.values)
           if (item.sourceId == sourceId) item,
       ],
     );
   }
 
   @override
-  Future<List<StoredFeedSourceRecord>> listSources() => Future<List<StoredFeedSourceRecord>>.value(<StoredFeedSourceRecord>[..._sourcesById.values]);
+  Future<List<StoredFeedSourceRecord>> listSources() =>
+      Future<List<StoredFeedSourceRecord>>.value(
+          <StoredFeedSourceRecord>[..._sourcesById.values]);
 
   @override
   Future<void> recordDedupeKey(StoredFeedDedupeKeyRecord record) {
@@ -516,8 +547,11 @@ final class DeterministicRssFeedStore implements RssFeedStore {
   Future<bool> removeSource(String sourceId) {
     final bool removed = _sourcesById.remove(sourceId) != null;
     _cursorsBySourceId.remove(sourceId);
-    _itemsBySourceAndDedupeKey.removeWhere((String key, StoredFeedItemRecord item) => item.sourceId == sourceId);
-    _dedupeKeysBySourceAndKey.removeWhere((String key, StoredFeedDedupeKeyRecord record) => record.sourceId == sourceId);
+    _itemsBySourceAndDedupeKey.removeWhere(
+        (String key, StoredFeedItemRecord item) => item.sourceId == sourceId);
+    _dedupeKeysBySourceAndKey.removeWhere(
+        (String key, StoredFeedDedupeKeyRecord record) =>
+            record.sourceId == sourceId);
     return Future<bool>.value(removed);
   }
 
@@ -528,7 +562,8 @@ final class DeterministicRssFeedStore implements RssFeedStore {
   }
 
   @override
-  Future<StoredFeedSourceRecord?> sourceById(String sourceId) => Future<StoredFeedSourceRecord?>.value(_sourcesById[sourceId]);
+  Future<StoredFeedSourceRecord?> sourceById(String sourceId) =>
+      Future<StoredFeedSourceRecord?>.value(_sourcesById[sourceId]);
 
   @override
   Future<void> storeItems(Iterable<StoredFeedItemRecord> items) {
@@ -557,4 +592,6 @@ abstract interface class StorageFoundation {
   ProviderBindingRepository get providerBinding;
   SubtitleCacheStore get subtitleCache;
   RssFeedStore get rssFeed;
+  SeasonalCatalogStore get seasonalCatalog;
+  BangumiMatchQueueStore get bangumiMatchQueue;
 }
