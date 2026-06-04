@@ -8,6 +8,7 @@ $requiredFiles = @(
   'lib/src/domain/media/media_library.dart',
   'lib/src/domain/rss/rss_engine.dart',
   'lib/src/domain/seasonal/seasonal_anime.dart',
+  'lib/src/foundation/storage/seasonal_storage_contracts.dart',
   'lib/src/domain/subtitle/subtitle_discovery.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
   'lib/src/provider/subtitle/subtitle_provider.dart',
@@ -89,11 +90,63 @@ if ($yucWiki -notmatch 'FeedSource' -or $yucWiki -match 'scraper|crawler|HttpCli
 }
 
 $seasonal = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/seasonal/seasonal_anime.dart') -Raw
-if ($seasonal -notmatch 'SeasonalAnimeConsumer' -or $seasonal -notmatch 'BangumiMatchQueue' -or $seasonal -notmatch 'userConfirmed' -or $seasonal -notmatch 'AutomaticBangumiMatchResult') {
-  throw 'Seasonal contracts must include consumer, Bangumi match queue, and user-confirmed binding priority.'
+$requiredSeasonalTerms = @(
+  'SeasonalAnimeConsumer',
+  'BangumiMatchQueue',
+  'userConfirmed',
+  'AutomaticBangumiMatchResult',
+  'SeasonalIndexerContract',
+  'DeterministicSeasonalIndexer',
+  'BangumiMatchWorkerContract',
+  'DeterministicBangumiMatchWorker',
+  'RssEngineContract',
+  'SeasonalSourceItem',
+  'CacheInvalidationBus',
+  '0.8'
+)
+foreach ($term in $requiredSeasonalTerms) {
+  if ($seasonal -notmatch [regex]::Escape($term)) {
+    throw "Seasonal contracts missing required term: $term"
+  }
 }
-if ($seasonal -match "provider/") {
-  throw 'Seasonal Domain contracts must not import provider-layer concrete feed or Bangumi types.'
+$forbiddenSeasonalTerms = @('yuc.wiki', 'yucWiki', 'YucWiki', 'yuc_wiki', 'autoDownload', 'auto-download', 'RssAutoDownloadPolicy', 'rss_auto_download_policy', 'torrent', 'BitTorrent', 'BtTask', 'HttpClient(', 'XmlDocument', 'scraper', 'crawler', 'package:flutter', 'dart:ui', 'src/ui/')
+foreach ($term in $forbiddenSeasonalTerms) {
+  if ($seasonal -match [regex]::Escape($term)) {
+    throw "Seasonal contracts contain forbidden term: $term"
+  }
+}
+if ($seasonal -match 'provider/rss/yuc' -or $seasonal -match 'provider/rss/rss_auto_download_policy' -or $seasonal -match 'provider/bangumi/bangumi_auth') {
+  throw 'Seasonal Domain contracts must not import provider concrete YucWiki, RSS automation, or Bangumi auth types.'
+}
+
+$seasonalStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/seasonal_storage_contracts.dart') -Raw
+$requiredSeasonalStorageTerms = @(
+  'SeasonalCatalogStore',
+  'StoredSeasonalCatalogEntryRecord',
+  'BangumiMatchQueueStore',
+  'StoredBangumiMatchQueueItemRecord',
+  'StoredBangumiMatchCandidateRecord',
+  'DeterministicSeasonalCatalogStore',
+  'DeterministicBangumiMatchQueueStore',
+  'StoredBangumiMatchQueueStatus'
+)
+foreach ($term in $requiredSeasonalStorageTerms) {
+  if ($seasonalStorage -notmatch [regex]::Escape($term)) {
+    throw "Seasonal storage contracts missing required term: $term"
+  }
+}
+
+$storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+if ($storageContracts -notmatch 'seasonalCatalog' -or $storageContracts -notmatch 'bangumiMatchQueue') {
+  throw 'StorageFoundation must expose seasonalCatalog and bangumiMatchQueue stores.'
+}
+
+$cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
+$requiredSeasonalBusEvents = @('SeasonalCatalogUpdated', 'BangumiMatchEnqueued', 'BangumiMatchApplied')
+foreach ($term in $requiredSeasonalBusEvents) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing seasonal event: $term"
+  }
 }
 
 $media = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/media/media_library.dart') -Raw
@@ -168,13 +221,14 @@ $phase3Files = @(
   'lib/src/domain/media/media_library.dart',
   'lib/src/domain/rss/rss_engine.dart',
   'lib/src/domain/seasonal/seasonal_anime.dart',
+  'lib/src/foundation/storage/seasonal_storage_contracts.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
   'lib/src/provider/subtitle/subtitle_provider.dart',
   'lib/src/provider/rss/feed_contracts.dart',
   'lib/src/provider/rss/yuc_wiki_feed_source.dart',
   'docs/phase3-detail-library-seasonal.md'
 )
-$forbiddenScopeTerms = @('auto-download', 'autoDownload', 'rule-source', 'ruleSource', 'torrent', 'BitTorrent', 'BT playback', 'Anime4K', 'VLC fallback', 'WebView challenge', 'DNS policy')
+$forbiddenScopeTerms = @('auto-download', 'autoDownload', 'rule-source', 'ruleSource', 'torrent', 'BitTorrent', 'BT playback', 'Anime4K', 'VLC fallback', 'WebView challenge', 'DNS policy', 'scraper', 'crawler', 'rss_auto_download_policy')
 foreach ($file in $phase3Files) {
   $content = Get-Content -LiteralPath (Join-Path $root $file) -Raw
   foreach ($term in $forbiddenScopeTerms) {

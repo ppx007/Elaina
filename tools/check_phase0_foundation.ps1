@@ -9,6 +9,7 @@ $requiredFiles = @(
   'lib/src/foundation/layers/layer_manifest.dart',
   'lib/src/foundation/extension_points.dart',
   'lib/src/foundation/storage/storage_contracts.dart',
+  'lib/src/foundation/storage/seasonal_storage_contracts.dart',
   'lib/src/foundation/gateway/provider_gateway.dart',
   'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart',
   'docs/phase0-foundation.md',
@@ -49,7 +50,10 @@ foreach ($dir in $requiredDirs) {
   }
 }
 
-$storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+$storageContracts = @(
+  Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+  Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/seasonal_storage_contracts.dart') -Raw
+) -join "`n"
 $requiredStorageTerms = @(
   'MediaLibraryStore',
   'PlaybackHistoryRepository',
@@ -62,11 +66,18 @@ $requiredStorageTerms = @(
   'StoredFeedItemRecord',
   'StoredFeedCursorRecord',
   'StoredFeedDedupeKeyRecord',
+  'SeasonalCatalogStore',
+  'StoredSeasonalCatalogEntryRecord',
+  'BangumiMatchQueueStore',
+  'StoredBangumiMatchQueueItemRecord',
+  'StoredBangumiMatchCandidateRecord',
   'mediaLibrary',
   'playbackHistory',
   'providerBinding',
   'subtitleCache',
-  'rssFeed'
+  'rssFeed',
+  'seasonalCatalog',
+  'bangumiMatchQueue'
 )
 foreach ($term in $requiredStorageTerms) {
   if ($storageContracts -notmatch [regex]::Escape($term)) {
