@@ -6,6 +6,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/domain/detail/video_detail.dart',
   'lib/src/domain/media/media_library.dart',
+  'lib/src/domain/rss/rss_engine.dart',
   'lib/src/domain/seasonal/seasonal_anime.dart',
   'lib/src/domain/subtitle/subtitle_discovery.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
@@ -53,6 +54,33 @@ foreach ($term in $requiredRssTerms) {
   if ($rssContracts -notmatch [regex]::Escape($term)) {
     throw "RSS contracts missing required term: $term"
   }
+}
+
+$rssEngine = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/rss/rss_engine.dart') -Raw
+$requiredRssEngineTerms = @(
+  'RssEngineContract',
+  'DeterministicRssEngine',
+  'RssRefreshRequest',
+  'RssRefreshOutcome',
+  'RssRefreshFailure',
+  'RssFeedStore',
+  'FeedFetcher',
+  'FeedParser',
+  'FeedDeduplicator',
+  'StoredFeedCursorRecord',
+  'StoredFeedDedupeKeyRecord',
+  'FeedFetchRequest',
+  'etag',
+  'lastModified',
+  'updates'
+)
+foreach ($term in $requiredRssEngineTerms) {
+  if ($rssEngine -notmatch [regex]::Escape($term)) {
+    throw "RSS engine contracts missing required term: $term"
+  }
+}
+if ($rssEngine -match 'yuc|Yuc|autoDownload|auto-download|torrent|BitTorrent|HttpClient|XmlDocument') {
+  throw 'RSS engine contract must remain source-neutral without YucWiki, auto-download, BT, HTTP, or XML concrete logic.'
 }
 
 $yucWiki = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/rss/yuc_wiki_feed_source.dart') -Raw
@@ -138,6 +166,7 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
 $phase3Files = @(
   'lib/src/domain/detail/video_detail.dart',
   'lib/src/domain/media/media_library.dart',
+  'lib/src/domain/rss/rss_engine.dart',
   'lib/src/domain/seasonal/seasonal_anime.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
   'lib/src/provider/subtitle/subtitle_provider.dart',

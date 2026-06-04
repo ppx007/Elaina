@@ -57,10 +57,16 @@ $requiredStorageTerms = @(
   'SubtitleCacheStore',
   'StoredSubtitleSearchCacheRecord',
   'StoredSubtitleContentCacheRecord',
+  'RssFeedStore',
+  'StoredFeedSourceRecord',
+  'StoredFeedItemRecord',
+  'StoredFeedCursorRecord',
+  'StoredFeedDedupeKeyRecord',
   'mediaLibrary',
   'playbackHistory',
   'providerBinding',
-  'subtitleCache'
+  'subtitleCache',
+  'rssFeed'
 )
 foreach ($term in $requiredStorageTerms) {
   if ($storageContracts -notmatch [regex]::Escape($term)) {
