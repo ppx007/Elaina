@@ -4,7 +4,8 @@ import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
 final class FeedSourceId {
-  const FeedSourceId(this.value) : assert(value != '', 'Feed source id must not be empty.');
+  const FeedSourceId(this.value)
+      : assert(value != '', 'Feed source id must not be empty.');
 
   final String value;
 }
@@ -23,7 +24,8 @@ final class FeedSource {
     required this.refreshInterval,
     this.defaultHeaders = const <String, String>{},
   })  : assert(displayName != '', 'Feed display name must not be empty.'),
-        assert(refreshInterval > Duration.zero, 'refreshInterval must be positive.');
+        assert(refreshInterval > Duration.zero,
+            'refreshInterval must be positive.');
 
   final FeedSourceId id;
   final String displayName;
@@ -62,24 +64,28 @@ abstract interface class FeedFetcher implements GatewayBoundProvider {
   @override
   ProviderGateway get gateway;
 
-  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(FeedFetchRequest request);
+  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(
+      FeedFetchRequest request);
 }
 
 final class FeedItemId {
-  const FeedItemId(this.value) : assert(value != '', 'Feed item id must not be empty.');
+  const FeedItemId(this.value)
+      : assert(value != '', 'Feed item id must not be empty.');
 
   final String value;
 }
 
 final class FeedDedupeKey {
-  const FeedDedupeKey(this.value) : assert(value != '', 'Feed dedupe key must not be empty.');
+  const FeedDedupeKey(this.value)
+      : assert(value != '', 'Feed dedupe key must not be empty.');
 
   final String value;
 }
 
 final class FeedEnclosure {
   const FeedEnclosure({required this.uri, this.mimeType, this.lengthBytes})
-      : assert(lengthBytes == null || lengthBytes >= 0, 'lengthBytes must not be negative.');
+      : assert(lengthBytes == null || lengthBytes >= 0,
+            'lengthBytes must not be negative.');
 
   final Uri uri;
   final String? mimeType;
@@ -118,7 +124,10 @@ final class FeedParseRequest {
 }
 
 final class FeedParseResult {
-  const FeedParseResult({required this.sourceId, required this.items, this.warnings = const <String>[]});
+  const FeedParseResult(
+      {required this.sourceId,
+      required this.items,
+      this.warnings = const <String>[]});
 
   final FeedSourceId sourceId;
   final List<FeedItem> items;
@@ -149,7 +158,10 @@ abstract interface class FeedDeduplicator {
 }
 
 final class FeedRefreshResult {
-  const FeedRefreshResult({required this.sourceId, required this.newItems, this.warnings = const <String>[]});
+  const FeedRefreshResult(
+      {required this.sourceId,
+      required this.newItems,
+      this.warnings = const <String>[]});
 
   final FeedSourceId sourceId;
   final List<FeedItem> newItems;
@@ -166,9 +178,12 @@ abstract interface class FeedEngine {
 
 ProviderRegistration rssProviderRegistration({
   required FeedSourceId sourceId,
-  ProviderRatePolicy ratePolicy = const ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
-  ProviderRetryPolicy retryPolicy = const ProviderRetryPolicy(maxAttempts: 3, initialBackoff: Duration(seconds: 2)),
-  ProviderNegativeCachePolicy? negativeCachePolicy = const ProviderNegativeCachePolicy(ttl: Duration(minutes: 15)),
+  ProviderRatePolicy ratePolicy =
+      const ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
+  ProviderRetryPolicy retryPolicy = const ProviderRetryPolicy(
+      maxAttempts: 3, initialBackoff: Duration(seconds: 2)),
+  ProviderNegativeCachePolicy? negativeCachePolicy =
+      const ProviderNegativeCachePolicy(ttl: Duration(minutes: 15)),
 }) {
   return ProviderRegistration(
     providerId: ProviderId(sourceId.value),
