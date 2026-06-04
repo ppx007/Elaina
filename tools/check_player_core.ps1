@@ -209,7 +209,12 @@ $requiredMediaScannerTerms = @(
   'final class MediaScanScopeNormalizationResult',
   'MediaScanScopeNormalizationResult normalizeMediaScanScope',
   'final class DeterministicMediaLibraryScanner implements MediaLibraryScanner',
-  'final class MediaScanCancelled extends MediaScanEvent'
+  'final class MediaScanCancelled extends MediaScanEvent',
+  'abstract interface class MediaLibraryCatalogRepository',
+  'abstract interface class MediaBatchImportContract',
+  'final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCatalogRepository',
+  'final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore',
+  'final class DeterministicProviderBindingStore implements ProviderBindingStore'
 )
 foreach ($term in $requiredMediaScannerTerms) {
   if ($mediaLibraryContent -notmatch [regex]::Escape($term)) {

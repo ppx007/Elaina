@@ -6,6 +6,7 @@ Future<void> main() async {
   await _verifySourceCapabilityGating();
   await _verifyPlaybackSourceHandoff();
   await _verifyLocalMediaScannerContract();
+  await _verifyMediaLibraryPersistenceContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -198,6 +199,79 @@ Future<void> _verifyLocalMediaScannerContract() async {
     ),
   );
   _expect(cancelledResult.failures.single.kind == MediaScanFailureKind.cancelled, 'Cancelled scans must report typed cancellation.');
+}
+
+Future<void> _verifyMediaLibraryPersistenceContract() async {
+  final DeterministicMediaLibraryCatalogRepository repository = DeterministicMediaLibraryCatalogRepository();
+  final MediaScanCandidate candidate = MediaScanCandidate(
+    identity: LocalMediaIdentity(
+      id: const LocalMediaId('runtime-import-media'),
+      uri: Uri.file('D:/media/imported.mkv'),
+      basename: 'imported.mkv',
+      fingerprint: const MediaFileFingerprint(algorithm: 'sha256', value: 'runtime-fingerprint'),
+    ),
+    sizeBytes: 128,
+    duration: const Duration(minutes: 24),
+  );
+  final DeterministicMediaBatchImportContract importer = DeterministicMediaBatchImportContract(repository: repository);
+
+  final MediaImportResult imported = await importer.importBatch(<MediaScanCandidate>[candidate]);
+  final MediaImportResult duplicated = await importer.importBatch(<MediaScanCandidate>[candidate]);
+  _expect(imported.importedCount == 1, 'Media library import must create catalog items.');
+  _expect(duplicated.skippedDuplicateCount == 1, 'Media library import must skip duplicate candidates.');
+  _expect(await repository.count() == 1, 'Media library repository must retain one imported item.');
+  _expect((await repository.findByUri(candidate.identity.uri)) != null, 'Media library repository must find items by URI.');
+
+  final DeterministicPlaybackHistoryStore history = DeterministicPlaybackHistoryStore();
+  await history.record(
+    PlaybackHistoryEntry(
+      id: const PlaybackHistoryEntryId('runtime-history'),
+      mediaId: candidate.identity.id,
+      position: const Duration(minutes: 8),
+      duration: const Duration(minutes: 16),
+      updatedAt: DateTime.utc(2026, 6, 4, 12),
+    ),
+  );
+  _expect((await history.latestFor(candidate.identity.id)) != null, 'Playback history must return latest entries.');
+  _expect((await history.continueWatching()).single.progress == 0.5, 'Playback history must derive continue-watching progress.');
+
+  final DeterministicProviderBindingStore bindings = DeterministicProviderBindingStore();
+  final ProviderBinding userConfirmed = ProviderBinding(
+    id: const ProviderBindingId('runtime-binding'),
+    localMediaId: candidate.identity.id,
+    providerId: 'bangumi',
+    subjectId: const ProviderSubjectId('subject-runtime'),
+    authority: ProviderBindingAuthority.userConfirmed,
+    confidence: 0.2,
+    createdAt: DateTime.utc(2026, 6, 4, 12),
+  );
+  final ProviderBinding automatic = ProviderBinding(
+    id: const ProviderBindingId('runtime-automatic-binding'),
+    localMediaId: candidate.identity.id,
+    providerId: 'bangumi',
+    subjectId: const ProviderSubjectId('subject-runtime-auto'),
+    authority: ProviderBindingAuthority.automatic,
+    confidence: 1,
+    createdAt: DateTime.utc(2026, 6, 4, 12),
+  );
+  await bindings.saveUserConfirmed(userConfirmed);
+  _expect(await bindings.saveAutomaticIfAllowed(automatic) == userConfirmed, 'User-confirmed bindings must outrank automatic matches.');
+  _expect((await bindings.bindingFor(candidate.identity.id)) == userConfirmed, 'Binding store must expose strongest binding.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  bus.publish(
+    LibraryItemAdded(
+      occurredAt: DateTime.utc(2026, 6, 4, 12),
+      mediaLibraryItemId: imported.imported.single.id.value,
+      localMediaId: candidate.identity.id.value,
+    ),
+  );
+  bus.publish(HistoryRecorded(occurredAt: DateTime.utc(2026, 6, 4, 12), localMediaId: candidate.identity.id.value));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(delivered.whereType<LibraryItemAdded>().single.changeKind == MediaLibraryChangeKind.created, 'Library add event must preserve change kind.');
+  _expect(delivered.whereType<HistoryRecorded>().single.localMediaId == candidate.identity.id.value, 'History event must preserve local media id.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
