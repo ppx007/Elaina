@@ -7,6 +7,7 @@ $requiredFiles = @(
   'lib/src/domain/detail/video_detail.dart',
   'lib/src/domain/media/media_library.dart',
   'lib/src/domain/seasonal/seasonal_anime.dart',
+  'lib/src/domain/subtitle/subtitle_discovery.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
   'lib/src/provider/subtitle/subtitle_provider.dart',
   'lib/src/provider/subtitle/subtitle_registration.dart',
@@ -98,6 +99,21 @@ if ($detail -notmatch 'VideoDetailViewData' -or $detail -notmatch 'ContinueWatch
 $subtitleBridge = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/subtitle/subtitle_provider_bridge.dart') -Raw
 if ($subtitleBridge -notmatch 'SubtitleParseRequest' -or $subtitleBridge -notmatch 'ExternalSubtitleSource' -or $subtitleBridge -notmatch 'SubtitleProviderCandidate') {
   throw 'Domain subtitle bridge must explicitly connect provider candidates to basic subtitle parser contracts.'
+}
+
+$subtitleDiscovery = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/subtitle/subtitle_discovery.dart') -Raw
+$requiredSubtitleDiscoveryTerms = @(
+  'SubtitleDiscoveryContract',
+  'DeterministicSubtitleDiscoveryContract',
+  'SubtitleCacheStore',
+  'LocalExternalSubtitleScanner',
+  'subtitleParseRequestFromProviderFile',
+  'encodingHint'
+)
+foreach ($term in $requiredSubtitleDiscoveryTerms) {
+  if ($subtitleDiscovery -notmatch [regex]::Escape($term)) {
+    throw "Subtitle discovery contracts missing required term: $term"
+  }
 }
 
 $providerFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/provider') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }

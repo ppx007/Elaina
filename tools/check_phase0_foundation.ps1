@@ -54,9 +54,13 @@ $requiredStorageTerms = @(
   'MediaLibraryStore',
   'PlaybackHistoryRepository',
   'ProviderBindingRepository',
+  'SubtitleCacheStore',
+  'StoredSubtitleSearchCacheRecord',
+  'StoredSubtitleContentCacheRecord',
   'mediaLibrary',
   'playbackHistory',
-  'providerBinding'
+  'providerBinding',
+  'subtitleCache'
 )
 foreach ($term in $requiredStorageTerms) {
   if ($storageContracts -notmatch [regex]::Escape($term)) {
