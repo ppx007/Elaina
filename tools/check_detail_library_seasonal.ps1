@@ -68,8 +68,23 @@ if ($seasonal -match "provider/") {
 }
 
 $media = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/media/media_library.dart') -Raw
-if ($media -notmatch 'MediaLibraryScanner' -or $media -notmatch 'PlaybackHistoryStore' -or $media -notmatch 'ProviderBindingAuthority' -or $media -notmatch 'userConfirmed' -or $media -notmatch 'ProviderSubjectId') {
-  throw 'Media library contracts must include scanner, history store, and binding authority.'
+$requiredMediaTerms = @(
+  'MediaLibraryScanner',
+  'PlaybackHistoryStore',
+  'ProviderBindingAuthority',
+  'userConfirmed',
+  'ProviderSubjectId',
+  'MediaLibraryCatalogRepository',
+  'MediaBatchImportContract',
+  'MediaImportResult',
+  'DeterministicMediaLibraryCatalogRepository',
+  'DeterministicPlaybackHistoryStore',
+  'DeterministicProviderBindingStore'
+)
+foreach ($term in $requiredMediaTerms) {
+  if ($media -notmatch [regex]::Escape($term)) {
+    throw "Media library contracts missing required term: $term"
+  }
 }
 if ($media -match "provider/") {
   throw 'Media library contracts must remain provider-neutral.'

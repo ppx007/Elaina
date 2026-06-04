@@ -49,6 +49,21 @@ foreach ($dir in $requiredDirs) {
   }
 }
 
+$storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+$requiredStorageTerms = @(
+  'MediaLibraryStore',
+  'PlaybackHistoryRepository',
+  'ProviderBindingRepository',
+  'mediaLibrary',
+  'playbackHistory',
+  'providerBinding'
+)
+foreach ($term in $requiredStorageTerms) {
+  if ($storageContracts -notmatch [regex]::Escape($term)) {
+    throw "Storage foundation missing media persistence term: $term"
+  }
+}
+
 $uiPath = Join-Path $lib 'src/ui'
 if (Test-Path -LiteralPath $uiPath) {
   $forbidden = @('mpv', 'libmpv', 'vlc', 'bangumi', 'dandanplay', 'libtorrent', 'yuc.wiki')
