@@ -4,6 +4,7 @@ Future<void> main() async {
   await _verifyUnsupportedMpvFacade();
   await _verifyBoundMpvFacadeDelegation();
   await _verifySourceCapabilityGating();
+  await _verifyPlaybackSourceHandoff();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -84,6 +85,61 @@ Future<void> _verifySourceCapabilityGating() async {
   final PlaybackCommandResult result = await controller.open(HlsPlaybackSource(uri: Uri.parse('https://example.test/playlist.m3u8')));
   _expectFailureKind(result, PlaybackFailureKind.unsupported);
   _expect(adapter.loadCount == 1, 'Unsupported source load must not delegate to adapter.');
+}
+
+Future<void> _verifyPlaybackSourceHandoff() async {
+  const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
+  final LocalMediaIdentity identity = LocalMediaIdentity(
+    id: const LocalMediaId('runtime-local-media'),
+    uri: Uri.file('D:/media/handoff.mkv'),
+    basename: 'handoff.mkv',
+  );
+
+  final PlaybackSourceHandoffResult prepared = handoff.prepare(
+    PlaybackSourceHandoffInput.localMediaIdentity(identity),
+  );
+  _expect(prepared.isSuccess, 'Local file handoff must prepare a playback source.');
+  _expect(prepared.source is LocalFilePlaybackSource, 'Local file handoff must reuse LocalFilePlaybackSource.');
+
+  final PlaybackSourceHandoffResult unsupported = handoff.prepare(
+    PlaybackSourceHandoffInput.localMediaIdentity(
+      LocalMediaIdentity(
+        id: const LocalMediaId('remote-local-media'),
+        uri: Uri.parse('https://example.test/media.mkv'),
+        basename: 'media.mkv',
+      ),
+    ),
+  );
+  _expect(!unsupported.isSuccess, 'Unsupported source handoff must return a failure result.');
+  _expect(
+    unsupported.failure?.kind == PlaybackSourceHandoffFailureKind.unsupportedScheme,
+    'Unsupported source handoff must report unsupportedScheme.',
+  );
+
+  final PlaybackSourceHandoffResult missingSource = handoff.prepare(
+    PlaybackSourceHandoffInput.localMediaIdentity(
+      LocalMediaIdentity(
+        id: const LocalMediaId('missing-source-local-media'),
+        uri: Uri.parse(''),
+        basename: 'missing-source.mkv',
+      ),
+    ),
+  );
+  _expect(!missingSource.isSuccess, 'Missing source handoff must return a failure result.');
+  _expect(
+    missingSource.failure?.kind == PlaybackSourceHandoffFailureKind.missingSourceData,
+    'Missing source handoff must report missingSourceData.',
+  );
+
+  final MockPlaybackController controller = MockPlaybackController(
+    matrix: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+      },
+    ),
+  );
+  _expectSuccess(await controller.open(prepared.source!));
+  _expect(controller.currentState.sourceUri == identity.uri, 'Controller must open the prepared handoff source.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
