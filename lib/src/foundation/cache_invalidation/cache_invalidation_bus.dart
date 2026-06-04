@@ -83,9 +83,49 @@ final class LibraryItemRemoved extends MediaLibraryItemChanged {
 }
 
 final class HistoryRecorded extends CacheInvalidationEvent {
-  const HistoryRecorded({required super.occurredAt, required this.localMediaId});
+  const HistoryRecorded(
+      {required super.occurredAt, required this.localMediaId});
 
   final String localMediaId;
+}
+
+final class SeasonalCatalogUpdated extends CacheInvalidationEvent {
+  const SeasonalCatalogUpdated({
+    required super.occurredAt,
+    required this.seasonalCatalogEntryId,
+    required this.seasonYear,
+    required this.seasonKind,
+  });
+
+  final String seasonalCatalogEntryId;
+  final int seasonYear;
+  final String seasonKind;
+}
+
+final class BangumiMatchEnqueued extends CacheInvalidationEvent {
+  const BangumiMatchEnqueued({
+    required super.occurredAt,
+    required this.queueItemId,
+    required this.seasonalCatalogEntryId,
+  });
+
+  final String queueItemId;
+  final String seasonalCatalogEntryId;
+}
+
+final class BangumiMatchApplied extends CacheInvalidationEvent {
+  const BangumiMatchApplied({
+    required super.occurredAt,
+    required this.queueItemId,
+    required this.bindingId,
+    required this.localMediaId,
+    required this.providerSubjectId,
+  });
+
+  final String queueItemId;
+  final String bindingId;
+  final String localMediaId;
+  final String providerSubjectId;
 }
 
 abstract interface class CacheInvalidationBus {
@@ -96,7 +136,8 @@ abstract interface class CacheInvalidationBus {
 
 final class StreamCacheInvalidationBus implements CacheInvalidationBus {
   StreamCacheInvalidationBus()
-      : _controller = StreamController<CacheInvalidationEvent>.broadcast(sync: true);
+      : _controller =
+            StreamController<CacheInvalidationEvent>.broadcast(sync: true);
 
   final StreamController<CacheInvalidationEvent> _controller;
 
