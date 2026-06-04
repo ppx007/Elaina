@@ -4,10 +4,10 @@
 TBD - created by archiving change bootstrap-phase-0-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Storage foundation SHALL provide baseline durable state domains
-The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, provider binding state, subtitle cache state, and RSS feed state before feature-specific consumers are implemented.
+The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, provider binding state, subtitle cache state, RSS feed state, seasonal catalog state, and Bangumi match queue state before feature-specific consumers are implemented.
 
 #### Scenario: A future feature needs persistence
-- **WHEN** playback history, media library items, subtitle cache records, RSS entries, provider state, or diagnostics snapshots need durable storage
+- **WHEN** playback history, media library items, subtitle cache records, RSS entries, seasonal entries, provider state, or diagnostics snapshots need durable storage
 - **THEN** the feature stores its state through pre-defined Storage-layer responsibilities instead of creating ad hoc persistence paths
 
 ### Requirement: Metadata persistence MUST support schema evolution
@@ -18,7 +18,7 @@ The system MUST track schema versioning and provide a migration mechanism for SQ
 - **THEN** the system applies an ordered migration from the previous schema version before using the new structure
 
 ### Requirement: Storage concerns MUST remain isolated from UI and provider code
-The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including subtitle search/content cache records and RSS feed source/item/cursor/deduplication records.
+The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including subtitle search/content cache records, RSS feed source/item/cursor/deduplication records, seasonal catalog entries, and Bangumi match queue records.
 
 #### Scenario: A provider needs cached state
 - **WHEN** a provider-facing flow needs persisted or cached information
@@ -51,4 +51,11 @@ The system SHALL expose storage-backed contracts for registered feed sources, fe
 #### Scenario: RSS feed state survives restart
 - **WHEN** a feed source is registered, refreshed, and deduplicated
 - **THEN** later RSS engine refreshes can read the source, cursor, item, and dedupe state through Storage contracts
+
+### Requirement: Storage foundation SHALL expose seasonal indexer persistence contracts
+The system SHALL expose storage-backed contracts for seasonal catalog entries, Bangumi match queue items, provider match candidates, and queue processing state.
+
+#### Scenario: Seasonal queue state survives restart
+- **WHEN** seasonal catalog entries and queued Bangumi match candidates are written to storage
+- **THEN** later seasonal indexing and match worker flows can resume through Storage contracts without Provider-owned persistence
 
