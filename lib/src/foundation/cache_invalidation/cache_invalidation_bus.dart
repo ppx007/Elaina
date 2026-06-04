@@ -21,11 +21,13 @@ final class BindingChanged extends CacheInvalidationEvent {
   const BindingChanged({
     required super.occurredAt,
     required this.localMediaId,
-    required this.providerSubjectId,
+    this.providerId,
+    this.providerSubjectId,
   });
 
   final String localMediaId;
-  final String providerSubjectId;
+  final String? providerId;
+  final String? providerSubjectId;
 }
 
 final class ProviderAuthChanged extends CacheInvalidationEvent {
@@ -35,6 +37,55 @@ final class ProviderAuthChanged extends CacheInvalidationEvent {
   });
 
   final String providerId;
+}
+
+enum MediaLibraryChangeKind {
+  created,
+  updated,
+  removed,
+}
+
+final class MediaLibraryItemChanged extends CacheInvalidationEvent {
+  const MediaLibraryItemChanged({
+    required super.occurredAt,
+    required this.mediaLibraryItemId,
+    required this.localMediaId,
+    required this.changeKind,
+  });
+
+  final String mediaLibraryItemId;
+  final String localMediaId;
+  final MediaLibraryChangeKind changeKind;
+}
+
+final class LibraryItemAdded extends MediaLibraryItemChanged {
+  const LibraryItemAdded({
+    required super.occurredAt,
+    required super.mediaLibraryItemId,
+    required super.localMediaId,
+  }) : super(changeKind: MediaLibraryChangeKind.created);
+}
+
+final class LibraryItemUpdated extends MediaLibraryItemChanged {
+  const LibraryItemUpdated({
+    required super.occurredAt,
+    required super.mediaLibraryItemId,
+    required super.localMediaId,
+  }) : super(changeKind: MediaLibraryChangeKind.updated);
+}
+
+final class LibraryItemRemoved extends MediaLibraryItemChanged {
+  const LibraryItemRemoved({
+    required super.occurredAt,
+    required super.mediaLibraryItemId,
+    required super.localMediaId,
+  }) : super(changeKind: MediaLibraryChangeKind.removed);
+}
+
+final class HistoryRecorded extends CacheInvalidationEvent {
+  const HistoryRecorded({required super.occurredAt, required this.localMediaId});
+
+  final String localMediaId;
 }
 
 abstract interface class CacheInvalidationBus {

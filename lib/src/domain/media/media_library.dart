@@ -174,6 +174,261 @@ final class MediaLibraryItem {
   final ProviderBinding? binding;
 }
 
+final class MediaLibraryQuery {
+  const MediaLibraryQuery({
+    this.offset = 0,
+    this.limit = 50,
+    this.onlyUnbound = false,
+  })  : assert(offset >= 0, 'offset must not be negative.'),
+        assert(limit > 0, 'limit must be positive.');
+
+  final int offset;
+  final int limit;
+  final bool onlyUnbound;
+}
+
+abstract interface class MediaLibraryCatalogRepository {
+  Future<MediaLibraryItem> store(MediaLibraryItem item);
+
+  Future<MediaLibraryItem?> findById(MediaLibraryItemId id);
+
+  Future<MediaLibraryItem?> findByLocalMediaId(LocalMediaId mediaId);
+
+  Future<MediaLibraryItem?> findByUri(Uri uri);
+
+  Future<MediaLibraryItem?> findByFingerprint(MediaFileFingerprint fingerprint);
+
+  Future<List<MediaLibraryItem>> list({MediaLibraryQuery query = const MediaLibraryQuery()});
+
+  Future<MediaLibraryItem> update(MediaLibraryItem item);
+
+  Future<bool> remove(MediaLibraryItemId id);
+
+  Future<int> count();
+}
+
+enum MediaImportFailureKind {
+  duplicateConflict,
+  invalidCandidate,
+  persistenceFailed,
+}
+
+final class MediaImportFailure {
+  const MediaImportFailure({required this.kind, required this.candidate, required this.message})
+      : assert(message != '', 'Import failure message must not be empty.');
+
+  final MediaImportFailureKind kind;
+  final MediaScanCandidate candidate;
+  final String message;
+}
+
+enum MediaImportItemOutcomeKind {
+  imported,
+  skippedDuplicate,
+  failed,
+}
+
+final class MediaImportItemOutcome {
+  const MediaImportItemOutcome._({
+    required this.kind,
+    required this.candidate,
+    this.item,
+    this.failure,
+  });
+
+  const MediaImportItemOutcome.imported({required MediaScanCandidate candidate, required MediaLibraryItem item})
+      : this._(kind: MediaImportItemOutcomeKind.imported, candidate: candidate, item: item);
+
+  const MediaImportItemOutcome.skippedDuplicate({required MediaScanCandidate candidate, required MediaLibraryItem item})
+      : this._(kind: MediaImportItemOutcomeKind.skippedDuplicate, candidate: candidate, item: item);
+
+  MediaImportItemOutcome.failed(MediaImportFailure failure)
+      : this._(kind: MediaImportItemOutcomeKind.failed, candidate: failure.candidate, failure: failure);
+
+  final MediaImportItemOutcomeKind kind;
+  final MediaScanCandidate candidate;
+  final MediaLibraryItem? item;
+  final MediaImportFailure? failure;
+
+  bool get isSuccess => kind == MediaImportItemOutcomeKind.imported;
+}
+
+final class MediaImportResult {
+  const MediaImportResult({required this.outcomes});
+
+  final List<MediaImportItemOutcome> outcomes;
+
+  List<MediaLibraryItem> get imported {
+    final List<MediaLibraryItem> items = <MediaLibraryItem>[];
+    for (final MediaImportItemOutcome outcome in outcomes) {
+      if (outcome.kind == MediaImportItemOutcomeKind.imported && outcome.item != null) {
+        items.add(outcome.item!);
+      }
+    }
+    return items;
+  }
+
+  List<MediaLibraryItem> get skippedDuplicates {
+    final List<MediaLibraryItem> items = <MediaLibraryItem>[];
+    for (final MediaImportItemOutcome outcome in outcomes) {
+      if (outcome.kind == MediaImportItemOutcomeKind.skippedDuplicate && outcome.item != null) {
+        items.add(outcome.item!);
+      }
+    }
+    return items;
+  }
+
+  List<MediaImportFailure> get failures {
+    final List<MediaImportFailure> values = <MediaImportFailure>[];
+    for (final MediaImportItemOutcome outcome in outcomes) {
+      if (outcome.failure != null) {
+        values.add(outcome.failure!);
+      }
+    }
+    return values;
+  }
+
+  int get importedCount => imported.length;
+
+  int get skippedDuplicateCount => skippedDuplicates.length;
+
+  int get failureCount => failures.length;
+}
+
+abstract interface class MediaBatchImportContract {
+  Future<MediaImportResult> importBatch(Iterable<MediaScanCandidate> candidates);
+}
+
+final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCatalogRepository {
+  DeterministicMediaLibraryCatalogRepository({Iterable<MediaLibraryItem> seedItems = const <MediaLibraryItem>[]}) {
+    for (final MediaLibraryItem item in seedItems) {
+      _itemsById[item.id.value] = item;
+    }
+  }
+
+  final Map<String, MediaLibraryItem> _itemsById = <String, MediaLibraryItem>{};
+
+  @override
+  Future<int> count() => Future<int>.value(_itemsById.length);
+
+  @override
+  Future<MediaLibraryItem?> findByFingerprint(MediaFileFingerprint fingerprint) {
+    for (final MediaLibraryItem item in _itemsById.values) {
+      final MediaFileFingerprint? existing = item.identity.fingerprint;
+      if (existing != null && existing.algorithm == fingerprint.algorithm && existing.value == fingerprint.value) {
+        return Future<MediaLibraryItem?>.value(item);
+      }
+    }
+    return Future<MediaLibraryItem?>.value();
+  }
+
+  @override
+  Future<MediaLibraryItem?> findById(MediaLibraryItemId id) => Future<MediaLibraryItem?>.value(_itemsById[id.value]);
+
+  @override
+  Future<MediaLibraryItem?> findByLocalMediaId(LocalMediaId mediaId) {
+    for (final MediaLibraryItem item in _itemsById.values) {
+      if (item.identity.id.value == mediaId.value) {
+        return Future<MediaLibraryItem?>.value(item);
+      }
+    }
+    return Future<MediaLibraryItem?>.value();
+  }
+
+  @override
+  Future<MediaLibraryItem?> findByUri(Uri uri) {
+    for (final MediaLibraryItem item in _itemsById.values) {
+      if (item.identity.uri == uri) {
+        return Future<MediaLibraryItem?>.value(item);
+      }
+    }
+    return Future<MediaLibraryItem?>.value();
+  }
+
+  @override
+  Future<List<MediaLibraryItem>> list({MediaLibraryQuery query = const MediaLibraryQuery()}) {
+    final List<MediaLibraryItem> items = <MediaLibraryItem>[
+      for (final MediaLibraryItem item in _itemsById.values)
+        if (!query.onlyUnbound || item.binding == null) item,
+    ];
+    final int start = query.offset > items.length ? items.length : query.offset;
+    final int end = start + query.limit > items.length ? items.length : start + query.limit;
+    return Future<List<MediaLibraryItem>>.value(items.sublist(start, end));
+  }
+
+  @override
+  Future<bool> remove(MediaLibraryItemId id) => Future<bool>.value(_itemsById.remove(id.value) != null);
+
+  @override
+  Future<MediaLibraryItem> store(MediaLibraryItem item) {
+    _itemsById[item.id.value] = item;
+    return Future<MediaLibraryItem>.value(item);
+  }
+
+  @override
+  Future<MediaLibraryItem> update(MediaLibraryItem item) {
+    _itemsById[item.id.value] = item;
+    return Future<MediaLibraryItem>.value(item);
+  }
+}
+
+final class DeterministicMediaBatchImportContract implements MediaBatchImportContract {
+  DeterministicMediaBatchImportContract({
+    required this.repository,
+    DateTime Function()? clock,
+    this.itemIdPrefix = 'imported',
+  })  : assert(itemIdPrefix != '', 'itemIdPrefix must not be empty.'),
+        _clock = clock ?? _defaultClock;
+
+  final MediaLibraryCatalogRepository repository;
+  final DateTime Function() _clock;
+  final String itemIdPrefix;
+
+  @override
+  Future<MediaImportResult> importBatch(Iterable<MediaScanCandidate> candidates) async {
+    final List<MediaImportItemOutcome> outcomes = <MediaImportItemOutcome>[];
+    var index = 0;
+    for (final MediaScanCandidate candidate in candidates) {
+      final MediaLibraryItem? uriMatch = await repository.findByUri(candidate.identity.uri);
+      final MediaFileFingerprint? fingerprint = candidate.identity.fingerprint;
+      final MediaLibraryItem? fingerprintMatch = fingerprint == null ? null : await repository.findByFingerprint(fingerprint);
+
+      if (uriMatch != null && fingerprintMatch != null && uriMatch.id.value != fingerprintMatch.id.value) {
+        outcomes.add(
+          MediaImportItemOutcome.failed(
+            MediaImportFailure(
+              kind: MediaImportFailureKind.duplicateConflict,
+              candidate: candidate,
+              message: 'Candidate URI and fingerprint match different catalog items.',
+            ),
+          ),
+        );
+        index += 1;
+        continue;
+      }
+
+      final MediaLibraryItem? duplicate = uriMatch ?? fingerprintMatch;
+      if (duplicate != null) {
+        outcomes.add(MediaImportItemOutcome.skippedDuplicate(candidate: candidate, item: duplicate));
+        index += 1;
+        continue;
+      }
+
+      final MediaLibraryItem item = MediaLibraryItem(
+        id: MediaLibraryItemId('$itemIdPrefix-${candidate.identity.id.value}-$index'),
+        identity: candidate.identity,
+        addedAt: _clock(),
+        duration: candidate.duration,
+      );
+      outcomes.add(MediaImportItemOutcome.imported(candidate: candidate, item: await repository.store(item)));
+      index += 1;
+    }
+    return MediaImportResult(outcomes: outcomes);
+  }
+
+  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+}
+
 abstract interface class MediaLibraryScanner {
   Future<MediaScanResult> scan(MediaScanScope scope);
 
@@ -474,7 +729,112 @@ final class ProviderBinding {
 abstract interface class ProviderBindingStore {
   Future<ProviderBinding?> bindingFor(LocalMediaId mediaId);
 
+  Future<ProviderBinding?> bindingForProvider({required LocalMediaId mediaId, required String providerId});
+
+  Future<List<ProviderBinding>> bindingsFor(LocalMediaId mediaId);
+
   Future<ProviderBinding> saveUserConfirmed(ProviderBinding binding);
 
   Future<ProviderBinding> saveAutomaticIfAllowed(ProviderBinding candidate);
+}
+
+final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore {
+  final Map<String, List<PlaybackHistoryEntry>> _entriesByMediaId = <String, List<PlaybackHistoryEntry>>{};
+
+  @override
+  Future<List<ContinueWatchingState>> continueWatching({int limit = 20}) {
+    assert(limit > 0, 'limit must be positive.');
+    final List<PlaybackHistoryEntry> latestEntries = <PlaybackHistoryEntry>[];
+    for (final String mediaId in _entriesByMediaId.keys) {
+      final PlaybackHistoryEntry? entry = _latestEntryFor(mediaId);
+      if (entry != null) {
+        latestEntries.add(entry);
+      }
+    }
+    latestEntries.sort((PlaybackHistoryEntry left, PlaybackHistoryEntry right) => right.updatedAt.compareTo(left.updatedAt));
+    final int end = latestEntries.length > limit ? limit : latestEntries.length;
+    return Future<List<ContinueWatchingState>>.value(
+      <ContinueWatchingState>[
+        for (final PlaybackHistoryEntry entry in latestEntries.sublist(0, end))
+          ContinueWatchingState(
+            mediaId: entry.mediaId,
+            position: entry.position,
+            duration: entry.duration,
+            updatedAt: entry.updatedAt,
+          ),
+      ],
+    );
+  }
+
+  @override
+  Future<PlaybackHistoryEntry?> latestFor(LocalMediaId mediaId) => Future<PlaybackHistoryEntry?>.value(_latestEntryFor(mediaId.value));
+
+  @override
+  Future<void> record(PlaybackHistoryEntry entry) {
+    _entriesByMediaId.putIfAbsent(entry.mediaId.value, () => <PlaybackHistoryEntry>[]).add(entry);
+    return Future<void>.value();
+  }
+
+  PlaybackHistoryEntry? _latestEntryFor(String mediaId) {
+    final List<PlaybackHistoryEntry>? entries = _entriesByMediaId[mediaId];
+    if (entries == null || entries.isEmpty) {
+      return null;
+    }
+    PlaybackHistoryEntry latest = entries.first;
+    for (final PlaybackHistoryEntry entry in entries.skip(1)) {
+      if (entry.updatedAt.isAfter(latest.updatedAt)) {
+        latest = entry;
+      }
+    }
+    return latest;
+  }
+}
+
+final class DeterministicProviderBindingStore implements ProviderBindingStore {
+  final Map<String, ProviderBinding> _bindingsByLocalAndProvider = <String, ProviderBinding>{};
+
+  @override
+  Future<ProviderBinding?> bindingFor(LocalMediaId mediaId) {
+    ProviderBinding? strongest;
+    for (final ProviderBinding binding in _bindingsForMedia(mediaId)) {
+      if (strongest == null || binding.outranks(strongest)) {
+        strongest = binding;
+      }
+    }
+    return Future<ProviderBinding?>.value(strongest);
+  }
+
+  @override
+  Future<ProviderBinding?> bindingForProvider({required LocalMediaId mediaId, required String providerId}) {
+    return Future<ProviderBinding?>.value(_bindingsByLocalAndProvider[_key(mediaId, providerId)]);
+  }
+
+  @override
+  Future<List<ProviderBinding>> bindingsFor(LocalMediaId mediaId) => Future<List<ProviderBinding>>.value(_bindingsForMedia(mediaId));
+
+  @override
+  Future<ProviderBinding> saveAutomaticIfAllowed(ProviderBinding candidate) {
+    final String key = _key(candidate.localMediaId, candidate.providerId);
+    final ProviderBinding? existing = _bindingsByLocalAndProvider[key];
+    if (existing != null && existing.outranks(candidate)) {
+      return Future<ProviderBinding>.value(existing);
+    }
+    _bindingsByLocalAndProvider[key] = candidate;
+    return Future<ProviderBinding>.value(candidate);
+  }
+
+  @override
+  Future<ProviderBinding> saveUserConfirmed(ProviderBinding binding) {
+    _bindingsByLocalAndProvider[_key(binding.localMediaId, binding.providerId)] = binding;
+    return Future<ProviderBinding>.value(binding);
+  }
+
+  List<ProviderBinding> _bindingsForMedia(LocalMediaId mediaId) {
+    return <ProviderBinding>[
+      for (final ProviderBinding binding in _bindingsByLocalAndProvider.values)
+        if (binding.localMediaId.value == mediaId.value) binding,
+    ];
+  }
+
+  static String _key(LocalMediaId mediaId, String providerId) => '${mediaId.value}::$providerId';
 }
