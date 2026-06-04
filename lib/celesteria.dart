@@ -7,6 +7,7 @@ export 'src/domain/media/media_library.dart';
 export 'src/domain/playback/playback_controller.dart';
 export 'src/domain/playback/playback_source_handoff.dart';
 export 'src/domain/playback/playback_state.dart';
+export 'src/domain/rss/rss_engine.dart';
 export 'src/domain/seasonal/seasonal_anime.dart';
 export 'src/domain/subtitle/subtitle_discovery.dart';
 export 'src/domain/subtitle/subtitle_provider_bridge.dart';
