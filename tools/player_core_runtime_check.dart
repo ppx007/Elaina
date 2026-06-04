@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../lib/celesteria.dart';
 
 Future<void> main() async {
@@ -9,6 +11,7 @@ Future<void> main() async {
   await _verifyMediaLibraryPersistenceContract();
   await _verifySubtitleProviderCacheContract();
   await _verifyRssEngineContract();
+  await _verifySeasonalIndexerContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -486,6 +489,81 @@ Future<void> _verifyRssEngineContract() async {
       (await store.itemsForSource(source.id.value)).single.dedupeKey ==
           item.dedupeKey.value,
       'RSS engine must persist accepted feed items.');
+}
+
+Future<void> _verifySeasonalIndexerContract() async {
+  final _RuntimeRssEngine rssEngine = _RuntimeRssEngine();
+  final DeterministicSeasonalCatalogStore catalogStore =
+      DeterministicSeasonalCatalogStore();
+  final DeterministicBangumiMatchQueueStore queueStore =
+      DeterministicBangumiMatchQueueStore();
+  final StreamCacheInvalidationBus indexerBus = StreamCacheInvalidationBus();
+  final DeterministicSeasonalIndexer indexer = DeterministicSeasonalIndexer(
+    rssEngine: rssEngine,
+    consumers: <SeasonalAnimeConsumer>[_RuntimeSeasonalConsumer()],
+    catalogStore: catalogStore,
+    matchQueueStore: queueStore,
+    cacheInvalidationBus: indexerBus,
+    clock: () => DateTime.utc(2026, 6, 4, 12),
+  );
+
+  final Future<List<CacheInvalidationEvent>> indexerEvents =
+      indexerBus.events.take(2).toList();
+  await indexer.startListening();
+  rssEngine.emit(
+    FeedItem(
+      id: const FeedItemId('runtime-seasonal-item'),
+      sourceId: const FeedSourceId('runtime-seasonal-rss'),
+      dedupeKey: const FeedDedupeKey('runtime-seasonal-dedupe'),
+      title: 'Runtime Seasonal Anime',
+      link: Uri.parse('https://example.test/runtime-seasonal'),
+      publishedAt: DateTime.utc(2026, 6, 4, 11),
+    ),
+  );
+  final List<CacheInvalidationEvent> deliveredIndexerEvents =
+      await indexerEvents;
+  await indexer.stopListening();
+  await indexer.close();
+  await indexerBus.close();
+
+  _expect(await catalogStore.count() == 1,
+      'Seasonal indexer must persist normalized catalog entries.');
+  _expect(await queueStore.pendingCount() == 1,
+      'Seasonal indexer must enqueue Bangumi match work.');
+  _expect(
+      deliveredIndexerEvents.whereType<SeasonalCatalogUpdated>().length == 1,
+      'Seasonal indexer must publish catalog invalidation events.');
+  _expect(deliveredIndexerEvents.whereType<BangumiMatchEnqueued>().length == 1,
+      'Seasonal indexer must publish match enqueue events.');
+
+  final StreamCacheInvalidationBus workerBus = StreamCacheInvalidationBus();
+  final DeterministicProviderBindingStore bindings =
+      DeterministicProviderBindingStore();
+  final DeterministicBangumiMatchWorker worker =
+      DeterministicBangumiMatchWorker(
+    queueStore: queueStore,
+    bindingStore: bindings,
+    bangumiProvider: _RuntimeBangumiProvider(),
+    cacheInvalidationBus: workerBus,
+    clock: () => DateTime.utc(2026, 6, 4, 12),
+  );
+  final Future<List<CacheInvalidationEvent>> workerEvents =
+      workerBus.events.take(1).toList();
+  final BangumiMatchWorkerResult result = await worker.processNext();
+  final List<CacheInvalidationEvent> deliveredWorkerEvents = await workerEvents;
+  await workerBus.close();
+
+  _expect(result.isSuccess, 'Bangumi match worker must process queue items.');
+  _expect(result.matchResult?.outcome == AutomaticBangumiMatchOutcome.applied,
+      'Bangumi match worker must apply confident automatic matches.');
+  _expect(deliveredWorkerEvents.whereType<BangumiMatchApplied>().length == 1,
+      'Bangumi match worker must publish applied match events.');
+  _expect(
+      (await bindings.bindingFor(const LocalMediaId('runtime-seasonal-entry')))
+              ?.subjectId
+              ?.value ==
+          'runtime-subject',
+      'Bangumi match worker must persist automatic bindings.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
@@ -1212,6 +1290,133 @@ final class _RuntimeFeedFetcher implements FeedFetcher {
     return ProviderRequestKey(
         providerId: const ProviderId('runtime-feed-fetcher'),
         cacheKey: cacheKey);
+  }
+}
+
+final class _RuntimeSeasonalConsumer implements SeasonalAnimeConsumer {
+  @override
+  bool accepts(SeasonalFeedSourceId sourceId) =>
+      sourceId.value == 'runtime-seasonal-rss';
+
+  @override
+  Future<List<SeasonalCatalogEntry>> consume(
+      SeasonalFeedSourceId sourceId, Iterable<SeasonalSourceItem> items) {
+    return Future<List<SeasonalCatalogEntry>>.value(
+      <SeasonalCatalogEntry>[
+        for (final SeasonalSourceItem item in items)
+          SeasonalCatalogEntry(
+            id: const SeasonalCatalogEntryId('runtime-seasonal-entry'),
+            season: const AnimeSeason(year: 2026, kind: AnimeSeasonKind.summer),
+            title: item.title,
+            sourceItem: item,
+            summary: item.summary,
+            officialUri: item.link,
+            publishedAt: item.publishedAt,
+          ),
+      ],
+    );
+  }
+}
+
+final class _RuntimeRssEngine implements RssEngineContract {
+  final StreamController<FeedItem> _updates =
+      StreamController<FeedItem>.broadcast(sync: true);
+
+  @override
+  Stream<FeedItem> get updates => _updates.stream;
+
+  void emit(FeedItem item) {
+    _updates.add(item);
+  }
+
+  @override
+  Future<void> registerSource(FeedSource source) => Future<void>.value();
+
+  @override
+  Future<RssRefreshOutcome> refreshSource(RssRefreshRequest request) {
+    return Future<RssRefreshOutcome>.value(
+      RssRefreshOutcome.success(
+          sourceId: request.sourceId, newItems: const <FeedItem>[]),
+    );
+  }
+
+  Future<void> close() => _updates.close();
+}
+
+final class _RuntimeBangumiProvider implements BangumiProvider {
+  @override
+  String get displayName => 'Runtime Bangumi Provider';
+
+  @override
+  ProviderGateway get gateway => _RuntimeProviderGateway();
+
+  @override
+  String get id => 'runtime-bangumi';
+
+  @override
+  ProviderKind get kind => ProviderKind.metadata;
+
+  @override
+  ProviderRegistration get registration => ProviderRegistration(
+        providerId: const ProviderId('runtime-bangumi'),
+        ratePolicy: const ProviderRatePolicy(
+            maxRequests: 12, window: Duration(minutes: 1)),
+        retryPolicy: const ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+      );
+
+  @override
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
+    required String cacheKey,
+    required Future<T> Function() load,
+    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
+  }) {
+    return load().then(
+      (T value) => ProviderGatewayResponse<T>(
+          value: value, source: ProviderGatewayResponseSource.network),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
+    return Future<AcgProviderResult<BangumiEpisode>>.value(
+      AcgProviderSuccess<BangumiEpisode>(
+        BangumiEpisode(
+          id: id,
+          subjectId: const BangumiSubjectId('runtime-subject'),
+          index: 1,
+          title: 'Runtime Episode',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
+    return Future<AcgProviderResult<BangumiSubject>>.value(
+      AcgProviderSuccess<BangumiSubject>(
+          BangumiSubject(id: id, title: 'Runtime Seasonal Anime')),
+    );
+  }
+
+  @override
+  ProviderRequestKey requestKey(String cacheKey) {
+    return ProviderRequestKey(
+        providerId: const ProviderId('runtime-bangumi'), cacheKey: cacheKey);
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
+      const AcgProviderSuccess<List<BangumiSubject>>(
+        <BangumiSubject>[
+          BangumiSubject(
+            id: BangumiSubjectId('runtime-subject'),
+            title: 'Runtime Seasonal Anime',
+          ),
+        ],
+      ),
+    );
   }
 }
 
