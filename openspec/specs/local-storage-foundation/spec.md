@@ -4,10 +4,10 @@
 TBD - created by archiving change bootstrap-phase-0-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Storage foundation SHALL provide baseline durable state domains
-The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, and provider binding state before feature-specific consumers are implemented.
+The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, provider binding state, and subtitle cache state before feature-specific consumers are implemented.
 
 #### Scenario: A future feature needs persistence
-- **WHEN** playback history, media library items, RSS entries, provider state, or diagnostics snapshots need durable storage
+- **WHEN** playback history, media library items, subtitle cache records, RSS entries, provider state, or diagnostics snapshots need durable storage
 - **THEN** the feature stores its state through pre-defined Storage-layer responsibilities instead of creating ad hoc persistence paths
 
 ### Requirement: Metadata persistence MUST support schema evolution
@@ -18,7 +18,7 @@ The system MUST track schema versioning and provide a migration mechanism for SQ
 - **THEN** the system applies an ordered migration from the previous schema version before using the new structure
 
 ### Requirement: Storage concerns MUST remain isolated from UI and provider code
-The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including media catalog and history repositories.
+The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including subtitle search/content cache records.
 
 #### Scenario: A provider needs cached state
 - **WHEN** a provider-facing flow needs persisted or cached information
@@ -37,3 +37,11 @@ Provider-facing cache, retry, rate-limit, and negative-cache behavior MUST be me
 #### Scenario: A provider response is cacheable
 - **WHEN** a provider-facing request produces cacheable or negative-cacheable data
 - **THEN** `ProviderGateway` owns the cache policy and delegates persistence to Storage contracts without the provider directly managing cache files or database rows
+
+### Requirement: Storage foundation SHALL expose subtitle cache contracts
+The system SHALL expose storage-backed contracts for subtitle search result cache records and retrieved subtitle content cache records.
+
+#### Scenario: Subtitle cache state survives restart
+- **WHEN** subtitle search results or retrieved subtitle content are written to storage
+- **THEN** a later read through subtitle cache contracts can return the stored data until its TTL expires
+
