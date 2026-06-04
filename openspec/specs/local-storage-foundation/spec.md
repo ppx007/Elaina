@@ -4,7 +4,7 @@
 TBD - created by archiving change bootstrap-phase-0-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Storage foundation SHALL provide baseline durable state domains
-The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, provider binding state, and subtitle cache state before feature-specific consumers are implemented.
+The system SHALL define storage responsibilities for SQLite metadata, blob cache, media cache, user settings, migration state, media library catalog state, playback history state, provider binding state, subtitle cache state, and RSS feed state before feature-specific consumers are implemented.
 
 #### Scenario: A future feature needs persistence
 - **WHEN** playback history, media library items, subtitle cache records, RSS entries, provider state, or diagnostics snapshots need durable storage
@@ -18,7 +18,7 @@ The system MUST track schema versioning and provide a migration mechanism for SQ
 - **THEN** the system applies an ordered migration from the previous schema version before using the new structure
 
 ### Requirement: Storage concerns MUST remain isolated from UI and provider code
-The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including subtitle search/content cache records.
+The system MUST isolate persistence and cache implementation details inside the Storage layer so other layers depend on storage contracts rather than concrete database or file layout details, including subtitle search/content cache records and RSS feed source/item/cursor/deduplication records.
 
 #### Scenario: A provider needs cached state
 - **WHEN** a provider-facing flow needs persisted or cached information
@@ -44,4 +44,11 @@ The system SHALL expose storage-backed contracts for subtitle search result cach
 #### Scenario: Subtitle cache state survives restart
 - **WHEN** subtitle search results or retrieved subtitle content are written to storage
 - **THEN** a later read through subtitle cache contracts can return the stored data until its TTL expires
+
+### Requirement: Storage foundation SHALL expose RSS feed persistence contracts
+The system SHALL expose storage-backed contracts for registered feed sources, fetched feed items, feed refresh cursor metadata, and accepted feed deduplication keys.
+
+#### Scenario: RSS feed state survives restart
+- **WHEN** a feed source is registered, refreshed, and deduplicated
+- **THEN** later RSS engine refreshes can read the source, cursor, item, and dedupe state through Storage contracts
 
