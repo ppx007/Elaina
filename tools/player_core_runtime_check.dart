@@ -8,6 +8,7 @@ Future<void> main() async {
   await _verifyLocalMediaScannerContract();
   await _verifyMediaLibraryPersistenceContract();
   await _verifySubtitleProviderCacheContract();
+  await _verifyRssEngineContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -413,6 +414,78 @@ Future<void> _verifySubtitleProviderCacheContract() async {
       'Repeated subtitle retrieval must use cached content.');
   _expect(provider.retrieveCount == 1,
       'Subtitle provider retrieval must not repeat while content cache is fresh.');
+}
+
+Future<void> _verifyRssEngineContract() async {
+  final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+  final FeedSource source = FeedSource(
+    id: const FeedSourceId('runtime-rss'),
+    displayName: 'Runtime RSS',
+    uri: Uri.parse('https://feed.example.test/rss.xml'),
+    format: FeedFormat.rss,
+    refreshInterval: const Duration(hours: 1),
+  );
+  final FeedItem item = FeedItem(
+    id: const FeedItemId('runtime-feed-item'),
+    sourceId: source.id,
+    dedupeKey: const FeedDedupeKey('runtime-dedupe'),
+    title: 'Runtime Feed Item',
+    link: Uri.parse('https://feed.example.test/items/1'),
+    publishedAt: DateTime.utc(2026, 6, 4, 11),
+  );
+  final _RuntimeFeedFetcher fetcher = _RuntimeFeedFetcher(
+    responses: <AcgProviderResult<FeedFetchResponse>>[
+      AcgProviderSuccess<FeedFetchResponse>(
+        FeedFetchResponse(
+            sourceId: source.id,
+            body: '<rss />',
+            etag: 'etag-v1',
+            lastModified: DateTime.utc(2026, 6, 4, 12)),
+      ),
+      AcgProviderSuccess<FeedFetchResponse>(
+        FeedFetchResponse(
+            sourceId: source.id,
+            body: '<rss />',
+            etag: 'etag-v2',
+            lastModified: DateTime.utc(2026, 6, 4, 13)),
+      ),
+    ],
+  );
+  final _RuntimeFeedParser parser = _RuntimeFeedParser(items: <FeedItem>[item]);
+  final DeterministicRssEngine engine = DeterministicRssEngine(
+    store: store,
+    fetcher: fetcher,
+    parser: parser,
+    deduplicator: DeterministicFeedDeduplicator(),
+    clock: () => DateTime.utc(2026, 6, 4, 12),
+  );
+
+  await engine.registerSource(source);
+  final Future<List<FeedItem>> updates = engine.updates.take(1).toList();
+  final RssRefreshOutcome first =
+      await engine.refreshSource(RssRefreshRequest(sourceId: source.id));
+  final RssRefreshOutcome second =
+      await engine.refreshSource(RssRefreshRequest(sourceId: source.id));
+  final List<FeedItem> delivered = await updates;
+  await engine.close();
+
+  _expect(first.isSuccess, 'First RSS refresh must succeed.');
+  _expect(first.newItems.single == item,
+      'RSS refresh must return newly accepted items.');
+  _expect(second.newItems.isEmpty,
+      'Second RSS refresh must dedupe already accepted items.');
+  _expect(delivered.single == item,
+      'RSS engine must emit newly accepted feed items.');
+  _expect((await store.cursorFor(source.id.value))?.etag == 'etag-v2',
+      'RSS engine must persist latest fetch cursor metadata.');
+  _expect(fetcher.requests.first.etag == null,
+      'First RSS fetch must not invent an ETag.');
+  _expect(fetcher.requests[1].etag == 'etag-v1',
+      'Second RSS fetch must replay stored ETag metadata.');
+  _expect(
+      (await store.itemsForSource(source.id.value)).single.dedupeKey ==
+          item.dedupeKey.value,
+      'RSS engine must persist accepted feed items.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
@@ -1072,6 +1145,74 @@ final class _RuntimeProviderGateway implements ProviderGateway {
   @override
   Future<void> registerProvider(ProviderRegistration registration) =>
       Future<void>.value();
+}
+
+final class _RuntimeFeedParser implements FeedParser {
+  _RuntimeFeedParser({required this.items});
+
+  final List<FeedItem> items;
+
+  @override
+  FeedFormat get format => FeedFormat.rss;
+
+  @override
+  Future<FeedParseResult> parse(FeedParseRequest request) {
+    return Future<FeedParseResult>.value(
+        FeedParseResult(sourceId: request.source.id, items: items));
+  }
+}
+
+final class _RuntimeFeedFetcher implements FeedFetcher {
+  _RuntimeFeedFetcher({required this.responses});
+
+  final List<AcgProviderResult<FeedFetchResponse>> responses;
+  final List<FeedFetchRequest> requests = <FeedFetchRequest>[];
+  int _index = 0;
+
+  @override
+  String get displayName => 'Runtime Feed Fetcher';
+
+  @override
+  ProviderGateway get gateway => _RuntimeProviderGateway();
+
+  @override
+  String get id => 'runtime-feed-fetcher';
+
+  @override
+  ProviderKind get kind => ProviderKind.rss;
+
+  @override
+  ProviderRegistration get registration => rssProviderRegistration(
+      sourceId: const FeedSourceId('runtime-feed-fetcher'));
+
+  @override
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
+    required String cacheKey,
+    required Future<T> Function() load,
+    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
+  }) {
+    return load().then(
+      (T value) => ProviderGatewayResponse<T>(
+          value: value, source: ProviderGatewayResponseSource.network),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(
+      FeedFetchRequest request) {
+    requests.add(request);
+    final AcgProviderResult<FeedFetchResponse> response =
+        responses[_index < responses.length ? _index : responses.length - 1];
+    _index += 1;
+    return Future<AcgProviderResult<FeedFetchResponse>>.value(response);
+  }
+
+  @override
+  ProviderRequestKey requestKey(String cacheKey) {
+    return ProviderRequestKey(
+        providerId: const ProviderId('runtime-feed-fetcher'),
+        cacheKey: cacheKey);
+  }
 }
 
 final class _RecordingPlaybackStateObserver implements PlaybackStateObserver {
