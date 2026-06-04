@@ -5,6 +5,7 @@ Future<void> main() async {
   await _verifyBoundMpvFacadeDelegation();
   await _verifySourceCapabilityGating();
   await _verifyPlaybackSourceHandoff();
+  await _verifyLocalMediaScannerContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -140,6 +141,63 @@ Future<void> _verifyPlaybackSourceHandoff() async {
   );
   _expectSuccess(await controller.open(prepared.source!));
   _expect(controller.currentState.sourceUri == identity.uri, 'Controller must open the prepared handoff source.');
+}
+
+Future<void> _verifyLocalMediaScannerContract() async {
+  const MediaScanId scanId = MediaScanId('runtime-local-scan');
+  final MediaScanCandidate candidate = MediaScanCandidate(
+    identity: LocalMediaIdentity(
+      id: const LocalMediaId('runtime-scanned-media'),
+      uri: Uri.file('D:/media/scanned.mkv'),
+      basename: 'scanned.mkv',
+    ),
+    sizeBytes: 84,
+  );
+  final DeterministicMediaLibraryScanner scanner = DeterministicMediaLibraryScanner(
+    scanId: scanId,
+    candidates: <MediaScanCandidate>[candidate],
+  );
+
+  final MediaScanResult result = await scanner.scan(
+    MediaScanScope(
+      roots: <Uri>[Uri.file('D:/media/')],
+      extensions: const <String>{'.MKV'},
+    ),
+  );
+  _expect(result.candidates.single == candidate, 'Local scanner must preserve Domain media candidates.');
+  _expect(result.failures.isEmpty, 'Supported local scanner scope must not report failures.');
+
+  final List<MediaScanEvent> events = await scanner.watch(scanId).toList();
+  _expect(events.whereType<MediaScanCandidateDiscovered>().length == 1, 'Local scanner must publish discovery events.');
+  _expect(events.whereType<MediaScanCompleted>().length == 1, 'Local scanner must publish completion events.');
+
+  final PlaybackSourceHandoffResult handoff = const LocalPlaybackSourceHandoff().prepare(
+    PlaybackSourceHandoffInput.mediaScanCandidate(result.candidates.single),
+  );
+  _expect(handoff.source is LocalFilePlaybackSource, 'Scanner-produced candidates must remain handoff-safe.');
+
+  final MediaScanScopeNormalizationResult unsupported = normalizeMediaScanScope(
+    MediaScanScope(
+      roots: <Uri>[Uri.parse('https://example.test/media/')],
+      extensions: const <String>{'mkv'},
+    ),
+  );
+  _expect(!unsupported.isSuccess, 'Unsupported scanner roots must normalize to failures.');
+  _expect(
+    unsupported.failures.single.kind == MediaScanFailureKind.unsupportedScheme,
+    'Unsupported scanner roots must report unsupportedScheme.',
+  );
+
+  const MediaScanId cancelledScanId = MediaScanId('runtime-cancelled-scan');
+  final DeterministicMediaLibraryScanner cancelledScanner = DeterministicMediaLibraryScanner(scanId: cancelledScanId);
+  await cancelledScanner.cancel(cancelledScanId);
+  final MediaScanResult cancelledResult = await cancelledScanner.scan(
+    MediaScanScope(
+      roots: <Uri>[Uri.file('D:/media/')],
+      extensions: const <String>{'mkv'},
+    ),
+  );
+  _expect(cancelledResult.failures.single.kind == MediaScanFailureKind.cancelled, 'Cancelled scans must report typed cancellation.');
 }
 
 void _verifySurfaceStateFromCapabilities() {

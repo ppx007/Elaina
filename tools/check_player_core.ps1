@@ -201,6 +201,56 @@ foreach ($term in $forbiddenPlaybackSourceHandoffTerms) {
   }
 }
 
+$mediaLibraryPath = Join-Path $root 'lib/src/domain/media/media_library.dart'
+$mediaLibraryContent = Get-Content -LiteralPath $mediaLibraryPath -Raw
+$requiredMediaScannerTerms = @(
+  'enum MediaScanFailureKind',
+  'final class NormalizedMediaScanScope',
+  'final class MediaScanScopeNormalizationResult',
+  'MediaScanScopeNormalizationResult normalizeMediaScanScope',
+  'final class DeterministicMediaLibraryScanner implements MediaLibraryScanner',
+  'final class MediaScanCancelled extends MediaScanEvent'
+)
+foreach ($term in $requiredMediaScannerTerms) {
+  if ($mediaLibraryContent -notmatch [regex]::Escape($term)) {
+    throw "Media library scanner contract missing required term: $term"
+  }
+}
+
+$forbiddenMediaScannerDependencyTerms = @(
+  '../../playback/',
+  '../playback/',
+  'src/playback/',
+  '../../gateway/',
+  '../gateway/',
+  'src/gateway/',
+  '../../storage/',
+  '../storage/',
+  'src/storage/',
+  '../../streaming/',
+  '../streaming/',
+  'src/streaming/',
+  '../../network/',
+  '../network/',
+  'src/network/',
+  'package:flutter',
+  'dart:io',
+  'dart:ui',
+  'mpv',
+  'libmpv',
+  'media-kit',
+  'media_kit',
+  'vlc',
+  'native player',
+  'online_rule_runtime',
+  'platform channel'
+)
+foreach ($term in $forbiddenMediaScannerDependencyTerms) {
+  if ($mediaLibraryContent -match [regex]::Escape($term)) {
+    throw "Forbidden local media scanner dependency '$term' found in $mediaLibraryPath"
+  }
+}
+
 $mpvFacade = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/mpv_adapter_facade.dart') -Raw
 if ($mpvFacade -notmatch 'PlaybackCapabilityMatrix\.unsupported') {
   throw 'MPV facade must expose an unsupported capability matrix when no binding is available.'
