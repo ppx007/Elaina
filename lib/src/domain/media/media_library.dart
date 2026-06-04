@@ -53,6 +53,97 @@ final class MediaScanScope {
   final List<String> excludePatterns;
 }
 
+final class NormalizedMediaScanScope {
+  const NormalizedMediaScanScope({
+    required this.roots,
+    required this.extensions,
+    required this.recursive,
+    required this.excludePatterns,
+  });
+
+  final List<Uri> roots;
+  final Set<String> extensions;
+  final bool recursive;
+  final List<String> excludePatterns;
+
+  bool accepts(Uri uri, {String? basename}) {
+    if (!uri.isScheme('file')) {
+      return false;
+    }
+    if (!_isUnderAnyRoot(uri)) {
+      return false;
+    }
+
+    final String candidateName = basename ?? _basenameFromUri(uri);
+    if (extensions.isNotEmpty && !extensions.contains(_extensionOf(candidateName))) {
+      return false;
+    }
+
+    final String normalizedUri = uri.toString().toLowerCase();
+    final String normalizedName = candidateName.toLowerCase();
+    for (final String pattern in excludePatterns) {
+      if (normalizedUri.contains(pattern) || normalizedName.contains(pattern)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _isUnderAnyRoot(Uri uri) {
+    final String value = uri.toString();
+    for (final Uri root in roots) {
+      if (value.startsWith(root.toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+final class MediaScanScopeNormalizationResult {
+  const MediaScanScopeNormalizationResult._({this.scope, this.failures = const <MediaScanFailure>[]});
+
+  const MediaScanScopeNormalizationResult.success(NormalizedMediaScanScope scope) : this._(scope: scope);
+
+  const MediaScanScopeNormalizationResult.failure(List<MediaScanFailure> failures) : this._(failures: failures);
+
+  final NormalizedMediaScanScope? scope;
+  final List<MediaScanFailure> failures;
+
+  bool get isSuccess => scope != null;
+}
+
+MediaScanScopeNormalizationResult normalizeMediaScanScope(MediaScanScope scope) {
+  final List<Uri> roots = <Uri>[];
+  final List<MediaScanFailure> failures = <MediaScanFailure>[];
+  for (final Uri root in scope.roots) {
+    if (root.isScheme('file')) {
+      roots.add(root);
+    } else {
+      failures.add(
+        MediaScanFailure(
+          kind: MediaScanFailureKind.unsupportedScheme,
+          uri: root,
+          message: 'Only file URI scan roots are supported.',
+        ),
+      );
+    }
+  }
+
+  if (failures.isNotEmpty) {
+    return MediaScanScopeNormalizationResult.failure(failures);
+  }
+
+  return MediaScanScopeNormalizationResult.success(
+    NormalizedMediaScanScope(
+      roots: roots,
+      extensions: _normalizeExtensions(scope.extensions),
+      recursive: scope.recursive,
+      excludePatterns: _normalizePatterns(scope.excludePatterns),
+    ),
+  );
+}
+
 final class MediaScanCandidate {
   const MediaScanCandidate({
     required this.identity,
@@ -91,6 +182,97 @@ abstract interface class MediaLibraryScanner {
   Future<void> cancel(MediaScanId scanId);
 }
 
+final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
+  DeterministicMediaLibraryScanner({
+    required MediaScanId scanId,
+    List<MediaScanCandidate> candidates = const <MediaScanCandidate>[],
+    List<MediaScanFailure> unreadableEntries = const <MediaScanFailure>[],
+  })  : _scanId = scanId,
+        _candidates = candidates,
+        _unreadableEntries = unreadableEntries;
+
+  final MediaScanId _scanId;
+  final List<MediaScanCandidate> _candidates;
+  final List<MediaScanFailure> _unreadableEntries;
+  final Map<String, List<MediaScanEvent>> _eventsByScanId = <String, List<MediaScanEvent>>{};
+  final Set<String> _cancelledScanIds = <String>{};
+
+  @override
+  Future<MediaScanResult> scan(MediaScanScope scope) {
+    if (_cancelledScanIds.contains(_scanId.value)) {
+      final MediaScanFailure failure = MediaScanFailure(
+        kind: MediaScanFailureKind.cancelled,
+        uri: _firstRootOrEmpty(scope),
+        message: 'Media scan was cancelled.',
+      );
+      final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: const <MediaScanCandidate>[], failures: <MediaScanFailure>[failure]);
+      _recordCancelled(_scanId, failure);
+      return Future<MediaScanResult>.value(result);
+    }
+
+    final MediaScanScopeNormalizationResult normalization = normalizeMediaScanScope(scope);
+    final NormalizedMediaScanScope? normalizedScope = normalization.scope;
+    if (normalizedScope == null) {
+      final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: const <MediaScanCandidate>[], failures: normalization.failures);
+      for (final MediaScanFailure failure in normalization.failures) {
+        _record(_scanId, MediaScanFailed(scanId: _scanId, failure: failure));
+      }
+      return Future<MediaScanResult>.value(result);
+    }
+
+    final List<MediaScanCandidate> accepted = <MediaScanCandidate>[];
+    final List<MediaScanFailure> failures = <MediaScanFailure>[..._unreadableEntries];
+    for (final MediaScanCandidate candidate in _candidates) {
+      if (normalizedScope.accepts(candidate.identity.uri, basename: candidate.identity.basename)) {
+        accepted.add(candidate);
+        _record(_scanId, MediaScanCandidateDiscovered(scanId: _scanId, candidate: candidate));
+        _record(_scanId, MediaScanProgressChanged(scanId: _scanId, scannedCount: accepted.length));
+      } else {
+        failures.add(
+          MediaScanFailure(
+            kind: candidate.identity.uri.isScheme('file') ? MediaScanFailureKind.excluded : MediaScanFailureKind.unsupportedScheme,
+            uri: candidate.identity.uri,
+            message: 'Media scan candidate is outside the normalized scope.',
+          ),
+        );
+      }
+    }
+
+    final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: accepted, failures: failures);
+    _record(_scanId, MediaScanCompleted(scanId: _scanId, result: result));
+    return Future<MediaScanResult>.value(result);
+  }
+
+  @override
+  Stream<MediaScanEvent> watch(MediaScanId scanId) {
+    return Stream<MediaScanEvent>.fromIterable(_eventsByScanId[scanId.value] ?? const <MediaScanEvent>[]);
+  }
+
+  @override
+  Future<void> cancel(MediaScanId scanId) {
+    if (_cancelledScanIds.add(scanId.value)) {
+      final MediaScanFailure failure = MediaScanFailure(
+        kind: MediaScanFailureKind.cancelled,
+        uri: Uri.parse(''),
+        message: 'Media scan was cancelled.',
+      );
+      _recordCancelled(scanId, failure);
+    }
+    return Future<void>.value();
+  }
+
+  void _recordCancelled(MediaScanId scanId, MediaScanFailure failure) {
+    final List<MediaScanEvent> events = _eventsByScanId.putIfAbsent(scanId.value, () => <MediaScanEvent>[]);
+    if (events.whereType<MediaScanCancelled>().isEmpty) {
+      events.add(MediaScanCancelled(scanId: scanId, failure: failure));
+    }
+  }
+
+  void _record(MediaScanId scanId, MediaScanEvent event) {
+    _eventsByScanId.putIfAbsent(scanId.value, () => <MediaScanEvent>[]).add(event);
+  }
+}
+
 final class MediaScanResult {
   const MediaScanResult({
     required this.scanId,
@@ -103,9 +285,18 @@ final class MediaScanResult {
   final List<MediaScanFailure> failures;
 }
 
-final class MediaScanFailure {
-  const MediaScanFailure({required this.uri, required this.message});
+enum MediaScanFailureKind {
+  unsupportedScheme,
+  excluded,
+  unreadableEntry,
+  cancelled,
+  discoveryFailed,
+}
 
+final class MediaScanFailure {
+  const MediaScanFailure({required this.kind, required this.uri, required this.message});
+
+  final MediaScanFailureKind kind;
   final Uri uri;
   final String message;
 }
@@ -138,6 +329,48 @@ final class MediaScanFailed extends MediaScanEvent {
   const MediaScanFailed({required super.scanId, required this.failure});
 
   final MediaScanFailure failure;
+}
+
+final class MediaScanCancelled extends MediaScanEvent {
+  const MediaScanCancelled({required super.scanId, required this.failure});
+
+  final MediaScanFailure failure;
+}
+
+Set<String> _normalizeExtensions(Set<String> extensions) {
+  return <String>{
+    for (final String extension in extensions)
+      if (extension.trim().isNotEmpty) extension.trim().toLowerCase().replaceFirst(RegExp(r'^\.+'), ''),
+  };
+}
+
+List<String> _normalizePatterns(List<String> patterns) {
+  return <String>[
+    for (final String pattern in patterns)
+      if (pattern.trim().isNotEmpty) pattern.trim().toLowerCase(),
+  ];
+}
+
+String _basenameFromUri(Uri uri) {
+  if (uri.pathSegments.isEmpty) {
+    return '';
+  }
+  return uri.pathSegments.last;
+}
+
+String _extensionOf(String basename) {
+  final int dotIndex = basename.lastIndexOf('.');
+  if (dotIndex < 0 || dotIndex == basename.length - 1) {
+    return '';
+  }
+  return basename.substring(dotIndex + 1).toLowerCase();
+}
+
+Uri _firstRootOrEmpty(MediaScanScope scope) {
+  if (scope.roots.isEmpty) {
+    return Uri.parse('');
+  }
+  return scope.roots.first;
 }
 
 final class PlaybackHistoryEntryId {
