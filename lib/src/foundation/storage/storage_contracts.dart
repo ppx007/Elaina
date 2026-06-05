@@ -1,8 +1,10 @@
 import 'bt_task_storage_contracts.dart';
+import 'piece_priority_scheduler_storage_contracts.dart';
 import 'seasonal_storage_contracts.dart';
 import 'virtual_stream_storage_contracts.dart';
 
 export 'bt_task_storage_contracts.dart';
+export 'piece_priority_scheduler_storage_contracts.dart';
 export 'seasonal_storage_contracts.dart';
 export 'virtual_stream_storage_contracts.dart';
 
@@ -21,6 +23,7 @@ enum StorageDomain {
   bangumiMatchQueue,
   btTask,
   virtualMediaStream,
+  piecePriorityScheduler,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -602,4 +605,5 @@ abstract interface class StorageFoundation {
   BangumiMatchQueueStore get bangumiMatchQueue;
   BtTaskStore get btTask;
   VirtualMediaStreamStore get virtualMediaStream;
+  PiecePrioritySchedulerStore get piecePriorityScheduler;
 }

@@ -17,6 +17,7 @@ export 'src/foundation/extension_points.dart';
 export 'src/foundation/gateway/provider_gateway.dart';
 export 'src/foundation/layers/layer_manifest.dart';
 export 'src/foundation/storage/bt_task_storage_contracts.dart';
+export 'src/foundation/storage/piece_priority_scheduler_storage_contracts.dart';
 export 'src/foundation/storage/seasonal_storage_contracts.dart';
 export 'src/foundation/storage/storage_contracts.dart';
 export 'src/foundation/storage/virtual_stream_storage_contracts.dart';
