@@ -1,5 +1,7 @@
+import 'bt_task_storage_contracts.dart';
 import 'seasonal_storage_contracts.dart';
 
+export 'bt_task_storage_contracts.dart';
 export 'seasonal_storage_contracts.dart';
 
 enum StorageDomain {
@@ -15,6 +17,7 @@ enum StorageDomain {
   rssFeed,
   seasonalCatalog,
   bangumiMatchQueue,
+  btTask,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -594,4 +597,5 @@ abstract interface class StorageFoundation {
   RssFeedStore get rssFeed;
   SeasonalCatalogStore get seasonalCatalog;
   BangumiMatchQueueStore get bangumiMatchQueue;
+  BtTaskStore get btTask;
 }
