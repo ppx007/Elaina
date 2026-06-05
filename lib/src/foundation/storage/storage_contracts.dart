@@ -1,8 +1,10 @@
 import 'bt_task_storage_contracts.dart';
 import 'seasonal_storage_contracts.dart';
+import 'virtual_stream_storage_contracts.dart';
 
 export 'bt_task_storage_contracts.dart';
 export 'seasonal_storage_contracts.dart';
+export 'virtual_stream_storage_contracts.dart';
 
 enum StorageDomain {
   sqliteMetadata,
@@ -18,6 +20,7 @@ enum StorageDomain {
   seasonalCatalog,
   bangumiMatchQueue,
   btTask,
+  virtualMediaStream,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -598,4 +601,5 @@ abstract interface class StorageFoundation {
   SeasonalCatalogStore get seasonalCatalog;
   BangumiMatchQueueStore get bangumiMatchQueue;
   BtTaskStore get btTask;
+  VirtualMediaStreamStore get virtualMediaStream;
 }

@@ -19,6 +19,7 @@ export 'src/foundation/layers/layer_manifest.dart';
 export 'src/foundation/storage/bt_task_storage_contracts.dart';
 export 'src/foundation/storage/seasonal_storage_contracts.dart';
 export 'src/foundation/storage/storage_contracts.dart';
+export 'src/foundation/storage/virtual_stream_storage_contracts.dart';
 export 'src/network/network_policy.dart';
 export 'src/network/webview_session_backfill.dart';
 export 'src/playback/advanced_caption_rendering.dart';
