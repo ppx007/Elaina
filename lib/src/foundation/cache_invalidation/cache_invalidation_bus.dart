@@ -128,6 +128,58 @@ final class BangumiMatchApplied extends CacheInvalidationEvent {
   final String providerSubjectId;
 }
 
+final class BtTaskCreated extends CacheInvalidationEvent {
+  const BtTaskCreated({
+    required super.occurredAt,
+    required this.taskId,
+    required this.sourceKind,
+  });
+
+  final String taskId;
+  final String sourceKind;
+}
+
+final class BtMetadataUpdated extends CacheInvalidationEvent {
+  const BtMetadataUpdated({
+    required super.occurredAt,
+    required this.taskId,
+    required this.infoHash,
+    required this.name,
+  });
+
+  final String taskId;
+  final String infoHash;
+  final String name;
+}
+
+final class BtTaskLifecycleChanged extends CacheInvalidationEvent {
+  const BtTaskLifecycleChanged({
+    required super.occurredAt,
+    required this.taskId,
+    required this.previousState,
+    required this.newState,
+  });
+
+  final String taskId;
+  final String previousState;
+  final String newState;
+}
+
+final class BtTaskFileSelectionChanged extends CacheInvalidationEvent {
+  const BtTaskFileSelectionChanged({
+    required super.occurredAt,
+    required this.taskId,
+  });
+
+  final String taskId;
+}
+
+final class BtTaskRemoved extends CacheInvalidationEvent {
+  const BtTaskRemoved({required super.occurredAt, required this.taskId});
+
+  final String taskId;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
