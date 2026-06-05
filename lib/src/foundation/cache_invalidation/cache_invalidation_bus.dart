@@ -222,9 +222,70 @@ final class VirtualStreamRangeFailed extends CacheInvalidationEvent {
 }
 
 final class VirtualStreamClosed extends CacheInvalidationEvent {
-  const VirtualStreamClosed({required super.occurredAt, required this.streamId});
+  const VirtualStreamClosed(
+      {required super.occurredAt, required this.streamId});
 
   final String streamId;
+}
+
+final class PiecePriorityPlanGenerated extends CacheInvalidationEvent {
+  const PiecePriorityPlanGenerated({
+    required super.occurredAt,
+    required this.taskId,
+    required this.streamId,
+    required this.planId,
+    required this.profileId,
+  });
+
+  final String taskId;
+  final String streamId;
+  final String planId;
+  final String profileId;
+}
+
+final class PiecePriorityPlanApplied extends CacheInvalidationEvent {
+  const PiecePriorityPlanApplied({
+    required super.occurredAt,
+    required this.taskId,
+    required this.streamId,
+    required this.planId,
+    required this.profileId,
+  });
+
+  final String taskId;
+  final String streamId;
+  final String planId;
+  final String profileId;
+}
+
+final class PiecePriorityPlanRejected extends CacheInvalidationEvent {
+  const PiecePriorityPlanRejected({
+    required super.occurredAt,
+    required this.taskId,
+    required this.streamId,
+    required this.planId,
+    required this.profileId,
+    this.failureKind,
+  });
+
+  final String taskId;
+  final String streamId;
+  final String planId;
+  final String profileId;
+  final String? failureKind;
+}
+
+final class PiecePriorityProfileChanged extends CacheInvalidationEvent {
+  const PiecePriorityProfileChanged({
+    required super.occurredAt,
+    required this.taskId,
+    required this.streamId,
+    required this.profileId,
+  });
+
+  final String taskId;
+  final String streamId;
+  final String profileId;
 }
 
 abstract interface class CacheInvalidationBus {
