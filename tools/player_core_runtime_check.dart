@@ -12,6 +12,7 @@ Future<void> main() async {
   await _verifySubtitleProviderCacheContract();
   await _verifyRssEngineContract();
   await _verifySeasonalIndexerContract();
+  await _verifyBtTaskCoreContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -564,6 +565,130 @@ Future<void> _verifySeasonalIndexerContract() async {
               ?.value ==
           'runtime-subject',
       'Bangumi match worker must persist automatic bindings.');
+}
+
+Future<void> _verifyBtTaskCoreContract() async {
+  final _RuntimeDownloadEngineAdapter adapter = _RuntimeDownloadEngineAdapter();
+  final DeterministicBtTaskStore store = DeterministicBtTaskStore();
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DeterministicBtTaskCore core = DeterministicBtTaskCore(
+    adapter: adapter,
+    store: store,
+    cacheInvalidationBus: bus,
+    clock: () => DateTime.utc(2026, 6, 5, 12),
+  );
+
+  final Future<CacheInvalidationEvent> createdEvent = bus.events.first;
+  final BtTaskCreateOutcome created = await core.createTask(
+    const BtTaskCreateRequest(
+      source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:runtime'),
+    ),
+  );
+  _expect(created.isSuccess, 'BT task core must create adapter-backed tasks.');
+  _expect((await createdEvent) is BtTaskCreated,
+      'BT task creation must publish cache invalidation.');
+  _expect((await store.findTaskById('runtime-bt-task')) != null,
+      'BT task core must persist created tasks.');
+
+  final Future<List<CacheInvalidationEvent>> metadataEvents =
+      bus.events.take(2).toList();
+  final BtTaskMetadataOutcome metadata =
+      await core.ensureMetadata(const BtTaskId('runtime-bt-task'));
+  final BtTaskCommandOutcome selected = await core.selectFiles(
+      const BtTaskId('runtime-bt-task'), const <BtFileIndex>[BtFileIndex(1)]);
+  final List<CacheInvalidationEvent> deliveredMetadataEvents =
+      await metadataEvents;
+  _expect(
+      metadata.isSuccess, 'BT task core must fetch metadata through adapter.');
+  _expect(selected.isSuccess, 'BT task core must route file selections.');
+  _expect(
+      (await store.metadataFor('runtime-bt-task'))?.infoHash == 'runtimehash',
+      'BT task core must persist fetched metadata.');
+  _expect(
+      (await store.filesFor('runtime-bt-task'))[1].selectionState ==
+          StoredBtFileSelectionState.selected,
+      'BT task core must persist selected file state.');
+  _expect(
+      deliveredMetadataEvents.whereType<BtMetadataUpdated>().length == 1 &&
+          deliveredMetadataEvents
+                  .whereType<BtTaskFileSelectionChanged>()
+                  .length ==
+              1,
+      'BT task core must publish metadata and file selection invalidations.');
+
+  final Future<List<CacheInvalidationEvent>> lifecycleEvents =
+      bus.events.take(3).toList();
+  await core.pause(const BtTaskId('runtime-bt-task'));
+  await core.resume(const BtTaskId('runtime-bt-task'));
+  await core.remove(const BtTaskId('runtime-bt-task'));
+  final List<CacheInvalidationEvent> deliveredLifecycleEvents =
+      await lifecycleEvents;
+  _expect(adapter.pausedTaskIds.single.value == 'runtime-bt-task',
+      'BT task core must route pause to adapter.');
+  _expect(adapter.resumedTaskIds.single.value == 'runtime-bt-task',
+      'BT task core must route resume to adapter.');
+  _expect(adapter.removedTaskIds.single.value == 'runtime-bt-task',
+      'BT task core must route remove to adapter.');
+  _expect(
+      (await store.findTaskById('runtime-bt-task'))?.lifecycleState ==
+          StoredBtTaskLifecycleState.removed,
+      'BT task core must persist removal lifecycle state.');
+  _expect(deliveredLifecycleEvents.whereType<BtTaskRemoved>().length == 1,
+      'BT task core must publish removal invalidation.');
+
+  final Future<BtTaskStatus> statusFuture =
+      core.watchStatus(const BtTaskId('runtime-bt-task')).first;
+  await Future<void>.delayed(Duration.zero);
+  adapter.emitStatus(_runtimeBtStatus());
+  await statusFuture;
+  _expect(
+      (await store.latestTransferSnapshot('runtime-bt-task'))?.progress == 0.5,
+      'BT task core must persist adapter status snapshots.');
+
+  final Future<List<CacheInvalidationEvent>> eventInvalidations =
+      bus.events.take(2).toList();
+  final Future<List<BtTaskEvent>> taskEvents =
+      core.watchEvents(const BtTaskId('runtime-bt-task')).take(2).toList();
+  await Future<void>.delayed(Duration.zero);
+  adapter.emitEvent(BtMetadataReceived(
+      taskId: const BtTaskId('runtime-bt-task'),
+      metadata: _runtimeBtMetadata()));
+  adapter.emitEvent(const BtTaskFailed(
+      taskId: BtTaskId('runtime-bt-task'), message: 'Runtime failure.'));
+  await taskEvents;
+  final List<CacheInvalidationEvent> deliveredEventInvalidations =
+      await eventInvalidations;
+  await bus.close();
+
+  _expect(
+      (await store.latestEvent('runtime-bt-task'))?.eventKind ==
+          StoredBtTaskEventKind.failed,
+      'BT task core must persist latest adapter event.');
+  _expect(
+      deliveredEventInvalidations.whereType<BtMetadataUpdated>().length == 1 &&
+          deliveredEventInvalidations
+                  .whereType<BtTaskLifecycleChanged>()
+                  .single
+                  .newState ==
+              BtTaskLifecycleState.failed.name,
+      'BT task core must publish adapter event invalidations.');
+
+  final _RuntimeDownloadEngineAdapter unsupportedAdapter =
+      _RuntimeDownloadEngineAdapter(
+    capabilities: BtCapabilityMatrix.unsupported(reason: 'BT disabled.'),
+  );
+  final BtTaskCreateOutcome unsupported = await DeterministicBtTaskCore(
+    adapter: unsupportedAdapter,
+    store: DeterministicBtTaskStore(),
+  ).createTask(
+    const BtTaskCreateRequest(
+      source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:runtime'),
+    ),
+  );
+  _expect(unsupported.failure?.kind == BtTaskFailureKind.capabilityUnsupported,
+      'BT task core must preserve capability failures without adapter calls.');
+  _expect(unsupportedAdapter.createdRequests.isEmpty,
+      'Unsupported BT capabilities must not call adapter createTask.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
@@ -1341,6 +1466,127 @@ final class _RuntimeRssEngine implements RssEngineContract {
   }
 
   Future<void> close() => _updates.close();
+}
+
+BtTaskMetadata _runtimeBtMetadata() {
+  return const BtTaskMetadata(
+    infoHash: InfoHash('runtimehash'),
+    name: 'Runtime BT Pack',
+    totalSizeBytes: 3072,
+    pieceLengthBytes: 1024,
+    files: <BtTaskFile>[
+      BtTaskFile(
+        index: BtFileIndex(0),
+        path: 'Runtime Episode 1.mkv',
+        lengthBytes: 1024,
+        offsetBytes: 0,
+        selectionState: BtFileSelectionState.selected,
+      ),
+      BtTaskFile(
+        index: BtFileIndex(1),
+        path: 'Runtime Episode 2.mkv',
+        lengthBytes: 2048,
+        offsetBytes: 1024,
+        selectionState: BtFileSelectionState.selected,
+      ),
+    ],
+  );
+}
+
+BtTaskStatus _runtimeBtStatus() {
+  return BtTaskStatus(
+    taskId: const BtTaskId('runtime-bt-task'),
+    state: BtTaskLifecycleState.downloading,
+    progress: 0.5,
+    downloadRateBytesPerSecond: 4096,
+    uploadRateBytesPerSecond: 512,
+    connectedPeers: 4,
+    metadata: _runtimeBtMetadata(),
+  );
+}
+
+BtCapabilityMatrix _runtimeBtCapabilities() {
+  return const BtCapabilityMatrix(
+    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
+      BtStreamingCapability.metadataFetching: BtCapabilityStatus.supported(),
+      BtStreamingCapability.longBackgroundDownload:
+          BtCapabilityStatus.supported(),
+    },
+  );
+}
+
+final class _RuntimeDownloadEngineAdapter implements DownloadEngineAdapter {
+  _RuntimeDownloadEngineAdapter({BtCapabilityMatrix? capabilities})
+      : capabilities = capabilities ?? _runtimeBtCapabilities();
+
+  @override
+  final BtCapabilityMatrix capabilities;
+
+  final List<BtTaskCreateRequest> createdRequests = <BtTaskCreateRequest>[];
+  final List<BtTaskId> pausedTaskIds = <BtTaskId>[];
+  final List<BtTaskId> resumedTaskIds = <BtTaskId>[];
+  final List<BtTaskId> removedTaskIds = <BtTaskId>[];
+  final List<List<BtFileIndex>> selectedFiles = <List<BtFileIndex>>[];
+  final StreamController<BtTaskStatus> _statusController =
+      StreamController<BtTaskStatus>.broadcast(sync: true);
+  final StreamController<BtTaskEvent> _eventController =
+      StreamController<BtTaskEvent>.broadcast(sync: true);
+
+  @override
+  String get displayName => 'Runtime Download Engine';
+
+  @override
+  String get id => 'runtime-download-engine';
+
+  @override
+  Future<BtTaskId> createTask(BtTaskCreateRequest request) {
+    createdRequests.add(request);
+    return Future<BtTaskId>.value(const BtTaskId('runtime-bt-task'));
+  }
+
+  @override
+  Future<BtTaskMetadata> ensureMetadata(BtTaskId taskId) {
+    return Future<BtTaskMetadata>.value(_runtimeBtMetadata());
+  }
+
+  @override
+  Future<void> pause(BtTaskId taskId) {
+    pausedTaskIds.add(taskId);
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> remove(BtTaskId taskId) {
+    removedTaskIds.add(taskId);
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> resume(BtTaskId taskId) {
+    resumedTaskIds.add(taskId);
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> selectFiles(BtTaskId taskId, Iterable<BtFileIndex> files) {
+    selectedFiles.add(<BtFileIndex>[...files]);
+    return Future<void>.value();
+  }
+
+  @override
+  Stream<BtTaskEvent> watchEvents(BtTaskId taskId) => _eventController.stream;
+
+  @override
+  Stream<BtTaskStatus> watchStatus(BtTaskId taskId) => _statusController.stream;
+
+  void emitEvent(BtTaskEvent event) {
+    _eventController.add(event);
+  }
+
+  void emitStatus(BtTaskStatus status) {
+    _statusController.add(status);
+  }
 }
 
 final class _RuntimeBangumiProvider implements BangumiProvider {
