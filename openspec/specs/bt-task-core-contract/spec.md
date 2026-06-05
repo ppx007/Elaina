@@ -2,7 +2,6 @@
 
 ## Purpose
 Define the durable, engine-neutral BT task core contracts that coordinate Domain orchestration, Storage persistence, adapter command routing, and invalidation events without coupling UI or playback code to concrete download engines.
-
 ## Requirements
 ### Requirement: BT task core SHALL persist engine-neutral task state
 The system SHALL define Storage-backed BT task contracts for source, lifecycle, metadata, file selection, transfer status, and latest engine event state without exposing concrete download-engine APIs.
@@ -31,3 +30,11 @@ The system MUST keep concrete torrent engines, sockets, FFI, UI task screens, RS
 #### Scenario: Platform cannot support BT work
 - **WHEN** a runtime lacks task management, metadata fetching, or long-background download support
 - **THEN** the task core exposes capability limitations rather than leaking engine details or promising unsupported UI behavior
+
+### Requirement: BT task core contract SHALL provide virtual stream handoff state
+The system SHALL expose enough persisted BT task metadata, file selection state, and lifecycle state for virtual media stream creation to proceed without querying concrete download engines directly.
+
+#### Scenario: Virtual stream requests task file state
+- **WHEN** the virtual media stream registry creates a stream for a task file
+- **THEN** it reads task metadata, selected file records, and lifecycle state through BT task core Storage contracts rather than using adapter-specific torrent objects
+
