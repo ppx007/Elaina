@@ -8,5 +8,15 @@ final class VirtualStreamPlaybackSource extends PlaybackSource {
     super.headers,
   });
 
+  factory VirtualStreamPlaybackSource.fromDescriptor(
+      VirtualMediaStreamDescriptor descriptor) {
+    return VirtualStreamPlaybackSource(
+      streamId: descriptor.id,
+      uri: descriptor.contentUri ??
+          Uri.parse(
+              'celesteria-virtual-stream://${Uri.encodeComponent(descriptor.id.value)}'),
+    );
+  }
+
   final VirtualMediaStreamId streamId;
 }
