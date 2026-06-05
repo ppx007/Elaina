@@ -13,6 +13,7 @@ Future<void> main() async {
   await _verifyRssEngineContract();
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
+  await _verifyVirtualMediaStreamContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -689,6 +690,106 @@ Future<void> _verifyBtTaskCoreContract() async {
       'BT task core must preserve capability failures without adapter calls.');
   _expect(unsupportedAdapter.createdRequests.isEmpty,
       'Unsupported BT capabilities must not call adapter createTask.');
+}
+
+Future<void> _verifyVirtualMediaStreamContract() async {
+  final DeterministicBtTaskStore taskStore = DeterministicBtTaskStore();
+  final DeterministicVirtualMediaStreamStore streamStore =
+      DeterministicVirtualMediaStreamStore();
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DateTime observedAt = DateTime.utc(2026, 6, 5, 12);
+  await taskStore.storeTask(
+    StoredBtTaskRecord(
+      id: 'runtime-stream-task',
+      sourceKind: StoredBtTaskSourceKind.magnet,
+      sourceUri: 'magnet:?xt=urn:btih:runtimestream',
+      lifecycleState: StoredBtTaskLifecycleState.ready,
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    ),
+  );
+  await taskStore.storeMetadata(
+    const StoredBtTaskMetadataRecord(
+      taskId: 'runtime-stream-task',
+      infoHash: 'runtimestream',
+      name: 'Runtime Stream Pack',
+      totalSizeBytes: 4096,
+      pieceLengthBytes: 1024,
+    ),
+  );
+  await taskStore.storeFiles(
+    taskId: 'runtime-stream-task',
+    files: const <StoredBtTaskFileRecord>[
+      StoredBtTaskFileRecord(
+        taskId: 'runtime-stream-task',
+        index: 1,
+        path: 'Runtime Episode.mkv',
+        lengthBytes: 4096,
+        offsetBytes: 0,
+        selectionState: StoredBtFileSelectionState.streamingTarget,
+        mediaMimeType: 'video/x-matroska',
+      ),
+    ],
+  );
+  final DeterministicVirtualMediaStreamRegistry registry =
+      DeterministicVirtualMediaStreamRegistry(
+    btTaskStore: taskStore,
+    streamStore: streamStore,
+    cacheInvalidationBus: bus,
+    clock: () => observedAt,
+  );
+
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(3).toList();
+  final VirtualMediaStreamCreateOutcome created = await registry.createForFile(
+    taskId: const BtTaskId('runtime-stream-task'),
+    fileIndex: const BtFileIndex(1),
+  );
+  _expect(created.isSuccess, 'Virtual stream registry must create streams.');
+  _expect(created.descriptor?.mimeType == 'video/x-matroska',
+      'Virtual stream descriptors must preserve content metadata.');
+  _expect((await streamStore.findStreamById('runtime-stream-task::1')) != null,
+      'Virtual stream registry must persist descriptors.');
+
+  final VirtualMediaStream stream = (await registry
+      .streamFor(const VirtualMediaStreamId('runtime-stream-task::1')))!;
+  final VirtualRangeEnsureOutcome ensured = await stream.ensureRange(
+    const VirtualByteRangeRequest(
+      streamId: VirtualMediaStreamId('runtime-stream-task::1'),
+      range: BtByteRange(start: 0, endInclusive: 1023),
+    ),
+  );
+  _expect(ensured.isSuccess, 'Virtual stream must ensure available ranges.');
+  _expect((await stream.bufferedRanges()).single.range.endByte == 1023,
+      'Virtual stream must report persisted buffered ranges.');
+  _expect(
+      (await streamStore.latestEvent('runtime-stream-task::1'))?.eventKind ==
+          StoredVirtualStreamEventKind.rangeBuffered,
+      'Virtual stream must persist latest range events.');
+
+  final PlaybackSourceHandoffResult handoff =
+      const LocalPlaybackSourceHandoff().prepare(
+    PlaybackSourceHandoffInput.virtualStreamSource(
+      VirtualStreamPlaybackSource.fromDescriptor(created.descriptor!),
+    ),
+  );
+  _expect(handoff.source is VirtualStreamPlaybackSource,
+      'Playback handoff must prepare virtual stream playback sources.');
+  _expect(
+      (handoff.source as VirtualStreamPlaybackSource).streamId.value ==
+          'runtime-stream-task::1',
+      'Playback handoff must preserve virtual stream identity.');
+
+  final VirtualStreamCommandOutcome closed = await stream.close();
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(closed.isSuccess, 'Virtual stream closure must succeed.');
+  _expect(delivered.whereType<VirtualStreamCreated>().length == 1,
+      'Virtual stream creation must publish invalidation.');
+  _expect(delivered.whereType<VirtualStreamRangeBuffered>().length == 1,
+      'Virtual stream range buffering must publish invalidation.');
+  _expect(delivered.whereType<VirtualStreamClosed>().length == 1,
+      'Virtual stream closure must publish invalidation.');
 }
 
 void _verifySurfaceStateFromCapabilities() {

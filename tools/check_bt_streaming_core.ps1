@@ -5,6 +5,7 @@ $root = Split-Path -Parent $PSScriptRoot
 
 $requiredFiles = @(
   'lib/src/foundation/storage/bt_task_storage_contracts.dart',
+  'lib/src/foundation/storage/virtual_stream_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
@@ -54,20 +55,32 @@ if ($btStorage -notmatch 'StoredBtTaskRecord' -or $btStorage -notmatch 'StoredBt
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'btTask') {
-  throw 'Storage foundation must expose BT task persistence responsibilities.'
+if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'VirtualMediaStreamStore get virtualMediaStream') {
+  throw 'Storage foundation must expose BT task and virtual stream persistence responsibilities.'
+}
+
+$virtualStreamStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/virtual_stream_storage_contracts.dart') -Raw
+foreach ($term in @('StoredVirtualMediaStreamRecord', 'StoredVirtualStreamBufferedRangeRecord', 'StoredVirtualStreamEventRecord', 'VirtualMediaStreamStore', 'DeterministicVirtualMediaStreamStore')) {
+  if ($virtualStreamStorage -notmatch [regex]::Escape($term)) {
+    throw "Virtual stream storage missing required contract: $term"
+  }
 }
 
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
-foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved')) {
+foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved', 'VirtualStreamCreated', 'VirtualStreamRangeBuffered', 'VirtualStreamRangeFailed', 'VirtualStreamClosed')) {
   if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
-    throw "Cache invalidation bus missing BT event: $term"
+    throw "Cache invalidation bus missing streaming event: $term"
   }
 }
 
 $virtualStream = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/virtual_media_stream.dart') -Raw
-if ($virtualStream -notmatch 'VirtualMediaStream' -or $virtualStream -notmatch 'VirtualByteRangeRequest' -or $virtualStream -notmatch 'VirtualByteRangeChunk' -or $virtualStream -notmatch 'StreamBufferedRange' -or $virtualStream -notmatch 'MediaCacheStore|BufferedRange') {
-  throw 'Virtual media stream must define range and buffered range contracts tied to storage cache contracts.'
+if ($virtualStream -notmatch 'VirtualMediaStream' -or $virtualStream -notmatch 'VirtualByteRangeRequest' -or $virtualStream -notmatch 'VirtualByteRangeChunk' -or $virtualStream -notmatch 'VirtualRangeEnsureOutcome' -or $virtualStream -notmatch 'VirtualMediaStreamFailureKind' -or $virtualStream -notmatch 'DeterministicVirtualMediaStreamRegistry' -or $virtualStream -notmatch 'StreamBufferedRange' -or $virtualStream -notmatch 'VirtualMediaStreamStore|BufferedRange') {
+  throw 'Virtual media stream must define deterministic range, failure, registry, and buffered range contracts tied to storage contracts.'
+}
+
+$playbackHandoff = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/playback/playback_source_handoff.dart') -Raw
+if ($playbackHandoff -notmatch 'VirtualStreamSourceHandoffInput' -or $playbackHandoff -notmatch 'UnsupportedPlaybackSourceHandoffInput' -or $playbackHandoff -match 'DownloadEngine|PiecePriority|TimelineOverlay') {
+  throw 'Playback source handoff must accept virtual stream source values while rejecting engine, scheduler, and timeline coupling.'
 }
 
 $scheduler = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/piece_priority_scheduler.dart') -Raw
