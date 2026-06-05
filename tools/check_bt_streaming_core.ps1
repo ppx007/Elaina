@@ -4,6 +4,7 @@ $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_detail_library_seasonal.ps1')
 
 $requiredFiles = @(
+  'lib/src/foundation/storage/bt_task_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
@@ -43,8 +44,25 @@ foreach ($file in $streamingFiles) {
 }
 
 $btCore = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/bt_task_core.dart') -Raw
-if ($btCore -notmatch 'BtTaskSource' -or $btCore -notmatch 'BtTaskMetadata' -or $btCore -notmatch 'BtTaskFile' -or $btCore -notmatch 'DownloadEngineAdapter' -or $btCore -notmatch 'BtCapabilityMatrix' -or $btCore -notmatch 'longBackgroundDownload') {
+if ($btCore -notmatch 'BtTaskSource' -or $btCore -notmatch 'BtTaskMetadata' -or $btCore -notmatch 'BtTaskFile' -or $btCore -notmatch 'DownloadEngineAdapter' -or $btCore -notmatch 'BtCapabilityMatrix' -or $btCore -notmatch 'longBackgroundDownload' -or $btCore -notmatch 'BtTaskCoreContract' -or $btCore -notmatch 'DeterministicBtTaskCore' -or $btCore -notmatch 'BtTaskFailureKind') {
   throw 'BT task core must define source, metadata, file, adapter, and capability contracts.'
+}
+
+$btStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/bt_task_storage_contracts.dart') -Raw
+if ($btStorage -notmatch 'StoredBtTaskRecord' -or $btStorage -notmatch 'StoredBtTaskMetadataRecord' -or $btStorage -notmatch 'StoredBtTaskFileRecord' -or $btStorage -notmatch 'StoredBtTaskTransferSnapshotRecord' -or $btStorage -notmatch 'StoredBtTaskEventRecord' -or $btStorage -notmatch 'BtTaskStore' -or $btStorage -notmatch 'DeterministicBtTaskStore') {
+  throw 'BT task storage must define task, metadata, file, transfer snapshot, event, store, and deterministic store contracts.'
+}
+
+$storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'btTask') {
+  throw 'Storage foundation must expose BT task persistence responsibilities.'
+}
+
+$cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
+foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing BT event: $term"
+  }
 }
 
 $virtualStream = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/virtual_media_stream.dart') -Raw
