@@ -180,6 +180,53 @@ final class BtTaskRemoved extends CacheInvalidationEvent {
   final String taskId;
 }
 
+final class VirtualStreamCreated extends CacheInvalidationEvent {
+  const VirtualStreamCreated({
+    required super.occurredAt,
+    required this.streamId,
+    required this.taskId,
+    required this.fileIndex,
+  });
+
+  final String streamId;
+  final String taskId;
+  final int fileIndex;
+}
+
+final class VirtualStreamRangeBuffered extends CacheInvalidationEvent {
+  const VirtualStreamRangeBuffered({
+    required super.occurredAt,
+    required this.streamId,
+    required this.startByte,
+    required this.endByte,
+  });
+
+  final String streamId;
+  final int startByte;
+  final int endByte;
+}
+
+final class VirtualStreamRangeFailed extends CacheInvalidationEvent {
+  const VirtualStreamRangeFailed({
+    required super.occurredAt,
+    required this.streamId,
+    required this.failureKind,
+    this.startByte,
+    this.endByte,
+  });
+
+  final String streamId;
+  final String failureKind;
+  final int? startByte;
+  final int? endByte;
+}
+
+final class VirtualStreamClosed extends CacheInvalidationEvent {
+  const VirtualStreamClosed({required super.occurredAt, required this.streamId});
+
+  final String streamId;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
