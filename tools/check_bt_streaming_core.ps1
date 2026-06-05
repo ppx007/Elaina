@@ -6,6 +6,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/foundation/storage/bt_task_storage_contracts.dart',
   'lib/src/foundation/storage/virtual_stream_storage_contracts.dart',
+  'lib/src/foundation/storage/piece_priority_scheduler_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
@@ -55,8 +56,8 @@ if ($btStorage -notmatch 'StoredBtTaskRecord' -or $btStorage -notmatch 'StoredBt
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'VirtualMediaStreamStore get virtualMediaStream') {
-  throw 'Storage foundation must expose BT task and virtual stream persistence responsibilities.'
+if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'VirtualMediaStreamStore get virtualMediaStream' -or $storageContracts -notmatch 'PiecePrioritySchedulerStore get piecePriorityScheduler') {
+  throw 'Storage foundation must expose BT task, virtual stream, and piece priority scheduler persistence responsibilities.'
 }
 
 $virtualStreamStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/virtual_stream_storage_contracts.dart') -Raw
@@ -66,8 +67,15 @@ foreach ($term in @('StoredVirtualMediaStreamRecord', 'StoredVirtualStreamBuffer
   }
 }
 
+$schedulerStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/piece_priority_scheduler_storage_contracts.dart') -Raw
+foreach ($term in @('StoredPiecePriorityStrategyProfileRecord', 'StoredPiecePriorityPlanRecord', 'StoredPiecePriorityPlanRuleRecord', 'StoredPiecePriorityPlanApplicationEventRecord', 'PiecePrioritySchedulerStore', 'DeterministicPiecePrioritySchedulerStore')) {
+  if ($schedulerStorage -notmatch [regex]::Escape($term)) {
+    throw "Piece priority scheduler storage missing required contract: $term"
+  }
+}
+
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
-foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved', 'VirtualStreamCreated', 'VirtualStreamRangeBuffered', 'VirtualStreamRangeFailed', 'VirtualStreamClosed')) {
+foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved', 'VirtualStreamCreated', 'VirtualStreamRangeBuffered', 'VirtualStreamRangeFailed', 'VirtualStreamClosed', 'PiecePriorityPlanGenerated', 'PiecePriorityPlanApplied', 'PiecePriorityPlanRejected', 'PiecePriorityProfileChanged')) {
   if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
     throw "Cache invalidation bus missing streaming event: $term"
   }
@@ -84,8 +92,13 @@ if ($playbackHandoff -notmatch 'VirtualStreamSourceHandoffInput' -or $playbackHa
 }
 
 $scheduler = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/piece_priority_scheduler.dart') -Raw
-if ($scheduler -notmatch 'PiecePriorityScheduler' -or $scheduler -notmatch 'PlaybackWindow' -or $scheduler -notmatch 'SeekTarget' -or $scheduler -notmatch 'PiecePriorityStrategyProfile' -or $scheduler -notmatch 'PiecePriorityPlanApplier') {
-  throw 'Piece priority scheduler must define playback, seek, profile, and plan application contracts.'
+if ($scheduler -notmatch 'PiecePriorityScheduler' -or $scheduler -notmatch 'PlaybackWindow' -or $scheduler -notmatch 'SeekTarget' -or $scheduler -notmatch 'PiecePriorityStrategyProfile' -or $scheduler -notmatch 'PiecePriorityPlanApplier' -or $scheduler -notmatch 'PiecePriorityPlanRequest' -or $scheduler -notmatch 'PiecePriorityPlanOutcome' -or $scheduler -notmatch 'PiecePriorityPlanFailureKind' -or $scheduler -notmatch 'PiecePriorityApplicationOutcome' -or $scheduler -notmatch 'DeterministicPiecePriorityScheduler') {
+  throw 'Piece priority scheduler must define playback, seek, profile, deterministic planning, typed outcomes, and plan application contracts.'
+}
+foreach ($term in @('TimelineOverlay', 'auto-download', 'autoDownload', 'rule-source', 'ruleSource', 'Anime4K', 'diagnostics center')) {
+  if ($scheduler -match [regex]::Escape($term)) {
+    throw "Piece priority scheduler contains forbidden out-of-scope term '$term'"
+  }
 }
 
 $timeline = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/timeline_overlay.dart') -Raw

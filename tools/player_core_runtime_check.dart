@@ -14,6 +14,7 @@ Future<void> main() async {
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
+  await _verifyPiecePrioritySchedulerContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -790,6 +791,152 @@ Future<void> _verifyVirtualMediaStreamContract() async {
       'Virtual stream range buffering must publish invalidation.');
   _expect(delivered.whereType<VirtualStreamClosed>().length == 1,
       'Virtual stream closure must publish invalidation.');
+}
+
+Future<void> _verifyPiecePrioritySchedulerContract() async {
+  final DeterministicBtTaskStore taskStore = DeterministicBtTaskStore();
+  final DeterministicVirtualMediaStreamStore streamStore =
+      DeterministicVirtualMediaStreamStore();
+  final DeterministicPiecePrioritySchedulerStore schedulerStore =
+      DeterministicPiecePrioritySchedulerStore();
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DateTime observedAt = DateTime.utc(2026, 6, 5, 12);
+  await taskStore.storeTask(
+    StoredBtTaskRecord(
+      id: 'runtime-priority-task',
+      sourceKind: StoredBtTaskSourceKind.magnet,
+      sourceUri: 'magnet:?xt=urn:btih:runtimepriority',
+      lifecycleState: StoredBtTaskLifecycleState.ready,
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    ),
+  );
+  await taskStore.storeMetadata(
+    const StoredBtTaskMetadataRecord(
+      taskId: 'runtime-priority-task',
+      infoHash: 'runtimepriority',
+      name: 'Runtime Priority Pack',
+      totalSizeBytes: 4096,
+      pieceLengthBytes: 1024,
+    ),
+  );
+  await taskStore.storeFiles(
+    taskId: 'runtime-priority-task',
+    files: const <StoredBtTaskFileRecord>[
+      StoredBtTaskFileRecord(
+        taskId: 'runtime-priority-task',
+        index: 0,
+        path: 'Runtime Priority.mkv',
+        lengthBytes: 4096,
+        offsetBytes: 0,
+        selectionState: StoredBtFileSelectionState.streamingTarget,
+      ),
+    ],
+  );
+  await streamStore.storeStream(
+    StoredVirtualMediaStreamRecord(
+      id: 'runtime-priority-task::0',
+      taskId: 'runtime-priority-task',
+      fileIndex: 0,
+      lengthBytes: 4096,
+      lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    ),
+  );
+  final DeterministicPiecePriorityScheduler scheduler =
+      DeterministicPiecePriorityScheduler(
+    btTaskStore: taskStore,
+    streamStore: streamStore,
+    schedulerStore: schedulerStore,
+    cacheInvalidationBus: bus,
+    clock: () => observedAt,
+  );
+  final PiecePriorityStrategyProfile profile = PiecePriorityStrategyProfile(
+    id: 'runtime-balanced',
+    displayName: 'Runtime Balanced',
+    firstPiecePriority: DownloadPriority.critical,
+    tailPiecePriority: DownloadPriority.high,
+    playbackWindowPriority: DownloadPriority.high,
+    seekTargetPriority: DownloadPriority.critical,
+    staleWindowPriority: DownloadPriority.low,
+    lookaheadBytes: 1024,
+    seekLookaheadBytes: 1024,
+    edgePieceCount: 1,
+  );
+
+  final Future<List<CacheInvalidationEvent>> planEvents =
+      bus.events.take(2).toList();
+  final PiecePriorityPlanOutcome planned = await scheduler.plan(
+    PiecePriorityPlanRequest(
+      taskId: const BtTaskId('runtime-priority-task'),
+      streamId: const VirtualMediaStreamId('runtime-priority-task::0'),
+      profile: profile,
+      playbackWindow: const PlaybackWindow(
+        streamId: VirtualMediaStreamId('runtime-priority-task::0'),
+        currentByteOffset: 0,
+        lookaheadBytes: 1024,
+      ),
+      seekTarget: const SeekTarget(
+        streamId: VirtualMediaStreamId('runtime-priority-task::0'),
+        targetByteOffset: 2048,
+      ),
+    ),
+  );
+  final List<CacheInvalidationEvent> deliveredPlanEvents = await planEvents;
+  _expect(planned.isSuccess, 'Piece priority scheduler must generate plans.');
+  _expect(planned.plan?.rules.isNotEmpty ?? false,
+      'Piece priority plans must contain priority rules.');
+  _expect((await schedulerStore.findProfileById('runtime-balanced')) != null,
+      'Piece priority scheduler must persist profiles.');
+  _expect(
+      (await schedulerStore.rulesForPlan(planned.plan!.id.value)).isNotEmpty,
+      'Piece priority scheduler must persist plan rules.');
+  _expect(
+      deliveredPlanEvents.whereType<PiecePriorityProfileChanged>().length == 1,
+      'Profile changes must publish invalidation.');
+  _expect(
+      deliveredPlanEvents.whereType<PiecePriorityPlanGenerated>().length == 1,
+      'Generated priority plans must publish invalidation.');
+
+  final DeterministicPiecePriorityPlanApplicationRecorder recorder =
+      DeterministicPiecePriorityPlanApplicationRecorder(
+    schedulerStore: schedulerStore,
+    cacheInvalidationBus: bus,
+    clock: () => observedAt,
+  );
+  final Future<CacheInvalidationEvent> appliedEvent = bus.events.first;
+  final PiecePriorityApplicationOutcome applied = await recorder.applyAndRecord(
+    planId: planned.plan!.id,
+    applier: _RuntimePiecePriorityPlanApplier(),
+  );
+  final CacheInvalidationEvent deliveredAppliedEvent = await appliedEvent;
+  await bus.close();
+  _expect(applied.isSuccess, 'Piece priority plan application must succeed.');
+  _expect(
+      (await schedulerStore.latestApplicationEvent(planned.plan!.id.value))
+              ?.outcome ==
+          StoredPiecePriorityApplicationOutcomeKind.accepted,
+      'Piece priority application events must be persisted.');
+  _expect(deliveredAppliedEvent is PiecePriorityPlanApplied,
+      'Applied priority plans must publish invalidation.');
+
+  final PiecePriorityPlanOutcome missingMetadata =
+      await DeterministicPiecePriorityScheduler(
+    btTaskStore: DeterministicBtTaskStore(),
+    streamStore: streamStore,
+    schedulerStore: DeterministicPiecePrioritySchedulerStore(),
+  ).plan(
+    PiecePriorityPlanRequest(
+      taskId: const BtTaskId('missing-priority-task'),
+      streamId: const VirtualMediaStreamId('runtime-priority-task::0'),
+      profile: profile,
+    ),
+  );
+  _expect(
+      missingMetadata.failure?.kind ==
+          PiecePriorityPlanFailureKind.metadataUnavailable,
+      'Missing scheduler metadata must report typed failures.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
@@ -1687,6 +1834,15 @@ final class _RuntimeDownloadEngineAdapter implements DownloadEngineAdapter {
 
   void emitStatus(BtTaskStatus status) {
     _statusController.add(status);
+  }
+}
+
+final class _RuntimePiecePriorityPlanApplier
+    implements PiecePriorityPlanApplier {
+  @override
+  Future<PiecePriorityApplicationOutcome> apply(PiecePriorityPlan plan) {
+    return Future<PiecePriorityApplicationOutcome>.value(
+        const PiecePriorityApplicationOutcome.accepted());
   }
 }
 
