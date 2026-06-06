@@ -372,6 +372,60 @@ final class EnhancementPipelineStateChanged extends CacheInvalidationEvent {
   final String? failureKind;
 }
 
+final class AVSyncSampleIngested extends CacheInvalidationEvent {
+  const AVSyncSampleIngested({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.driftMillis,
+    required this.health,
+  });
+
+  final String scopeId;
+  final int driftMillis;
+  final String health;
+}
+
+final class AVSyncHealthTransitioned extends CacheInvalidationEvent {
+  const AVSyncHealthTransitioned({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.previousHealth,
+    required this.newHealth,
+    required this.reason,
+  });
+
+  final String scopeId;
+  final String previousHealth;
+  final String newHealth;
+  final String reason;
+}
+
+final class AVSyncDegradationDecisionRecorded extends CacheInvalidationEvent {
+  const AVSyncDegradationDecisionRecorded({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.action,
+    required this.health,
+    required this.reason,
+  });
+
+  final String scopeId;
+  final String action;
+  final String health;
+  final String reason;
+}
+
+final class AVSyncRecoveryStateChanged extends CacheInvalidationEvent {
+  const AVSyncRecoveryStateChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.recoveredHealth,
+  });
+
+  final String scopeId;
+  final String recoveredHealth;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 

@@ -77,6 +77,10 @@ final class PlaybackCapabilityMatrix {
     );
   }
 
+  CapabilityStatus get avSyncGuardStatus {
+    return statusOf(PlaybackCapability.avSyncGuard);
+  }
+
   List<PlaybackCapability> get supportedCapabilities {
     return <PlaybackCapability>[
       for (final MapEntry<PlaybackCapability, CapabilityStatus> entry
