@@ -288,6 +288,40 @@ final class PiecePriorityProfileChanged extends CacheInvalidationEvent {
   final String profileId;
 }
 
+final class TimelineOverlaySnapshotRefreshed extends CacheInvalidationEvent {
+  const TimelineOverlaySnapshotRefreshed({
+    required super.occurredAt,
+    required this.streamId,
+    required this.layerCount,
+  });
+
+  final String streamId;
+  final int layerCount;
+}
+
+final class TimelineOverlayLayerConfigurationChanged
+    extends CacheInvalidationEvent {
+  const TimelineOverlayLayerConfigurationChanged({
+    required super.occurredAt,
+    required this.streamId,
+    required this.profileId,
+  });
+
+  final String streamId;
+  final String profileId;
+}
+
+final class TimelineOverlayCompositionRejected extends CacheInvalidationEvent {
+  const TimelineOverlayCompositionRejected({
+    required super.occurredAt,
+    required this.streamId,
+    required this.failureKind,
+  });
+
+  final String streamId;
+  final String failureKind;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
