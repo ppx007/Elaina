@@ -45,3 +45,10 @@ The system SHALL expose virtual stream descriptors and buffered range snapshots 
 - **WHEN** the piece priority scheduler plans a playback or seek window for a virtual stream
 - **THEN** it can read descriptor and buffered range state through virtual stream contracts without opening files, sockets, HTTP servers, FFI handles, or libtorrent objects
 
+### Requirement: Virtual media stream contract SHALL provide timeline-safe buffered projections
+The system SHALL expose virtual stream descriptors and buffered range snapshots in a form that timeline overlay contracts can project onto playback timelines without opening files, sockets, HTTP servers, pipe servers, FFI handles, network clients, or libtorrent objects.
+
+#### Scenario: Timeline consumes buffered range state
+- **WHEN** a timeline overlay snapshot is composed for a task-backed virtual stream
+- **THEN** it can read buffered range snapshots through virtual stream contracts without making stream byte serving depend on timeline overlay behavior
+
