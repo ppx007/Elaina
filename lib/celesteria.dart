@@ -20,6 +20,7 @@ export 'src/foundation/storage/bt_task_storage_contracts.dart';
 export 'src/foundation/storage/piece_priority_scheduler_storage_contracts.dart';
 export 'src/foundation/storage/seasonal_storage_contracts.dart';
 export 'src/foundation/storage/storage_contracts.dart';
+export 'src/foundation/storage/timeline_overlay_storage_contracts.dart';
 export 'src/foundation/storage/virtual_stream_storage_contracts.dart';
 export 'src/network/network_policy.dart';
 export 'src/network/webview_session_backfill.dart';
