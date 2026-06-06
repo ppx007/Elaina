@@ -7,7 +7,7 @@ This phase adds contract scaffolding for Celesteria architecture plan steps 18-2
 - BT task contracts define engine-neutral magnet/torrent sources, metadata, file descriptors, lifecycle state, events, and a `DownloadEngineAdapter` boundary.
 - Virtual media stream contracts expose byte-range reads and buffered ranges without exposing torrent pieces to player adapters.
 - Piece priority scheduler contracts define piece maps, playback windows, seek targets, strategy profiles, and adapter-applied priority plans.
-- Timeline overlay contracts expose read-only progress, buffered ranges, piece states, markers, and layer visibility/order.
+- Timeline overlay contracts expose read-only progress, buffered ranges, piece states, priority windows, markers, heat layers, and layer visibility/order without owning BT, scheduler, or rendering behavior.
 - Playback receives a `VirtualStreamPlaybackSource` that points to a stream abstraction instead of a concrete torrent engine.
 
 ## Non-Goals Preserved

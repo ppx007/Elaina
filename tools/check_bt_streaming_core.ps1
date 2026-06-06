@@ -7,6 +7,7 @@ $requiredFiles = @(
   'lib/src/foundation/storage/bt_task_storage_contracts.dart',
   'lib/src/foundation/storage/virtual_stream_storage_contracts.dart',
   'lib/src/foundation/storage/piece_priority_scheduler_storage_contracts.dart',
+  'lib/src/foundation/storage/timeline_overlay_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
@@ -56,8 +57,8 @@ if ($btStorage -notmatch 'StoredBtTaskRecord' -or $btStorage -notmatch 'StoredBt
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'VirtualMediaStreamStore get virtualMediaStream' -or $storageContracts -notmatch 'PiecePrioritySchedulerStore get piecePriorityScheduler') {
-  throw 'Storage foundation must expose BT task, virtual stream, and piece priority scheduler persistence responsibilities.'
+if ($storageContracts -notmatch 'BtTaskStore get btTask' -or $storageContracts -notmatch 'VirtualMediaStreamStore get virtualMediaStream' -or $storageContracts -notmatch 'PiecePrioritySchedulerStore get piecePriorityScheduler' -or $storageContracts -notmatch 'TimelineOverlayStore get timelineOverlay') {
+  throw 'Storage foundation must expose BT task, virtual stream, piece priority scheduler, and timeline overlay persistence responsibilities.'
 }
 
 $virtualStreamStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/virtual_stream_storage_contracts.dart') -Raw
@@ -74,8 +75,15 @@ foreach ($term in @('StoredPiecePriorityStrategyProfileRecord', 'StoredPiecePrio
   }
 }
 
+$timelineStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/timeline_overlay_storage_contracts.dart') -Raw
+foreach ($term in @('StoredTimelineOverlayProfileRecord', 'StoredTimelineOverlayLayerRecord', 'StoredTimelineOverlaySnapshotMetadataRecord', 'TimelineOverlayStore', 'DeterministicTimelineOverlayStore')) {
+  if ($timelineStorage -notmatch [regex]::Escape($term)) {
+    throw "Timeline overlay storage missing required contract: $term"
+  }
+}
+
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
-foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved', 'VirtualStreamCreated', 'VirtualStreamRangeBuffered', 'VirtualStreamRangeFailed', 'VirtualStreamClosed', 'PiecePriorityPlanGenerated', 'PiecePriorityPlanApplied', 'PiecePriorityPlanRejected', 'PiecePriorityProfileChanged')) {
+foreach ($term in @('BtTaskCreated', 'BtMetadataUpdated', 'BtTaskLifecycleChanged', 'BtTaskFileSelectionChanged', 'BtTaskRemoved', 'VirtualStreamCreated', 'VirtualStreamRangeBuffered', 'VirtualStreamRangeFailed', 'VirtualStreamClosed', 'PiecePriorityPlanGenerated', 'PiecePriorityPlanApplied', 'PiecePriorityPlanRejected', 'PiecePriorityProfileChanged', 'TimelineOverlaySnapshotRefreshed', 'TimelineOverlayLayerConfigurationChanged', 'TimelineOverlayCompositionRejected')) {
   if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
     throw "Cache invalidation bus missing streaming event: $term"
   }
@@ -102,7 +110,7 @@ foreach ($term in @('TimelineOverlay', 'auto-download', 'autoDownload', 'rule-so
 }
 
 $timeline = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/timeline_overlay.dart') -Raw
-if ($timeline -notmatch 'TimelineOverlaySnapshot' -or $timeline -notmatch 'TimelineOverlayLayer' -or $timeline -notmatch 'TimelinePieceSegment' -or $timeline -notmatch 'TimelineOverlaySource' -or $timeline -match 'Controller') {
+if ($timeline -notmatch 'TimelineOverlaySnapshot' -or $timeline -notmatch 'TimelineOverlayLayer' -or $timeline -notmatch 'TimelinePieceSegment' -or $timeline -notmatch 'TimelineOverlaySource' -or $timeline -notmatch 'TimelinePriorityWindow' -or $timeline -notmatch 'TimelineHeatValue' -or $timeline -notmatch 'TimelineOverlayCompositionOutcome' -or $timeline -notmatch 'DeterministicTimelineOverlayComposer' -or $timeline -match 'Controller') {
   throw 'Timeline overlay must remain read-only presentation data, not a controller.'
 }
 

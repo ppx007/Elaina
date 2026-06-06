@@ -15,6 +15,7 @@ Future<void> main() async {
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
   await _verifyPiecePrioritySchedulerContract();
+  await _verifyTimelineOverlayContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -937,6 +938,142 @@ Future<void> _verifyPiecePrioritySchedulerContract() async {
       missingMetadata.failure?.kind ==
           PiecePriorityPlanFailureKind.metadataUnavailable,
       'Missing scheduler metadata must report typed failures.');
+}
+
+Future<void> _verifyTimelineOverlayContract() async {
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DateTime observedAt = DateTime.utc(2026, 6, 6, 12);
+  final DeterministicTimelineOverlayStore store =
+      DeterministicTimelineOverlayStore();
+  await store.storeProfile(StoredTimelineOverlayProfileRecord(
+    id: 'runtime-overlay',
+    displayName: 'Runtime Overlay',
+    isDefault: true,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  await store.setActiveProfile(StoredActiveTimelineOverlayProfileRecord(
+    streamId: 'runtime-overlay-stream',
+    profileId: 'runtime-overlay',
+    selectedAt: observedAt,
+  ));
+  await store.storeLayers(
+    profileId: 'runtime-overlay',
+    layers: <StoredTimelineOverlayLayerRecord>[
+      StoredTimelineOverlayLayerRecord(
+        profileId: 'runtime-overlay',
+        layerId: 'playback-progress',
+        kind: StoredTimelineOverlayLayerKind.playbackProgress,
+        visible: true,
+        order: 0,
+        updatedAt: observedAt,
+      ),
+      StoredTimelineOverlayLayerRecord(
+        profileId: 'runtime-overlay',
+        layerId: 'priority-windows',
+        kind: StoredTimelineOverlayLayerKind.priorityWindow,
+        visible: true,
+        order: 1,
+        updatedAt: observedAt,
+      ),
+    ],
+  );
+
+  final DeterministicTimelineOverlayComposer composer =
+      DeterministicTimelineOverlayComposer(
+    cacheInvalidationBus: bus,
+    clock: () => observedAt,
+  );
+  final Future<CacheInvalidationEvent> refreshedEvent = bus.events.first;
+  final TimelineOverlayCompositionOutcome composed = composer.compose(
+    TimelineOverlayCompositionInput(
+      stream: const VirtualMediaStreamDescriptor(
+        id: VirtualMediaStreamId('runtime-overlay-stream'),
+        taskId: BtTaskId('runtime-overlay-task'),
+        fileIndex: BtFileIndex(0),
+        lengthBytes: 4096,
+      ),
+      playback: TimelinePlaybackSnapshot(
+        position: Duration(seconds: 15),
+        duration: Duration(minutes: 1),
+      ),
+      bufferedRanges: const <StreamBufferedRange>[
+        StreamBufferedRange(
+          mediaId: 'runtime-overlay-stream',
+          range: BufferedRange(startByte: 0, endByte: 1023),
+        ),
+      ],
+      pieces: const <TimelinePieceSegment>[
+        TimelinePieceSegment(
+          pieceIndex: BtPieceIndex(0),
+          state: TimelinePieceState.buffered,
+          byteRange: TimelineByteRange(
+            streamId: VirtualMediaStreamId('runtime-overlay-stream'),
+            range: BtByteRange(start: 0, endInclusive: 1023),
+          ),
+        ),
+      ],
+      priorityWindows: const <TimelinePriorityWindow>[
+        TimelinePriorityWindow(
+          id: 'runtime-priority-window',
+          pieceIndex: BtPieceIndex(0),
+          byteRange: TimelineByteRange(
+            streamId: VirtualMediaStreamId('runtime-overlay-stream'),
+            range: BtByteRange(start: 0, endInclusive: 1023),
+          ),
+          priority: 'critical',
+          reason: 'playbackWindow',
+        ),
+      ],
+    ),
+  );
+  final CacheInvalidationEvent deliveredRefresh = await refreshedEvent;
+  _expect(composed.isSuccess, 'Timeline overlay must compose snapshots.');
+  _expect(composed.snapshot?.buffered.single.end == const Duration(seconds: 15),
+      'Timeline overlay must project byte ranges onto playback time.');
+  _expect(composed.snapshot?.priorityWindows.single.priority == 'critical',
+      'Timeline overlay must expose priority windows as read models.');
+  _expect(deliveredRefresh is TimelineOverlaySnapshotRefreshed,
+      'Timeline overlay refresh must publish invalidation.');
+
+  await store
+      .recordSnapshotMetadata(StoredTimelineOverlaySnapshotMetadataRecord(
+    streamId: 'runtime-overlay-stream',
+    profileId: 'runtime-overlay',
+    positionMillis: composed.snapshot!.position.inMilliseconds,
+    durationMillis: composed.snapshot!.duration.inMilliseconds,
+    layerCount: composed.snapshot!.layers.length,
+    composedAt: observedAt,
+  ));
+  _expect((await store.layersForProfile('runtime-overlay')).first.order == 0,
+      'Timeline overlay layers must persist in order.');
+  _expect(
+      (await store.latestSnapshotMetadata('runtime-overlay-stream'))
+              ?.layerCount ==
+          composed.snapshot!.layers.length,
+      'Timeline overlay snapshot metadata must persist.');
+
+  final Future<CacheInvalidationEvent> rejectedEvent = bus.events.first;
+  final TimelineOverlayCompositionOutcome rejected = composer.compose(
+    TimelineOverlayCompositionInput(
+      stream: const VirtualMediaStreamDescriptor(
+        id: VirtualMediaStreamId('runtime-overlay-stream'),
+        taskId: BtTaskId('runtime-overlay-task'),
+        fileIndex: BtFileIndex(0),
+        lengthBytes: 4096,
+      ),
+      playback: TimelinePlaybackSnapshot(
+          position: Duration.zero, duration: Duration.zero),
+    ),
+  );
+  final CacheInvalidationEvent deliveredRejection = await rejectedEvent;
+  await bus.close();
+  _expect(
+      rejected.failure?.kind ==
+          TimelineOverlayCompositionFailureKind.durationUnavailable,
+      'Timeline overlay must return typed composition failures.');
+  _expect(deliveredRejection is TimelineOverlayCompositionRejected,
+      'Timeline overlay rejection must publish invalidation.');
 }
 
 void _verifySurfaceStateFromCapabilities() {
