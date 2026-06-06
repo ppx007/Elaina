@@ -322,6 +322,56 @@ final class TimelineOverlayCompositionRejected extends CacheInvalidationEvent {
   final String failureKind;
 }
 
+enum EnhancementProfileChangeKind {
+  created,
+  updated,
+  removed,
+  activated,
+}
+
+final class EnhancementProfileChanged extends CacheInvalidationEvent {
+  const EnhancementProfileChanged({
+    required super.occurredAt,
+    required this.profileId,
+    required this.changeKind,
+    this.scopeId,
+  });
+
+  final String profileId;
+  final EnhancementProfileChangeKind changeKind;
+  final String? scopeId;
+}
+
+final class EnhancementCapabilityReevaluated extends CacheInvalidationEvent {
+  const EnhancementCapabilityReevaluated({
+    required super.occurredAt,
+    required this.profileId,
+    required this.supported,
+    this.reason,
+  });
+
+  final String profileId;
+  final bool supported;
+  final String? reason;
+}
+
+final class EnhancementPipelineStateChanged extends CacheInvalidationEvent {
+  const EnhancementPipelineStateChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.previousState,
+    required this.newState,
+    this.profileId,
+    this.failureKind,
+  });
+
+  final String scopeId;
+  final String previousState;
+  final String newState;
+  final String? profileId;
+  final String? failureKind;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
