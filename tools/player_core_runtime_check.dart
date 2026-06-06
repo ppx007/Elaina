@@ -17,6 +17,7 @@ Future<void> main() async {
   await _verifyPiecePrioritySchedulerContract();
   await _verifyTimelineOverlayContract();
   await _verifyVideoEnhancementPipelineContract();
+  await _verifyAVSyncGuardContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -1189,6 +1190,91 @@ Future<void> _verifyVideoEnhancementPipelineContract() async {
       'Enhancement rejection must include component reasons.');
 }
 
+Future<void> _verifyAVSyncGuardContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 6, 12);
+  final DeterministicAVSyncGuardStore store = DeterministicAVSyncGuardStore();
+  await store.storePolicy(StoredAVSyncPolicyRecord(
+    id: 'runtime-av-sync',
+    targetDriftMillis: 40,
+    warningDriftMillis: 80,
+    degradationDriftMillis: 120,
+    recoveryDriftMillis: 60,
+    sampleWindowSize: 3,
+    degradationOrder: <String>[
+      AVSyncDegradationAction.reduceEnhancementIntensity.name,
+      AVSyncDegradationAction.disableAdvancedCaptions.name,
+      AVSyncDegradationAction.disableEnhancementProfile.name,
+    ],
+    updatedAt: observedAt,
+  ));
+  _expect((await store.activePolicy('runtime-av-sync'))?.sampleWindowSize == 3,
+      'AV sync policy must persist sample window configuration.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DeterministicAVSyncGuard guard = DeterministicAVSyncGuard(
+    policy: AVSyncPolicy(),
+    guardStore: store,
+    capabilities: _runtimeAVSyncCapabilities(),
+    cacheInvalidationBus: bus,
+    scopeId: 'runtime-av-sync',
+    clock: () => observedAt,
+  );
+  final Future<List<CacheInvalidationEvent>> sampleEvents =
+      bus.events.take(4).toList();
+  await guard.ingestSample(_runtimeAVSyncSample(130));
+  await guard.ingestSample(_runtimeAVSyncSample(130));
+  final AVSyncEvaluationOutcome degraded =
+      await guard.ingestSample(_runtimeAVSyncSample(140));
+  final List<CacheInvalidationEvent> deliveredSamples = await sampleEvents;
+
+  _expect(degraded.decision?.health == AVSyncHealth.degraded,
+      'Sustained AV drift must enter degraded health.');
+  _expect(
+      (await store.latestHealth('runtime-av-sync'))?.health ==
+          StoredAVSyncHealthKind.degraded,
+      'AV sync health must persist after evaluation.');
+  _expect(deliveredSamples.whereType<AVSyncSampleIngested>().length == 3,
+      'AV sync sample ingestion must publish invalidation.');
+  _expect(deliveredSamples.whereType<AVSyncHealthTransitioned>().isNotEmpty,
+      'AV sync health transitions must publish invalidation.');
+
+  final Future<CacheInvalidationEvent> decisionEvent = bus.events.first;
+  final AVSyncDegradationRequestOutcome decision =
+      await guard.requestDegradation(
+    _runtimeAVSyncSample(140, enhancementOverBudget: true),
+  );
+  final CacheInvalidationEvent deliveredDecision = await decisionEvent;
+  _expect(
+      decision.decision?.action ==
+          AVSyncDegradationAction.reduceEnhancementIntensity,
+      'AV sync degradation must prefer enhancement actions for budget pressure.');
+  _expect(deliveredDecision is AVSyncDegradationDecisionRecorded,
+      'AV sync degradation decisions must publish invalidation.');
+
+  await guard.ingestSample(_runtimeAVSyncSample(20));
+  await guard.ingestSample(_runtimeAVSyncSample(20));
+  await guard.ingestSample(_runtimeAVSyncSample(20));
+  final AVSyncRecoveryOutcome recovery = await guard.checkRecovery();
+  await bus.close();
+  await guard.close();
+  _expect(recovery.decision?.health == AVSyncHealth.target,
+      'AV sync guard must recover after sustained low drift.');
+
+  final AVSyncEvaluationOutcome unsupported = await DeterministicAVSyncGuard(
+    policy: AVSyncPolicy(),
+    guardStore: DeterministicAVSyncGuardStore(),
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.avSyncGuard:
+            const CapabilityStatus.unsupported('Runtime AV sync unsupported.'),
+      },
+    ),
+  ).ingestSample(_runtimeAVSyncSample(0));
+  _expect(
+      unsupported.failure?.kind == AVSyncGuardFailureKind.capabilityUnsupported,
+      'Unsupported AVSyncGuard capability must return a typed failure.');
+}
+
 void _verifySurfaceStateFromCapabilities() {
   final PlaybackSurfaceState transportState = PlaybackController(
     adapterResolver: _StaticAdapterResolver(
@@ -2033,6 +2119,31 @@ VideoEnhancementProfile _runtimeLightEnhancementProfile() {
     hdrHandling: HdrHandlingIntent.adapterDefault,
     deband: DebandIntent.light,
     anime4kPreset: Anime4kPresetIntent.off,
+  );
+}
+
+PlaybackCapabilityMatrix _runtimeAVSyncCapabilities() {
+  return PlaybackCapabilityMatrix(
+    capabilities: <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.avSyncGuard: const CapabilityStatus.supported(),
+    },
+  );
+}
+
+AVSyncSample _runtimeAVSyncSample(int driftMillis,
+    {bool enhancementOverBudget = false}) {
+  return AVSyncSample(
+    audioPosition: Duration(milliseconds: 1000 + driftMillis),
+    videoPosition: const Duration(milliseconds: 1000),
+    renderDelay: const Duration(milliseconds: 8),
+    droppedFrames: enhancementOverBudget ? 1 : 0,
+    enhancementPressure: enhancementOverBudget
+        ? const RenderBudgetInput(
+            frameBudget: Duration(milliseconds: 16),
+            estimatedRenderCost: Duration(milliseconds: 24),
+            droppedFrames: 1,
+          )
+        : null,
   );
 }
 

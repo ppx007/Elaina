@@ -8,6 +8,7 @@ $requiredFiles = @(
   'lib/src/playback/av_sync_guard.dart',
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/fallback_adapter.dart',
+  'lib/src/foundation/storage/av_sync_guard_storage_contracts.dart',
   'lib/src/foundation/storage/video_enhancement_storage_contracts.dart',
   'docs/phase5-advanced-playback-core.md'
 )
@@ -59,8 +60,19 @@ foreach ($term in $requiredEnhancementStorageTerms) {
 }
 
 $syncGuard = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/av_sync_guard.dart') -Raw
-if ($syncGuard -notmatch 'AVSyncGuard' -or $syncGuard -notmatch 'AVSyncSample' -or $syncGuard -notmatch 'degradationDrift = const Duration\(milliseconds: 120\)' -or $syncGuard -notmatch 'targetDrift = const Duration\(milliseconds: 40\)' -or $syncGuard -notmatch 'AVSyncDegradationAction') {
-  throw 'AVSyncGuard must define metrics, 40ms target, 120ms degradation, and degradation actions.'
+$requiredAVSyncTerms = @('AVSyncGuard', 'AVSyncSample', 'degradationDrift = const Duration\(milliseconds: 120\)', 'targetDrift = const Duration\(milliseconds: 40\)', 'AVSyncDegradationAction', 'AVSyncEvaluationOutcome', 'AVSyncDegradationRequestOutcome', 'AVSyncRecoveryOutcome', 'DeterministicAVSyncGuard', 'sampleWindowSize')
+foreach ($term in $requiredAVSyncTerms) {
+  if ($syncGuard -notmatch $term) {
+    throw "AVSyncGuard missing contract term: $term"
+  }
+}
+
+$avSyncStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/av_sync_guard_storage_contracts.dart') -Raw
+$requiredAVSyncStorageTerms = @('StoredAVSyncPolicyRecord', 'StoredAVSyncHealthRecord', 'StoredAVSyncSampleHistoryMetadataRecord', 'StoredAVSyncDegradationDecisionRecord', 'AVSyncGuardStore', 'DeterministicAVSyncGuardStore')
+foreach ($term in $requiredAVSyncStorageTerms) {
+  if ($avSyncStorage -notmatch $term) {
+    throw "AV sync storage missing contract term: $term"
+  }
 }
 
 $captions = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/advanced_caption_rendering.dart') -Raw
@@ -90,8 +102,8 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore') {
-  throw 'Storage foundation must expose video enhancement persistence.'
+if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore' -or $storageContracts -notmatch 'avSyncGuard' -or $storageContracts -notmatch 'AVSyncGuardStore') {
+  throw 'Storage foundation must expose video enhancement and AV sync guard persistence.'
 }
 
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
@@ -100,6 +112,17 @@ foreach ($term in $requiredEnhancementEvents) {
   if ($cacheInvalidation -notmatch $term) {
     throw "Cache invalidation bus missing enhancement event: $term"
   }
+}
+
+$requiredAVSyncEvents = @('AVSyncSampleIngested', 'AVSyncHealthTransitioned', 'AVSyncDegradationDecisionRecorded', 'AVSyncRecoveryStateChanged')
+foreach ($term in $requiredAVSyncEvents) {
+  if ($cacheInvalidation -notmatch $term) {
+    throw "Cache invalidation bus missing AV sync event: $term"
+  }
+}
+
+if ($syncGuard -match 'VideoEnhancementPipeline\.' -or $syncGuard -match '\.apply\(' -or $syncGuard -match '\.disable\(' -or $syncGuard -match '\.requestDegradation\(') {
+  throw 'AVSyncGuard must not execute concrete video enhancement pipeline actions.'
 }
 
 $phase5Files = @(
