@@ -8,6 +8,7 @@ $requiredFiles = @(
   'lib/src/playback/av_sync_guard.dart',
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/fallback_adapter.dart',
+  'lib/src/foundation/storage/video_enhancement_storage_contracts.dart',
   'docs/phase5-advanced-playback-core.md'
 )
 
@@ -42,8 +43,19 @@ foreach ($file in $playbackFiles) {
 }
 
 $enhancement = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/video_enhancement_pipeline.dart') -Raw
-if ($enhancement -notmatch 'VideoEnhancementPipeline' -or $enhancement -notmatch 'VideoEnhancementProfile' -or $enhancement -notmatch 'RenderBudgetInput' -or $enhancement -notmatch 'Anime4kPresetIntent') {
-  throw 'Video enhancement pipeline must define profile, budget, and preset contracts.'
+$requiredEnhancementTerms = @('VideoEnhancementPipeline', 'VideoEnhancementProfile', 'RenderBudgetInput', 'Anime4kPresetIntent', 'EnhancementEvaluationOutcome', 'EnhancementApplyOutcome', 'EnhancementDisableOutcome', 'EnhancementDegradationOutcome', 'DeterministicVideoEnhancementPipeline')
+foreach ($term in $requiredEnhancementTerms) {
+  if ($enhancement -notmatch $term) {
+    throw "Video enhancement pipeline missing contract term: $term"
+  }
+}
+
+$enhancementStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/video_enhancement_storage_contracts.dart') -Raw
+$requiredEnhancementStorageTerms = @('StoredEnhancementProfileRecord', 'StoredActiveEnhancementProfileRecord', 'StoredEnhancementPipelineStateRecord', 'EnhancementProfileStore', 'DeterministicEnhancementProfileStore')
+foreach ($term in $requiredEnhancementStorageTerms) {
+  if ($enhancementStorage -notmatch $term) {
+    throw "Video enhancement storage missing contract term: $term"
+  }
 }
 
 $syncGuard = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/av_sync_guard.dart') -Raw
@@ -62,7 +74,7 @@ if ($fallback -notmatch 'PlaybackFallbackStrategy' -or $fallback -notmatch 'Fall
 }
 
 $capabilities = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/capability_matrix.dart') -Raw
-$requiredCapabilities = @('videoEnhancement', 'anime4kPreset', 'avSyncGuard', 'matrixDanmaku', 'dualSubtitles', 'pgsSubtitleRendering', 'assSubtitleEnhancement', 'fallbackAdapter')
+$requiredCapabilities = @('videoEnhancement', 'hdrToneMapping', 'debandFiltering', 'anime4kPreset', 'VideoEnhancementCapabilityStatus', 'avSyncGuard', 'matrixDanmaku', 'dualSubtitles', 'pgsSubtitleRendering', 'assSubtitleEnhancement', 'fallbackAdapter')
 foreach ($capability in $requiredCapabilities) {
   if ($capabilities -notmatch $capability) {
     throw "PlaybackCapability missing advanced capability: $capability"
@@ -74,6 +86,19 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
   $exportPath = $file.Replace('lib/', '')
   if ($barrel -notmatch [regex]::Escape("export '$exportPath';")) {
     throw "Public barrel missing export: $exportPath"
+  }
+}
+
+$storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
+if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore') {
+  throw 'Storage foundation must expose video enhancement persistence.'
+}
+
+$cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
+$requiredEnhancementEvents = @('EnhancementProfileChanged', 'EnhancementCapabilityReevaluated', 'EnhancementPipelineStateChanged')
+foreach ($term in $requiredEnhancementEvents) {
+  if ($cacheInvalidation -notmatch $term) {
+    throw "Cache invalidation bus missing enhancement event: $term"
   }
 }
 

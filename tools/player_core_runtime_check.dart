@@ -16,6 +16,7 @@ Future<void> main() async {
   await _verifyVirtualMediaStreamContract();
   await _verifyPiecePrioritySchedulerContract();
   await _verifyTimelineOverlayContract();
+  await _verifyVideoEnhancementPipelineContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -1076,6 +1077,118 @@ Future<void> _verifyTimelineOverlayContract() async {
       'Timeline overlay rejection must publish invalidation.');
 }
 
+Future<void> _verifyVideoEnhancementPipelineContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 6, 12);
+  final DeterministicEnhancementProfileStore store =
+      DeterministicEnhancementProfileStore();
+  await store.storeProfile(StoredEnhancementProfileRecord(
+    id: 'runtime-enhancement',
+    label: 'Runtime Enhancement',
+    scalerIntent: VideoScalerIntent.animeOptimized.name,
+    hdrHandlingIntent: HdrHandlingIntent.toneMapToSdr.name,
+    debandIntent: DebandIntent.medium.name,
+    anime4kPresetIntent: Anime4kPresetIntent.restore.name,
+    isBuiltIn: true,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  await store.setActiveProfile(StoredActiveEnhancementProfileRecord(
+    scopeId: 'runtime-adapter',
+    profileId: 'runtime-enhancement',
+    selectedAt: observedAt,
+  ));
+  _expect(
+      (await store.findProfileById('runtime-enhancement'))?.isBuiltIn == true,
+      'Enhancement profiles must persist built-in metadata.');
+  _expect(
+      (await store.activeProfile('runtime-adapter'))?.profileId ==
+          'runtime-enhancement',
+      'Active enhancement profiles must persist.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DeterministicVideoEnhancementPipeline pipeline =
+      DeterministicVideoEnhancementPipeline(
+    profileStore: store,
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.videoEnhancement: const CapabilityStatus.supported(),
+        PlaybackCapability.hdrToneMapping: const CapabilityStatus.supported(),
+        PlaybackCapability.debandFiltering: const CapabilityStatus.supported(),
+        PlaybackCapability.anime4kPreset: const CapabilityStatus.supported(),
+      },
+    ),
+    cacheInvalidationBus: bus,
+    scopeId: 'runtime-adapter',
+    clock: () => observedAt,
+  );
+  final VideoEnhancementProfile profile = _runtimeEnhancementProfile();
+  final Future<CacheInvalidationEvent> evaluationEvent = bus.events.first;
+  final EnhancementEvaluationOutcome evaluation =
+      await pipeline.evaluate(profile);
+  final CacheInvalidationEvent deliveredEvaluation = await evaluationEvent;
+  _expect(evaluation.isSuccess && evaluation.report?.supported == true,
+      'Supported enhancement profiles must evaluate successfully.');
+  _expect(deliveredEvaluation is EnhancementCapabilityReevaluated,
+      'Enhancement evaluation must publish invalidation.');
+
+  final Future<List<CacheInvalidationEvent>> applyEvents =
+      bus.events.take(2).toList();
+  final EnhancementApplyOutcome applied = await pipeline.apply(profile);
+  final List<CacheInvalidationEvent> deliveredApplyEvents = await applyEvents;
+  _expect(applied.isSuccess, 'Supported enhancement profiles must apply.');
+  _expect(
+      (await store.latestPipelineState('runtime-adapter'))?.state ==
+          StoredEnhancementPipelineStateKind.applied,
+      'Enhancement apply must persist pipeline state.');
+  _expect(
+      deliveredApplyEvents.whereType<EnhancementProfileChanged>().length == 1,
+      'Enhancement apply must publish profile invalidation.');
+  _expect(
+      deliveredApplyEvents
+              .whereType<EnhancementPipelineStateChanged>()
+              .length ==
+          1,
+      'Enhancement apply must publish state invalidation.');
+
+  final EnhancementDegradationOutcome degradation =
+      await pipeline.requestDegradation(EnhancementDegradationRequest(
+    profile: profile,
+    renderBudget: const RenderBudgetInput(
+      frameBudget: Duration(milliseconds: 16),
+      estimatedRenderCost: Duration(milliseconds: 24),
+      droppedFrames: 1,
+    ),
+    candidateTargets: <VideoEnhancementProfile>[
+      _runtimeLightEnhancementProfile()
+    ],
+  ));
+  _expect(degradation.snapshot?.isOverBudget == true,
+      'Enhancement degradation requests must expose budget pressure.');
+  _expect(degradation.snapshot?.degradationTarget?.id.value == 'runtime-light',
+      'Enhancement degradation must expose candidate targets.');
+
+  final EnhancementEvaluationOutcome unsupported =
+      await DeterministicVideoEnhancementPipeline(
+    profileStore: DeterministicEnhancementProfileStore(),
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.videoEnhancement: const CapabilityStatus.supported(),
+        PlaybackCapability.hdrToneMapping:
+            const CapabilityStatus.unsupported('Runtime HDR unsupported.'),
+        PlaybackCapability.debandFiltering:
+            const CapabilityStatus.unsupported('Runtime deband unsupported.'),
+        PlaybackCapability.anime4kPreset:
+            const CapabilityStatus.unsupported('Runtime Anime4K unsupported.'),
+      },
+    ),
+  ).evaluate(profile);
+  await bus.close();
+  _expect(unsupported.report?.supported == false,
+      'Unsupported enhancement components must be rejected deterministically.');
+  _expect(unsupported.report?.unsupportedComponents.length == 3,
+      'Enhancement rejection must include component reasons.');
+}
+
 void _verifySurfaceStateFromCapabilities() {
   final PlaybackSurfaceState transportState = PlaybackController(
     adapterResolver: _StaticAdapterResolver(
@@ -1898,6 +2011,28 @@ BtCapabilityMatrix _runtimeBtCapabilities() {
       BtStreamingCapability.longBackgroundDownload:
           BtCapabilityStatus.supported(),
     },
+  );
+}
+
+VideoEnhancementProfile _runtimeEnhancementProfile() {
+  return const VideoEnhancementProfile(
+    id: EnhancementProfileId('runtime-enhancement'),
+    label: 'Runtime Enhancement',
+    scaler: VideoScalerIntent.animeOptimized,
+    hdrHandling: HdrHandlingIntent.toneMapToSdr,
+    deband: DebandIntent.medium,
+    anime4kPreset: Anime4kPresetIntent.restore,
+  );
+}
+
+VideoEnhancementProfile _runtimeLightEnhancementProfile() {
+  return const VideoEnhancementProfile(
+    id: EnhancementProfileId('runtime-light'),
+    label: 'Runtime Light',
+    scaler: VideoScalerIntent.sharp,
+    hdrHandling: HdrHandlingIntent.adapterDefault,
+    deband: DebandIntent.light,
+    anime4kPreset: Anime4kPresetIntent.off,
   );
 }
 
