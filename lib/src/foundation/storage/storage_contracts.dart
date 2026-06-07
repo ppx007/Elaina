@@ -2,7 +2,9 @@ import 'advanced_caption_storage_contracts.dart';
 import 'av_sync_guard_storage_contracts.dart';
 import 'bt_task_storage_contracts.dart';
 import 'fallback_adapter_storage_contracts.dart';
+import 'online_rule_runtime_storage_contracts.dart';
 import 'piece_priority_scheduler_storage_contracts.dart';
+import 'rss_auto_download_policy_storage_contracts.dart';
 import 'seasonal_storage_contracts.dart';
 import 'timeline_overlay_storage_contracts.dart';
 import 'video_enhancement_storage_contracts.dart';
@@ -12,7 +14,9 @@ export 'advanced_caption_storage_contracts.dart';
 export 'av_sync_guard_storage_contracts.dart';
 export 'bt_task_storage_contracts.dart';
 export 'fallback_adapter_storage_contracts.dart';
+export 'online_rule_runtime_storage_contracts.dart';
 export 'piece_priority_scheduler_storage_contracts.dart';
+export 'rss_auto_download_policy_storage_contracts.dart';
 export 'seasonal_storage_contracts.dart';
 export 'timeline_overlay_storage_contracts.dart';
 export 'video_enhancement_storage_contracts.dart';
@@ -29,6 +33,8 @@ enum StorageDomain {
   providerBinding,
   subtitleCache,
   rssFeed,
+  rssAutoDownloadPolicy,
+  onlineRuleRuntime,
   seasonalCatalog,
   bangumiMatchQueue,
   btTask,
@@ -616,6 +622,8 @@ abstract interface class StorageFoundation {
   ProviderBindingRepository get providerBinding;
   SubtitleCacheStore get subtitleCache;
   RssFeedStore get rssFeed;
+  RssAutoDownloadPolicyStore get rssAutoDownloadPolicy;
+  OnlineRuleRuntimeStore get onlineRuleRuntime;
   SeasonalCatalogStore get seasonalCatalog;
   BangumiMatchQueueStore get bangumiMatchQueue;
   BtTaskStore get btTask;
