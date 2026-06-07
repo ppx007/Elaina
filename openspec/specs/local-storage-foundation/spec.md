@@ -87,3 +87,10 @@ The system SHALL expose storage-backed contracts for AV sync guard policy config
 - **WHEN** AV sync policy, health, sample metadata, or degradation decisions are written to Storage
 - **THEN** later Playback flows can restore deterministic guard state without direct database, renderer, native plugin, diagnostics, or UI persistence coupling
 
+### Requirement: Storage foundation SHALL expose advanced caption persistence contracts
+The system SHALL expose storage-backed contracts for advanced caption profiles, active feature selection, dual-subtitle preferences, and latest renderer state metadata.
+
+#### Scenario: Advanced caption state survives restart
+- **WHEN** advanced caption feature toggles, selected subtitle tracks, and renderer state metadata are written to Storage
+- **THEN** later playback preparation can restore advanced caption state without direct UI, renderer, or provider coupling
+

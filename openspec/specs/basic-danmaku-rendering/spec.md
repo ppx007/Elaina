@@ -24,3 +24,10 @@ The system SHALL define filtering and density controls for basic danmaku renderi
 - **WHEN** too many comments are eligible for the current player-clock window
 - **THEN** the renderer contract applies density rules before exposing comments for display
 
+### Requirement: Basic danmaku rendering SHALL remain independent of Matrix4 effects
+The system SHALL keep Matrix4 danmaku transforms in advanced caption rendering contracts while preserving basic player-clock timestamps, scrolling/top/bottom modes, filtering, and density controls.
+
+#### Scenario: Matrix4 danmaku is enabled
+- **WHEN** advanced caption rendering prepares Matrix4 danmaku effects
+- **THEN** basic danmaku comments, filters, density policies, and player-clock eligibility remain unchanged
+
