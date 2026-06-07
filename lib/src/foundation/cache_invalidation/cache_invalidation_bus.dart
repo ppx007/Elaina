@@ -128,6 +128,199 @@ final class BangumiMatchApplied extends CacheInvalidationEvent {
   final String providerSubjectId;
 }
 
+enum RssAutoDownloadPolicyChangeKind {
+  registered,
+  updated,
+  disabled,
+  removed,
+}
+
+final class RssAutoDownloadPolicyChanged extends CacheInvalidationEvent {
+  const RssAutoDownloadPolicyChanged({
+    required super.occurredAt,
+    required this.policyId,
+    required this.changeKind,
+    this.sourceId,
+  });
+
+  final String policyId;
+  final RssAutoDownloadPolicyChangeKind changeKind;
+  final String? sourceId;
+}
+
+final class RssAutoDownloadFeedItemEvaluated
+    extends CacheInvalidationEvent {
+  const RssAutoDownloadFeedItemEvaluated({
+    required super.occurredAt,
+    required this.policyId,
+    required this.feedItemId,
+    required this.sourceId,
+    required this.outcomeKind,
+    this.ruleId,
+  });
+
+  final String policyId;
+  final String? ruleId;
+  final String feedItemId;
+  final String sourceId;
+  final String outcomeKind;
+}
+
+final class RssAutoDownloadCandidateAccepted
+    extends CacheInvalidationEvent {
+  const RssAutoDownloadCandidateAccepted({
+    required super.occurredAt,
+    required this.policyId,
+    required this.ruleId,
+    required this.candidateDedupeKey,
+    required this.feedItemId,
+    required this.sourceId,
+  });
+
+  final String policyId;
+  final String ruleId;
+  final String candidateDedupeKey;
+  final String feedItemId;
+  final String sourceId;
+}
+
+final class RssAutoDownloadCandidateRejected
+    extends CacheInvalidationEvent {
+  const RssAutoDownloadCandidateRejected({
+    required super.occurredAt,
+    required this.policyId,
+    required this.feedItemId,
+    required this.sourceId,
+    required this.reason,
+    this.ruleId,
+  });
+
+  final String policyId;
+  final String? ruleId;
+  final String feedItemId;
+  final String sourceId;
+  final String reason;
+}
+
+final class RssAutoDownloadDedupeStateChanged
+    extends CacheInvalidationEvent {
+  const RssAutoDownloadDedupeStateChanged({
+    required super.occurredAt,
+    required this.policyId,
+    required this.candidateDedupeKey,
+    required this.candidateId,
+  });
+
+  final String policyId;
+  final String candidateDedupeKey;
+  final String candidateId;
+}
+
+final class RssAutoDownloadEnqueueOutcomeRecorded
+    extends CacheInvalidationEvent {
+  const RssAutoDownloadEnqueueOutcomeRecorded({
+    required super.occurredAt,
+    required this.policyId,
+    required this.candidateId,
+    required this.state,
+    this.taskId,
+  });
+
+  final String policyId;
+  final String candidateId;
+  final String state;
+  final String? taskId;
+}
+
+enum OnlineRuleManifestChangeKind {
+  registered,
+  updated,
+  disabled,
+  removed,
+}
+
+final class OnlineRuleManifestChanged extends CacheInvalidationEvent {
+  const OnlineRuleManifestChanged({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.changeKind,
+    this.version,
+  });
+
+  final String sourceId;
+  final OnlineRuleManifestChangeKind changeKind;
+  final String? version;
+}
+
+final class OnlineRuleValidationStateChanged extends CacheInvalidationEvent {
+  const OnlineRuleValidationStateChanged({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.valid,
+    this.issueCount = 0,
+  }) : assert(issueCount >= 0, 'issueCount must not be negative.');
+
+  final String sourceId;
+  final bool valid;
+  final int issueCount;
+}
+
+final class OnlineRuleTargetEvaluated extends CacheInvalidationEvent {
+  const OnlineRuleTargetEvaluated({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.target,
+    required this.state,
+  });
+
+  final String sourceId;
+  final String target;
+  final String state;
+}
+
+final class OnlineRulePageRetrievalOutcomeRecorded
+    extends CacheInvalidationEvent {
+  const OnlineRulePageRetrievalOutcomeRecorded({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.pageUri,
+    required this.state,
+  });
+
+  final String sourceId;
+  final Uri pageUri;
+  final String state;
+}
+
+final class OnlineRuleUnsupportedOperationRecorded
+    extends CacheInvalidationEvent {
+  const OnlineRuleUnsupportedOperationRecorded({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.kind,
+    required this.reason,
+    this.operationId,
+  });
+
+  final String sourceId;
+  final String? operationId;
+  final String kind;
+  final String reason;
+}
+
+final class OnlineRuleCapabilityChanged extends CacheInvalidationEvent {
+  const OnlineRuleCapabilityChanged({
+    required super.occurredAt,
+    required this.sourceId,
+    required this.supported,
+    this.reason,
+  });
+
+  final String sourceId;
+  final bool supported;
+  final String? reason;
+}
+
 final class BtTaskCreated extends CacheInvalidationEvent {
   const BtTaskCreated({
     required super.occurredAt,
