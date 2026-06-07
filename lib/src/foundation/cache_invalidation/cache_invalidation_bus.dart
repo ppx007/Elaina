@@ -516,6 +516,85 @@ final class AdvancedCaptionDegradationStateChanged
   final String? profileId;
 }
 
+enum FallbackAdapterChangeKind {
+  registered,
+  deregistered,
+}
+
+final class FallbackAdapterRegistrationChanged
+    extends CacheInvalidationEvent {
+  const FallbackAdapterRegistrationChanged({
+    required super.occurredAt,
+    required this.adapterId,
+    required this.changeKind,
+  });
+
+  final String adapterId;
+  final FallbackAdapterChangeKind changeKind;
+}
+
+final class FallbackCapabilityReevaluated extends CacheInvalidationEvent {
+  const FallbackCapabilityReevaluated({
+    required super.occurredAt,
+    required this.adapterId,
+    required this.supported,
+    this.reason,
+  });
+
+  final String adapterId;
+  final bool supported;
+  final String? reason;
+}
+
+final class FallbackSelectionChanged extends CacheInvalidationEvent {
+  const FallbackSelectionChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.reason,
+    this.adapterId,
+  });
+
+  final String scopeId;
+  final String? adapterId;
+  final String reason;
+}
+
+final class FallbackStrategyStateChanged extends CacheInvalidationEvent {
+  const FallbackStrategyStateChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.previousState,
+    required this.newState,
+    this.adapterId,
+    this.failureKind,
+  });
+
+  final String scopeId;
+  final String previousState;
+  final String newState;
+  final String? adapterId;
+  final String? failureKind;
+}
+
+final class FallbackDisabled extends CacheInvalidationEvent {
+  const FallbackDisabled({required super.occurredAt, required this.scopeId});
+
+  final String scopeId;
+}
+
+final class FallbackRejected extends CacheInvalidationEvent {
+  const FallbackRejected({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.failureKind,
+    required this.reason,
+  });
+
+  final String scopeId;
+  final String failureKind;
+  final String reason;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
