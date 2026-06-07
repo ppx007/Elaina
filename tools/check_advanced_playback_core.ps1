@@ -9,6 +9,7 @@ $requiredFiles = @(
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/fallback_adapter.dart',
   'lib/src/foundation/storage/av_sync_guard_storage_contracts.dart',
+  'lib/src/foundation/storage/advanced_caption_storage_contracts.dart',
   'lib/src/foundation/storage/video_enhancement_storage_contracts.dart',
   'docs/phase5-advanced-playback-core.md'
 )
@@ -80,6 +81,21 @@ if ($captions -notmatch 'MatrixDanmakuRequest' -or $captions -notmatch 'DualSubt
   throw 'Advanced captions must define Matrix4 danmaku, dual subtitle, PGS, and ASS enhancement contracts.'
 }
 
+$requiredCaptionTerms = @('AdvancedCaptionProfile', 'CaptionEvaluationOutcome', 'CaptionRenderOutcome', 'CaptionDisableOutcome', 'CaptionDegradationOutcome', 'AdvancedCaptionFailureKind', 'DeterministicAdvancedCaptionRenderer', 'disableAdvancedCaptions')
+foreach ($term in $requiredCaptionTerms) {
+  if ($captions -notmatch $term) {
+    throw "Advanced captions missing contract term: $term"
+  }
+}
+
+$captionStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/advanced_caption_storage_contracts.dart') -Raw
+$requiredCaptionStorageTerms = @('StoredAdvancedCaptionProfileRecord', 'StoredActiveAdvancedCaptionProfileRecord', 'StoredAdvancedCaptionDualSubtitleSelectionRecord', 'StoredAdvancedCaptionRendererStateRecord', 'AdvancedCaptionStore', 'DeterministicAdvancedCaptionStore')
+foreach ($term in $requiredCaptionStorageTerms) {
+  if ($captionStorage -notmatch $term) {
+    throw "Advanced caption storage missing contract term: $term"
+  }
+}
+
 $fallback = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/fallback_adapter.dart') -Raw
 if ($fallback -notmatch 'PlaybackFallbackStrategy' -or $fallback -notmatch 'FallbackSelection' -or $fallback -notmatch 'hiddenCapabilities' -or $fallback -match 'requiredVlc|mandatory') {
   throw 'Fallback adapter must define optional selection and capability hiding contracts.'
@@ -102,8 +118,8 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore' -or $storageContracts -notmatch 'avSyncGuard' -or $storageContracts -notmatch 'AVSyncGuardStore') {
-  throw 'Storage foundation must expose video enhancement and AV sync guard persistence.'
+if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore' -or $storageContracts -notmatch 'avSyncGuard' -or $storageContracts -notmatch 'AVSyncGuardStore' -or $storageContracts -notmatch 'advancedCaptions' -or $storageContracts -notmatch 'AdvancedCaptionStore') {
+  throw 'Storage foundation must expose video enhancement, AV sync guard, and advanced caption persistence.'
 }
 
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
@@ -121,8 +137,26 @@ foreach ($term in $requiredAVSyncEvents) {
   }
 }
 
+$requiredAdvancedCaptionEvents = @('AdvancedCaptionProfileChanged', 'AdvancedCaptionCapabilityReevaluated', 'AdvancedCaptionRendererStateChanged', 'AdvancedCaptionDualSubtitleSelectionChanged', 'AdvancedCaptionDegradationStateChanged')
+foreach ($term in $requiredAdvancedCaptionEvents) {
+  if ($cacheInvalidation -notmatch $term) {
+    throw "Cache invalidation bus missing advanced caption event: $term"
+  }
+}
+
 if ($syncGuard -match 'VideoEnhancementPipeline\.' -or $syncGuard -match '\.apply\(' -or $syncGuard -match '\.disable\(' -or $syncGuard -match '\.requestDegradation\(') {
   throw 'AVSyncGuard must not execute concrete video enhancement pipeline actions.'
+}
+
+if ($syncGuard -match 'AdvancedCaptionRenderer' -or $syncGuard -match 'advanced_caption_rendering') {
+  throw 'AVSyncGuard must not execute concrete advanced caption renderer actions.'
+}
+
+$forbiddenCaptionImplTerms = @('Widget', 'Canvas', 'PictureRecorder', 'FragmentProgram', 'PgsDecoder', 'AssRenderer', 'NativePlugin', 'dart:ffi', 'libmpv', 'Vlc')
+foreach ($term in $forbiddenCaptionImplTerms) {
+  if ($captions -match [regex]::Escape($term)) {
+    throw "Advanced captions contain forbidden implementation dependency: $term"
+  }
 }
 
 $phase5Files = @(

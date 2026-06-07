@@ -18,6 +18,7 @@ Future<void> main() async {
   await _verifyTimelineOverlayContract();
   await _verifyVideoEnhancementPipelineContract();
   await _verifyAVSyncGuardContract();
+  await _verifyAdvancedCaptionRenderingContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -1275,6 +1276,122 @@ Future<void> _verifyAVSyncGuardContract() async {
       'Unsupported AVSyncGuard capability must return a typed failure.');
 }
 
+Future<void> _verifyAdvancedCaptionRenderingContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 7, 12);
+  final DeterministicAdvancedCaptionStore store =
+      DeterministicAdvancedCaptionStore();
+  await store.storeProfile(StoredAdvancedCaptionProfileRecord(
+    id: 'runtime-captions',
+    label: 'Runtime Captions',
+    matrixDanmakuEnabled: true,
+    dualSubtitlesEnabled: true,
+    pgsRenderingEnabled: true,
+    assEnhancementEnabled: true,
+    primarySubtitleLanguageCode: 'ja',
+    secondarySubtitleLanguageCode: 'en',
+    isBuiltIn: true,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  _expect((await store.findProfileById('runtime-captions'))?.isBuiltIn == true,
+      'Advanced caption profiles must persist built-in metadata.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DeterministicAdvancedCaptionRenderer renderer =
+      DeterministicAdvancedCaptionRenderer(
+    captionStore: store,
+    capabilityMatrix: _runtimeAdvancedCaptionCapabilities(),
+    profile: _runtimeAdvancedCaptionProfile(),
+    cacheInvalidationBus: bus,
+    scopeId: 'runtime-captions',
+    clock: () => observedAt,
+  );
+
+  final Future<List<CacheInvalidationEvent>> evaluationEvents =
+      bus.events.take(2).toList();
+  final CaptionEvaluationOutcome evaluation =
+      await renderer.evaluate(_runtimeAdvancedCaptionProfile());
+  final List<CacheInvalidationEvent> deliveredEvaluationEvents =
+      await evaluationEvents;
+  _expect(evaluation.isSuccess && evaluation.report?.supported == true,
+      'Supported advanced caption profiles must evaluate successfully.');
+  _expect(
+      deliveredEvaluationEvents
+              .whereType<AdvancedCaptionCapabilityReevaluated>()
+              .length ==
+          1,
+      'Advanced caption evaluation must publish capability invalidation.');
+
+  final Future<List<CacheInvalidationEvent>> dualSubtitleEvents =
+      bus.events.take(3).toList();
+  final CaptionRenderOutcome dualSubtitleRender =
+      await renderer.renderDualSubtitles(DualSubtitleRequest(
+    primary: _runtimeSubtitle('runtime-subtitle-ja', 'ja'),
+    secondary: _runtimeSubtitle('runtime-subtitle-en', 'en'),
+  ));
+  final List<CacheInvalidationEvent> deliveredDualSubtitleEvents =
+      await dualSubtitleEvents;
+  _expect(dualSubtitleRender.isSuccess,
+      'Supported dual subtitles must render as a typed success.');
+  _expect(
+      (await store.dualSubtitleSelection('runtime-captions'))
+              ?.primarySubtitleId ==
+          'runtime-subtitle-ja',
+      'Advanced captions must persist ordered primary subtitle selection.');
+  _expect(
+      deliveredDualSubtitleEvents
+              .whereType<AdvancedCaptionDualSubtitleSelectionChanged>()
+              .length ==
+          1,
+      'Dual subtitle selection must publish invalidation.');
+
+  final CaptionRenderOutcome pgsRejected =
+      await DeterministicAdvancedCaptionRenderer(
+    captionStore: DeterministicAdvancedCaptionStore(),
+    capabilityMatrix: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.matrixDanmaku: const CapabilityStatus.supported(),
+        PlaybackCapability.dualSubtitles: const CapabilityStatus.supported(),
+        PlaybackCapability.pgsSubtitleRendering:
+            const CapabilityStatus.unsupported('Runtime PGS unsupported.'),
+        PlaybackCapability.assSubtitleEnhancement:
+            const CapabilityStatus.supported(),
+      },
+    ),
+    profile: _runtimeAdvancedCaptionProfile(),
+  ).renderAdvancedSubtitle(AdvancedSubtitleRequest(
+    source: _runtimeSubtitle('runtime-subtitle-pgs', 'ja'),
+    intent: AdvancedSubtitleRenderIntent.pgsImageSubtitle,
+  ));
+  _expect(
+      pgsRejected.failure?.kind ==
+          AdvancedCaptionFailureKind.capabilityUnsupported,
+      'Unsupported PGS rendering must return a typed capability failure.');
+
+  final Future<List<CacheInvalidationEvent>> degradationEvents =
+      bus.events.take(2).toList();
+  final CaptionDegradationOutcome degradation =
+      await renderer.acceptDegradation(
+    AVSyncDegradationAction.disableAdvancedCaptions,
+    reason: 'Runtime AV drift exceeded red line.',
+  );
+  final List<CacheInvalidationEvent> deliveredDegradationEvents =
+      await degradationEvents;
+  await bus.close();
+  _expect(degradation.isSuccess,
+      'disableAdvancedCaptions must be accepted as declarative input.');
+  _expect(
+      (await store.latestRendererState('runtime-captions'))?.state ==
+          StoredAdvancedCaptionRendererStateKind.degraded,
+      'Advanced caption degradation must persist renderer state.');
+  _expect(
+      deliveredDegradationEvents
+              .whereType<AdvancedCaptionDegradationStateChanged>()
+              .length ==
+          1,
+      'Advanced caption degradation must publish invalidation.');
+}
+
 void _verifySurfaceStateFromCapabilities() {
   final PlaybackSurfaceState transportState = PlaybackController(
     adapterResolver: _StaticAdapterResolver(
@@ -2144,6 +2261,41 @@ AVSyncSample _runtimeAVSyncSample(int driftMillis,
             droppedFrames: 1,
           )
         : null,
+  );
+}
+
+AdvancedCaptionProfile _runtimeAdvancedCaptionProfile() {
+  return const AdvancedCaptionProfile(
+    id: AdvancedCaptionProfileId('runtime-captions'),
+    label: 'Runtime Captions',
+    matrixDanmakuEnabled: true,
+    dualSubtitlesEnabled: true,
+    pgsRenderingEnabled: true,
+    assEnhancementEnabled: true,
+    primarySubtitleLanguageCode: 'ja',
+    secondarySubtitleLanguageCode: 'en',
+  );
+}
+
+PlaybackCapabilityMatrix _runtimeAdvancedCaptionCapabilities() {
+  return PlaybackCapabilityMatrix(
+    capabilities: <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.matrixDanmaku: const CapabilityStatus.supported(),
+      PlaybackCapability.dualSubtitles: const CapabilityStatus.supported(),
+      PlaybackCapability.pgsSubtitleRendering:
+          const CapabilityStatus.supported(),
+      PlaybackCapability.assSubtitleEnhancement:
+          const CapabilityStatus.supported(),
+    },
+  );
+}
+
+ExternalSubtitleSource _runtimeSubtitle(String id, String languageCode) {
+  return ExternalSubtitleSource(
+    id: id,
+    format: SubtitleFormat.ass,
+    languageCode: languageCode,
+    uri: Uri.file('D:/media/$id.ass'),
   );
 }
 
