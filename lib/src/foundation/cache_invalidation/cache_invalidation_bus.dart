@@ -426,6 +426,96 @@ final class AVSyncRecoveryStateChanged extends CacheInvalidationEvent {
   final String recoveredHealth;
 }
 
+enum AdvancedCaptionProfileChangeKind {
+  created,
+  updated,
+  removed,
+  activated,
+}
+
+final class AdvancedCaptionProfileChanged extends CacheInvalidationEvent {
+  const AdvancedCaptionProfileChanged({
+    required super.occurredAt,
+    required this.profileId,
+    required this.changeKind,
+    this.scopeId,
+  });
+
+  final String profileId;
+  final AdvancedCaptionProfileChangeKind changeKind;
+  final String? scopeId;
+}
+
+final class AdvancedCaptionCapabilityReevaluated
+    extends CacheInvalidationEvent {
+  const AdvancedCaptionCapabilityReevaluated({
+    required super.occurredAt,
+    required this.profileId,
+    required this.supported,
+    this.reason,
+  });
+
+  final String profileId;
+  final bool supported;
+  final String? reason;
+}
+
+final class AdvancedCaptionRendererStateChanged
+    extends CacheInvalidationEvent {
+  const AdvancedCaptionRendererStateChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.previousState,
+    required this.newState,
+    this.profileId,
+    this.feature,
+    this.failureKind,
+  });
+
+  final String scopeId;
+  final String previousState;
+  final String newState;
+  final String? profileId;
+  final String? feature;
+  final String? failureKind;
+}
+
+final class AdvancedCaptionDualSubtitleSelectionChanged
+    extends CacheInvalidationEvent {
+  const AdvancedCaptionDualSubtitleSelectionChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.profileId,
+    required this.primarySubtitleId,
+    required this.secondarySubtitleId,
+    this.primaryLanguageCode,
+    this.secondaryLanguageCode,
+  });
+
+  final String scopeId;
+  final String profileId;
+  final String primarySubtitleId;
+  final String secondarySubtitleId;
+  final String? primaryLanguageCode;
+  final String? secondaryLanguageCode;
+}
+
+final class AdvancedCaptionDegradationStateChanged
+    extends CacheInvalidationEvent {
+  const AdvancedCaptionDegradationStateChanged({
+    required super.occurredAt,
+    required this.scopeId,
+    required this.degraded,
+    required this.reason,
+    this.profileId,
+  });
+
+  final String scopeId;
+  final bool degraded;
+  final String reason;
+  final String? profileId;
+}
+
 abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
