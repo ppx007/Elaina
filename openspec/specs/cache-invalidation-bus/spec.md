@@ -87,3 +87,24 @@ The system SHALL publish explicit invalidation events when fallback adapters reg
 - **WHEN** a fallback adapter is selected for a playback scope
 - **THEN** a fallback invalidation event is published so derived playback capability state can refresh without direct cross-module mutation
 
+### Requirement: Video enhancement mutations SHALL publish invalidation events
+The system SHALL publish explicit invalidation events when video enhancement profiles change, capability evaluation changes, or pipeline state transitions occur.
+
+#### Scenario: Enhancement capability is reevaluated
+- **WHEN** adapter capabilities or active profile selection cause enhancement support to change
+- **THEN** a video enhancement invalidation event is published so playback surfaces and future diagnostics consumers can refresh derived state without direct cross-module mutation
+
+### Requirement: RSS auto-download mutations SHALL publish invalidation events
+The system SHALL publish explicit invalidation events when RSS auto-download policies change, feed items are evaluated, candidates are accepted or rejected, deduplication state changes, or BT enqueue handoff outcomes are recorded.
+
+#### Scenario: Candidate is accepted
+- **WHEN** RSS auto-download accepts a feed item as a download candidate
+- **THEN** an automation invalidation event is published so derived views and diagnostics snapshots can refresh without direct cross-module mutation
+
+### Requirement: Online rule runtime mutations SHALL publish invalidation events
+The system SHALL publish explicit invalidation events when online rule manifests change, validation state changes, target evaluations run, unsupported operations are recorded, page retrieval outcomes are recorded, or source capability state changes.
+
+#### Scenario: Manifest validation changes
+- **WHEN** online rule validation records new issues or clears existing issues for a source manifest
+- **THEN** an online rule invalidation event is published so derived views and diagnostics snapshots can refresh without direct cross-module mutation
+
