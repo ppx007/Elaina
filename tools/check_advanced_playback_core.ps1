@@ -11,6 +11,7 @@ $requiredFiles = @(
   'lib/src/foundation/storage/av_sync_guard_storage_contracts.dart',
   'lib/src/foundation/storage/advanced_caption_storage_contracts.dart',
   'lib/src/foundation/storage/video_enhancement_storage_contracts.dart',
+  'lib/src/foundation/storage/fallback_adapter_storage_contracts.dart',
   'docs/phase5-advanced-playback-core.md'
 )
 
@@ -101,8 +102,24 @@ if ($fallback -notmatch 'PlaybackFallbackStrategy' -or $fallback -notmatch 'Fall
   throw 'Fallback adapter must define optional selection and capability hiding contracts.'
 }
 
+$requiredFallbackTerms = @('FallbackRegistrationOutcome', 'FallbackEvaluationOutcome', 'FallbackSelectionOutcome', 'FallbackDisableOutcome', 'FallbackCapabilityReevaluationOutcome', 'FallbackCapabilityReadModel', 'DeterministicPlaybackFallbackStrategy')
+foreach ($term in $requiredFallbackTerms) {
+  if ($fallback -notmatch $term) {
+    throw "Fallback adapter missing typed contract term: $term"
+  }
+}
+
+$fallbackStoragePath = Join-Path $root 'lib/src/foundation/storage/fallback_adapter_storage_contracts.dart'
+$fallbackStorage = Get-Content -LiteralPath $fallbackStoragePath -Raw
+$requiredFallbackStorageTerms = @('StoredFallbackAdapterCandidateRecord', 'StoredActiveFallbackConfigurationRecord', 'StoredFallbackSelectionHistoryRecord', 'StoredFallbackStrategyStateRecord', 'FallbackAdapterStore', 'DeterministicFallbackAdapterStore')
+foreach ($term in $requiredFallbackStorageTerms) {
+  if ($fallbackStorage -notmatch $term) {
+    throw "Fallback adapter storage missing contract term: $term"
+  }
+}
+
 $capabilities = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/capability_matrix.dart') -Raw
-$requiredCapabilities = @('videoEnhancement', 'hdrToneMapping', 'debandFiltering', 'anime4kPreset', 'VideoEnhancementCapabilityStatus', 'avSyncGuard', 'matrixDanmaku', 'dualSubtitles', 'pgsSubtitleRendering', 'assSubtitleEnhancement', 'fallbackAdapter')
+$requiredCapabilities = @('videoEnhancement', 'hdrToneMapping', 'debandFiltering', 'anime4kPreset', 'VideoEnhancementCapabilityStatus', 'avSyncGuard', 'matrixDanmaku', 'dualSubtitles', 'pgsSubtitleRendering', 'assSubtitleEnhancement', 'fallbackAdapter', 'FallbackAdapterCapabilityStatus', 'fallbackAdapterStatus')
 foreach ($capability in $requiredCapabilities) {
   if ($capabilities -notmatch $capability) {
     throw "PlaybackCapability missing advanced capability: $capability"
@@ -118,8 +135,8 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
 }
 
 $storageContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/storage_contracts.dart') -Raw
-if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore' -or $storageContracts -notmatch 'avSyncGuard' -or $storageContracts -notmatch 'AVSyncGuardStore' -or $storageContracts -notmatch 'advancedCaptions' -or $storageContracts -notmatch 'AdvancedCaptionStore') {
-  throw 'Storage foundation must expose video enhancement, AV sync guard, and advanced caption persistence.'
+if ($storageContracts -notmatch 'videoEnhancement' -or $storageContracts -notmatch 'EnhancementProfileStore' -or $storageContracts -notmatch 'avSyncGuard' -or $storageContracts -notmatch 'AVSyncGuardStore' -or $storageContracts -notmatch 'advancedCaptions' -or $storageContracts -notmatch 'AdvancedCaptionStore' -or $storageContracts -notmatch 'fallbackAdapter' -or $storageContracts -notmatch 'FallbackAdapterStore') {
+  throw 'Storage foundation must expose video enhancement, AV sync guard, advanced caption, and fallback adapter persistence.'
 }
 
 $cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
@@ -141,6 +158,13 @@ $requiredAdvancedCaptionEvents = @('AdvancedCaptionProfileChanged', 'AdvancedCap
 foreach ($term in $requiredAdvancedCaptionEvents) {
   if ($cacheInvalidation -notmatch $term) {
     throw "Cache invalidation bus missing advanced caption event: $term"
+  }
+}
+
+$requiredFallbackEvents = @('FallbackAdapterRegistrationChanged', 'FallbackCapabilityReevaluated', 'FallbackSelectionChanged', 'FallbackStrategyStateChanged', 'FallbackDisabled', 'FallbackRejected')
+foreach ($term in $requiredFallbackEvents) {
+  if ($cacheInvalidation -notmatch $term) {
+    throw "Cache invalidation bus missing fallback adapter event: $term"
   }
 }
 

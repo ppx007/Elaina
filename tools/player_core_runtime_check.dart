@@ -19,6 +19,7 @@ Future<void> main() async {
   await _verifyVideoEnhancementPipelineContract();
   await _verifyAVSyncGuardContract();
   await _verifyAdvancedCaptionRenderingContract();
+  await _verifyFallbackAdapterContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
@@ -1392,6 +1393,112 @@ Future<void> _verifyAdvancedCaptionRenderingContract() async {
       'Advanced caption degradation must publish invalidation.');
 }
 
+Future<void> _verifyFallbackAdapterContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 7, 12);
+  final DeterministicFallbackAdapterStore store =
+      DeterministicFallbackAdapterStore();
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final DeterministicPlaybackFallbackStrategy strategy =
+      DeterministicPlaybackFallbackStrategy(
+    store: store,
+    cacheInvalidationBus: bus,
+    scopeId: 'runtime-fallback',
+    clock: () => observedAt,
+  );
+  final FallbackAdapterCandidate candidate = _runtimeFallbackCandidate(
+    id: 'runtime-fallback-adapter',
+    capabilities: _runtimeFallbackCapabilities(),
+  );
+  final Future<List<CacheInvalidationEvent>> selectionEvents =
+      bus.events.take(3).toList();
+  final FallbackRegistrationOutcome registered =
+      await strategy.register(candidate);
+  final FallbackEvaluationOutcome selected = await strategy.selectFallback(
+    source: _localSource(),
+    failure: const FallbackFailure(
+      kind: FallbackFailureKind.loadFailure,
+      message: 'Runtime primary adapter load failed.',
+    ),
+  );
+  final List<CacheInvalidationEvent> deliveredSelectionEvents =
+      await selectionEvents;
+  _expect(registered.isSuccess,
+      'Fallback registration must return a typed success outcome.');
+  _expect(selected.isSuccess,
+      'Fallback selection must return a typed selection outcome.');
+  _expect(selected.selection?.candidate.id.value == 'runtime-fallback-adapter',
+      'Fallback selection must preserve the selected candidate id.');
+  _expect(
+      selected.selection?.hiddenCapabilities
+              .containsKey(PlaybackCapability.anime4kPreset) ==
+          true,
+      'Fallback selection must expose hidden unsupported capabilities.');
+  _expect(
+      (await store.activeConfiguration('runtime-fallback'))
+              ?.selectedCandidateId ==
+          'runtime-fallback-adapter',
+      'Fallback selection must persist active configuration.');
+  _expect((await store.selectionHistory('runtime-fallback')).isNotEmpty,
+      'Fallback selection must persist selection history.');
+  _expect(
+      deliveredSelectionEvents
+              .whereType<FallbackAdapterRegistrationChanged>()
+              .length ==
+          1,
+      'Fallback registration must publish invalidation.');
+  _expect(
+      deliveredSelectionEvents.whereType<FallbackStrategyStateChanged>().length ==
+          1,
+      'Fallback state changes must publish invalidation.');
+  _expect(
+      deliveredSelectionEvents.whereType<FallbackSelectionChanged>().length == 1,
+      'Fallback selection changes must publish invalidation.');
+
+  final Future<CacheInvalidationEvent> capabilityEvent = bus.events.first;
+  final FallbackCapabilityReevaluationOutcome reevaluated = await strategy
+      .reevaluateCapabilities(const FallbackAdapterId('runtime-fallback-adapter'));
+  final CacheInvalidationEvent deliveredCapabilityEvent = await capabilityEvent;
+  _expect(reevaluated.readModel?.hidesAnyCapability == true,
+      'Fallback capability reevaluation must expose hidden capabilities.');
+  _expect(deliveredCapabilityEvent is FallbackCapabilityReevaluated,
+      'Fallback capability reevaluation must publish invalidation.');
+
+  final FallbackEvaluationOutcome noCandidate =
+      await DeterministicPlaybackFallbackStrategy(
+    store: DeterministicFallbackAdapterStore(),
+  ).selectFallback(
+    source: _localSource(),
+    failure: const FallbackFailure(
+      kind: FallbackFailureKind.loadFailure,
+      message: 'Runtime primary adapter load failed.',
+    ),
+  );
+  _expect(noCandidate.failure?.kind == FallbackEvaluationFailureKind.noCandidate,
+      'Missing fallback candidates must return a typed no-candidate failure.');
+
+  final DeterministicPlaybackFallbackStrategy disabledStrategy =
+      DeterministicPlaybackFallbackStrategy(
+    store: DeterministicFallbackAdapterStore(),
+  );
+  await disabledStrategy.register(_runtimeFallbackCandidate(
+    id: 'runtime-disabled-fallback',
+    capabilities: _runtimeFallbackCapabilities(),
+  ));
+  await disabledStrategy.disable();
+  final FallbackEvaluationOutcome disabledSelection =
+      await disabledStrategy.selectFallback(
+    source: _localSource(),
+    failure: const FallbackFailure(
+      kind: FallbackFailureKind.loadFailure,
+      message: 'Runtime primary adapter load failed.',
+    ),
+  );
+  await bus.close();
+  _expect(
+      disabledSelection.failure?.kind == FallbackEvaluationFailureKind.disabled,
+      'Disabled fallback must return a typed disabled failure.');
+}
+
 void _verifySurfaceStateFromCapabilities() {
   final PlaybackSurfaceState transportState = PlaybackController(
     adapterResolver: _StaticAdapterResolver(
@@ -2243,6 +2350,28 @@ PlaybackCapabilityMatrix _runtimeAVSyncCapabilities() {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.avSyncGuard: const CapabilityStatus.supported(),
+    },
+  );
+}
+
+FallbackAdapterCandidate _runtimeFallbackCandidate({
+  required String id,
+  required PlaybackCapabilityMatrix capabilities,
+}) {
+  return FallbackAdapterCandidate(
+    id: FallbackAdapterId(id),
+    adapter: _ConfigurablePlayerAdapter(capabilities: capabilities),
+    capabilities: capabilities,
+  );
+}
+
+PlaybackCapabilityMatrix _runtimeFallbackCapabilities() {
+  return PlaybackCapabilityMatrix(
+    capabilities: <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.fallbackAdapter: const CapabilityStatus.supported(),
+      PlaybackCapability.localFilePlayback: const CapabilityStatus.supported(),
+      PlaybackCapability.anime4kPreset:
+          const CapabilityStatus.unsupported('Runtime fallback hides Anime4K.'),
     },
   );
 }
