@@ -81,11 +81,55 @@ final class PlaybackCapabilityMatrix {
     return statusOf(PlaybackCapability.avSyncGuard);
   }
 
+  AdvancedCaptionCapabilityStatus advancedCaptionStatus() {
+    return AdvancedCaptionCapabilityStatus(
+      matrixDanmaku: statusOf(PlaybackCapability.matrixDanmaku),
+      dualSubtitles: statusOf(PlaybackCapability.dualSubtitles),
+      pgsSubtitleRendering: statusOf(PlaybackCapability.pgsSubtitleRendering),
+      assSubtitleEnhancement:
+          statusOf(PlaybackCapability.assSubtitleEnhancement),
+    );
+  }
+
   List<PlaybackCapability> get supportedCapabilities {
     return <PlaybackCapability>[
       for (final MapEntry<PlaybackCapability, CapabilityStatus> entry
           in _capabilities.entries)
         if (entry.value.isSupported) entry.key,
+    ];
+  }
+}
+
+final class AdvancedCaptionCapabilityStatus {
+  const AdvancedCaptionCapabilityStatus({
+    required this.matrixDanmaku,
+    required this.dualSubtitles,
+    required this.pgsSubtitleRendering,
+    required this.assSubtitleEnhancement,
+  });
+
+  final CapabilityStatus matrixDanmaku;
+  final CapabilityStatus dualSubtitles;
+  final CapabilityStatus pgsSubtitleRendering;
+  final CapabilityStatus assSubtitleEnhancement;
+
+  bool get hasAnyUnsupportedComponent =>
+      !matrixDanmaku.isSupported ||
+      !dualSubtitles.isSupported ||
+      !pgsSubtitleRendering.isSupported ||
+      !assSubtitleEnhancement.isSupported;
+
+  List<String> unsupportedReasons() {
+    return <String>[
+      if (!matrixDanmaku.isSupported)
+        matrixDanmaku.reason ?? 'Matrix4 danmaku is unsupported.',
+      if (!dualSubtitles.isSupported)
+        dualSubtitles.reason ?? 'Dual subtitles are unsupported.',
+      if (!pgsSubtitleRendering.isSupported)
+        pgsSubtitleRendering.reason ?? 'PGS subtitle rendering is unsupported.',
+      if (!assSubtitleEnhancement.isSupported)
+        assSubtitleEnhancement.reason ??
+            'ASS subtitle enhancement is unsupported.',
     ];
   }
 }
