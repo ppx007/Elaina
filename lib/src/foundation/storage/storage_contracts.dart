@@ -1,6 +1,7 @@
 import 'advanced_caption_storage_contracts.dart';
 import 'av_sync_guard_storage_contracts.dart';
 import 'bt_task_storage_contracts.dart';
+import 'fallback_adapter_storage_contracts.dart';
 import 'piece_priority_scheduler_storage_contracts.dart';
 import 'seasonal_storage_contracts.dart';
 import 'timeline_overlay_storage_contracts.dart';
@@ -10,6 +11,7 @@ import 'virtual_stream_storage_contracts.dart';
 export 'advanced_caption_storage_contracts.dart';
 export 'av_sync_guard_storage_contracts.dart';
 export 'bt_task_storage_contracts.dart';
+export 'fallback_adapter_storage_contracts.dart';
 export 'piece_priority_scheduler_storage_contracts.dart';
 export 'seasonal_storage_contracts.dart';
 export 'timeline_overlay_storage_contracts.dart';
@@ -36,6 +38,7 @@ enum StorageDomain {
   videoEnhancement,
   avSyncGuard,
   advancedCaptions,
+  fallbackAdapter,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -622,4 +625,5 @@ abstract interface class StorageFoundation {
   EnhancementProfileStore get videoEnhancement;
   AVSyncGuardStore get avSyncGuard;
   AdvancedCaptionStore get advancedCaptions;
+  FallbackAdapterStore get fallbackAdapter;
 }
