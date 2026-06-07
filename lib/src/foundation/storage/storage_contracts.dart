@@ -1,3 +1,4 @@
+import 'advanced_caption_storage_contracts.dart';
 import 'av_sync_guard_storage_contracts.dart';
 import 'bt_task_storage_contracts.dart';
 import 'piece_priority_scheduler_storage_contracts.dart';
@@ -6,6 +7,7 @@ import 'timeline_overlay_storage_contracts.dart';
 import 'video_enhancement_storage_contracts.dart';
 import 'virtual_stream_storage_contracts.dart';
 
+export 'advanced_caption_storage_contracts.dart';
 export 'av_sync_guard_storage_contracts.dart';
 export 'bt_task_storage_contracts.dart';
 export 'piece_priority_scheduler_storage_contracts.dart';
@@ -33,6 +35,7 @@ enum StorageDomain {
   timelineOverlay,
   videoEnhancement,
   avSyncGuard,
+  advancedCaptions,
 }
 
 final class SchemaVersion implements Comparable<SchemaVersion> {
@@ -618,4 +621,5 @@ abstract interface class StorageFoundation {
   TimelineOverlayStore get timelineOverlay;
   EnhancementProfileStore get videoEnhancement;
   AVSyncGuardStore get avSyncGuard;
+  AdvancedCaptionStore get advancedCaptions;
 }
