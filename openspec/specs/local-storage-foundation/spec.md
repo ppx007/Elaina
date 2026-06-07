@@ -101,3 +101,24 @@ The system SHALL expose storage-backed contracts for fallback adapter candidates
 - **WHEN** fallback candidates, active fallback configuration, selection history, or latest fallback state metadata are written to Storage
 - **THEN** later Playback flows can restore fallback strategy state without direct UI, native adapter, VLC package, or platform player coupling
 
+### Requirement: Storage foundation SHALL expose video enhancement persistence contracts
+The system SHALL expose storage-backed contracts for video enhancement profiles, active profile selection, and latest enhancement pipeline state metadata.
+
+#### Scenario: Enhancement profile state survives restart
+- **WHEN** an enhancement profile or active profile selection is written to Storage
+- **THEN** later Playback flows can restore declarative enhancement intent without direct database, shader file, renderer, native plugin, or UI persistence coupling
+
+### Requirement: Storage foundation SHALL expose RSS auto-download persistence contracts
+The system SHALL expose storage-backed contracts for RSS auto-download policies, matcher rules, evaluation history, accepted candidates, rejected candidates, deduplication state, and enqueue outcomes.
+
+#### Scenario: RSS automation state survives restart
+- **WHEN** RSS auto-download policies, candidate history, or enqueue outcomes are written to Storage
+- **THEN** later automation flows can restore policy state and avoid duplicate BT handoffs without direct UI, RSS fetcher, torrent engine, or platform service coupling
+
+### Requirement: Storage foundation SHALL expose online rule runtime persistence contracts
+The system SHALL expose storage-backed contracts for online rule source manifests, manifest versions, rule sets, extraction operations, validation issues, evaluation snapshots, page retrieval outcomes, unsupported operations, and source capability state.
+
+#### Scenario: Online rule source state survives restart
+- **WHEN** online rule manifests, validation issues, evaluation snapshots, or retrieval outcomes are written to Storage
+- **THEN** later online rule flows can restore source state and validation decisions without direct UI, crawler, WebView, JavaScript runtime, or network resolver coupling
+
