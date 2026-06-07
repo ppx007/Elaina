@@ -38,3 +38,10 @@ AVSyncGuard SHALL emit deterministic degradation decisions as contract data whil
 - **WHEN** sustained A/V drift exceeds the active red-line policy
 - **THEN** the guard selects the next ordered degradation action without directly invoking VideoEnhancementPipeline, caption rendering, VLC fallback, diagnostics center, or platform renderer code
 
+### Requirement: AVSyncGuard SHALL expose advanced caption degradation as a declarative decision
+The system SHALL keep `disableAdvancedCaptions` as an ordered AV sync degradation decision that advanced caption contracts can consume without AVSyncGuard directly mutating caption renderer state.
+
+#### Scenario: AV sync requests caption degradation
+- **WHEN** sustained drift policy selects `disableAdvancedCaptions`
+- **THEN** AVSyncGuard emits a declarative degradation decision for advanced caption contracts to persist or evaluate without invoking a concrete renderer
+

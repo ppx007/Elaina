@@ -53,3 +53,10 @@ The playback capability matrix SHALL expose explicit supported or unsupported st
 - **WHEN** the active adapter or platform cannot provide normalized sync samples or support deterministic degradation decisions
 - **THEN** the capability matrix reports `avSyncGuard` as unsupported with an explicit reason rather than allowing automatic degradation to appear executable
 
+### Requirement: Capability matrix SHALL gate advanced caption features explicitly
+The playback capability matrix SHALL expose explicit supported or unsupported status and reason strings for Matrix4 danmaku, dual subtitles, PGS subtitle rendering, and ASS subtitle enhancement before UI or renderer contracts treat those features as executable.
+
+#### Scenario: PGS rendering is unsupported
+- **WHEN** the active adapter or platform cannot support PGS subtitle rendering
+- **THEN** the capability matrix reports `pgsSubtitleRendering` as unsupported with an explicit reason rather than allowing PGS rendering to appear executable
+
