@@ -91,11 +91,46 @@ final class PlaybackCapabilityMatrix {
     );
   }
 
+  FallbackAdapterCapabilityStatus fallbackAdapterStatus(
+      {Map<PlaybackCapability, CapabilityStatus> hiddenCapabilities =
+          const <PlaybackCapability, CapabilityStatus>{}}) {
+    return FallbackAdapterCapabilityStatus(
+      fallbackAdapter: statusOf(PlaybackCapability.fallbackAdapter),
+      hiddenCapabilities: hiddenCapabilities,
+    );
+  }
+
   List<PlaybackCapability> get supportedCapabilities {
     return <PlaybackCapability>[
       for (final MapEntry<PlaybackCapability, CapabilityStatus> entry
           in _capabilities.entries)
         if (entry.value.isSupported) entry.key,
+    ];
+  }
+}
+
+final class FallbackAdapterCapabilityStatus {
+  FallbackAdapterCapabilityStatus({
+    required this.fallbackAdapter,
+    required Map<PlaybackCapability, CapabilityStatus> hiddenCapabilities,
+  }) : hiddenCapabilities =
+            Map<PlaybackCapability, CapabilityStatus>.unmodifiable(
+                hiddenCapabilities);
+
+  final CapabilityStatus fallbackAdapter;
+  final Map<PlaybackCapability, CapabilityStatus> hiddenCapabilities;
+
+  bool get isFallbackSupported => fallbackAdapter.isSupported;
+
+  bool get hasHiddenCapabilities => hiddenCapabilities.isNotEmpty;
+
+  List<String> unsupportedReasons() {
+    return <String>[
+      if (!fallbackAdapter.isSupported)
+        fallbackAdapter.reason ?? 'Fallback adapter is unsupported.',
+      for (final CapabilityStatus status in hiddenCapabilities.values)
+        if (!status.isSupported)
+          status.reason ?? 'Fallback adapter hides a capability.',
     ];
   }
 }

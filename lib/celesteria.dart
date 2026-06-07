@@ -19,6 +19,7 @@ export 'src/foundation/layers/layer_manifest.dart';
 export 'src/foundation/storage/advanced_caption_storage_contracts.dart';
 export 'src/foundation/storage/av_sync_guard_storage_contracts.dart';
 export 'src/foundation/storage/bt_task_storage_contracts.dart';
+export 'src/foundation/storage/fallback_adapter_storage_contracts.dart';
 export 'src/foundation/storage/piece_priority_scheduler_storage_contracts.dart';
 export 'src/foundation/storage/seasonal_storage_contracts.dart';
 export 'src/foundation/storage/storage_contracts.dart';
