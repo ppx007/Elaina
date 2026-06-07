@@ -45,3 +45,10 @@ The system SHALL expose enough persisted BT task metadata, piece length, file of
 - **WHEN** the piece priority scheduler plans priorities for a virtual stream file
 - **THEN** it reads task metadata, piece length, file offsets, and selected file records through BT task core Storage contracts rather than using adapter-specific torrent objects
 
+### Requirement: BT task core contract SHALL accept engine-neutral RSS automation handoffs
+The BT task core contract SHALL define an engine-neutral task creation handoff surface that RSS auto-download can target with accepted candidate metadata, policy identity, source URI, and dedupe key without importing concrete torrent engine APIs.
+
+#### Scenario: RSS candidate requests BT task creation
+- **WHEN** RSS auto-download accepts a magnet or torrent candidate
+- **THEN** BT task core receives an engine-neutral task creation request through Domain or Streaming contracts rather than a concrete torrent engine call
+
