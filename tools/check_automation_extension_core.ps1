@@ -5,8 +5,10 @@ $root = Split-Path -Parent $PSScriptRoot
 
 $requiredFiles = @(
   'lib/src/provider/rss/rss_auto_download_policy.dart',
+  'lib/src/foundation/storage/rss_auto_download_policy_storage_contracts.dart',
   'lib/src/domain/automation/rss_download_handoff.dart',
   'lib/src/provider/online/online_rule_runtime.dart',
+  'lib/src/foundation/storage/online_rule_runtime_storage_contracts.dart',
   'lib/src/network/webview_session_backfill.dart',
   'lib/src/network/network_policy.dart',
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
@@ -33,12 +35,31 @@ foreach ($file in $uiFiles) {
 }
 
 $rssAutomation = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/rss/rss_auto_download_policy.dart') -Raw
-if ($rssAutomation -notmatch 'RssAutoDownloadPolicy' -or $rssAutomation -notmatch 'RssMatcherExpression' -or $rssAutomation -notmatch 'RssAutomationHistoryStore' -or $rssAutomation -notmatch 'RssDownloadCandidate') {
-  throw 'RSS auto-download policy must define policy, matcher, history, and candidate contracts.'
+if ($rssAutomation -notmatch 'RssAutoDownloadPolicy' -or $rssAutomation -notmatch 'RssMatcherExpression' -or $rssAutomation -notmatch 'RssAutomationHistoryStore' -or $rssAutomation -notmatch 'RssDownloadCandidate' -or $rssAutomation -notmatch 'DeterministicRssAutoDownloadPolicyEvaluator' -or $rssAutomation -notmatch 'RssAutomationCapabilityMatrix') {
+  throw 'RSS auto-download policy must define policy, matcher, history, candidate, deterministic evaluator, and capability contracts.'
 }
-foreach ($term in @('bt_task_core', 'DownloadEngineAdapter', 'libtorrent')) {
+foreach ($term in @('bt_task_core', 'DownloadEngineAdapter', 'libtorrent', 'FeedFetcher', 'FeedParser', 'yuc.wiki', 'WebView', 'runJavascript')) {
   if ($rssAutomation -match [regex]::Escape($term)) {
-    throw "RSS automation must not depend on streaming engine term: $term"
+    throw "RSS automation must not depend on forbidden Step 26 term: $term"
+  }
+}
+
+$rssAutomationStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/rss_auto_download_policy_storage_contracts.dart') -Raw
+foreach ($term in @('StoredRssAutoDownloadPolicyRecord', 'StoredRssAutoDownloadMatcherRecord', 'StoredRssAutoDownloadEvaluationRecord', 'StoredRssAutoDownloadAcceptedCandidateRecord', 'StoredRssAutoDownloadRejectedCandidateRecord', 'StoredRssAutoDownloadDedupeRecord', 'StoredRssAutoDownloadEnqueueOutcomeRecord', 'RssAutoDownloadPolicyStore', 'DeterministicRssAutoDownloadPolicyStore')) {
+  if ($rssAutomationStorage -notmatch [regex]::Escape($term)) {
+    throw "RSS auto-download storage is missing contract term: $term"
+  }
+}
+foreach ($term in @('DownloadEngineAdapter', 'FeedFetcher', 'FeedParser', 'libtorrent', 'WebView', 'runJavascript', 'yuc.wiki')) {
+  if ($rssAutomationStorage -match [regex]::Escape($term)) {
+    throw "RSS auto-download storage contains forbidden Step 26 dependency: $term"
+  }
+}
+
+$cacheInvalidation = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart') -Raw
+foreach ($term in @('RssAutoDownloadPolicyChanged', 'RssAutoDownloadFeedItemEvaluated', 'RssAutoDownloadCandidateAccepted', 'RssAutoDownloadCandidateRejected', 'RssAutoDownloadDedupeStateChanged', 'RssAutoDownloadEnqueueOutcomeRecorded')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing RSS automation event: $term"
   }
 }
 
@@ -47,13 +68,31 @@ if ($handoff -notmatch 'AutomationDownloadEnqueuer' -or $handoff -notmatch 'BtTa
   throw 'Domain automation handoff must translate RSS candidates into BT task create requests.'
 }
 
-$onlineRuntime = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/online/online_rule_runtime.dart') -Raw
-if ($onlineRuntime -notmatch 'OnlineRuleRuntime' -or $onlineRuntime -notmatch 'cssSelector' -or $onlineRuntime -notmatch 'xpath1' -or $onlineRuntime -notmatch 'regex' -or $onlineRuntime -notmatch 'UnsupportedOnlineOperationKind') {
-  throw 'Online rule runtime must define declarative selector and unsupported-operation contracts.'
+$onlineRuntimeStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/online_rule_runtime_storage_contracts.dart') -Raw
+foreach ($term in @('StoredOnlineRuleManifestRecord', 'StoredOnlineRuleSetRecord', 'StoredOnlineExtractionOperationRecord', 'StoredOnlineRuleValidationIssueRecord', 'StoredOnlineRuleEvaluationSnapshotRecord', 'StoredOnlineRulePageRetrievalOutcomeRecord', 'StoredUnsupportedOnlineOperationRecord', 'StoredOnlineRuleSourceCapabilityRecord', 'OnlineRuleRuntimeStore', 'DeterministicOnlineRuleRuntimeStore')) {
+  if ($onlineRuntimeStorage -notmatch [regex]::Escape($term)) {
+    throw "Online rule runtime storage is missing contract term: $term"
+  }
 }
-foreach ($term in @('runJavascript', 'dart:mirrors', 'eval(', 'Function.apply', 'package:flutter')) {
+foreach ($term in @('WebView', 'runJavascript', 'eval(', 'Function.apply', 'dart:mirrors', 'package:flutter', 'captchaSolver', 'yuc.wiki', 'DnsClient', 'ProxyServer')) {
+  if ($onlineRuntimeStorage -match [regex]::Escape($term)) {
+    throw "Online rule runtime storage contains forbidden Step 27 dependency: $term"
+  }
+}
+
+$onlineRuntime = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/online/online_rule_runtime.dart') -Raw
+if ($onlineRuntime -notmatch 'OnlineRuleRuntime' -or $onlineRuntime -notmatch 'cssSelector' -or $onlineRuntime -notmatch 'xpath1' -or $onlineRuntime -notmatch 'regex' -or $onlineRuntime -notmatch 'UnsupportedOnlineOperationKind' -or $onlineRuntime -notmatch 'DeterministicOnlineRuleRuntime' -or $onlineRuntime -notmatch 'OnlineRuleCapabilityMatrix' -or $onlineRuntime -notmatch 'OnlineRuleGatewayRequestDescriptor' -or $onlineRuntime -notmatch 'OnlineRuleNetworkPolicyHandoff') {
+  throw 'Online rule runtime must define declarative selector, deterministic runtime, capability, gateway, network-policy, and unsupported-operation contracts.'
+}
+foreach ($term in @('runJavascript', 'dart:mirrors', 'eval(', 'Function.apply', 'package:flutter', 'WebViewController', 'captchaSolver', 'headless', 'yuc.wiki', 'DnsClient', 'ProxyServer', 'Crawler', 'Scraper')) {
   if ($onlineRuntime -match [regex]::Escape($term)) {
-    throw "Online rule runtime contains forbidden executable rule term: $term"
+    throw "Online rule runtime contains forbidden Step 27 term: $term"
+  }
+}
+
+foreach ($term in @('OnlineRuleManifestChanged', 'OnlineRuleValidationStateChanged', 'OnlineRuleTargetEvaluated', 'OnlineRulePageRetrievalOutcomeRecorded', 'OnlineRuleUnsupportedOperationRecorded', 'OnlineRuleCapabilityChanged')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing online rule event: $term"
   }
 }
 

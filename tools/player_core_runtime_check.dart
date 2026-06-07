@@ -11,6 +11,8 @@ Future<void> main() async {
   await _verifyMediaLibraryPersistenceContract();
   await _verifySubtitleProviderCacheContract();
   await _verifyRssEngineContract();
+  await _verifyRssAutoDownloadPolicyContract();
+  await _verifyOnlineRuleRuntimeContract();
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
@@ -497,6 +499,319 @@ Future<void> _verifyRssEngineContract() async {
       (await store.itemsForSource(source.id.value)).single.dedupeKey ==
           item.dedupeKey.value,
       'RSS engine must persist accepted feed items.');
+}
+
+Future<void> _verifyRssAutoDownloadPolicyContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 7, 12);
+  final DeterministicRssAutoDownloadPolicyStore store =
+      DeterministicRssAutoDownloadPolicyStore();
+  await store.storePolicy(StoredRssAutoDownloadPolicyRecord(
+    id: 'runtime-rss-policy',
+    label: 'Runtime RSS Policy',
+    enabled: true,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  await store.storeFeedActivation(StoredRssAutoDownloadFeedActivationRecord(
+    policyId: 'runtime-rss-policy',
+    sourceId: 'runtime-rss',
+    enabled: true,
+    updatedAt: observedAt,
+  ));
+  await store.recordEnqueueOutcome(StoredRssAutoDownloadEnqueueOutcomeRecord(
+    id: 'runtime-rss-enqueue',
+    candidateId: 'runtime-rss-candidate',
+    policyId: 'runtime-rss-policy',
+    state: StoredRssAutoDownloadEnqueueState.pending,
+    message: 'Runtime handoff pending.',
+    recordedAt: observedAt,
+  ));
+  _expect((await store.policyById('runtime-rss-policy'))?.enabled == true,
+      'RSS auto-download storage must persist policy enabled state.');
+  _expect(
+      (await store.feedActivation(
+              policyId: 'runtime-rss-policy', sourceId: 'runtime-rss'))
+          ?.enabled == true,
+      'RSS auto-download storage must persist feed-scoped activation.');
+  _expect(
+      (await store.latestEnqueueOutcome('runtime-rss-candidate'))?.state ==
+          StoredRssAutoDownloadEnqueueState.pending,
+      'RSS auto-download storage must persist enqueue handoff state.');
+
+  final FeedItem item = FeedItem(
+    id: const FeedItemId('runtime-rss-item'),
+    sourceId: const FeedSourceId('runtime-rss'),
+    dedupeKey: const FeedDedupeKey('runtime-rss-item'),
+    title: 'Runtime Episode 1',
+    categories: const <String>['anime'],
+    enclosure: FeedEnclosure(
+      uri: Uri.parse('https://feed.example.test/runtime.torrent'),
+      mimeType: 'application/x-bittorrent',
+      lengthBytes: 2048,
+    ),
+  );
+  final RssAutoDownloadPolicy policy = RssAutoDownloadPolicy(
+    id: const RssAutoDownloadPolicyId('runtime-rss-policy'),
+    label: 'Runtime RSS Policy',
+    rules: <RssAutoDownloadRule>[
+      RssAutoDownloadRule(
+        id: const RssAutoDownloadRuleId('runtime-rss-rule'),
+        label: 'Runtime include',
+        priority: 1,
+        include: RssMatcherExpression(
+          logic: RssMatcherLogic.all,
+          predicates: const <RssMatcherPredicate>[
+            RssMatcherPredicate(
+              field: RssMatcherField.title,
+              operator: RssMatcherOperator.contains,
+              value: 'Episode',
+            ),
+          ],
+        ),
+        scopedSources: const <FeedSourceId>[FeedSourceId('runtime-rss')],
+      ),
+    ],
+  );
+  final _RuntimeRssAutomationHistoryStore history =
+      _RuntimeRssAutomationHistoryStore();
+  final DeterministicRssAutoDownloadPolicyEvaluator evaluator =
+      DeterministicRssAutoDownloadPolicyEvaluator(clock: () => observedAt);
+  final List<RssAutomationDecision> first = await evaluator.evaluate(
+    policy: policy,
+    items: <FeedItem>[item],
+    history: history,
+  );
+  final List<RssAutomationDecision> second = await evaluator.evaluate(
+    policy: policy,
+    items: <FeedItem>[item],
+    history: history,
+  );
+  final RssAutomationAccepted accepted = first.single as RssAutomationAccepted;
+  final RssAutomationHandoffOutcome handoff =
+      rssAutomationHandoffFromCandidate(accepted.candidate);
+  _expect(handoff.handoff?.feedItemId.value == 'runtime-rss-item',
+      'RSS auto-download must expose engine-neutral BT handoff read models.');
+  _expect(second.single is RssAutomationDeduplicated,
+      'RSS auto-download must dedupe accepted candidates through history.');
+
+  final List<RssAutomationDecision> disabled =
+      await const DeterministicRssAutoDownloadPolicyEvaluator(
+              automationEnabled: false)
+          .evaluate(
+    policy: policy,
+    items: <FeedItem>[item],
+    history: _RuntimeRssAutomationHistoryStore(),
+  );
+  _expect(disabled.single is RssAutomationDisabled,
+      'Disabled RSS automation must report typed disabled outcomes.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  bus.publish(RssAutoDownloadCandidateAccepted(
+    occurredAt: observedAt,
+    policyId: 'runtime-rss-policy',
+    ruleId: 'runtime-rss-rule',
+    candidateDedupeKey: accepted.candidate.dedupeKey,
+    feedItemId: item.id.value,
+    sourceId: item.sourceId.value,
+  ));
+  bus.publish(RssAutoDownloadEnqueueOutcomeRecorded(
+    occurredAt: observedAt,
+    policyId: 'runtime-rss-policy',
+    candidateId: 'runtime-rss-candidate',
+    state: StoredRssAutoDownloadEnqueueState.pending.name,
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(delivered.whereType<RssAutoDownloadCandidateAccepted>().length == 1,
+      'RSS auto-download candidate acceptance must publish invalidation.');
+  _expect(
+      delivered.whereType<RssAutoDownloadEnqueueOutcomeRecorded>().length == 1,
+      'RSS auto-download enqueue outcomes must publish invalidation.');
+}
+
+final class _RuntimeRssAutomationHistoryStore
+    implements RssAutomationHistoryStore {
+  final Set<String> _acceptedKeys = <String>{};
+
+  @override
+  Future<bool> hasAccepted(FeedDedupeKey itemKey) {
+    return Future<bool>.value(_acceptedKeys.contains(itemKey.value));
+  }
+
+  @override
+  Future<void> record(RssAutomationHistoryEntry entry) {
+    if (entry.decision is RssAutomationAccepted) {
+      _acceptedKeys.add(entry.itemKey.value);
+    }
+    return Future<void>.value();
+  }
+}
+
+Future<void> _verifyOnlineRuleRuntimeContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 8, 12);
+  final DeterministicOnlineRuleRuntimeStore store =
+      DeterministicOnlineRuleRuntimeStore();
+  await store.storeManifest(StoredOnlineRuleManifestRecord(
+    sourceId: 'runtime-online-source',
+    displayName: 'Runtime Online Source',
+    version: '1.0.0',
+    updateUri: Uri.parse('https://rules.example.test/runtime.json'),
+    checksum: 'sha256:runtime',
+    updateInterval: const Duration(hours: 12),
+    validationState: StoredOnlineRuleValidationState.valid,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  await store.storeRuleSets(
+    sourceId: 'runtime-online-source',
+    ruleSets: <StoredOnlineRuleSetRecord>[
+      StoredOnlineRuleSetRecord(
+        id: 'runtime-search',
+        sourceId: 'runtime-online-source',
+        target: StoredOnlineRuleTarget.search,
+        operations: const <StoredOnlineExtractionOperationRecord>[
+          StoredOnlineExtractionOperationRecord(
+            id: 'runtime-title',
+            kind: StoredOnlineExtractionKind.regex,
+            expression: 'title="([^"]+)"',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+  await store.recordPageRetrievalOutcome(
+    StoredOnlineRulePageRetrievalOutcomeRecord(
+      id: 'runtime-retrieval',
+      sourceId: 'runtime-online-source',
+      pageUri: Uri.parse('https://source.example.test/search'),
+      state: StoredOnlineRuleRetrievalState.retrieved,
+      providerCacheKey: 'runtime-online-source::search',
+      recordedAt: observedAt,
+    ),
+  );
+  await store.storeCapability(StoredOnlineRuleSourceCapabilityRecord(
+    sourceId: 'runtime-online-source',
+    state: StoredOnlineRuleCapabilityState.supported,
+    updatedAt: observedAt,
+  ));
+  _expect((await store.manifestBySource('runtime-online-source'))?.version ==
+      '1.0.0', 'Online rule storage must persist manifest versions.');
+  _expect((await store.ruleSetsForSource('runtime-online-source')).single.target ==
+      StoredOnlineRuleTarget.search, 'Online rule storage must persist target rule sets.');
+  _expect((await store.latestRetrievalOutcome('runtime-online-source'))?.state ==
+      StoredOnlineRuleRetrievalState.retrieved,
+      'Online rule storage must persist page retrieval outcomes.');
+
+  const DeterministicOnlineRuleRuntime runtime =
+      DeterministicOnlineRuleRuntime();
+  final OnlineRuleManifest manifest = OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('runtime-online-source'),
+    displayName: 'Runtime Online Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/runtime.json'),
+    checksum: 'sha256:runtime',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'runtime-title',
+            kind: OnlineExtractionKind.regex,
+            expression: 'title="([^"]+)"',
+            outputKey: 'title',
+            required: true,
+          ),
+          OnlineExtractionOperation(
+            id: 'runtime-detail',
+            kind: OnlineExtractionKind.cssSelector,
+            expression: '.detail',
+            outputKey: 'detailUri',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+  final OnlineRuleEvaluationOutcome evaluated = await runtime.evaluateTyped(
+    OnlineRuleEvaluationRequest(
+      manifest: manifest,
+      target: OnlineRuleTarget.search,
+      pageUri: Uri.parse('https://source.example.test/search'),
+      document:
+          'title="Runtime Result" detailUri="https://source.example.test/detail"',
+    ),
+  );
+  _expect(evaluated.isSuccess, 'Online rule runtime must evaluate supplied documents.');
+  final OnlineRuleSearchOutput output =
+      runtime.normalize(evaluated.result!) as OnlineRuleSearchOutput;
+  _expect(output.results.single.title == 'Runtime Result',
+      'Online rule runtime must normalize search result records.');
+
+  final OnlineRuleValidationResult unsupported =
+      await runtime.validateManifest(OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('runtime-bad-online-source'),
+    displayName: 'Runtime Bad Online Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/bad.json'),
+    checksum: 'sha256:bad',
+    updateInterval: const Duration(hours: 1),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'runtime-wasm',
+            kind: OnlineExtractionKind.regex,
+            expression: 'wasm:extract',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  ));
+  _expect(
+      unsupported.issues.single.unsupportedKind ==
+          UnsupportedOnlineOperationKind.wasm,
+      'Online rule runtime must reject executable WASM operations.');
+
+  final OnlineRuleGatewayRequestDescriptor descriptor =
+      OnlineRuleGatewayRequestDescriptor(
+    sourceId: const OnlineRuleSourceId('runtime-online-source'),
+    providerId: const ProviderId('runtime-online-source'),
+    cacheKey: 'runtime-online-source::page',
+    pageUri: Uri.parse('https://source.example.test/page'),
+    cachePolicy: ProviderCachePolicy.networkFirst,
+    ratePolicy:
+        const ProviderRatePolicy(maxRequests: 6, window: Duration(minutes: 1)),
+    retryPolicy: const ProviderRetryPolicy(
+        maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+  );
+  _expect(descriptor.requestKey.providerId.value == 'runtime-online-source',
+      'Online rule gateway descriptors must preserve provider identity.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  bus.publish(OnlineRuleManifestChanged(
+      occurredAt: observedAt,
+      sourceId: 'runtime-online-source',
+      changeKind: OnlineRuleManifestChangeKind.updated,
+      version: '1.0.0'));
+  bus.publish(OnlineRuleTargetEvaluated(
+      occurredAt: observedAt,
+      sourceId: 'runtime-online-source',
+      target: OnlineRuleTarget.search.name,
+      state: 'succeeded'));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(delivered.whereType<OnlineRuleManifestChanged>().length == 1,
+      'Online rule manifest changes must publish invalidation.');
+  _expect(delivered.whereType<OnlineRuleTargetEvaluated>().length == 1,
+      'Online rule target evaluation must publish invalidation.');
 }
 
 Future<void> _verifySeasonalIndexerContract() async {
