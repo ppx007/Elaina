@@ -13,6 +13,7 @@ Future<void> main() async {
   await _verifyRssEngineContract();
   await _verifyRssAutoDownloadPolicyContract();
   await _verifyOnlineRuleRuntimeContract();
+  await _verifyWebViewSessionBackfillContract();
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
@@ -812,6 +813,155 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
       'Online rule manifest changes must publish invalidation.');
   _expect(delivered.whereType<OnlineRuleTargetEvaluated>().length == 1,
       'Online rule target evaluation must publish invalidation.');
+}
+
+Future<void> _verifyWebViewSessionBackfillContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 9, 12);
+  final DeterministicWebViewSessionBackfillStore store =
+      DeterministicWebViewSessionBackfillStore();
+  await store.storeChallengeRequest(StoredManualChallengeRequestRecord(
+    id: 'runtime-webview-challenge',
+    providerScope: 'runtime-provider',
+    origin: Uri.parse('https://provider.example.test'),
+    challengeUri: Uri.parse('https://provider.example.test/challenge'),
+    kind: StoredManualChallengeKind.captcha,
+    state: StoredManualChallengeState.required,
+    requestedAt: observedAt,
+  ));
+  await store.updateChallengeState(
+    id: 'runtime-webview-challenge',
+    state: StoredManualChallengeState.captured,
+  );
+  await store.storeArtifacts(<StoredWebViewSessionArtifactRecord>[
+    StoredWebViewSessionArtifactRecord(
+      id: 'runtime-webview-cookie',
+      challengeRequestId: 'runtime-webview-challenge',
+      providerScope: 'runtime-provider',
+      origin: Uri.parse('https://provider.example.test'),
+      kind: StoredWebViewSessionArtifactKind.cookie,
+      name: 'session',
+      valueReference: 'runtime-cookie-ref',
+      domain: 'provider.example.test',
+      path: '/',
+      capturedAt: observedAt,
+      expiresAt: observedAt.add(const Duration(hours: 1)),
+      state: StoredWebViewSessionArtifactState.approved,
+    ),
+  ]);
+  await store.recordBackfillAttempt(StoredWebViewSessionBackfillAttemptRecord(
+    id: 'runtime-webview-attempt',
+    challengeRequestId: 'runtime-webview-challenge',
+    providerScope: 'runtime-provider',
+    requestUri: Uri.parse('https://provider.example.test/resource'),
+    state: StoredWebViewSessionBackfillState.succeeded,
+    providerCacheKey: 'runtime-provider::resource',
+    attemptedAt: observedAt,
+  ));
+  await store.storeCapability(StoredWebViewSessionCapabilityRecord(
+    providerScope: 'runtime-provider',
+    capability: WebViewSessionCapability.isolatedWebView.name,
+    state: StoredWebViewSessionCapabilityState.supported,
+    updatedAt: observedAt,
+  ));
+  _expect(
+      (await store.challengeRequestById('runtime-webview-challenge'))?.state ==
+          StoredManualChallengeState.captured,
+      'WebView backfill storage must persist manual challenge lifecycle state.');
+  _expect(
+      (await store.activeArtifactsForProvider(
+              providerScope: 'runtime-provider', now: observedAt))
+          .single
+          .valueReference ==
+          'runtime-cookie-ref',
+      'WebView backfill storage must return active same-provider artifacts.');
+  _expect(
+      (await store.latestBackfillAttempt('runtime-webview-challenge'))?.state ==
+          StoredWebViewSessionBackfillState.succeeded,
+      'WebView backfill storage must persist retry outcomes.');
+
+  const WebViewSessionBackfillDescriptorFactory factory =
+      WebViewSessionBackfillDescriptorFactory();
+  final SessionArtifactBundle artifacts = SessionArtifactBundle(
+    providerScope: 'runtime-provider',
+    origin: Uri.parse('https://provider.example.test'),
+    capturedAt: observedAt,
+    cookies: <SessionCookieArtifact>[
+      SessionCookieArtifact(
+        id: const WebViewSessionArtifactId('runtime-cookie'),
+        providerScope: 'runtime-provider',
+        origin: Uri.parse('https://provider.example.test'),
+        name: 'session',
+        valueReference: 'runtime-cookie-ref',
+        domain: 'provider.example.test',
+        path: '/',
+        capturedAt: observedAt,
+        expiresAt: observedAt.add(const Duration(hours: 1)),
+      ),
+    ],
+  );
+  final WebViewSessionBackfillRetryOutcome ready = factory.retryDescriptor(
+    attemptId: const WebViewSessionBackfillAttemptId('runtime-webview-attempt'),
+    providerId: const ProviderId('runtime-provider'),
+    providerScope: 'runtime-provider',
+    requestUri: Uri.parse('https://provider.example.test/resource'),
+    cacheKey: 'runtime-provider::resource',
+    artifacts: artifacts,
+    now: observedAt,
+    ratePolicy:
+        const ProviderRatePolicy(maxRequests: 2, window: Duration(minutes: 1)),
+    retryPolicy: const ProviderRetryPolicy(
+        maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+  );
+  _expect(ready.isSuccess,
+      'WebView backfill must produce retry descriptors for active same-origin artifacts.');
+  _expect(ready.descriptor?.requestKey.cacheKey == 'runtime-provider::resource',
+      'WebView backfill retry descriptors must preserve ProviderGateway keys.');
+
+  final WebViewSessionBackfillRetryOutcome rejected = factory.retryDescriptor(
+    attemptId: const WebViewSessionBackfillAttemptId('runtime-rejected-attempt'),
+    providerId: const ProviderId('runtime-provider'),
+    providerScope: 'runtime-provider',
+    requestUri: Uri.parse('https://other.example.test/resource'),
+    cacheKey: 'runtime-provider::other',
+    artifacts: artifacts,
+    now: observedAt,
+    ratePolicy:
+        const ProviderRatePolicy(maxRequests: 2, window: Duration(minutes: 1)),
+    retryPolicy: const ProviderRetryPolicy(
+        maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+  );
+  _expect(
+      rejected.failure?.failureKind ==
+          WebViewSessionBackfillFailureKind.rejectedOrigin,
+      'WebView backfill must reject cross-origin artifact reuse.');
+  _expect(
+      factory
+              .validateManualOperation('auto captcha solve')
+              .unsupportedOperationKind ==
+          UnsupportedWebViewSessionOperationKind.automaticCaptchaSolving,
+      'WebView backfill must reject automatic captcha solving contracts.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  bus.publish(WebViewSessionChallengeChanged(
+    occurredAt: observedAt,
+    challengeRequestId: 'runtime-webview-challenge',
+    providerScope: 'runtime-provider',
+    origin: Uri.parse('https://provider.example.test'),
+    changeKind: WebViewSessionChallengeChangeKind.required,
+  ));
+  bus.publish(WebViewSessionCapabilityChanged(
+    occurredAt: observedAt,
+    providerScope: 'runtime-provider',
+    capability: WebViewSessionCapability.isolatedWebView.name,
+    supported: true,
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(delivered.whereType<WebViewSessionChallengeChanged>().length == 1,
+      'WebView challenge lifecycle changes must publish invalidation.');
+  _expect(delivered.whereType<WebViewSessionCapabilityChanged>().length == 1,
+      'WebView capability changes must publish invalidation.');
 }
 
 Future<void> _verifySeasonalIndexerContract() async {

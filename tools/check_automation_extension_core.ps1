@@ -96,13 +96,31 @@ foreach ($term in @('OnlineRuleManifestChanged', 'OnlineRuleValidationStateChang
   }
 }
 
-$sessionBackfill = Get-Content -LiteralPath (Join-Path $root 'lib/src/network/webview_session_backfill.dart') -Raw
-if ($sessionBackfill -notmatch 'ManualChallengeRequest' -or $sessionBackfill -notmatch 'SessionArtifactBundle' -or $sessionBackfill -notmatch 'ProviderSessionBackfill' -or $sessionBackfill -notmatch 'WebViewSessionCapabilityMatrix') {
-  throw 'WebView session backfill must define manual challenge, artifact, handoff, and capability contracts.'
+$sessionBackfillStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/webview_session_backfill_storage_contracts.dart') -Raw
+foreach ($term in @('StoredManualChallengeRequestRecord', 'StoredWebViewSessionArtifactRecord', 'StoredWebViewSessionBackfillAttemptRecord', 'StoredWebViewSessionCapabilityRecord', 'WebViewSessionBackfillStore', 'DeterministicWebViewSessionBackfillStore')) {
+  if ($sessionBackfillStorage -notmatch [regex]::Escape($term)) {
+    throw "WebView session backfill storage is missing contract term: $term"
+  }
 }
-foreach ($term in @('AutoSolve', 'captchaSolver', 'headless', 'runJavascript')) {
+foreach ($term in @('package:flutter', 'WebViewController', 'runJavascript', 'captchaSolver', 'AutoSolve', 'headlessBrowser', 'globalBrowserCookie')) {
+  if ($sessionBackfillStorage -match [regex]::Escape($term)) {
+    throw "WebView session backfill storage contains forbidden automation term: $term"
+  }
+}
+
+$sessionBackfill = Get-Content -LiteralPath (Join-Path $root 'lib/src/network/webview_session_backfill.dart') -Raw
+if ($sessionBackfill -notmatch 'ManualChallengeRequest' -or $sessionBackfill -notmatch 'ManualChallengeState' -or $sessionBackfill -notmatch 'SessionArtifactBundle' -or $sessionBackfill -notmatch 'SessionCookieArtifact' -or $sessionBackfill -notmatch 'ProviderSessionTokenArtifact' -or $sessionBackfill -notmatch 'WebViewSessionBackfillRetryDescriptor' -or $sessionBackfill -notmatch 'ProviderSessionBackfill' -or $sessionBackfill -notmatch 'WebViewSessionCapabilityMatrix' -or $sessionBackfill -notmatch 'UnsupportedWebViewSessionOperationKind' -or $sessionBackfill -notmatch 'WebViewSessionNetworkPolicyHandoff') {
+  throw 'WebView session backfill must define manual challenge, normalized artifact, retry handoff, network handoff, unsupported-operation, and capability contracts.'
+}
+foreach ($term in @('AutoSolve', 'captchaSolver', 'headlessBrowser', 'runJavascript', 'WebViewController', 'package:flutter', 'globalBrowserCookie')) {
   if ($sessionBackfill -match [regex]::Escape($term)) {
     throw "WebView session backfill contains forbidden automation term: $term"
+  }
+}
+
+foreach ($term in @('WebViewSessionChallengeChanged', 'WebViewSessionArtifactCaptured', 'WebViewSessionBackfillOutcomeRecorded', 'WebViewSessionArtifactStateChanged', 'WebViewSessionCapabilityChanged')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing WebView session event: $term"
   }
 }
 
