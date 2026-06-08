@@ -1,6 +1,7 @@
 import 'advanced_caption_storage_contracts.dart';
 import 'av_sync_guard_storage_contracts.dart';
 import 'bt_task_storage_contracts.dart';
+import 'diagnostics_storage_contracts.dart';
 import 'fallback_adapter_storage_contracts.dart';
 import 'network_policy_storage_contracts.dart';
 import 'online_rule_runtime_storage_contracts.dart';
@@ -15,6 +16,7 @@ import 'webview_session_backfill_storage_contracts.dart';
 export 'advanced_caption_storage_contracts.dart';
 export 'av_sync_guard_storage_contracts.dart';
 export 'bt_task_storage_contracts.dart';
+export 'diagnostics_storage_contracts.dart';
 export 'fallback_adapter_storage_contracts.dart';
 export 'network_policy_storage_contracts.dart';
 export 'online_rule_runtime_storage_contracts.dart';
@@ -41,6 +43,7 @@ enum StorageDomain {
   onlineRuleRuntime,
   webViewSessionBackfill,
   networkPolicy,
+  diagnostics,
   seasonalCatalog,
   bangumiMatchQueue,
   btTask,
@@ -632,6 +635,7 @@ abstract interface class StorageFoundation {
   OnlineRuleRuntimeStore get onlineRuleRuntime;
   WebViewSessionBackfillStore get webViewSessionBackfill;
   NetworkPolicyStore get networkPolicy;
+  DiagnosticsStore get diagnostics;
   SeasonalCatalogStore get seasonalCatalog;
   BangumiMatchQueueStore get bangumiMatchQueue;
   BtTaskStore get btTask;
