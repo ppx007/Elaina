@@ -9,6 +9,7 @@ import 'seasonal_storage_contracts.dart';
 import 'timeline_overlay_storage_contracts.dart';
 import 'video_enhancement_storage_contracts.dart';
 import 'virtual_stream_storage_contracts.dart';
+import 'webview_session_backfill_storage_contracts.dart';
 
 export 'advanced_caption_storage_contracts.dart';
 export 'av_sync_guard_storage_contracts.dart';
@@ -21,6 +22,7 @@ export 'seasonal_storage_contracts.dart';
 export 'timeline_overlay_storage_contracts.dart';
 export 'video_enhancement_storage_contracts.dart';
 export 'virtual_stream_storage_contracts.dart';
+export 'webview_session_backfill_storage_contracts.dart';
 
 enum StorageDomain {
   sqliteMetadata,
@@ -35,6 +37,7 @@ enum StorageDomain {
   rssFeed,
   rssAutoDownloadPolicy,
   onlineRuleRuntime,
+  webViewSessionBackfill,
   seasonalCatalog,
   bangumiMatchQueue,
   btTask,
@@ -624,6 +627,7 @@ abstract interface class StorageFoundation {
   RssFeedStore get rssFeed;
   RssAutoDownloadPolicyStore get rssAutoDownloadPolicy;
   OnlineRuleRuntimeStore get onlineRuleRuntime;
+  WebViewSessionBackfillStore get webViewSessionBackfill;
   SeasonalCatalogStore get seasonalCatalog;
   BangumiMatchQueueStore get bangumiMatchQueue;
   BtTaskStore get btTask;
