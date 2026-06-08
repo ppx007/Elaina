@@ -67,6 +67,28 @@ final class ProviderFailure implements Exception {
   final String message;
 }
 
+final class ProviderDiagnosticsCorrelationDescriptor {
+  const ProviderDiagnosticsCorrelationDescriptor({
+    required this.providerId,
+    required this.requestKey,
+    required this.cachePolicy,
+    required this.correlationId,
+    this.failureKind,
+    this.failureMessage,
+    this.networkPolicyFailureKind,
+    this.networkPolicyEvaluationId,
+  });
+
+  final ProviderId providerId;
+  final ProviderRequestKey requestKey;
+  final ProviderCachePolicy cachePolicy;
+  final String correlationId;
+  final ProviderFailureKind? failureKind;
+  final String? failureMessage;
+  final String? networkPolicyFailureKind;
+  final String? networkPolicyEvaluationId;
+}
+
 final class ProviderGatewayRequest<T> {
   const ProviderGatewayRequest({
     required this.key,

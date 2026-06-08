@@ -516,6 +516,100 @@ final class NetworkPolicyCapabilityChanged extends CacheInvalidationEvent {
   final String? reason;
 }
 
+final class DiagnosticsSchemaRegistered extends CacheInvalidationEvent {
+  const DiagnosticsSchemaRegistered({
+    required super.occurredAt,
+    required this.eventType,
+    required this.category,
+    required this.version,
+  });
+
+  final String eventType;
+  final String category;
+  final int version;
+}
+
+final class DiagnosticsEventRecorded extends CacheInvalidationEvent {
+  const DiagnosticsEventRecorded({
+    required super.occurredAt,
+    required this.eventId,
+    required this.eventType,
+    required this.sourceModule,
+    required this.correlationId,
+  });
+
+  final String eventId;
+  final String eventType;
+  final String sourceModule;
+  final String correlationId;
+}
+
+final class DiagnosticsSnapshotCreated extends CacheInvalidationEvent {
+  const DiagnosticsSnapshotCreated({
+    required super.occurredAt,
+    required this.snapshotId,
+    required this.eventCount,
+  }) : assert(eventCount >= 0, 'eventCount must not be negative.');
+
+  final String snapshotId;
+  final int eventCount;
+}
+
+final class DiagnosticsExportRequestRecorded extends CacheInvalidationEvent {
+  const DiagnosticsExportRequestRecorded({
+    required super.occurredAt,
+    required this.requestId,
+    required this.snapshotId,
+    required this.format,
+  });
+
+  final String requestId;
+  final String snapshotId;
+  final String format;
+}
+
+final class DiagnosticsExportOutcomeRecorded extends CacheInvalidationEvent {
+  const DiagnosticsExportOutcomeRecorded({
+    required super.occurredAt,
+    required this.outcomeId,
+    required this.requestId,
+    required this.snapshotId,
+    required this.state,
+  });
+
+  final String outcomeId;
+  final String requestId;
+  final String snapshotId;
+  final String state;
+}
+
+final class DiagnosticsRetentionEnforced extends CacheInvalidationEvent {
+  const DiagnosticsRetentionEnforced({
+    required super.occurredAt,
+    required this.retentionStateId,
+    required this.removedEventCount,
+    required this.remainingEventCount,
+  })  : assert(removedEventCount >= 0, 'removedEventCount must not be negative.'),
+        assert(remainingEventCount >= 0, 'remainingEventCount must not be negative.');
+
+  final String retentionStateId;
+  final int removedEventCount;
+  final int remainingEventCount;
+}
+
+final class DiagnosticsCapabilityChanged extends CacheInvalidationEvent {
+  const DiagnosticsCapabilityChanged({
+    required super.occurredAt,
+    required this.capability,
+    required this.supported,
+    this.reason,
+  });
+
+  final String capability;
+  final bool supported;
+  final String? reason;
+}
+
 final class BtTaskCreated extends CacheInvalidationEvent {
   const BtTaskCreated({
     required super.occurredAt,
