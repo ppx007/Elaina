@@ -321,6 +321,99 @@ final class OnlineRuleCapabilityChanged extends CacheInvalidationEvent {
   final String? reason;
 }
 
+enum WebViewSessionChallengeChangeKind {
+  required,
+  opened,
+  completed,
+  captured,
+  backfilled,
+  expired,
+  revoked,
+  failed,
+}
+
+final class WebViewSessionChallengeChanged extends CacheInvalidationEvent {
+  const WebViewSessionChallengeChanged({
+    required super.occurredAt,
+    required this.challengeRequestId,
+    required this.providerScope,
+    required this.origin,
+    required this.changeKind,
+    this.reason,
+  });
+
+  final String challengeRequestId;
+  final String providerScope;
+  final Uri origin;
+  final WebViewSessionChallengeChangeKind changeKind;
+  final String? reason;
+}
+
+final class WebViewSessionArtifactCaptured extends CacheInvalidationEvent {
+  const WebViewSessionArtifactCaptured({
+    required super.occurredAt,
+    required this.challengeRequestId,
+    required this.artifactId,
+    required this.providerScope,
+    required this.origin,
+    required this.artifactKind,
+  });
+
+  final String challengeRequestId;
+  final String artifactId;
+  final String providerScope;
+  final Uri origin;
+  final String artifactKind;
+}
+
+final class WebViewSessionBackfillOutcomeRecorded
+    extends CacheInvalidationEvent {
+  const WebViewSessionBackfillOutcomeRecorded({
+    required super.occurredAt,
+    required this.attemptId,
+    required this.challengeRequestId,
+    required this.providerScope,
+    required this.state,
+    this.reason,
+  });
+
+  final String attemptId;
+  final String challengeRequestId;
+  final String providerScope;
+  final String state;
+  final String? reason;
+}
+
+final class WebViewSessionArtifactStateChanged extends CacheInvalidationEvent {
+  const WebViewSessionArtifactStateChanged({
+    required super.occurredAt,
+    required this.artifactId,
+    required this.providerScope,
+    required this.state,
+    this.reason,
+  });
+
+  final String artifactId;
+  final String providerScope;
+  final String state;
+  final String? reason;
+}
+
+final class WebViewSessionCapabilityChanged extends CacheInvalidationEvent {
+  const WebViewSessionCapabilityChanged({
+    required super.occurredAt,
+    required this.providerScope,
+    required this.capability,
+    required this.supported,
+    this.reason,
+  });
+
+  final String providerScope;
+  final String capability;
+  final bool supported;
+  final String? reason;
+}
+
 final class BtTaskCreated extends CacheInvalidationEvent {
   const BtTaskCreated({
     required super.occurredAt,
