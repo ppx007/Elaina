@@ -148,8 +148,7 @@ final class RssAutoDownloadPolicyChanged extends CacheInvalidationEvent {
   final String? sourceId;
 }
 
-final class RssAutoDownloadFeedItemEvaluated
-    extends CacheInvalidationEvent {
+final class RssAutoDownloadFeedItemEvaluated extends CacheInvalidationEvent {
   const RssAutoDownloadFeedItemEvaluated({
     required super.occurredAt,
     required this.policyId,
@@ -166,8 +165,7 @@ final class RssAutoDownloadFeedItemEvaluated
   final String outcomeKind;
 }
 
-final class RssAutoDownloadCandidateAccepted
-    extends CacheInvalidationEvent {
+final class RssAutoDownloadCandidateAccepted extends CacheInvalidationEvent {
   const RssAutoDownloadCandidateAccepted({
     required super.occurredAt,
     required this.policyId,
@@ -184,8 +182,7 @@ final class RssAutoDownloadCandidateAccepted
   final String sourceId;
 }
 
-final class RssAutoDownloadCandidateRejected
-    extends CacheInvalidationEvent {
+final class RssAutoDownloadCandidateRejected extends CacheInvalidationEvent {
   const RssAutoDownloadCandidateRejected({
     required super.occurredAt,
     required this.policyId,
@@ -202,8 +199,7 @@ final class RssAutoDownloadCandidateRejected
   final String reason;
 }
 
-final class RssAutoDownloadDedupeStateChanged
-    extends CacheInvalidationEvent {
+final class RssAutoDownloadDedupeStateChanged extends CacheInvalidationEvent {
   const RssAutoDownloadDedupeStateChanged({
     required super.occurredAt,
     required this.policyId,
@@ -401,6 +397,112 @@ final class WebViewSessionArtifactStateChanged extends CacheInvalidationEvent {
 
 final class WebViewSessionCapabilityChanged extends CacheInvalidationEvent {
   const WebViewSessionCapabilityChanged({
+    required super.occurredAt,
+    required this.providerScope,
+    required this.capability,
+    required this.supported,
+    this.reason,
+  });
+
+  final String providerScope;
+  final String capability;
+  final bool supported;
+  final String? reason;
+}
+
+enum NetworkPolicyProfileChangeKind {
+  registered,
+  updated,
+  removed,
+}
+
+final class NetworkPolicyProfileChanged extends CacheInvalidationEvent {
+  const NetworkPolicyProfileChanged({
+    required super.occurredAt,
+    required this.policyId,
+    required this.providerScope,
+    required this.changeKind,
+  });
+
+  final String policyId;
+  final String providerScope;
+  final NetworkPolicyProfileChangeKind changeKind;
+}
+
+final class NetworkPolicyProviderAssignmentChanged
+    extends CacheInvalidationEvent {
+  const NetworkPolicyProviderAssignmentChanged({
+    required super.occurredAt,
+    required this.assignmentId,
+    required this.providerScope,
+    required this.policyId,
+    this.reason,
+  });
+
+  final String assignmentId;
+  final String providerScope;
+  final String policyId;
+  final String? reason;
+}
+
+final class NetworkPolicyRuleChanged extends CacheInvalidationEvent {
+  const NetworkPolicyRuleChanged({
+    required super.occurredAt,
+    required this.policyId,
+    required this.ruleId,
+    required this.providerScope,
+  });
+
+  final String policyId;
+  final String ruleId;
+  final String providerScope;
+}
+
+final class NetworkPolicyEvaluationOutcomeRecorded
+    extends CacheInvalidationEvent {
+  const NetworkPolicyEvaluationOutcomeRecorded({
+    required super.occurredAt,
+    required this.evaluationId,
+    required this.providerScope,
+    required this.requestUri,
+    required this.decisionKind,
+    this.policyId,
+    this.ruleId,
+    this.failureKind,
+  });
+
+  final String evaluationId;
+  final String providerScope;
+  final Uri requestUri;
+  final String decisionKind;
+  final String? policyId;
+  final String? ruleId;
+  final String? failureKind;
+}
+
+final class NetworkPolicyBlockDecisionRecorded extends CacheInvalidationEvent {
+  const NetworkPolicyBlockDecisionRecorded({
+    required super.occurredAt,
+    required this.blockOutcomeId,
+    required this.providerScope,
+    required this.requestUri,
+    required this.failureKind,
+    required this.reason,
+    this.policyId,
+    this.ruleId,
+  });
+
+  final String blockOutcomeId;
+  final String providerScope;
+  final Uri requestUri;
+  final String failureKind;
+  final String reason;
+  final String? policyId;
+  final String? ruleId;
+}
+
+final class NetworkPolicyCapabilityChanged extends CacheInvalidationEvent {
+  const NetworkPolicyCapabilityChanged({
     required super.occurredAt,
     required this.providerScope,
     required this.capability,
@@ -746,8 +848,7 @@ final class AdvancedCaptionCapabilityReevaluated
   final String? reason;
 }
 
-final class AdvancedCaptionRendererStateChanged
-    extends CacheInvalidationEvent {
+final class AdvancedCaptionRendererStateChanged extends CacheInvalidationEvent {
   const AdvancedCaptionRendererStateChanged({
     required super.occurredAt,
     required this.scopeId,
@@ -807,8 +908,7 @@ enum FallbackAdapterChangeKind {
   deregistered,
 }
 
-final class FallbackAdapterRegistrationChanged
-    extends CacheInvalidationEvent {
+final class FallbackAdapterRegistrationChanged extends CacheInvalidationEvent {
   const FallbackAdapterRegistrationChanged({
     required super.occurredAt,
     required this.adapterId,
