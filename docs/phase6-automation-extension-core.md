@@ -12,7 +12,7 @@ This phase adds contract scaffolding for Celesteria architecture plan steps 26-3
 - Online rule runtime contracts describe versioned manifests, CSS selector, XPath 1.0, regex extraction targets, durable manifest storage, typed validation/evaluation outcomes, normalized search/detail/episode/playable-source read models, ProviderGateway request descriptors, network-policy handoff records, and invalidation events without JavaScript, WASM, scriptlet, arbitrary code execution, concrete crawler/scraper behavior, WebView challenge handling, or mandatory startup.
 - WebView session backfill contracts describe manual challenge lifecycle state, isolated provider/origin-scoped session artifacts, normalized cookie and provider-token value references, expiry/revocation handling, ProviderGateway retry descriptors, network-policy handoff records, storage persistence, invalidation events, and capability reporting without automatic captcha solving.
 - Network policy contracts describe provider-scoped ordered routing intent, exact host/domain suffix/wildcard/CIDR matcher intent, system/configured DNS, DoH, DoT, direct, proxy tag, block, fallback, ProviderGateway handoff, SSRF failure kinds, durable policy state, invalidation events, and platform capability limits without promising system-wide VPN, TUN, kernel filtering, DPI, packet capture, concrete DNS/proxy clients, or zero-leak routing control.
-- Diagnostics center contracts describe typed local event schemas, structured snapshots, retention, redaction, and export without lifecycle control or remote telemetry.
+- Diagnostics center contracts describe typed local event schemas, capability-gated status, redacted local event persistence, query filters by category/severity/time/correlation/source/event type/capability area, structured snapshots, retention outcomes, local export descriptors, invalidation events, and ProviderGateway correlation metadata without lifecycle control or remote telemetry.
 
 ## Non-Goals Preserved
 
@@ -21,6 +21,7 @@ This phase adds contract scaffolding for Celesteria architecture plan steps 26-3
 - No automatic captcha solving, challenge bypass, shared global browser profile, or headless challenge flow.
 - No concrete DNS resolver, proxy implementation, VPN service, kernel filtering, or platform network plugin.
 - No diagnostics action that starts playback, changes provider state, retries feeds, modifies network policy, or enqueues BT tasks.
+- No diagnostics telemetry pipeline, crash reporting service, analytics channel, cloud upload, automatic support bundle transmission, UI action surface, playback lifecycle control, provider mutation, feed retry, network-policy mutation, WebView challenge control, or BT enqueue/control behavior.
 - No dependency that makes RSS automation or online rules mandatory for local playback, media-library use, manual BT tasks, or core playback startup.
 
 The next change should only move beyond these contracts after checker coverage and OpenSpec validation have passed.

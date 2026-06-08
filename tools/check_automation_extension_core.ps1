@@ -13,6 +13,7 @@ $requiredFiles = @(
   'lib/src/network/network_policy.dart',
   'lib/src/foundation/storage/network_policy_storage_contracts.dart',
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
+  'lib/src/foundation/storage/diagnostics_storage_contracts.dart',
   'docs/phase6-automation-extension-core.md'
 )
 
@@ -156,12 +157,39 @@ foreach ($term in @('NetworkPolicyProfileChanged', 'NetworkPolicyProviderAssignm
 }
 
 $diagnostics = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/diagnostics/diagnostics_center.dart') -Raw
-if ($diagnostics -notmatch 'DiagnosticsEventRegistry' -or $diagnostics -notmatch 'DiagnosticsCenter' -or $diagnostics -notmatch 'DiagnosticsSnapshot' -or $diagnostics -notmatch 'DiagnosticsRedactionPolicy') {
-  throw 'Diagnostics center must define registry, center, snapshot, and redaction contracts.'
+foreach ($term in @('DiagnosticsCapabilityMatrix', 'DiagnosticsCapabilityStatus', 'DiagnosticsFailureKind', 'DiagnosticsOperationOutcome', 'DiagnosticsEventRegistry', 'DeterministicDiagnosticsEventRegistry', 'DiagnosticsCenter', 'DeterministicDiagnosticsCenter', 'DiagnosticsSnapshot', 'DiagnosticsRedactionPolicy', 'DiagnosticsRetentionOutcome', 'DiagnosticsLocalExportDescriptor', 'capabilityAreas')) {
+  if ($diagnostics -notmatch [regex]::Escape($term)) {
+    throw "Diagnostics center is missing contract term: $term"
+  }
 }
-foreach ($term in @('pause(', 'resume(', 'remove(', 'selectFiles(', 'createTask(', 'setNetworkPolicy')) {
+foreach ($term in @('pause(', 'resume(', 'remove(', 'selectFiles(', 'createTask(', 'setNetworkPolicy', 'remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload', 'supportBundleUpload', 'WebViewController')) {
   if ($diagnostics -match [regex]::Escape($term)) {
     throw "Diagnostics center must remain read-only; forbidden operation found: $term"
+  }
+}
+
+$diagnosticsStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/diagnostics_storage_contracts.dart') -Raw
+foreach ($term in @('StoredDiagnosticsSchemaRecord', 'StoredDiagnosticsEventRecord', 'StoredDiagnosticsSnapshotRecord', 'StoredDiagnosticsExportRequestRecord', 'StoredDiagnosticsExportOutcomeRecord', 'StoredDiagnosticsRetentionStateRecord', 'StoredDiagnosticsCapabilityRecord', 'DiagnosticsStore', 'DeterministicDiagnosticsStore')) {
+  if ($diagnosticsStorage -notmatch [regex]::Escape($term)) {
+    throw "Diagnostics storage is missing contract term: $term"
+  }
+}
+foreach ($term in @('remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload', 'supportBundleUpload', 'package:flutter', 'WebViewController', 'createTask(', 'setNetworkPolicy')) {
+  if ($diagnosticsStorage -match [regex]::Escape($term)) {
+    throw "Diagnostics storage contains forbidden remote/control term: $term"
+  }
+}
+
+foreach ($term in @('DiagnosticsSchemaRegistered', 'DiagnosticsEventRecorded', 'DiagnosticsSnapshotCreated', 'DiagnosticsExportRequestRecorded', 'DiagnosticsExportOutcomeRecorded', 'DiagnosticsRetentionEnforced', 'DiagnosticsCapabilityChanged')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing diagnostics event: $term"
+  }
+}
+
+$gateway = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/gateway/provider_gateway.dart') -Raw
+foreach ($term in @('ProviderDiagnosticsCorrelationDescriptor', 'ProviderRequestKey', 'ProviderCachePolicy', 'ProviderFailureKind', 'networkPolicyFailureKind', 'correlationId')) {
+  if ($gateway -notmatch [regex]::Escape($term)) {
+    throw "Provider gateway missing diagnostics correlation term: $term"
   }
 }
 

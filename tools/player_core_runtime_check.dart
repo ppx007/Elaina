@@ -15,6 +15,7 @@ Future<void> main() async {
   await _verifyOnlineRuleRuntimeContract();
   await _verifyWebViewSessionBackfillContract();
   await _verifyNetworkPolicyContract();
+  await _verifyDiagnosticsCenterContract();
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
@@ -1130,6 +1131,144 @@ Future<void> _verifyNetworkPolicyContract() async {
       'Network policy evaluations must publish invalidation events.');
   _expect(delivered.whereType<NetworkPolicyCapabilityChanged>().length == 1,
       'Network policy capability changes must publish invalidation events.');
+}
+
+Future<void> _verifyDiagnosticsCenterContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 11, 12);
+  final DeterministicDiagnosticsStore store = DeterministicDiagnosticsStore();
+  await store.storeSchema(StoredDiagnosticsSchemaRecord(
+    eventType: 'provider.failure',
+    category: DiagnosticsCategory.provider,
+    version: 1,
+    defaultSeverity: DiagnosticsSeverity.error,
+    registeredAt: observedAt,
+    requiredPayloadKeys: const <String>['message'],
+    capabilityArea: DiagnosticsCapability.providerGatewayCorrelation,
+  ));
+  await store.recordEvent(StoredDiagnosticsEventRecord(
+    id: 'runtime-diagnostics-event',
+    eventType: 'provider.failure',
+    schemaVersion: 1,
+    category: DiagnosticsCategory.provider,
+    severity: DiagnosticsSeverity.error,
+    occurredAt: observedAt,
+    sourceModule: 'provider-gateway',
+    correlationId: 'runtime-correlation',
+    redacted: true,
+    payload: const <String, Object?>{'message': 'Provider failed.'},
+    capabilityArea: DiagnosticsCapability.providerGatewayCorrelation,
+  ));
+  await store.storeCapability(StoredDiagnosticsCapabilityRecord(
+    capability: DiagnosticsCapability.snapshotQuery,
+    state: StoredDiagnosticsCapabilityState.supported,
+    updatedAt: observedAt,
+  ));
+  _expect((await store.schemaByEventType('provider.failure'))?.version == 1,
+      'Diagnostics storage must persist event schemas.');
+  _expect(
+      (await store.queryEvents(correlationId: 'runtime-correlation'))
+          .single
+          .redacted,
+      'Diagnostics storage must persist redacted event records.');
+  _expect(
+      (await store.capability(DiagnosticsCapability.snapshotQuery))?.state ==
+          StoredDiagnosticsCapabilityState.supported,
+      'Diagnostics storage must persist capability state.');
+
+  final DeterministicDiagnosticsEventRegistry registry =
+      DeterministicDiagnosticsEventRegistry();
+  await registry.register(DiagnosticsEventSchema(
+    type: const DiagnosticsEventType('provider.failure'),
+    category: DiagnosticsCategory.provider,
+    version: 1,
+    defaultSeverity: DiagnosticsSeverity.error,
+    requiredPayloadKeys: const <String>['message', 'secret'],
+    capabilityArea: DiagnosticsCapability.providerGatewayCorrelation,
+  ));
+  final DeterministicDiagnosticsCenter center = DeterministicDiagnosticsCenter(
+    registry: registry,
+    retentionPolicy: const DiagnosticsRetentionPolicy(
+        maxEvents: 10, maxAge: Duration(days: 7)),
+    redactionPolicy:
+        DiagnosticsRedactionPolicy(sensitivePayloadKeys: const <String>['secret']),
+    capabilityMatrix: DiagnosticsCapabilityMatrix(
+      capabilities: <DiagnosticsCapability, DiagnosticsCapabilityStatus>{
+        for (final DiagnosticsCapability capability in DiagnosticsCapability.values)
+          capability: const DiagnosticsCapabilityStatus.supported(),
+      },
+    ),
+  );
+  final DiagnosticsOperationOutcome outcome = await center.record(
+    DiagnosticsEvent(
+      type: const DiagnosticsEventType('provider.failure'),
+      schemaVersion: 1,
+      category: DiagnosticsCategory.provider,
+      severity: DiagnosticsSeverity.error,
+      occurredAt: observedAt,
+      sourceModule: 'provider-gateway',
+      correlationId: const DiagnosticsCorrelationId('runtime-correlation'),
+      payload: const <String, Object?>{
+        'message': 'Provider failed.',
+        'secret': 'runtime-secret',
+      },
+      capabilityArea: DiagnosticsCapability.providerGatewayCorrelation,
+    ),
+  );
+  final DiagnosticsSnapshot snapshot = await center.snapshot(DiagnosticsQuery(
+    category: DiagnosticsCategory.provider,
+    correlationId: const DiagnosticsCorrelationId('runtime-correlation'),
+    capabilityAreas: const <DiagnosticsCapability>[
+      DiagnosticsCapability.providerGatewayCorrelation
+    ],
+  ));
+  final DiagnosticsLocalExportDescriptor exportDescriptor =
+      await center.describeLocalExport(
+    snapshot: snapshot,
+    format: 'jsonl',
+    now: observedAt,
+  );
+  _expect(outcome.isSuccess, 'Diagnostics center must record registered events.');
+  _expect(snapshot.events.single.payload['secret'] == '<redacted>',
+      'Diagnostics center must redact sensitive payload keys.');
+  _expect(exportDescriptor.redacted,
+      'Diagnostics local export descriptors must declare redacted content.');
+
+  final ProviderDiagnosticsCorrelationDescriptor descriptor =
+      ProviderDiagnosticsCorrelationDescriptor(
+    providerId: const ProviderId('runtime-provider'),
+    requestKey: ProviderRequestKey(
+      providerId: const ProviderId('runtime-provider'),
+      cacheKey: 'runtime-provider::diagnostics',
+    ),
+    cachePolicy: ProviderCachePolicy.networkFirst,
+    correlationId: 'runtime-correlation',
+    failureKind: ProviderFailureKind.terminal,
+    networkPolicyFailureKind: NetworkPolicyFailureKind.loopbackAddress.name,
+    networkPolicyEvaluationId: 'runtime-network-evaluation',
+  );
+  _expect(descriptor.requestKey.cacheKey == 'runtime-provider::diagnostics',
+      'Provider diagnostics correlation must preserve request keys.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  bus.publish(DiagnosticsEventRecorded(
+    occurredAt: observedAt,
+    eventId: 'runtime-diagnostics-event',
+    eventType: 'provider.failure',
+    sourceModule: 'provider-gateway',
+    correlationId: 'runtime-correlation',
+  ));
+  bus.publish(DiagnosticsCapabilityChanged(
+    occurredAt: observedAt,
+    capability: DiagnosticsCapability.snapshotQuery.name,
+    supported: true,
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(delivered.whereType<DiagnosticsEventRecorded>().length == 1,
+      'Diagnostics event recording must publish invalidation.');
+  _expect(delivered.whereType<DiagnosticsCapabilityChanged>().length == 1,
+      'Diagnostics capability changes must publish invalidation.');
 }
 
 Future<void> _verifySeasonalIndexerContract() async {
