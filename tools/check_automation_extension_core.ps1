@@ -11,6 +11,7 @@ $requiredFiles = @(
   'lib/src/foundation/storage/online_rule_runtime_storage_contracts.dart',
   'lib/src/network/webview_session_backfill.dart',
   'lib/src/network/network_policy.dart',
+  'lib/src/foundation/storage/network_policy_storage_contracts.dart',
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
   'docs/phase6-automation-extension-core.md'
 )
@@ -124,13 +125,33 @@ foreach ($term in @('WebViewSessionChallengeChanged', 'WebViewSessionArtifactCap
   }
 }
 
-$networkPolicy = Get-Content -LiteralPath (Join-Path $root 'lib/src/network/network_policy.dart') -Raw
-if ($networkPolicy -notmatch 'NetworkPolicyEvaluator' -or $networkPolicy -notmatch 'NetworkPolicyFailureKind' -or $networkPolicy -notmatch 'loopbackAddress' -or $networkPolicy -notmatch 'privateNetworkAddress' -or $networkPolicy -notmatch 'NetworkPolicyCapabilityMatrix') {
-  throw 'Network policy must define evaluator, SSRF failure kinds, and capability contracts.'
+$networkPolicyStorage = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/storage/network_policy_storage_contracts.dart') -Raw
+foreach ($term in @('StoredNetworkPolicyProfileRecord', 'StoredNetworkPolicyRuleRecord', 'StoredNetworkPolicyProviderAssignmentRecord', 'StoredNetworkPolicyEvaluationSnapshotRecord', 'StoredNetworkPolicyBlockOutcomeRecord', 'StoredNetworkPolicyCapabilityRecord', 'NetworkPolicyStore', 'DeterministicNetworkPolicyStore')) {
+  if ($networkPolicyStorage -notmatch [regex]::Escape($term)) {
+    throw "Network policy storage is missing contract term: $term"
+  }
 }
-foreach ($term in @('VpnService', 'TUN', 'kernel', 'DPI', 'zeroLeak')) {
+foreach ($term in @('DnsClient', 'DoHClient', 'DoTClient', 'ProxyServer', 'VpnService', 'TunInterface', 'PacketCapture', 'DpiEngine')) {
+  if ($networkPolicyStorage -match [regex]::Escape($term)) {
+    throw "Network policy storage contains forbidden concrete networking dependency: $term"
+  }
+}
+
+$networkPolicy = Get-Content -LiteralPath (Join-Path $root 'lib/src/network/network_policy.dart') -Raw
+foreach ($term in @('NetworkPolicyEvaluator', 'DeterministicNetworkPolicyEvaluator', 'NetworkPolicyFailureKind', 'loopbackAddress', 'privateNetworkAddress', 'NetworkPolicyCapabilityMatrix', 'dohIntent', 'dotIntent', 'ProviderNetworkPolicyHandoffDescriptor', 'NetworkPolicyFallbackBehavior')) {
+  if ($networkPolicy -notmatch [regex]::Escape($term)) {
+    throw "Network policy is missing contract term: $term"
+  }
+}
+foreach ($term in @('VpnService', 'TunInterface', 'kernel filter', 'DpiEngine', 'PacketCapture', 'zeroLeak', 'DnsClient', 'DoHClient', 'DoTClient', 'ProxyServer')) {
   if ($networkPolicy -match [regex]::Escape($term)) {
     throw "Network policy contains forbidden system-routing promise term: $term"
+  }
+}
+
+foreach ($term in @('NetworkPolicyProfileChanged', 'NetworkPolicyProviderAssignmentChanged', 'NetworkPolicyRuleChanged', 'NetworkPolicyEvaluationOutcomeRecorded', 'NetworkPolicyBlockDecisionRecorded', 'NetworkPolicyCapabilityChanged')) {
+  if ($cacheInvalidation -notmatch [regex]::Escape($term)) {
+    throw "Cache invalidation bus missing network policy event: $term"
   }
 }
 

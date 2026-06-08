@@ -14,6 +14,7 @@ Future<void> main() async {
   await _verifyRssAutoDownloadPolicyContract();
   await _verifyOnlineRuleRuntimeContract();
   await _verifyWebViewSessionBackfillContract();
+  await _verifyNetworkPolicyContract();
   await _verifySeasonalIndexerContract();
   await _verifyBtTaskCoreContract();
   await _verifyVirtualMediaStreamContract();
@@ -531,8 +532,9 @@ Future<void> _verifyRssAutoDownloadPolicyContract() async {
       'RSS auto-download storage must persist policy enabled state.');
   _expect(
       (await store.feedActivation(
-              policyId: 'runtime-rss-policy', sourceId: 'runtime-rss'))
-          ?.enabled == true,
+                  policyId: 'runtime-rss-policy', sourceId: 'runtime-rss'))
+              ?.enabled ==
+          true,
       'RSS auto-download storage must persist feed-scoped activation.');
   _expect(
       (await store.latestEnqueueOutcome('runtime-rss-candidate'))?.state ==
@@ -607,7 +609,8 @@ Future<void> _verifyRssAutoDownloadPolicyContract() async {
       'Disabled RSS automation must report typed disabled outcomes.');
 
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
   bus.publish(RssAutoDownloadCandidateAccepted(
     occurredAt: observedAt,
     policyId: 'runtime-rss-policy',
@@ -698,12 +701,17 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
     state: StoredOnlineRuleCapabilityState.supported,
     updatedAt: observedAt,
   ));
-  _expect((await store.manifestBySource('runtime-online-source'))?.version ==
-      '1.0.0', 'Online rule storage must persist manifest versions.');
-  _expect((await store.ruleSetsForSource('runtime-online-source')).single.target ==
-      StoredOnlineRuleTarget.search, 'Online rule storage must persist target rule sets.');
-  _expect((await store.latestRetrievalOutcome('runtime-online-source'))?.state ==
-      StoredOnlineRuleRetrievalState.retrieved,
+  _expect(
+      (await store.manifestBySource('runtime-online-source'))?.version ==
+          '1.0.0',
+      'Online rule storage must persist manifest versions.');
+  _expect(
+      (await store.ruleSetsForSource('runtime-online-source')).single.target ==
+          StoredOnlineRuleTarget.search,
+      'Online rule storage must persist target rule sets.');
+  _expect(
+      (await store.latestRetrievalOutcome('runtime-online-source'))?.state ==
+          StoredOnlineRuleRetrievalState.retrieved,
       'Online rule storage must persist page retrieval outcomes.');
 
   const DeterministicOnlineRuleRuntime runtime =
@@ -746,7 +754,8 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
           'title="Runtime Result" detailUri="https://source.example.test/detail"',
     ),
   );
-  _expect(evaluated.isSuccess, 'Online rule runtime must evaluate supplied documents.');
+  _expect(evaluated.isSuccess,
+      'Online rule runtime must evaluate supplied documents.');
   final OnlineRuleSearchOutput output =
       runtime.normalize(evaluated.result!) as OnlineRuleSearchOutput;
   _expect(output.results.single.title == 'Runtime Result',
@@ -796,7 +805,8 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
       'Online rule gateway descriptors must preserve provider identity.');
 
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
   bus.publish(OnlineRuleManifestChanged(
       occurredAt: observedAt,
       sourceId: 'runtime-online-source',
@@ -869,9 +879,9 @@ Future<void> _verifyWebViewSessionBackfillContract() async {
       'WebView backfill storage must persist manual challenge lifecycle state.');
   _expect(
       (await store.activeArtifactsForProvider(
-              providerScope: 'runtime-provider', now: observedAt))
-          .single
-          .valueReference ==
+                  providerScope: 'runtime-provider', now: observedAt))
+              .single
+              .valueReference ==
           'runtime-cookie-ref',
       'WebView backfill storage must return active same-provider artifacts.');
   _expect(
@@ -918,7 +928,8 @@ Future<void> _verifyWebViewSessionBackfillContract() async {
       'WebView backfill retry descriptors must preserve ProviderGateway keys.');
 
   final WebViewSessionBackfillRetryOutcome rejected = factory.retryDescriptor(
-    attemptId: const WebViewSessionBackfillAttemptId('runtime-rejected-attempt'),
+    attemptId:
+        const WebViewSessionBackfillAttemptId('runtime-rejected-attempt'),
     providerId: const ProviderId('runtime-provider'),
     providerScope: 'runtime-provider',
     requestUri: Uri.parse('https://other.example.test/resource'),
@@ -942,7 +953,8 @@ Future<void> _verifyWebViewSessionBackfillContract() async {
       'WebView backfill must reject automatic captcha solving contracts.');
 
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
   bus.publish(WebViewSessionChallengeChanged(
     occurredAt: observedAt,
     challengeRequestId: 'runtime-webview-challenge',
@@ -962,6 +974,162 @@ Future<void> _verifyWebViewSessionBackfillContract() async {
       'WebView challenge lifecycle changes must publish invalidation.');
   _expect(delivered.whereType<WebViewSessionCapabilityChanged>().length == 1,
       'WebView capability changes must publish invalidation.');
+}
+
+Future<void> _verifyNetworkPolicyContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 10, 12);
+  final DeterministicNetworkPolicyStore store =
+      DeterministicNetworkPolicyStore();
+  await store.storeProfile(StoredNetworkPolicyProfileRecord(
+    id: 'runtime-network-policy',
+    providerScope: 'runtime-provider',
+    label: 'Runtime Network Policy',
+    fallbackBehavior: StoredNetworkPolicyFallbackBehavior.systemDns,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  ));
+  await store.storeRules(
+    policyId: 'runtime-network-policy',
+    rules: <StoredNetworkPolicyRuleRecord>[
+      StoredNetworkPolicyRuleRecord(
+        id: 'runtime-network-rule',
+        policyId: 'runtime-network-policy',
+        order: 1,
+        matcherKind: StoredNetworkPolicyMatcherKind.domainSuffix,
+        pattern: 'example.test',
+        action: StoredNetworkPolicyAction.doh,
+        resolverEndpoint: Uri.parse('https://resolver.example.test/dns-query'),
+        auditLabel: 'runtime-doh',
+      ),
+    ],
+  );
+  await store.assignProvider(StoredNetworkPolicyProviderAssignmentRecord(
+    id: 'runtime-network-assignment',
+    providerScope: 'runtime-provider',
+    policyId: 'runtime-network-policy',
+    assignedAt: observedAt,
+  ));
+  await store.recordEvaluation(StoredNetworkPolicyEvaluationSnapshotRecord(
+    id: 'runtime-network-evaluation',
+    providerScope: 'runtime-provider',
+    requestUri: Uri.parse('https://media.example.test/video'),
+    policyId: 'runtime-network-policy',
+    ruleId: 'runtime-network-rule',
+    decisionKind: StoredNetworkPolicyDecisionKind.allowed,
+    action: StoredNetworkPolicyAction.doh,
+    recordedAt: observedAt,
+  ));
+  await store.storeCapability(StoredNetworkPolicyCapabilityRecord(
+    providerScope: 'runtime-provider',
+    capability: NetworkPolicyCapability.dohIntent.name,
+    state: StoredNetworkPolicyCapabilityState.supported,
+    updatedAt: observedAt,
+  ));
+  _expect(
+      (await store.profileById('runtime-network-policy'))?.providerScope ==
+          'runtime-provider',
+      'Network policy storage must persist provider-scoped profiles.');
+  _expect(
+      (await store.rulesForPolicy('runtime-network-policy')).single.action ==
+          StoredNetworkPolicyAction.doh,
+      'Network policy storage must persist ordered resolver intent rules.');
+  _expect(
+      (await store.assignmentForProvider('runtime-provider'))?.policyId ==
+          'runtime-network-policy',
+      'Network policy storage must persist provider assignments.');
+  _expect(
+      (await store.evaluationsForProvider('runtime-provider')).single.action ==
+          StoredNetworkPolicyAction.doh,
+      'Network policy storage must persist evaluation snapshots.');
+
+  final NetworkPolicy policy = NetworkPolicy(
+    id: const NetworkPolicyId('runtime-network-policy'),
+    providerScope: 'runtime-provider',
+    rules: <NetworkPolicyRule>[
+      NetworkPolicyRule(
+        id: const NetworkPolicyRuleId('runtime-doh-rule'),
+        order: 1,
+        matcher: const NetworkPolicyMatcher(
+          kind: NetworkPolicyMatcherKind.domainSuffix,
+          pattern: 'example.test',
+        ),
+        action: NetworkPolicyAction.doh,
+        resolverIntent: NetworkResolverIntent.doh(
+          endpoint: Uri.parse('https://resolver.example.test/dns-query'),
+        ),
+        auditLabel: 'runtime-doh',
+      ),
+    ],
+  );
+  final DeterministicNetworkPolicyEvaluator evaluator =
+      DeterministicNetworkPolicyEvaluator();
+  final NetworkPolicyDecision allowed = await evaluator.evaluate(
+    policy: policy,
+    request: NetworkPolicyRequest(
+      providerScope: 'runtime-provider',
+      uri: Uri.parse('https://media.example.test/video'),
+      cacheKey: 'runtime-provider::video',
+    ),
+  );
+  final NetworkPolicyDecision blocked = await evaluator.evaluate(
+    policy: policy,
+    request: NetworkPolicyRequest(
+      providerScope: 'runtime-provider',
+      uri: Uri.parse('http://127.0.0.1/admin'),
+    ),
+  );
+  _expect(
+      allowed is NetworkPolicyAllowed &&
+          allowed.action == NetworkPolicyAction.doh,
+      'Network policy evaluator must return declarative resolver intent decisions.');
+  _expect(
+      blocked is NetworkPolicyBlocked &&
+          blocked.kind == NetworkPolicyFailureKind.loopbackAddress,
+      'Network policy evaluator must normalize SSRF loopback failures.');
+
+  final ProviderNetworkPolicyHandoffDescriptor handoff =
+      ProviderNetworkPolicyHandoffDescriptor(
+    providerId: const ProviderId('runtime-provider'),
+    providerScope: 'runtime-provider',
+    cacheKey: 'runtime-provider::video',
+    requestUri: Uri.parse('https://media.example.test/video'),
+    cachePolicy: ProviderCachePolicy.networkFirst,
+    ratePolicy:
+        const ProviderRatePolicy(maxRequests: 2, window: Duration(minutes: 1)),
+    retryPolicy: const ProviderRetryPolicy(
+        maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+    requiredCapabilities: const <NetworkPolicyCapability>{
+      NetworkPolicyCapability.dohIntent
+    },
+  );
+  _expect(handoff.requestKey.providerId.value == 'runtime-provider',
+      'Network policy handoff must preserve provider identity.');
+  _expect(handoff.networkPolicyRequest.cacheKey == 'runtime-provider::video',
+      'Network policy handoff must preserve provider cache keys.');
+
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
+  bus.publish(NetworkPolicyEvaluationOutcomeRecorded(
+    occurredAt: observedAt,
+    evaluationId: 'runtime-network-evaluation',
+    providerScope: 'runtime-provider',
+    requestUri: Uri.parse('https://media.example.test/video'),
+    decisionKind: 'allowed',
+  ));
+  bus.publish(NetworkPolicyCapabilityChanged(
+    occurredAt: observedAt,
+    providerScope: 'runtime-provider',
+    capability: NetworkPolicyCapability.dohIntent.name,
+    supported: true,
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  await bus.close();
+  _expect(
+      delivered.whereType<NetworkPolicyEvaluationOutcomeRecorded>().length == 1,
+      'Network policy evaluations must publish invalidation events.');
+  _expect(delivered.whereType<NetworkPolicyCapabilityChanged>().length == 1,
+      'Network policy capability changes must publish invalidation events.');
 }
 
 Future<void> _verifySeasonalIndexerContract() async {
@@ -1912,16 +2080,20 @@ Future<void> _verifyFallbackAdapterContract() async {
           1,
       'Fallback registration must publish invalidation.');
   _expect(
-      deliveredSelectionEvents.whereType<FallbackStrategyStateChanged>().length ==
+      deliveredSelectionEvents
+              .whereType<FallbackStrategyStateChanged>()
+              .length ==
           1,
       'Fallback state changes must publish invalidation.');
   _expect(
-      deliveredSelectionEvents.whereType<FallbackSelectionChanged>().length == 1,
+      deliveredSelectionEvents.whereType<FallbackSelectionChanged>().length ==
+          1,
       'Fallback selection changes must publish invalidation.');
 
   final Future<CacheInvalidationEvent> capabilityEvent = bus.events.first;
-  final FallbackCapabilityReevaluationOutcome reevaluated = await strategy
-      .reevaluateCapabilities(const FallbackAdapterId('runtime-fallback-adapter'));
+  final FallbackCapabilityReevaluationOutcome reevaluated =
+      await strategy.reevaluateCapabilities(
+          const FallbackAdapterId('runtime-fallback-adapter'));
   final CacheInvalidationEvent deliveredCapabilityEvent = await capabilityEvent;
   _expect(reevaluated.readModel?.hidesAnyCapability == true,
       'Fallback capability reevaluation must expose hidden capabilities.');
@@ -1938,7 +2110,8 @@ Future<void> _verifyFallbackAdapterContract() async {
       message: 'Runtime primary adapter load failed.',
     ),
   );
-  _expect(noCandidate.failure?.kind == FallbackEvaluationFailureKind.noCandidate,
+  _expect(
+      noCandidate.failure?.kind == FallbackEvaluationFailureKind.noCandidate,
       'Missing fallback candidates must return a typed no-candidate failure.');
 
   final DeterministicPlaybackFallbackStrategy disabledStrategy =
