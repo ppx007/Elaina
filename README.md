@@ -30,6 +30,24 @@ dart analyze
 powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
 ```
 
+
+## Phase 0 Foundation Runtime (Step 1-4 Bootstrap)
+
+The Phase 0 foundation runtime bootstrap is now implemented:
+
+- **`lib/src/foundation/foundation_bootstrap.dart`** - Single entry-point composing all Step 1-4 surfaces
+- **`lib/src/foundation/foundation_runtime.dart`** - `FoundationRuntime` + `DeterministicProviderGateway`
+- **`lib/src/foundation/deterministic_storage_foundation.dart`** - `DeterministicStorageFoundation` + 7 missing store scaffolds
+- **`lib/src/foundation/layer_boundary_checker.dart`** - `LayerBoundaryChecker` for forbidden/required term validation
+
+Run bootstrap validation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\check_phase0_foundation.ps1"
+dart run tools\player_core_runtime_check.dart
+openspec validate "bootstrap-phase0-foundation-runtime" --strict
+```
+
 ## Repository Policy
 
 - Do not commit, push, configure remotes, or publish without an explicit user request.
