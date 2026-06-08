@@ -32,6 +32,7 @@ Future<void> main() async {
   _verifyPlaybackStateContract();
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
+  await _verifyPlayerCoreRuntimeContract();
   await _verifyFoundationRuntimeContract();
 }
 
@@ -3646,6 +3647,86 @@ Future<void> _verifyFoundationRuntimeContract() async {
   _expect(disposedAccess,
       'FoundationRuntime must reject access after disposal.');
 }
+
+Future<void> _verifyPlayerCoreRuntimeContract() async {
+  final FoundationBootstrap foundation = FoundationBootstrap();
+  final PlayerCoreBootstrap unsupportedBootstrap = PlayerCoreBootstrap(
+    foundationDependency: foundation,
+  );
+  _expect(unsupportedBootstrap.runtime.foundationDependency == foundation,
+      'PlayerCoreBootstrap must preserve the Phase 0 foundation dependency boundary.');
+  _expect(!unsupportedBootstrap.runtime.capabilityMatrix
+          .supports(PlaybackCapability.localFilePlayback),
+      'Default player core bootstrap must not claim native playback support.');
+  _expectFailureKind(await unsupportedBootstrap.controller.open(_localSource()),
+      PlaybackFailureKind.unsupported);
+  await unsupportedBootstrap.dispose();
+
+  final DeterministicMpvBinding binding =
+      PlayerCoreBootstrap.deterministicBinding(tracks: _tracks);
+  final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+    binding: binding,
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+        PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
+        PlaybackCapability.hlsPlayback: CapabilityStatus.supported(),
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+        PlaybackCapability.seek: CapabilityStatus.supported(),
+        PlaybackCapability.stop: CapabilityStatus.supported(),
+        PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+        PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
+        PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+        PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+        PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+        PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+      },
+    ),
+    foundationDependency: foundation,
+  );
+  final PlaybackControllerContract controller = runtime.controller;
+
+  final _RecordingPlaybackStateObserver observer =
+      _RecordingPlaybackStateObserver();
+  controller.addPlaybackStateObserver(observer);
+  _expectSuccess(await controller.open(_localSource()));
+  _expectSuccess(await controller.play());
+  _expectSuccess(await controller.seek(const Duration(seconds: 18)));
+  final TrackDiscoveryResult discovery = await controller.discoverTracks();
+  _expect(discovery.tracks.length == 2,
+      'Player core runtime must discover normalized tracks through its active adapter.');
+  final TrackSwitchResult switchResult = await controller.switchTrack(
+    const DomainMediaTrackId('subtitle-ja'),
+    trackType: DomainMediaTrackType.subtitle,
+  );
+  _expect(switchResult.isSuccess,
+      'Player core runtime must switch known normalized tracks.');
+  _expect(binding.loadedSource is LocalFilePlaybackSource,
+      'Player core runtime must route load through deterministic binding.');
+  _expect(binding.switchedTrackId?.value == 'subtitle-ja',
+      'Player core runtime must route track switching through deterministic binding.');
+  _expect(observer.snapshots.isNotEmpty,
+      'Player core runtime must publish playback state snapshots.');
+  _expect(runtime.currentState.timeline.position == const Duration(seconds: 18),
+      'Player core runtime must update timeline state after seek.');
+  _expect(runtime.currentState.activeTracks.subtitleTrackId?.value == 'subtitle-ja',
+      'Player core runtime must update active subtitle track state.');
+
+  final PlaybackPageContract page = PlaybackPageContract(
+    controller: runtime.controller,
+  );
+  _expect(page.resolveSurface().hasActivePanel(PlaybackPagePanelId.tracks),
+      'Playback page foundation must consume runtime-derived descriptors.');
+
+  await runtime.dispose();
+  _expect(runtime.isDisposed,
+      'Player core runtime must report disposed after dispose.');
+  _expect(binding.isDisposed,
+      'Player core runtime must dispose its deterministic binding.');
+  _expectFailureKind(await controller.play(), PlaybackFailureKind.disposed);
+  await foundation.dispose();
+}
+
 void _expectIntentOutcome(
     PlaybackPageIntentResult result, PlaybackPageIntentOutcome outcome) {
   _expect(result.outcome == outcome,

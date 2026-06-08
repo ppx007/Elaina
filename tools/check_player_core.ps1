@@ -6,11 +6,14 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/playback/player_adapter.dart',
   'lib/src/playback/capability_matrix.dart',
+  'lib/src/playback/deterministic_mpv_binding.dart',
   'lib/src/playback/mpv_adapter_facade.dart',
   'lib/src/playback/track_management.dart',
   'lib/src/domain/playback/playback_controller.dart',
   'lib/src/domain/playback/playback_source_handoff.dart',
   'lib/src/domain/playback/playback_state.dart',
+  'lib/src/domain/playback/player_core_bootstrap.dart',
+  'lib/src/domain/playback/player_core_runtime.dart',
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
   'docs/next-change-acg-data-experience.md'
@@ -73,6 +76,15 @@ foreach ($file in $frameworkNeutralPlaybackContracts) {
 $publicBarrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 if ($publicBarrel.Contains('flutter_playback_shell.dart')) {
   throw 'Public Dart contract barrel must not export the Flutter playback shell.'
+}
+foreach ($export in @(
+  'src/playback/deterministic_mpv_binding.dart',
+  'src/domain/playback/player_core_bootstrap.dart',
+  'src/domain/playback/player_core_runtime.dart'
+)) {
+  if ($publicBarrel -notmatch [regex]::Escape("export '$export';")) {
+    throw "Public Dart contract barrel missing player-core runtime export: $export"
+  }
 }
 
 $domainPlaybackPaths = @(
@@ -271,6 +283,47 @@ if ($mpvFacade -notmatch 'return binding\.load\(source\)' -or $mpvFacade -notmat
 }
 if ($mpvFacade -match 'MpvAdapterBindingState\.available') {
   throw 'MPV facade must not expose an availability state without an injected binding delegate.'
+}
+
+$playerCoreRuntimeFiles = @(
+  'lib/src/playback/deterministic_mpv_binding.dart',
+  'lib/src/domain/playback/player_core_bootstrap.dart',
+  'lib/src/domain/playback/player_core_runtime.dart'
+)
+foreach ($file in $playerCoreRuntimeFiles) {
+  $path = Join-Path $root $file
+  $content = Get-Content -LiteralPath $path -Raw
+  foreach ($term in @(
+    'package:flutter', 'dart:ui', 'libmpv', 'media-kit', 'media_kit', 'vlc',
+    'exoplayer', 'avplayer', 'platform channel', 'src/provider/',
+    'src/foundation/storage/', 'src/network/',
+    'Bangumi', 'Dandanplay', 'RSS', 'Anime4K', 'DiagnosticsCenter'
+  )) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Forbidden Phase 1 player-core runtime dependency '$term' found in $path"
+    }
+  }
+}
+
+$playerCoreRuntime = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/playback/player_core_runtime.dart') -Raw
+foreach ($term in @('PlayerCoreRuntime', 'ActivePlayerAdapterResolver', 'PlaybackControllerContract', 'PlaybackStateSnapshot', 'TrackDiscoveryResult', 'DeterministicPlayerClock')) {
+  if ($playerCoreRuntime -notmatch [regex]::Escape($term)) {
+    throw "Player core runtime missing required term: $term"
+  }
+}
+
+$playerCoreBootstrap = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/playback/player_core_bootstrap.dart') -Raw
+foreach ($term in @('PlayerCoreBootstrap', 'PlayerCoreRuntime', 'DeterministicMpvBinding', 'playerCoreRuntimeForbiddenDependencies', 'playerCoreRuntimeRequiredTerms')) {
+  if ($playerCoreBootstrap -notmatch [regex]::Escape($term)) {
+    throw "Player core bootstrap missing required term: $term"
+  }
+}
+
+$deterministicBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/deterministic_mpv_binding.dart') -Raw
+foreach ($term in @('DeterministicMpvBinding', 'MpvAdapterBinding', 'PlaybackOperation', 'TrackDiscoveryResult', 'TrackSwitchResult')) {
+  if ($deterministicBinding -notmatch [regex]::Escape($term)) {
+    throw "Deterministic MPV binding missing required term: $term"
+  }
 }
 
 & dart (Join-Path $root 'tools/player_core_runtime_check.dart')
