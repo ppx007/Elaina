@@ -20,6 +20,7 @@ export 'src/foundation/storage/advanced_caption_storage_contracts.dart';
 export 'src/foundation/storage/av_sync_guard_storage_contracts.dart';
 export 'src/foundation/storage/bt_task_storage_contracts.dart';
 export 'src/foundation/storage/fallback_adapter_storage_contracts.dart';
+export 'src/foundation/storage/network_policy_storage_contracts.dart';
 export 'src/foundation/storage/online_rule_runtime_storage_contracts.dart';
 export 'src/foundation/storage/piece_priority_scheduler_storage_contracts.dart';
 export 'src/foundation/storage/rss_auto_download_policy_storage_contracts.dart';
