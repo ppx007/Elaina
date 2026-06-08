@@ -201,4 +201,84 @@ foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or 
   }
 }
 
+
+# Foundation bootstrap boundary validation
+$bootstrap = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/foundation_bootstrap.dart') -Raw
+$bootstrapForbiddenPhase6 = @(
+  'package:flutter', 'WebViewController', 'runJavascript', 'eval(', 'Function.apply',
+  'dart:mirrors', 'dart:ffi', 'captchaSolver', 'yuc.wiki', 'DnsClient', 'ProxyServer',
+  'HttpClient(', 'SQLite', 'sqlite', 'dart:io'
+)
+foreach ($term in $bootstrapForbiddenPhase6) {
+  if ($bootstrap -match [regex]::Escape($term)) {
+    throw "Foundation bootstrap contains forbidden Phase 6 dependency: $term"
+  }
+}
+foreach ($term in @('FoundationBootstrap', 'DeterministicStorageFoundation', 'FoundationRuntime', 'LayerBoundaryChecker', 'foundationBootstrapForbiddenDependencies')) {
+  if ($bootstrap -notmatch [regex]::Escape($term)) {
+    throw "Foundation bootstrap missing required contract surface: $term"
+  }
+}
 'Automation extension core checks passed.'
+
+# Extended Step 27 online rule runtime positive terms
+foreach ($term in @('OnlineRuleManifest', 'OnlineRuleSourceId', 'OnlineRuleManifestVersion', 'OnlineRuleValidationResult', 'OnlineRuleEvaluationRequest', 'OnlineRuleEvaluationOutcome', 'OnlineExtractionOperation', 'OnlineRuleSet', 'GatewayBoundProvider')) {
+  if ($onlineRuntime -notmatch [regex]::Escape($term)) {
+    throw "Online rule runtime missing extended contract term: $term"
+  }
+}
+
+# Extended Step 27 forbidden terms (actual code execution, not enum values)
+$extendedForbiddenTerms = @('runJavascript', 'dart:js', 'package:js', 'js_interop', 'Function(', 'dart:ffi', 'dart:mirrors')
+foreach ($term in $extendedForbiddenTerms) {
+  if ($onlineRuntime -match [regex]::Escape($term)) {
+    throw "Online rule runtime contains forbidden Step 27 extended term: $term"
+  }
+  if ($onlineRuntimeStorage -match [regex]::Escape($term)) {
+    throw "Online rule runtime storage contains forbidden Step 27 extended term: $term"
+  }
+}
+
+# Scope isolation: Phase 6 foundation files must not import playback/streaming/UI
+$phaseFoundationDirs = @(
+  'lib/src/foundation/cache_invalidation',
+  'lib/src/foundation/diagnostics',
+  'lib/src/foundation/gateway',
+  'lib/src/foundation/layers',
+  'lib/src/foundation/storage'
+)
+$scopeIsolationForbiddenLayers = @('playback', 'streaming', 'ui')
+foreach ($dir in $phaseFoundationDirs) {
+  $dirPath = Join-Path $root $dir
+  if (-not (Test-Path -LiteralPath $dirPath)) {
+    continue
+  }
+  $files = Get-ChildItem -LiteralPath $dirPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+  foreach ($file in $files) {
+    $fileContent = Get-Content -LiteralPath $file.FullName -Raw
+    foreach ($layer in $scopeIsolationForbiddenLayers) {
+      $singleQuotePattern = "../$layer/"
+      $packagePattern = "package:celesteria/src/$layer/"
+      if ($fileContent.Contains($singleQuotePattern) -or $fileContent.Contains($packagePattern)) {
+        throw "Phase 6 foundation file $($file.Name) imports forbidden layer: $layer"
+      }
+    }
+  }
+}
+
+# GatewayBoundProvider must exist in provider layer
+$gatewayBoundPath = Join-Path $root 'lib/src/provider/gateway_bound_provider.dart'
+if (-not (Test-Path -LiteralPath $gatewayBoundPath)) {
+  throw 'Missing required GatewayBoundProvider file.'
+}
+$gatewayBound = Get-Content -LiteralPath $gatewayBoundPath -Raw
+foreach ($term in @('GatewayBoundProvider', 'ProviderGateway')) {
+  if ($gatewayBound -notmatch [regex]::Escape($term)) {
+    throw "GatewayBoundProvider missing required term: $term"
+  }
+}
+foreach ($term in @('HttpClient(', 'DnsClient', 'ProxyServer', 'package:flutter', 'runJavascript')) {
+  if ($gatewayBound -match [regex]::Escape($term)) {
+    throw "GatewayBoundProvider contains forbidden dependency: $term"
+  }
+}

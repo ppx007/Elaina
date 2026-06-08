@@ -25,12 +25,14 @@ Future<void> main() async {
   await _verifyAVSyncGuardContract();
   await _verifyAdvancedCaptionRenderingContract();
   await _verifyFallbackAdapterContract();
+  await _verifyFoundationBootstrapContract();
   _verifySurfaceStateFromCapabilities();
   _verifyPlaybackPageSurfaceContract();
   await _verifyPlaybackPageIntentContract();
   _verifyPlaybackStateContract();
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
+  await _verifyFoundationRuntimeContract();
 }
 
 Future<void> _verifyUnsupportedMpvFacade() async {
@@ -2664,6 +2666,136 @@ const List<MediaTrackDescriptor> _tracks = <MediaTrackDescriptor>[
   ),
 ];
 
+Future<void> _verifyFoundationBootstrapContract() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 8, 12);
+  final FoundationBootstrap bootstrap = FoundationBootstrap();
+
+  // Storage foundation is accessible and provides all 24 stores.
+  final StorageFoundation storage = bootstrap.storage;
+  final List<Object> foundationStores = <Object>[
+    storage.metadata,
+    storage.blobCache,
+    storage.mediaCache,
+    storage.settings,
+    storage.mediaLibrary,
+    storage.playbackHistory,
+    storage.providerBinding,
+    storage.subtitleCache,
+    storage.rssFeed,
+    storage.rssAutoDownloadPolicy,
+    storage.onlineRuleRuntime,
+    storage.webViewSessionBackfill,
+    storage.networkPolicy,
+    storage.diagnostics,
+    storage.seasonalCatalog,
+    storage.bangumiMatchQueue,
+    storage.btTask,
+    storage.virtualMediaStream,
+    storage.piecePriorityScheduler,
+    storage.timelineOverlay,
+    storage.videoEnhancement,
+    storage.avSyncGuard,
+    storage.advancedCaptions,
+    storage.fallbackAdapter,
+  ];
+  _expect(foundationStores.length == 24,
+      "StorageFoundation must expose all 24 store contracts.");
+
+  // Provider gateway is accessible and preserves registrations.
+  final ProviderGateway gateway = bootstrap.gateway;
+  await gateway.registerProvider(ProviderRegistration(
+    providerId: const ProviderId("runtime-foundation-provider"),
+    ratePolicy: const ProviderRatePolicy(
+        maxRequests: 10, window: Duration(minutes: 1)),
+    retryPolicy: const ProviderRetryPolicy(
+        maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+  ));
+
+  final ProviderGatewayResponse<String> response =
+      await gateway.execute<String>(ProviderGatewayRequest<String>(
+    key: ProviderRequestKey(
+      providerId: const ProviderId("runtime-foundation-provider"),
+      cacheKey: "runtime-foundation-provider::test",
+    ),
+    load: () => Future<String>.value("runtime-foundation-result"),
+    cachePolicy: ProviderCachePolicy.networkFirst,
+    deduplicationWindow: const Duration(minutes: 1),
+  ));
+  _expect(response.value == "runtime-foundation-result",
+      "ProviderGateway must execute supplied loaders.");
+  _expect(response.source == ProviderGatewayResponseSource.network,
+      "ProviderGateway must report network source for first execution.");
+
+  // De-duplication preserves request outcomes.
+  final ProviderGatewayResponse<String> deduped =
+      await gateway.execute<String>(ProviderGatewayRequest<String>(
+    key: ProviderRequestKey(
+      providerId: const ProviderId("runtime-foundation-provider"),
+      cacheKey: "runtime-foundation-provider::test",
+    ),
+    load: () => Future<String>.value("different-result"),
+    deduplicationWindow: const Duration(minutes: 1),
+  ));
+  _expect(deduped.value == "runtime-foundation-result",
+      "ProviderGateway must deduplicate matching request keys.");
+
+  // Cache invalidation bus is accessible and lifecycle-managed.
+  final CacheInvalidationBus invalidationBus = bootstrap.invalidationBus;
+  _expect(identical(invalidationBus, bootstrap.invalidationBus),
+      "FoundationBootstrap must expose a stable CacheInvalidationBus.");
+  _expect(!bootstrap.isDisposed,
+      "FoundationBootstrap must not be disposed before explicit dispose.");
+
+  // Bus publishes payload-only events.
+  final StreamCacheInvalidationBus bus =
+      bootstrap.invalidationBus as StreamCacheInvalidationBus;
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
+  bus.publish(BindingChanged(
+    occurredAt: observedAt,
+    localMediaId: "runtime-foundation-media",
+    providerId: "runtime-foundation-provider",
+  ));
+  bus.publish(HistoryRecorded(
+    occurredAt: observedAt,
+    localMediaId: "runtime-foundation-media",
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  _expect(delivered.whereType<BindingChanged>().length == 1,
+      "Bus must deliver binding change events.");
+  _expect(delivered.whereType<HistoryRecorded>().length == 1,
+      "Bus must deliver history events.");
+
+  // Disposal rejects further publishes.
+  await bootstrap.dispose();
+  _expect(bootstrap.isDisposed,
+      "FoundationBootstrap must report disposed after dispose.");
+  _expect(
+    _tryPublishAfterClose(bus, observedAt),
+    "Bus must reject publishes after bootstrap dispose.",
+  );
+
+  // Layer manifest exposes 8-layer metadata.
+  _expect(FoundationBootstrap.layerManifest.length == 8,
+      "Foundation bootstrap must expose 8-layer manifest.");
+  _expect(isLayerDependencyAllowed(from: LayerId.ui, to: LayerId.domain),
+      "Layer manifest must allow UI->Domain dependency.");
+  _expect(!isLayerDependencyAllowed(from: LayerId.ui, to: LayerId.playback),
+      "Layer manifest must reject UI->Playback dependency.");
+}
+
+bool _tryPublishAfterClose(StreamCacheInvalidationBus bus, DateTime observedAt) {
+  try {
+    bus.publish(DanmakuPosted(
+      occurredAt: observedAt,
+      subjectId: "test",
+      episodeId: "test",
+    ));
+    return false;
+  } on StateError {
+    return true;
+  }
+}
 final class _StaticAdapterResolver implements ActivePlayerAdapterResolver {
   const _StaticAdapterResolver(this.activeAdapter);
 
@@ -3404,6 +3536,116 @@ final class _ManualPlaybackStateObservable implements PlaybackStateObservable {
   }
 }
 
+
+Future<void> _verifyFoundationRuntimeContract() async {
+  // Verify FoundationRuntime composes Step 1-4 surfaces
+  final DeterministicStorageFoundation storage = DeterministicStorageFoundation();
+  final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+  final FoundationRuntime runtime = FoundationRuntime(
+    storage: storage,
+    invalidationBus: bus,
+  );
+
+  _expect(runtime.storage is DeterministicStorageFoundation,
+      'FoundationRuntime must expose StorageFoundation.');
+  _expect(runtime.gateway is DeterministicProviderGateway,
+      'FoundationRuntime must expose ProviderGateway.');
+  _expect(runtime.invalidationBus is StreamCacheInvalidationBus,
+      'FoundationRuntime must expose CacheInvalidationBus.');
+  _expect(!runtime.isDisposed,
+      'FoundationRuntime must not be disposed before explicit disposal.');
+
+  // Verify layer manifest has 8 layers
+  _expect(FoundationRuntime.layerManifest.length == 8,
+      'Layer manifest must contain exactly 8 layers.');
+
+  // Verify layer boundary checker
+  final List<String> manifestErrors = LayerBoundaryChecker.validateManifest();
+  _expect(manifestErrors.isEmpty,
+      'Layer manifest must be consistent.');
+
+  // Verify storage foundation exposes all 24 store contracts
+  _expect(storage.metadata is DeterministicMetadataStore,
+      'StorageFoundation must expose MetadataStore.');
+  _expect(storage.blobCache is DeterministicBlobCacheStore,
+      'StorageFoundation must expose BlobCacheStore.');
+  _expect(storage.mediaCache is DeterministicMediaCacheStore,
+      'StorageFoundation must expose MediaCacheStore.');
+  _expect(storage.settings is DeterministicSettingsStore,
+      'StorageFoundation must expose SettingsStore.');
+  _expect(storage.mediaLibrary is DeterministicMediaLibraryStore,
+      'StorageFoundation must expose MediaLibraryStore.');
+  _expect(storage.playbackHistory is DeterministicPlaybackHistoryRepository,
+      'StorageFoundation must expose PlaybackHistoryRepository.');
+  _expect(storage.providerBinding is DeterministicProviderBindingRepository,
+      'StorageFoundation must expose ProviderBindingRepository.');
+
+  // Verify provider gateway registration and execution
+  final DeterministicProviderGateway gateway = DeterministicProviderGateway(
+    storage: storage,
+  );
+  await gateway.registerProvider(
+    const ProviderRegistration(
+      providerId: ProviderId('runtime-test'),
+      ratePolicy: ProviderRatePolicy(maxRequests: 5, window: Duration(minutes: 1)),
+      retryPolicy: ProviderRetryPolicy(maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+    ),
+  );
+  final ProviderGatewayResponse<String> response = await gateway.execute(
+    ProviderGatewayRequest<String>(
+      key: ProviderRequestKey(
+        providerId: const ProviderId('runtime-test'),
+        cacheKey: 'runtime-key',
+      ),
+      load: () => Future<String>.value('runtime-value'),
+    ),
+  );
+  _expect(response.value == 'runtime-value',
+      'ProviderGateway must execute supplied loaders.');
+  _expect(response.source == ProviderGatewayResponseSource.network,
+      'ProviderGateway must return network source for direct execution.');
+
+  // Verify de-duplication boundary
+  int loadCount = 0;
+  final ProviderGatewayRequest<int> dedupeRequest = ProviderGatewayRequest<int>(
+    key: ProviderRequestKey(
+      providerId: const ProviderId('runtime-test'),
+      cacheKey: 'dedupe-key',
+    ),
+    load: () {
+      loadCount++;
+      return Future<int>.value(99);
+    },
+    deduplicationWindow: const Duration(minutes: 5),
+  );
+  await gateway.execute(dedupeRequest);
+  await gateway.execute(dedupeRequest);
+  _expect(loadCount == 1,
+      'ProviderGateway must deduplicate requests within the deduplication window.');
+
+  // Verify invalidation bus lifecycle
+  final Future<List<CacheInvalidationEvent>> events = bus.events.take(1).toList();
+  bus.publish(BindingChanged(
+    occurredAt: DateTime.utc(2026, 6, 8),
+    localMediaId: 'test-media',
+  ));
+  final List<CacheInvalidationEvent> delivered = await events;
+  _expect(delivered.whereType<BindingChanged>().length == 1,
+      'CacheInvalidationBus must deliver events to subscribers.');
+  await bus.close();
+
+  // Verify disposal
+  await runtime.dispose();
+  _expect(runtime.isDisposed, 'FoundationRuntime must be disposed after dispose().');
+  bool disposedAccess = false;
+  try {
+    runtime.storage;
+  } on StateError {
+    disposedAccess = true;
+  }
+  _expect(disposedAccess,
+      'FoundationRuntime must reject access after disposal.');
+}
 void _expectIntentOutcome(
     PlaybackPageIntentResult result, PlaybackPageIntentOutcome outcome) {
   _expect(result.outcome == outcome,

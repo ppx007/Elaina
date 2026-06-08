@@ -12,17 +12,10 @@ $requiredFiles = @(
   'lib/src/foundation/storage/seasonal_storage_contracts.dart',
   'lib/src/foundation/gateway/provider_gateway.dart',
   'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart',
-  'docs/phase0-foundation.md',
-  'docs/phase0-storage-schema.md',
-  'docs/next-change-player-core.md',
-  'lib/src/ui/README.md',
-  'lib/src/domain/README.md',
-  'lib/src/playback/README.md',
-  'lib/src/provider/README.md',
-  'lib/src/gateway/README.md',
-  'lib/src/storage/README.md',
-  'lib/src/streaming/README.md',
-  'lib/src/network/README.md'
+  'lib/src/foundation/foundation_runtime.dart',
+  'lib/src/foundation/foundation_bootstrap.dart',
+  'lib/src/foundation/layer_boundary_checker.dart',
+  'lib/src/foundation/deterministic_storage_foundation.dart'
 )
 
 $requiredDirs = @(
@@ -146,6 +139,107 @@ if (Test-Path -LiteralPath $providerPath) {
         throw "Possible ProviderGateway bypass '$term' found in $($file.FullName)"
       }
     }
+  }
+}
+
+# Foundation runtime must not contain forbidden dependencies
+$foundationRuntimePath = Join-Path $root 'lib/src/foundation/foundation_runtime.dart'
+$foundationRuntime = Get-Content -LiteralPath $foundationRuntimePath -Raw
+$foundationForbiddenTerms = @(
+  'package:flutter', 'mpv', 'libmpv', 'vlc', 'MediaPlayer', 'bangumi',
+  'dandanplay', 'yuc.wiki', 'libtorrent', 'DownloadEngineAdapter', 'bt_task_core',
+  'HttpClient(', 'DnsClient', 'DoHClient', 'DoTClient', 'ProxyServer',
+  'VpnService', 'TunInterface', 'PacketCapture', 'DpiEngine',
+  'runJavascript', 'dart:mirrors', 'eval(', 'Function.apply',
+  'WebViewController', 'captchaSolver', 'headless', 'Crawler', 'Scraper',
+  'remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload',
+  'supportBundleUpload', 'sqlite', 'SQLite', 'drift', 'moor', 'hive',
+  'path_provider', 'shared_preferences'
+)
+foreach ($term in $foundationForbiddenTerms) {
+  if ($foundationRuntime -match [regex]::Escape($term)) {
+    throw "Foundation runtime bootstrap contains forbidden dependency: $term"
+  }
+}
+
+# Foundation runtime must contain required terms
+$foundationRequiredTerms = @(
+  'FoundationRuntime', 'StorageFoundation', 'ProviderGateway',
+  'CacheInvalidationBus', 'LayerBoundary', 'celesteriaLayerManifest'
+)
+foreach ($term in $foundationRequiredTerms) {
+  if ($foundationRuntime -notmatch [regex]::Escape($term)) {
+    throw "Foundation runtime bootstrap missing required term: $term"
+  }
+}
+
+# Layer boundary checker must define forbidden and required terms
+$checkerPath = Join-Path $root 'lib/src/foundation/layer_boundary_checker.dart'
+$checker = Get-Content -LiteralPath $checkerPath -Raw
+foreach ($term in @('LayerBoundaryChecker', 'foundationForbiddenTerms', 'foundationRequiredTerms', 'findForbiddenTerms', 'findMissingRequiredTerms', 'validateManifest')) {
+  if ($checker -notmatch [regex]::Escape($term)) {
+    throw "Layer boundary checker missing required term: $term"
+  }
+}
+
+# Deterministic storage foundation must expose all store contracts
+$storageFoundationPath = Join-Path $root 'lib/src/foundation/deterministic_storage_foundation.dart'
+$storageFoundation = Get-Content -LiteralPath $storageFoundationPath -Raw
+foreach ($term in @('DeterministicStorageFoundation', 'DeterministicMetadataStore', 'DeterministicBlobCacheStore', 'DeterministicMediaCacheStore', 'DeterministicSettingsStore', 'DeterministicMediaLibraryStore', 'DeterministicPlaybackHistoryRepository', 'DeterministicProviderBindingRepository')) {
+  if ($storageFoundation -notmatch [regex]::Escape($term)) {
+    throw "Deterministic storage foundation missing required term: $term"
+  }
+}
+
+# Deterministic storage foundation must not contain concrete adapters
+foreach ($term in @('package:flutter', 'drift', 'moor', 'hive', 'HttpClient(', 'DnsClient', 'ProxyServer', 'cloudUpload', 'remoteTelemetry')) {
+  if ($storageFoundation -match [regex]::Escape($term)) {
+    throw "Deterministic storage foundation contains forbidden dependency: $term"
+  }
+}
+
+# Public barrel must export foundation surfaces
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+foreach ($export in @('foundation_runtime.dart', 'layer_boundary_checker.dart', 'deterministic_storage_foundation.dart', 'foundation_bootstrap.dart')) {
+  if ($barrel -notmatch [regex]::Escape($export)) {
+    throw "Public barrel missing foundation export: $export"
+  }
+}
+
+# Foundation bootstrap must exist and compose existing modules
+$bootstrapPath = Join-Path $root 'lib/src/foundation/foundation_bootstrap.dart'
+if (-not (Test-Path -LiteralPath $bootstrapPath)) {
+  throw 'Missing foundation bootstrap module: lib/src/foundation/foundation_bootstrap.dart'
+}
+
+$bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw
+$bootstrapForbiddenTerms = @(
+  'package:flutter', 'mpv', 'libmpv', 'vlc', 'libtorrent', 'yuc.wiki',
+  'WebViewController', 'runJavascript', 'dart:mirrors', 'dart:ffi',
+  'eval(', 'Function.apply', 'HttpClient(', 'DnsClient', 'DoHClient',
+  'DoTClient', 'ProxyServer', 'VpnService', 'TunInterface',
+  'PacketCapture', 'DpiEngine', 'remoteTelemetry', 'CrashReporter',
+  'AnalyticsClient', 'cloudUpload', 'SQLite', 'sqlite', 'dart:io'
+)
+foreach ($term in $bootstrapForbiddenTerms) {
+  if ($bootstrap -match [regex]::Escape($term)) {
+    throw "Foundation bootstrap contains forbidden dependency: $term"
+  }
+}
+
+# Foundation bootstrap must define required contract surfaces
+$requiredBootstrapTerms = @(
+  'FoundationBootstrap',
+  'DeterministicStorageFoundation',
+  'FoundationRuntime',
+  'LayerBoundaryChecker',
+  'foundationBootstrapForbiddenDependencies',
+  'foundationBootstrapAllowedExports',
+  'celesteriaLayerManifest'
+)
+foreach ($term in $requiredBootstrapTerms) {
+  if ($bootstrap -notmatch [regex]::Escape($term)) {
+    throw "Foundation bootstrap missing required contract surface: $term"
   }
 }
 
