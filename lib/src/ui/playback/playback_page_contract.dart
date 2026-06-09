@@ -53,7 +53,8 @@ final class PlaybackPageSubtitleCueDescriptor {
 final class PlaybackPageSubtitleOverlayDescriptor {
   PlaybackPageSubtitleOverlayDescriptor({
     this.selectedTrackId,
-    List<PlaybackPageSubtitleCueDescriptor> cues = const <PlaybackPageSubtitleCueDescriptor>[],
+    List<PlaybackPageSubtitleCueDescriptor> cues =
+        const <PlaybackPageSubtitleCueDescriptor>[],
     this.offset = Duration.zero,
     this.failureReason,
   }) : cues = List<PlaybackPageSubtitleCueDescriptor>.unmodifiable(cues);
@@ -64,12 +65,14 @@ final class PlaybackPageSubtitleOverlayDescriptor {
         offset = Duration.zero,
         failureReason = null;
 
-  factory PlaybackPageSubtitleOverlayDescriptor.fromState(PlaybackSubtitleStateSnapshot state) {
+  factory PlaybackPageSubtitleOverlayDescriptor.fromState(
+      PlaybackSubtitleStateSnapshot state) {
     return PlaybackPageSubtitleOverlayDescriptor(
       selectedTrackId: state.selectedTrackId,
       cues: <PlaybackPageSubtitleCueDescriptor>[
         for (final DomainSubtitleCueDescriptor cue in state.activeCues)
-          PlaybackPageSubtitleCueDescriptor(text: cue.text, start: cue.start, end: cue.end),
+          PlaybackPageSubtitleCueDescriptor(
+              text: cue.text, start: cue.start, end: cue.end),
       ],
       offset: state.offset,
       failureReason: state.failureReason,
@@ -84,53 +87,142 @@ final class PlaybackPageSubtitleOverlayDescriptor {
   bool get hasVisibleCues => cues.isNotEmpty;
 }
 
+final class PlaybackPageDanmakuCommentDescriptor {
+  const PlaybackPageDanmakuCommentDescriptor({
+    required this.id,
+    required this.timestamp,
+    required this.text,
+    this.colorArgb,
+  });
+
+  final String id;
+  final Duration timestamp;
+  final String text;
+  final int? colorArgb;
+}
+
+final class PlaybackPageDanmakuLaneDescriptor {
+  PlaybackPageDanmakuLaneDescriptor({
+    required this.mode,
+    Iterable<PlaybackPageDanmakuCommentDescriptor> comments =
+        const <PlaybackPageDanmakuCommentDescriptor>[],
+  }) : comments =
+            List<PlaybackPageDanmakuCommentDescriptor>.unmodifiable(comments);
+
+  final DomainDanmakuMode mode;
+  final List<PlaybackPageDanmakuCommentDescriptor> comments;
+}
+
+final class PlaybackPageDanmakuOverlayDescriptor {
+  PlaybackPageDanmakuOverlayDescriptor({
+    this.clockPosition = Duration.zero,
+    Iterable<PlaybackPageDanmakuLaneDescriptor> lanes =
+        const <PlaybackPageDanmakuLaneDescriptor>[],
+    this.failureReason,
+  }) : lanes = List<PlaybackPageDanmakuLaneDescriptor>.unmodifiable(lanes);
+
+  const PlaybackPageDanmakuOverlayDescriptor.none()
+      : clockPosition = Duration.zero,
+        lanes = const <PlaybackPageDanmakuLaneDescriptor>[],
+        failureReason = null;
+
+  factory PlaybackPageDanmakuOverlayDescriptor.fromState(
+    PlaybackDanmakuStateSnapshot state,
+  ) {
+    return PlaybackPageDanmakuOverlayDescriptor(
+      clockPosition: state.clockPosition,
+      lanes: <PlaybackPageDanmakuLaneDescriptor>[
+        for (final DomainDanmakuLaneDescriptor lane in state.lanes)
+          PlaybackPageDanmakuLaneDescriptor(
+            mode: lane.mode,
+            comments: <PlaybackPageDanmakuCommentDescriptor>[
+              for (final DomainDanmakuCommentDescriptor comment
+                  in lane.comments)
+                PlaybackPageDanmakuCommentDescriptor(
+                  id: comment.id,
+                  timestamp: comment.timestamp,
+                  text: comment.text,
+                  colorArgb: comment.colorArgb,
+                ),
+            ],
+          ),
+      ],
+      failureReason: state.failureReason,
+    );
+  }
+
+  final Duration clockPosition;
+  final List<PlaybackPageDanmakuLaneDescriptor> lanes;
+  final String? failureReason;
+
+  bool get hasVisibleComments {
+    return lanes.any(
+      (PlaybackPageDanmakuLaneDescriptor lane) => lane.comments.isNotEmpty,
+    );
+  }
+}
+
 final class PlaybackPageSurfaceDescriptor {
   const PlaybackPageSurfaceDescriptor({
     required this.controls,
     required this.panels,
     this.subtitleOverlay = const PlaybackPageSubtitleOverlayDescriptor.none(),
+    this.danmakuOverlay = const PlaybackPageDanmakuOverlayDescriptor.none(),
   });
 
   factory PlaybackPageSurfaceDescriptor.fromState(
     PlaybackSurfaceState state, {
-    PlaybackSubtitleStateSnapshot subtitles = const PlaybackSubtitleStateSnapshot.none(),
+    PlaybackSubtitleStateSnapshot subtitles =
+        const PlaybackSubtitleStateSnapshot.none(),
+    PlaybackDanmakuStateSnapshot danmaku =
+        const PlaybackDanmakuStateSnapshot.none(),
   }) {
     return PlaybackPageSurfaceDescriptor(
       controls: <PlaybackPageControlDescriptor>[
         if (state.visibleControls.contains(PlaybackSurfaceControl.playPause))
-          const PlaybackPageControlDescriptor(id: PlaybackPageControlId.playPause),
+          const PlaybackPageControlDescriptor(
+              id: PlaybackPageControlId.playPause),
         if (state.visibleControls.contains(PlaybackSurfaceControl.seek))
           const PlaybackPageControlDescriptor(id: PlaybackPageControlId.seek),
         if (state.visibleControls.contains(PlaybackSurfaceControl.stop))
           const PlaybackPageControlDescriptor(id: PlaybackPageControlId.stop),
         if (state.visibleControls.contains(PlaybackSurfaceControl.progress))
-          const PlaybackPageControlDescriptor(id: PlaybackPageControlId.progress),
+          const PlaybackPageControlDescriptor(
+              id: PlaybackPageControlId.progress),
         if (state.visibleControls.contains(PlaybackSurfaceControl.audioTracks))
-          const PlaybackPageControlDescriptor(id: PlaybackPageControlId.audioTracks),
-        if (state.visibleControls.contains(PlaybackSurfaceControl.subtitleTracks))
-          const PlaybackPageControlDescriptor(id: PlaybackPageControlId.subtitleTracks),
+          const PlaybackPageControlDescriptor(
+              id: PlaybackPageControlId.audioTracks),
+        if (state.visibleControls
+            .contains(PlaybackSurfaceControl.subtitleTracks))
+          const PlaybackPageControlDescriptor(
+              id: PlaybackPageControlId.subtitleTracks),
       ],
       panels: <PlaybackPagePanelDescriptor>[
         if (state.availablePanels.contains(PlaybackSurfacePanel.tracks))
           const PlaybackPagePanelDescriptor(id: PlaybackPagePanelId.tracks),
       ],
-      subtitleOverlay: PlaybackPageSubtitleOverlayDescriptor.fromState(subtitles),
+      subtitleOverlay:
+          PlaybackPageSubtitleOverlayDescriptor.fromState(subtitles),
+      danmakuOverlay: PlaybackPageDanmakuOverlayDescriptor.fromState(danmaku),
     );
   }
 
   final List<PlaybackPageControlDescriptor> controls;
   final List<PlaybackPagePanelDescriptor> panels;
   final PlaybackPageSubtitleOverlayDescriptor subtitleOverlay;
+  final PlaybackPageDanmakuOverlayDescriptor danmakuOverlay;
 
   bool hasActiveControl(PlaybackPageControlId id) {
     return controls.any(
-      (PlaybackPageControlDescriptor control) => control.id == id && control.isVisible && control.isEnabled,
+      (PlaybackPageControlDescriptor control) =>
+          control.id == id && control.isVisible && control.isEnabled,
     );
   }
 
   bool hasActivePanel(PlaybackPagePanelId id) {
     return panels.any(
-      (PlaybackPagePanelDescriptor panel) => panel.id == id && panel.isVisible && panel.isEnabled,
+      (PlaybackPagePanelDescriptor panel) =>
+          panel.id == id && panel.isVisible && panel.isEnabled,
     );
   }
 }
@@ -205,13 +297,15 @@ final class PlaybackPageIntentResult {
     this.reason,
   });
 
-  const PlaybackPageIntentResult.executedCommand(DomainPlaybackCommandResult commandResult)
+  const PlaybackPageIntentResult.executedCommand(
+      DomainPlaybackCommandResult commandResult)
       : this._(
           outcome: PlaybackPageIntentOutcome.executed,
           commandResult: commandResult,
         );
 
-  const PlaybackPageIntentResult.executedTrackSwitch(DomainTrackSwitchResult trackSwitchResult)
+  const PlaybackPageIntentResult.executedTrackSwitch(
+      DomainTrackSwitchResult trackSwitchResult)
       : this._(
           outcome: PlaybackPageIntentOutcome.executed,
           trackSwitchResult: trackSwitchResult,
@@ -245,45 +339,60 @@ final class PlaybackPageIntentResult {
 }
 
 final class PlaybackPageContract {
-  const PlaybackPageContract({required PlaybackControllerContract controller}) : _controller = controller;
+  const PlaybackPageContract({required PlaybackControllerContract controller})
+      : _controller = controller;
 
   final PlaybackControllerContract _controller;
 
   PlaybackSurfaceState resolveState() => _controller.resolveSurfaceState();
 
   PlaybackPageSurfaceDescriptor resolveSurface() {
-    return PlaybackPageSurfaceDescriptor.fromState(resolveState(), subtitles: _controller.currentState.subtitles);
+    return PlaybackPageSurfaceDescriptor.fromState(
+      resolveState(),
+      subtitles: _controller.currentState.subtitles,
+      danmaku: _controller.currentState.danmaku,
+    );
   }
 
   Future<PlaybackPageIntentResult> dispatch(PlaybackPageIntent intent) async {
     final PlaybackPageSurfaceDescriptor surface = resolveSurface();
     switch (intent.kind) {
       case PlaybackPageIntentKind.noop:
-        return const PlaybackPageIntentResult.ignored('Playback page intent was a no-op.');
+        return const PlaybackPageIntentResult.ignored(
+            'Playback page intent was a no-op.');
       case PlaybackPageIntentKind.play:
         if (!surface.hasActiveControl(PlaybackPageControlId.playPause)) {
-          return const PlaybackPageIntentResult.unsupported('Play/pause control is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Play/pause control is unsupported by the active surface.');
         }
-        return PlaybackPageIntentResult.executedCommand(await _controller.play());
+        return PlaybackPageIntentResult.executedCommand(
+            await _controller.play());
       case PlaybackPageIntentKind.pause:
         if (!surface.hasActiveControl(PlaybackPageControlId.playPause)) {
-          return const PlaybackPageIntentResult.unsupported('Play/pause control is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Play/pause control is unsupported by the active surface.');
         }
-        return PlaybackPageIntentResult.executedCommand(await _controller.pause());
+        return PlaybackPageIntentResult.executedCommand(
+            await _controller.pause());
       case PlaybackPageIntentKind.seek:
         if (!surface.hasActiveControl(PlaybackPageControlId.seek)) {
-          return const PlaybackPageIntentResult.unsupported('Seek control is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Seek control is unsupported by the active surface.');
         }
-        return PlaybackPageIntentResult.executedCommand(await _controller.seek(intent.position!));
+        return PlaybackPageIntentResult.executedCommand(
+            await _controller.seek(intent.position!));
       case PlaybackPageIntentKind.stop:
         if (!surface.hasActiveControl(PlaybackPageControlId.stop)) {
-          return const PlaybackPageIntentResult.unsupported('Stop control is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Stop control is unsupported by the active surface.');
         }
-        return PlaybackPageIntentResult.executedCommand(await _controller.stop());
+        return PlaybackPageIntentResult.executedCommand(
+            await _controller.stop());
       case PlaybackPageIntentKind.openPanel:
         final PlaybackPagePanelId panelId = intent.panelId!;
         if (!surface.hasActivePanel(panelId)) {
-          return const PlaybackPageIntentResult.unsupported('Panel is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Panel is unsupported by the active surface.');
         }
         return PlaybackPageIntentResult.executedPanel(panelId);
       case PlaybackPageIntentKind.selectTrack:
@@ -292,10 +401,12 @@ final class PlaybackPageContract {
           DomainMediaTrackType.subtitle => PlaybackPageControlId.subtitleTracks,
         };
         if (!surface.hasActiveControl(controlId)) {
-          return const PlaybackPageIntentResult.unsupported('Track selection is unsupported by the active surface.');
+          return const PlaybackPageIntentResult.unsupported(
+              'Track selection is unsupported by the active surface.');
         }
         return PlaybackPageIntentResult.executedTrackSwitch(
-          await _controller.switchTrack(intent.trackId!, trackType: intent.trackType),
+          await _controller.switchTrack(intent.trackId!,
+              trackType: intent.trackType),
         );
     }
   }

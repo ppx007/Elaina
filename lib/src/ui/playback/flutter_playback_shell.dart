@@ -20,7 +20,8 @@ abstract interface class FlutterPlaybackShellDriver {
   Future<void> dispatch(PlaybackPageIntent intent);
 }
 
-final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements FlutterPlaybackShellDriver {
+final class MockFlutterPlaybackShellDriver extends ChangeNotifier
+    implements FlutterPlaybackShellDriver {
   MockFlutterPlaybackShellDriver({
     required PlaybackStateSnapshot initialSnapshot,
     required PlaybackPageSurfaceDescriptor surface,
@@ -48,13 +49,16 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
   Future<void> dispatch(PlaybackPageIntent intent) async {
     switch (intent.kind) {
       case PlaybackPageIntentKind.noop:
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell ignored no-op intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell ignored no-op intent.');
       case PlaybackPageIntentKind.play:
         _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.playing);
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded play intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell recorded play intent.');
       case PlaybackPageIntentKind.pause:
         _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.paused);
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded pause intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell recorded pause intent.');
       case PlaybackPageIntentKind.seek:
         _snapshot = _snapshotWith(
           timeline: PlaybackTimelineState(
@@ -63,13 +67,16 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
             observedAt: DateTime.utc(2026, 6, 3, 12, 0),
           ),
         );
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded seek intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell recorded seek intent.');
       case PlaybackPageIntentKind.stop:
         _snapshot = _snapshotWith(status: PlaybackLifecycleStatus.ended);
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded stop intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell recorded stop intent.');
       case PlaybackPageIntentKind.openPanel:
         _activePanel = intent.panelId;
-        _lastIntentResult = PlaybackPageIntentResult.executedPanel(intent.panelId!);
+        _lastIntentResult =
+            PlaybackPageIntentResult.executedPanel(intent.panelId!);
       case PlaybackPageIntentKind.selectTrack:
         _snapshot = _snapshotWith(
           activeTracks: switch (intent.trackType!) {
@@ -83,7 +90,8 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
               ),
           },
         );
-        _lastIntentResult = const PlaybackPageIntentResult.ignored('Mock shell recorded track intent.');
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+            'Mock shell recorded track intent.');
     }
     notifyListeners();
   }
@@ -94,6 +102,7 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
     PlaybackBufferingState? buffering,
     ActivePlaybackTrackState? activeTracks,
     PlaybackSubtitleStateSnapshot? subtitles,
+    PlaybackDanmakuStateSnapshot? danmaku,
   }) {
     return PlaybackStateSnapshot(
       status: status ?? _snapshot.status,
@@ -101,6 +110,7 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
       buffering: buffering ?? _snapshot.buffering,
       activeTracks: activeTracks ?? _snapshot.activeTracks,
       subtitles: subtitles ?? _snapshot.subtitles,
+      danmaku: danmaku ?? _snapshot.danmaku,
       sourceUri: _snapshot.sourceUri,
       failureReason: _snapshot.failureReason,
     );
@@ -109,7 +119,8 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
 
 final class ControllerDrivenFlutterPlaybackShellDriver extends ChangeNotifier
     implements FlutterPlaybackShellDriver, PlaybackStateObserver {
-  ControllerDrivenFlutterPlaybackShellDriver({required PlaybackControllerContract controller})
+  ControllerDrivenFlutterPlaybackShellDriver(
+      {required PlaybackControllerContract controller})
       : _controller = controller,
         _contract = PlaybackPageContract(controller: controller) {
     _controller.addPlaybackStateObserver(this);
@@ -208,28 +219,42 @@ final class _FlutterPlaybackPageState extends State<FlutterPlaybackPage> {
       children: <Widget>[
         Text('Status: ${snapshot.status.name}'),
         Text('Position: ${_formatDuration(snapshot.timeline.position)}'),
-        if (snapshot.timeline.duration != null) Text('Duration: ${_formatDuration(snapshot.timeline.duration!)}'),
-        if (surface.hasActiveControl(PlaybackPageControlId.progress)) const Text('Progress'),
+        if (snapshot.timeline.duration != null)
+          Text('Duration: ${_formatDuration(snapshot.timeline.duration!)}'),
+        if (surface.hasActiveControl(PlaybackPageControlId.progress))
+          const Text('Progress'),
         if (snapshot.buffering.isBuffering) const Text('Buffering'),
-        if (snapshot.activeTracks.audioTrackId != null) Text('Audio: ${snapshot.activeTracks.audioTrackId!.value}'),
-        if (snapshot.activeTracks.subtitleTrackId != null) Text('Subtitle: ${snapshot.activeTracks.subtitleTrackId!.value}'),
-        for (final PlaybackPageSubtitleCueDescriptor cue in surface.subtitleOverlay.cues) Text('Subtitle cue: ${cue.text}'),
+        if (snapshot.activeTracks.audioTrackId != null)
+          Text('Audio: ${snapshot.activeTracks.audioTrackId!.value}'),
+        if (snapshot.activeTracks.subtitleTrackId != null)
+          Text('Subtitle: ${snapshot.activeTracks.subtitleTrackId!.value}'),
+        for (final PlaybackPageSubtitleCueDescriptor cue
+            in surface.subtitleOverlay.cues)
+          Text('Subtitle cue: ${cue.text}'),
+        for (final PlaybackPageDanmakuLaneDescriptor lane
+            in surface.danmakuOverlay.lanes)
+          for (final PlaybackPageDanmakuCommentDescriptor comment
+              in lane.comments)
+            Text('Danmaku ${lane.mode.name}: ${comment.text}'),
         Wrap(
           spacing: 8,
           children: <Widget>[
             if (surface.hasActiveControl(PlaybackPageControlId.playPause))
               OutlinedButton(
-                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.play()),
+                onPressed: () =>
+                    widget.driver.dispatch(const PlaybackPageIntent.play()),
                 child: const Text('Play'),
               ),
             if (surface.hasActiveControl(PlaybackPageControlId.seek))
               OutlinedButton(
-                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.seek(Duration(seconds: 42))),
+                onPressed: () => widget.driver.dispatch(
+                    const PlaybackPageIntent.seek(Duration(seconds: 42))),
                 child: const Text('Seek'),
               ),
             if (surface.hasActiveControl(PlaybackPageControlId.stop))
               OutlinedButton(
-                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.stop()),
+                onPressed: () =>
+                    widget.driver.dispatch(const PlaybackPageIntent.stop()),
                 child: const Text('Stop'),
               ),
             if (surface.hasActiveControl(PlaybackPageControlId.audioTracks))
@@ -254,12 +279,15 @@ final class _FlutterPlaybackPageState extends State<FlutterPlaybackPage> {
               ),
             if (surface.hasActivePanel(PlaybackPagePanelId.tracks))
               OutlinedButton(
-                onPressed: () => widget.driver.dispatch(const PlaybackPageIntent.openPanel(PlaybackPagePanelId.tracks)),
+                onPressed: () => widget.driver.dispatch(
+                    const PlaybackPageIntent.openPanel(
+                        PlaybackPagePanelId.tracks)),
                 child: const Text('Tracks'),
               ),
           ],
         ),
-        if (widget.driver.activePanel != null) Text('Panel: ${widget.driver.activePanel!.name}'),
+        if (widget.driver.activePanel != null)
+          Text('Panel: ${widget.driver.activePanel!.name}'),
       ],
     );
   }
