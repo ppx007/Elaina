@@ -67,12 +67,71 @@ final class ActivePlaybackTrackState {
   final DomainMediaTrackId? subtitleTrackId;
 }
 
+final class DomainSubtitleCueDescriptor {
+  const DomainSubtitleCueDescriptor({
+    required this.start,
+    required this.end,
+    required this.text,
+    this.id,
+  }) : assert(end >= start, 'Subtitle cue end must not precede start.');
+
+  final Duration start;
+  final Duration end;
+  final String text;
+  final String? id;
+}
+
+final class DomainSubtitleTrackDescriptor {
+  const DomainSubtitleTrackDescriptor({
+    required this.id,
+    required this.format,
+    this.languageCode,
+    this.title,
+  }) : assert(id != '', 'Subtitle track id must not be empty.');
+
+  final String id;
+  final String format;
+  final String? languageCode;
+  final String? title;
+}
+
+final class PlaybackSubtitleStateSnapshot {
+  PlaybackSubtitleStateSnapshot({
+    List<DomainSubtitleTrackDescriptor> availableTracks = const <DomainSubtitleTrackDescriptor>[],
+    this.selectedTrackId,
+    List<DomainSubtitleCueDescriptor> activeCues = const <DomainSubtitleCueDescriptor>[],
+    this.offset = Duration.zero,
+    List<String> warnings = const <String>[],
+    this.failureReason,
+  })  : availableTracks = List<DomainSubtitleTrackDescriptor>.unmodifiable(availableTracks),
+        activeCues = List<DomainSubtitleCueDescriptor>.unmodifiable(activeCues),
+        warnings = List<String>.unmodifiable(warnings);
+
+  const PlaybackSubtitleStateSnapshot.none()
+      : availableTracks = const <DomainSubtitleTrackDescriptor>[],
+        selectedTrackId = null,
+        activeCues = const <DomainSubtitleCueDescriptor>[],
+        offset = Duration.zero,
+        warnings = const <String>[],
+        failureReason = null;
+
+  final List<DomainSubtitleTrackDescriptor> availableTracks;
+  final String? selectedTrackId;
+  final List<DomainSubtitleCueDescriptor> activeCues;
+  final Duration offset;
+  final List<String> warnings;
+  final String? failureReason;
+
+  bool get hasActiveCues => activeCues.isNotEmpty;
+}
+
 final class PlaybackStateSnapshot {
   const PlaybackStateSnapshot({
     required this.status,
     this.timeline = const PlaybackTimelineState.zero(),
     this.buffering = const PlaybackBufferingState.none(),
     this.activeTracks = const ActivePlaybackTrackState.none(),
+    this.subtitles = const PlaybackSubtitleStateSnapshot.none(),
     this.sourceUri,
     this.failureReason,
   });
@@ -81,6 +140,7 @@ final class PlaybackStateSnapshot {
   final PlaybackTimelineState timeline;
   final PlaybackBufferingState buffering;
   final ActivePlaybackTrackState activeTracks;
+  final PlaybackSubtitleStateSnapshot subtitles;
   final Uri? sourceUri;
   final String? failureReason;
 }
