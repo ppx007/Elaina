@@ -5,6 +5,8 @@ export 'src/domain/acg/bangumi_acg_runtime.dart';
 export 'src/domain/acg/dandanplay_acg_runtime.dart';
 export 'src/domain/automation/rss_download_handoff.dart';
 export 'src/domain/detail/video_detail.dart';
+export 'src/domain/detail/video_detail_bootstrap.dart';
+export 'src/domain/detail/video_detail_runtime.dart';
 export 'src/domain/media/media_library.dart';
 export 'src/domain/playback/basic_danmaku_state.dart';
 export 'src/domain/playback/playback_controller.dart';

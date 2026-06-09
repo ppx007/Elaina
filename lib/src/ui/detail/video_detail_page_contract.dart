@@ -1,7 +1,8 @@
 import '../../domain/detail/video_detail.dart';
 
 final class VideoDetailPageContract {
-  const VideoDetailPageContract({required VideoDetailController controller}) : _controller = controller;
+  const VideoDetailPageContract({required VideoDetailController controller})
+      : _controller = controller;
 
   final VideoDetailController _controller;
 
@@ -9,13 +10,20 @@ final class VideoDetailPageContract {
 
   Stream<VideoDetailViewData> watch(VideoDetailId id) => _controller.watch(id);
 
-  Future<void> continuePlayback(VideoDetailId id) => _controller.continuePlayback(id);
+  Future<VideoDetailActionResult> continuePlayback(VideoDetailId id) =>
+      _controller.continuePlayback(id);
 
-  Future<void> perform(VideoDetailId id, VideoDetailAction action) => _controller.perform(id, action);
+  Future<VideoDetailActionResult> perform(
+          VideoDetailId id, VideoDetailAction action) =>
+      _controller.perform(id, action);
 
-  Future<void> selectEpisode(VideoDetailId id, VideoEpisodeId episodeId) => _controller.selectEpisode(id, episodeId);
+  Future<VideoDetailActionResult> selectEpisode(
+          VideoDetailId id, VideoEpisodeId episodeId) =>
+      _controller.selectEpisode(id, episodeId);
 
-  Future<void> follow(VideoDetailId id) => _controller.follow(id);
+  Future<VideoDetailActionResult> follow(VideoDetailId id) =>
+      _controller.follow(id);
 
-  Future<void> unfollow(VideoDetailId id) => _controller.unfollow(id);
+  Future<VideoDetailActionResult> unfollow(VideoDetailId id) =>
+      _controller.unfollow(id);
 }
