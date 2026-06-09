@@ -23,9 +23,10 @@ final class DanmakuFilter {
 }
 
 final class DanmakuDensityPolicy {
-  const DanmakuDensityPolicy({required this.maxCommentsPerWindow, required this.window})
-      : assert(maxCommentsPerWindow >= 0, 'maxCommentsPerWindow must not be negative.'),
-        assert(window > Duration.zero, 'window must be positive.');
+  const DanmakuDensityPolicy(
+      {required this.maxCommentsPerWindow, required this.window})
+      : assert(maxCommentsPerWindow >= 0,
+            'maxCommentsPerWindow must not be negative.');
 
   final int maxCommentsPerWindow;
   final Duration window;
