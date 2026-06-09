@@ -2,6 +2,7 @@ library celesteria;
 
 export 'src/domain/acg/acg_data_controller.dart';
 export 'src/domain/acg/bangumi_acg_runtime.dart';
+export 'src/domain/acg/dandanplay_acg_runtime.dart';
 export 'src/domain/automation/rss_download_handoff.dart';
 export 'src/domain/detail/video_detail.dart';
 export 'src/domain/media/media_library.dart';
@@ -68,6 +69,7 @@ export 'src/provider/bangumi/bangumi_runtime.dart';
 export 'src/provider/dandanplay/dandanplay_comments.dart';
 export 'src/provider/dandanplay/dandanplay_provider.dart';
 export 'src/provider/dandanplay/dandanplay_registration.dart';
+export 'src/provider/dandanplay/dandanplay_runtime.dart';
 export 'src/provider/gateway_bound_provider.dart';
 export 'src/provider/online/online_rule_runtime.dart';
 export 'src/provider/provider_result.dart';
