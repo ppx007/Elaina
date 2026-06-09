@@ -38,13 +38,63 @@ final class PlaybackPagePanelDescriptor {
   final bool isEnabled;
 }
 
+final class PlaybackPageSubtitleCueDescriptor {
+  const PlaybackPageSubtitleCueDescriptor({
+    required this.text,
+    required this.start,
+    required this.end,
+  });
+
+  final String text;
+  final Duration start;
+  final Duration end;
+}
+
+final class PlaybackPageSubtitleOverlayDescriptor {
+  PlaybackPageSubtitleOverlayDescriptor({
+    this.selectedTrackId,
+    List<PlaybackPageSubtitleCueDescriptor> cues = const <PlaybackPageSubtitleCueDescriptor>[],
+    this.offset = Duration.zero,
+    this.failureReason,
+  }) : cues = List<PlaybackPageSubtitleCueDescriptor>.unmodifiable(cues);
+
+  const PlaybackPageSubtitleOverlayDescriptor.none()
+      : selectedTrackId = null,
+        cues = const <PlaybackPageSubtitleCueDescriptor>[],
+        offset = Duration.zero,
+        failureReason = null;
+
+  factory PlaybackPageSubtitleOverlayDescriptor.fromState(PlaybackSubtitleStateSnapshot state) {
+    return PlaybackPageSubtitleOverlayDescriptor(
+      selectedTrackId: state.selectedTrackId,
+      cues: <PlaybackPageSubtitleCueDescriptor>[
+        for (final DomainSubtitleCueDescriptor cue in state.activeCues)
+          PlaybackPageSubtitleCueDescriptor(text: cue.text, start: cue.start, end: cue.end),
+      ],
+      offset: state.offset,
+      failureReason: state.failureReason,
+    );
+  }
+
+  final String? selectedTrackId;
+  final List<PlaybackPageSubtitleCueDescriptor> cues;
+  final Duration offset;
+  final String? failureReason;
+
+  bool get hasVisibleCues => cues.isNotEmpty;
+}
+
 final class PlaybackPageSurfaceDescriptor {
   const PlaybackPageSurfaceDescriptor({
     required this.controls,
     required this.panels,
+    this.subtitleOverlay = const PlaybackPageSubtitleOverlayDescriptor.none(),
   });
 
-  factory PlaybackPageSurfaceDescriptor.fromState(PlaybackSurfaceState state) {
+  factory PlaybackPageSurfaceDescriptor.fromState(
+    PlaybackSurfaceState state, {
+    PlaybackSubtitleStateSnapshot subtitles = const PlaybackSubtitleStateSnapshot.none(),
+  }) {
     return PlaybackPageSurfaceDescriptor(
       controls: <PlaybackPageControlDescriptor>[
         if (state.visibleControls.contains(PlaybackSurfaceControl.playPause))
@@ -64,11 +114,13 @@ final class PlaybackPageSurfaceDescriptor {
         if (state.availablePanels.contains(PlaybackSurfacePanel.tracks))
           const PlaybackPagePanelDescriptor(id: PlaybackPagePanelId.tracks),
       ],
+      subtitleOverlay: PlaybackPageSubtitleOverlayDescriptor.fromState(subtitles),
     );
   }
 
   final List<PlaybackPageControlDescriptor> controls;
   final List<PlaybackPagePanelDescriptor> panels;
+  final PlaybackPageSubtitleOverlayDescriptor subtitleOverlay;
 
   bool hasActiveControl(PlaybackPageControlId id) {
     return controls.any(
@@ -200,7 +252,7 @@ final class PlaybackPageContract {
   PlaybackSurfaceState resolveState() => _controller.resolveSurfaceState();
 
   PlaybackPageSurfaceDescriptor resolveSurface() {
-    return PlaybackPageSurfaceDescriptor.fromState(resolveState());
+    return PlaybackPageSurfaceDescriptor.fromState(resolveState(), subtitles: _controller.currentState.subtitles);
   }
 
   Future<PlaybackPageIntentResult> dispatch(PlaybackPageIntent intent) async {

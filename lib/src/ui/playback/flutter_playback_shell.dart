@@ -93,12 +93,14 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier implements Flu
     PlaybackTimelineState? timeline,
     PlaybackBufferingState? buffering,
     ActivePlaybackTrackState? activeTracks,
+    PlaybackSubtitleStateSnapshot? subtitles,
   }) {
     return PlaybackStateSnapshot(
       status: status ?? _snapshot.status,
       timeline: timeline ?? _snapshot.timeline,
       buffering: buffering ?? _snapshot.buffering,
       activeTracks: activeTracks ?? _snapshot.activeTracks,
+      subtitles: subtitles ?? _snapshot.subtitles,
       sourceUri: _snapshot.sourceUri,
       failureReason: _snapshot.failureReason,
     );
@@ -211,6 +213,7 @@ final class _FlutterPlaybackPageState extends State<FlutterPlaybackPage> {
         if (snapshot.buffering.isBuffering) const Text('Buffering'),
         if (snapshot.activeTracks.audioTrackId != null) Text('Audio: ${snapshot.activeTracks.audioTrackId!.value}'),
         if (snapshot.activeTracks.subtitleTrackId != null) Text('Subtitle: ${snapshot.activeTracks.subtitleTrackId!.value}'),
+        for (final PlaybackPageSubtitleCueDescriptor cue in surface.subtitleOverlay.cues) Text('Subtitle cue: ${cue.text}'),
         Wrap(
           spacing: 8,
           children: <Widget>[
