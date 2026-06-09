@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../lib/celesteria.dart';
+import 'subtitle_runtime_check.dart';
 
 Future<void> main() async {
   await _verifyUnsupportedMpvFacade();
@@ -33,6 +34,7 @@ Future<void> main() async {
   _verifyUndeclaredCapabilitiesRemainUnsupported();
   await _verifyTrackRuntimeChecks();
   await _verifyPlayerCoreRuntimeContract();
+  await verifyBasicSubtitleRuntimeContract();
   await _verifyFoundationRuntimeContract();
 }
 
