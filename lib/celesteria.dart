@@ -8,6 +8,7 @@ export 'src/domain/detail/video_detail.dart';
 export 'src/domain/detail/video_detail_bootstrap.dart';
 export 'src/domain/detail/video_detail_runtime.dart';
 export 'src/domain/media/media_library.dart';
+export 'src/domain/media/media_library_runtime.dart';
 export 'src/domain/playback/basic_danmaku_state.dart';
 export 'src/domain/playback/playback_controller.dart';
 export 'src/domain/playback/playback_source_handoff.dart';
