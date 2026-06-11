@@ -1,0 +1,25 @@
+## 1. Domain Seasonal Runtime
+
+- [x] 1.1 Add seasonal indexer runtime result, failure, status, snapshot, observer, source registration, consumer, catalog, match queue, worker, update, and lifecycle value objects under `lib/src/domain/seasonal/` with deterministic disposed and unavailable behavior.
+- [x] 1.2 Implement a `SeasonalIndexerRuntime` or `SeasonalIndexerBootstrap` composition entry point that wires RSS runtime or RSS engine contracts, seasonal consumers, seasonal catalog store, Bangumi match queue store, provider binding store, optional cache invalidation bus, and update streams.
+- [x] 1.3 Add deterministic YucWiki seasonal feed source registration as ordinary `FeedSource` metadata without scraper, crawler, source-specific parser, concrete HTTP client, network implementation, cookie/session, UI subscription, or platform background behavior.
+- [x] 1.4 Add deterministic explicit feed-item consumption, start/stop RSS update listening, catalog listing/projection, catalog update observation, and duplicate source-item suppression actions.
+- [x] 1.5 Add deterministic pending match queue projection and explicit Bangumi match processing actions that preserve provider-normalized failures, candidate storage, rejected low-confidence outcomes, skipped user-confirmed binding outcomes, and applied automatic binding outcomes.
+- [x] 1.6 Implement lifecycle-safe success, ignored, unavailable, failed, and disposed outcomes for source, consumption, catalog, queue, match, and update observation flows without leaking RSS, consumer, storage, provider, binding, stream, UI, network, scraper, RSS auto-download, BT, online-rule, diagnostics, or native-player exceptions.
+
+## 2. Source Neutrality, Exports, and Boundaries
+
+- [x] 2.1 Reuse existing `FeedSource`, `FeedItem`, `RssEngineRuntime` or `RssEngineContract`, `SeasonalAnimeConsumer`, `SeasonalCatalogEntry`, `SeasonalCatalogStore`, `BangumiMatchQueueStore`, `ProviderBindingStore`, and Bangumi provider result contracts instead of introducing parallel RSS, seasonal, catalog, queue, binding, or provider models.
+- [x] 2.2 Keep yuc.wiki modeled only as normal RSS feed source data and ensure seasonal runtime does not implement yuc.wiki-specific scraping, crawler logic, concrete feed transport, concrete RSS parser packages, RSS auto-download filtering, torrent task creation, online-rule parsing, diagnostics, UI behavior, or native-player behavior.
+- [x] 2.3 Export only safe seasonal runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter seasonal pages, HTTP clients, concrete storage implementations, RSS auto-download execution, BT runtime, online-rule runtime, diagnostics, or native-player bindings.
+- [x] 2.4 Preserve existing RSS engine, subtitle-provider, media-library, video-detail, subtitle, Bangumi, Dandanplay, and danmaku runtime checker behavior while extending validation for the Step 17 seasonal indexer runtime slice.
+
+## 3. Tests and Validation
+
+- [x] 3.1 Add focused seasonal indexer runtime tests for YucWiki source registration, consumer dispatch, explicit feed-item processing, catalog persistence, duplicate suppression after store reuse, immutable snapshots, catalog update observation, and runtime lifecycle snapshots.
+- [x] 3.2 Add RSS update listening tests for start/stop behavior, accepted RSS update consumption, downstream seasonal failure isolation from RSS refresh success, missing consumer handling, disposed behavior, and source-neutral RSS runtime boundaries.
+- [x] 3.3 Add Bangumi match queue tests for enqueue projection, pending count/next item projection, candidate storage, provider failure normalization, rejected low-confidence matches, skipped user-confirmed binding matches, applied automatic matches, and cache invalidation events.
+- [x] 3.4 Add boundary tests or script checks proving seasonal indexer runtime does not own concrete HTTP clients, network implementation, source-specific scraping, crawlers, RSS auto-download execution, BT task creation, online-rule parsing, diagnostics, UI widgets, MPV/VLC, or native-player behavior.
+- [x] 3.5 Add `tools/seasonal_indexer_runtime_check.dart` smoke validation covering runtime source registration, RSS update consumption, catalog persistence, duplicate suppression, queue enqueueing, user-confirmed binding preservation, match worker outcomes, and existing RSS/subtitle-provider/media-library/video-detail/Phase 2 smoke checks.
+- [x] 3.6 Add `tools/check_seasonal_indexer_runtime.ps1` boundary validation that chains `check_rss_engine_runtime.ps1` and rejects forbidden Step 18+ / Phase 4+ / Phase 6+ / concrete UI / HTTP client / network implementation / source-specific scraper / auto-download / BT / online-rule / diagnostics / native-player dependencies in Step 17 runtime files.
+- [x] 3.7 Run `openspec validate "bootstrap-phase3-seasonal-indexer-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused seasonal indexer runtime tests, seasonal checker scripts, and existing RSS engine, subtitle-provider, media-library, video-detail, subtitle, Bangumi, Dandanplay, and danmaku runtime smoke checks.
