@@ -710,6 +710,23 @@ final class VirtualStreamClosed extends CacheInvalidationEvent {
   final String streamId;
 }
 
+final class VirtualStreamFailed extends CacheInvalidationEvent {
+  const VirtualStreamFailed({
+    required super.occurredAt,
+    required this.streamId,
+    required this.taskId,
+    required this.fileIndex,
+    required this.failureKind,
+    required this.message,
+  });
+
+  final String streamId;
+  final String taskId;
+  final int fileIndex;
+  final String failureKind;
+  final String message;
+}
+
 final class PiecePriorityPlanGenerated extends CacheInvalidationEvent {
   const PiecePriorityPlanGenerated({
     required super.occurredAt,

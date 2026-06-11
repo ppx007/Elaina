@@ -89,6 +89,59 @@ void main() {
         'task-1::1');
   });
 
+  test('prepares virtual stream descriptor into playback source', () {
+    const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
+    final Uri uri = Uri.parse('celesteria-virtual-stream://task-2%3A%3A0');
+
+    final PlaybackSourceHandoffResult result = handoff.prepare(
+      PlaybackSourceHandoffInput.virtualStreamDescriptor(
+        VirtualMediaStreamDescriptor(
+          id: const VirtualMediaStreamId('task-2::0'),
+          taskId: const BtTaskId('task-2'),
+          fileIndex: const BtFileIndex(0),
+          lengthBytes: 4096,
+          contentUri: uri,
+          mimeType: 'video/mp4',
+        ),
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.source, isA<VirtualStreamPlaybackSource>());
+    expect(result.source?.uri, uri);
+    expect((result.source as VirtualStreamPlaybackSource).streamId.value,
+        'task-2::0');
+  });
+
+  test('prepares virtual stream snapshot into playback source', () {
+    const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
+    final VirtualMediaStreamSnapshot snapshot = VirtualMediaStreamSnapshot(
+      descriptor: const VirtualMediaStreamDescriptor(
+        id: VirtualMediaStreamId('task-3::0'),
+        taskId: BtTaskId('task-3'),
+        fileIndex: BtFileIndex(0),
+        lengthBytes: 1024,
+      ),
+      lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
+      createdAt: DateTime.utc(2026, 6, 12, 12),
+      updatedAt: DateTime.utc(2026, 6, 12, 12),
+      restart: const VirtualStreamRestartProjection(
+        streamId: VirtualMediaStreamId('task-3::0'),
+        disposition: VirtualStreamRestartDisposition.active,
+        requiresTaskReconciliation: true,
+      ),
+    );
+
+    final PlaybackSourceHandoffResult result = handoff.prepare(
+      PlaybackSourceHandoffInput.virtualStreamSnapshot(snapshot),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.source, isA<VirtualStreamPlaybackSource>());
+    expect(result.source?.uri,
+        Uri.parse('celesteria-virtual-stream://task-3%3A%3A0'));
+  });
+
   test('converts virtual stream descriptors in playback source layer', () {
     final PlaybackSource source = VirtualStreamPlaybackSource.fromDescriptor(
       const VirtualMediaStreamDescriptor(
@@ -109,7 +162,16 @@ void main() {
     const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
 
     final PlaybackSourceHandoffResult result = handoff.prepare(
-      PlaybackSourceHandoffInput.unsupportedSource(Object()),
+      PlaybackSourceHandoffInput.unsupportedSource(
+        StoredBtTaskRecord(
+          id: 'task-raw',
+          sourceKind: StoredBtTaskSourceKind.magnet,
+          sourceUri: 'magnet:?xt=urn:btih:raw',
+          lifecycleState: StoredBtTaskLifecycleState.ready,
+          createdAt: DateTime.utc(2026, 6, 12, 12),
+          updatedAt: DateTime.utc(2026, 6, 12, 12),
+        ),
+      ),
     );
 
     expect(result.isSuccess, isFalse);

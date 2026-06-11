@@ -51,11 +51,16 @@ enum VirtualMediaStreamFailureKind {
   taskUnavailable,
   metadataUnavailable,
   fileUnavailable,
+  fileSkipped,
+  streamUnavailable,
   rangeUnavailable,
   timeout,
   cancelled,
+  unavailable,
+  disposed,
   taskFailed,
   streamClosed,
+  streamFailed,
 }
 
 final class VirtualMediaStreamFailure implements Exception {
@@ -212,11 +217,15 @@ final class DeterministicVirtualMediaStreamRegistry
     final List<StoredBtTaskFileRecord> files =
         await btTaskStore.filesFor(taskId.value);
     final StoredBtTaskFileRecord? file = _fileFor(files, fileIndex.value);
-    if (file == null ||
-        file.selectionState == StoredBtFileSelectionState.skipped) {
+    if (file == null) {
       return VirtualMediaStreamCreateOutcome.failure(
           failure: _failure(VirtualMediaStreamFailureKind.fileUnavailable,
-              'BT task ${taskId.value} file ${fileIndex.value} is unavailable.'));
+               'BT task ${taskId.value} file ${fileIndex.value} is unavailable.'));
+    }
+    if (file.selectionState == StoredBtFileSelectionState.skipped) {
+      return VirtualMediaStreamCreateOutcome.failure(
+          failure: _failure(VirtualMediaStreamFailureKind.fileSkipped,
+              'BT task ${taskId.value} file ${fileIndex.value} was skipped.'));
     }
 
     final StoredVirtualMediaStreamRecord? existing =
@@ -309,8 +318,20 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
         await store.findStreamById(descriptor.id.value);
     if (stream == null) {
       return VirtualStreamCommandOutcome.failure(
-          failure: _failure(VirtualMediaStreamFailureKind.taskUnavailable,
+          failure: _failure(VirtualMediaStreamFailureKind.streamUnavailable,
               'Virtual stream ${descriptor.id.value} was not found.'));
+    }
+    if (stream.lifecycleState ==
+        StoredVirtualMediaStreamLifecycleState.closed) {
+      return VirtualStreamCommandOutcome.failure(
+          failure: _failure(VirtualMediaStreamFailureKind.streamClosed,
+              'Virtual stream ${descriptor.id.value} is already closed.'));
+    }
+    if (stream.lifecycleState ==
+        StoredVirtualMediaStreamLifecycleState.failed) {
+      return VirtualStreamCommandOutcome.failure(
+          failure: _failure(VirtualMediaStreamFailureKind.streamFailed,
+              stream.message ?? 'Virtual stream ${descriptor.id.value} failed.'));
     }
     await store.storeStream(stream.copyWith(
       lifecycleState: StoredVirtualMediaStreamLifecycleState.closed,
@@ -386,7 +407,7 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
     final StoredVirtualMediaStreamRecord? stream =
         await store.findStreamById(descriptor.id.value);
     if (stream == null) {
-      return _failure(VirtualMediaStreamFailureKind.taskUnavailable,
+      return _failure(VirtualMediaStreamFailureKind.streamUnavailable,
           'Virtual stream ${descriptor.id.value} was not found.');
     }
     if (stream.lifecycleState ==
@@ -396,7 +417,7 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
     }
     if (stream.lifecycleState ==
         StoredVirtualMediaStreamLifecycleState.failed) {
-      return _failure(VirtualMediaStreamFailureKind.taskFailed,
+      return _failure(VirtualMediaStreamFailureKind.streamFailed,
           stream.message ?? 'Virtual stream ${descriptor.id.value} failed.');
     }
     if (request.range.endInclusive >= descriptor.lengthBytes) {

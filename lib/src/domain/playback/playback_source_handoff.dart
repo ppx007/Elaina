@@ -1,5 +1,7 @@
 import '../../playback/player_adapter.dart';
 import '../../playback/virtual_stream_playback_source.dart';
+import '../../streaming/virtual_media_stream.dart';
+import '../../streaming/virtual_media_stream_runtime.dart';
 import '../media/media_library.dart';
 
 sealed class PlaybackSourceHandoffInput {
@@ -13,6 +15,14 @@ sealed class PlaybackSourceHandoffInput {
 
   const factory PlaybackSourceHandoffInput.virtualStreamSource(
       VirtualStreamPlaybackSource source) = VirtualStreamSourceHandoffInput;
+
+  const factory PlaybackSourceHandoffInput.virtualStreamDescriptor(
+          VirtualMediaStreamDescriptor descriptor) =
+      VirtualStreamDescriptorHandoffInput;
+
+  const factory PlaybackSourceHandoffInput.virtualStreamSnapshot(
+          VirtualMediaStreamSnapshot snapshot) =
+      VirtualStreamSnapshotHandoffInput;
 
   const factory PlaybackSourceHandoffInput.unsupportedSource(Object value) =
       UnsupportedPlaybackSourceHandoffInput;
@@ -34,6 +44,19 @@ final class VirtualStreamSourceHandoffInput extends PlaybackSourceHandoffInput {
   const VirtualStreamSourceHandoffInput(this.source);
 
   final VirtualStreamPlaybackSource source;
+}
+
+final class VirtualStreamDescriptorHandoffInput
+    extends PlaybackSourceHandoffInput {
+  const VirtualStreamDescriptorHandoffInput(this.descriptor);
+
+  final VirtualMediaStreamDescriptor descriptor;
+}
+
+final class VirtualStreamSnapshotHandoffInput extends PlaybackSourceHandoffInput {
+  const VirtualStreamSnapshotHandoffInput(this.snapshot);
+
+  final VirtualMediaStreamSnapshot snapshot;
 }
 
 final class UnsupportedPlaybackSourceHandoffInput
@@ -92,6 +115,16 @@ final class LocalPlaybackSourceHandoff
       return PlaybackSourceHandoffResult.success(source);
     }
 
+    if (input case VirtualStreamDescriptorHandoffInput(:final descriptor)) {
+      return PlaybackSourceHandoffResult.success(
+          VirtualStreamPlaybackSource.fromDescriptor(descriptor));
+    }
+
+    if (input case VirtualStreamSnapshotHandoffInput(:final snapshot)) {
+      return PlaybackSourceHandoffResult.success(
+          VirtualStreamPlaybackSource.fromDescriptor(snapshot.descriptor));
+    }
+
     if (input case UnsupportedPlaybackSourceHandoffInput()) {
       return const PlaybackSourceHandoffResult.failure(
         PlaybackSourceHandoffFailure(
@@ -105,6 +138,8 @@ final class LocalPlaybackSourceHandoff
       LocalMediaIdentityHandoffInput(:final identity) => identity,
       MediaScanCandidateHandoffInput(:final candidate) => candidate.identity,
       VirtualStreamSourceHandoffInput() => throw StateError('Handled above.'),
+      VirtualStreamDescriptorHandoffInput() => throw StateError('Handled above.'),
+      VirtualStreamSnapshotHandoffInput() => throw StateError('Handled above.'),
       UnsupportedPlaybackSourceHandoffInput() =>
         throw StateError('Handled above.'),
     };

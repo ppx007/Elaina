@@ -9,6 +9,7 @@ enum StoredVirtualStreamEventKind {
   rangeBuffered,
   rangeFailed,
   closed,
+  failed,
 }
 
 final class StoredVirtualMediaStreamRecord {
