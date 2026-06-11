@@ -16,6 +16,7 @@ export 'src/domain/playback/playback_state.dart';
 export 'src/domain/playback/player_core_bootstrap.dart';
 export 'src/domain/playback/player_core_runtime.dart';
 export 'src/domain/rss/rss_engine.dart';
+export 'src/domain/rss/rss_engine_runtime.dart';
 export 'src/domain/seasonal/seasonal_anime.dart';
 export 'src/domain/subtitle/basic_subtitle_state.dart';
 export 'src/domain/subtitle/subtitle_discovery.dart';
