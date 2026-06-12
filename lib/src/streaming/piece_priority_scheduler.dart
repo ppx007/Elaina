@@ -154,13 +154,16 @@ final class PiecePriorityPlanRequest {
 }
 
 enum PiecePriorityPlanFailureKind {
+  dependenciesUnavailable,
   metadataUnavailable,
   fileMapUnavailable,
   streamUnavailable,
   streamClosed,
+  streamFailed,
   unsupportedProfile,
   rangeOutOfBounds,
   noSchedulablePieces,
+  disposed,
 }
 
 final class PiecePriorityPlanFailure implements Exception {
@@ -191,6 +194,7 @@ enum PiecePriorityApplicationFailureKind {
   applierUnavailable,
   adapterRejected,
   stalePlan,
+  disposed,
 }
 
 final class PiecePriorityApplicationFailure implements Exception {
@@ -382,6 +386,16 @@ final class DeterministicPiecePriorityScheduler
     PiecePriorityPlanFailureKind kind,
     String message,
   ) async {
+    await schedulerStore.recordPlanningFailure(
+      StoredPiecePriorityPlanningFailureRecord(
+        taskId: request.taskId.value,
+        streamId: request.streamId.value,
+        profileId: request.profile.id,
+        failureKind: kind.name,
+        message: message,
+        occurredAt: _clock(),
+      ),
+    );
     cacheInvalidationBus?.publish(PiecePriorityPlanRejected(
       occurredAt: _clock(),
       taskId: request.taskId.value,
@@ -528,6 +542,14 @@ final class DeterministicPiecePriorityPlanApplicationRecorder {
       );
     }
     cacheInvalidationBus?.publish(PiecePriorityPlanRejected(
+      occurredAt: now,
+      taskId: taskId,
+      streamId: streamId,
+      planId: planId,
+      profileId: profileId,
+      failureKind: failure.kind.name,
+    ));
+    cacheInvalidationBus?.publish(PiecePriorityPlanUnavailable(
       occurredAt: now,
       taskId: taskId,
       streamId: streamId,

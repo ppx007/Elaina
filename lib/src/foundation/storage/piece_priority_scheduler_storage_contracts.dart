@@ -151,6 +151,27 @@ final class StoredPiecePriorityPlanApplicationEventRecord {
   final DateTime occurredAt;
 }
 
+final class StoredPiecePriorityPlanningFailureRecord {
+  const StoredPiecePriorityPlanningFailureRecord({
+    required this.taskId,
+    required this.streamId,
+    required this.profileId,
+    required this.failureKind,
+    required this.message,
+    required this.occurredAt,
+  })  : assert(taskId != '', 'BT task id must not be empty.'),
+        assert(streamId != '', 'Virtual media stream id must not be empty.'),
+        assert(profileId != '', 'Strategy profile id must not be empty.'),
+        assert(failureKind != '', 'failureKind must not be empty.');
+
+  final String taskId;
+  final String streamId;
+  final String profileId;
+  final String failureKind;
+  final String message;
+  final DateTime occurredAt;
+}
+
 abstract interface class PiecePrioritySchedulerStore {
   Future<StoredPiecePriorityStrategyProfileRecord> storeProfile(
       StoredPiecePriorityStrategyProfileRecord profile);
@@ -190,6 +211,14 @@ abstract interface class PiecePrioritySchedulerStore {
 
   Future<StoredPiecePriorityPlanApplicationEventRecord?> latestApplicationEvent(
       String planId);
+
+  Future<void> recordPlanningFailure(
+      StoredPiecePriorityPlanningFailureRecord failure);
+
+  Future<StoredPiecePriorityPlanningFailureRecord?> latestPlanningFailure({
+    required String taskId,
+    required String streamId,
+  });
 }
 
 final class DeterministicPiecePrioritySchedulerStore
@@ -215,6 +244,9 @@ final class DeterministicPiecePrioritySchedulerStore
   final Map<String, StoredPiecePriorityPlanApplicationEventRecord>
       _applicationEventsByPlanId =
       <String, StoredPiecePriorityPlanApplicationEventRecord>{};
+  final Map<String, StoredPiecePriorityPlanningFailureRecord>
+      _planningFailuresByStream =
+      <String, StoredPiecePriorityPlanningFailureRecord>{};
 
   @override
   Future<StoredActivePiecePriorityProfileRecord?> activeProfile({
@@ -242,6 +274,15 @@ final class DeterministicPiecePrioritySchedulerStore
       String planId) {
     return Future<StoredPiecePriorityPlanApplicationEventRecord?>.value(
         _applicationEventsByPlanId[planId]);
+  }
+
+  @override
+  Future<StoredPiecePriorityPlanningFailureRecord?> latestPlanningFailure({
+    required String taskId,
+    required String streamId,
+  }) {
+    return Future<StoredPiecePriorityPlanningFailureRecord?>.value(
+        _planningFailuresByStream[_streamKey(taskId, streamId)]);
   }
 
   @override
@@ -275,6 +316,14 @@ final class DeterministicPiecePrioritySchedulerStore
   Future<void> recordApplicationEvent(
       StoredPiecePriorityPlanApplicationEventRecord event) {
     _applicationEventsByPlanId[event.planId] = event;
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> recordPlanningFailure(
+      StoredPiecePriorityPlanningFailureRecord failure) {
+    _planningFailuresByStream[_streamKey(failure.taskId, failure.streamId)] =
+        failure;
     return Future<void>.value();
   }
 

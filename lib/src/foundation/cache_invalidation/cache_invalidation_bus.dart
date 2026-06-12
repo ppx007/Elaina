@@ -589,8 +589,10 @@ final class DiagnosticsRetentionEnforced extends CacheInvalidationEvent {
     required this.retentionStateId,
     required this.removedEventCount,
     required this.remainingEventCount,
-  })  : assert(removedEventCount >= 0, 'removedEventCount must not be negative.'),
-        assert(remainingEventCount >= 0, 'remainingEventCount must not be negative.');
+  })  : assert(
+            removedEventCount >= 0, 'removedEventCount must not be negative.'),
+        assert(remainingEventCount >= 0,
+            'remainingEventCount must not be negative.');
 
   final String retentionStateId;
   final int removedEventCount;
@@ -772,6 +774,23 @@ final class PiecePriorityPlanRejected extends CacheInvalidationEvent {
   final String planId;
   final String profileId;
   final String? failureKind;
+}
+
+final class PiecePriorityPlanUnavailable extends CacheInvalidationEvent {
+  const PiecePriorityPlanUnavailable({
+    required super.occurredAt,
+    required this.taskId,
+    required this.streamId,
+    required this.planId,
+    required this.profileId,
+    required this.failureKind,
+  });
+
+  final String taskId;
+  final String streamId;
+  final String planId;
+  final String profileId;
+  final String failureKind;
 }
 
 final class PiecePriorityProfileChanged extends CacheInvalidationEvent {
