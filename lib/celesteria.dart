@@ -91,6 +91,7 @@ export 'src/streaming/bt_task_core_runtime.dart';
 export 'src/streaming/piece_priority_scheduler.dart';
 export 'src/streaming/piece_priority_scheduler_runtime.dart';
 export 'src/streaming/timeline_overlay.dart';
+export 'src/streaming/timeline_overlay_runtime.dart';
 export 'src/streaming/virtual_media_stream.dart';
 export 'src/streaming/virtual_media_stream_runtime.dart';
 export 'src/ui/detail/video_detail_page_contract.dart';
