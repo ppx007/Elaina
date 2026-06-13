@@ -84,6 +84,26 @@ final class StoredTimelineOverlaySnapshotMetadataRecord {
   final DateTime composedAt;
 }
 
+final class StoredTimelineOverlayCompositionRejectionRecord {
+  const StoredTimelineOverlayCompositionRejectionRecord({
+    required this.streamId,
+    required this.profileId,
+    required this.failureKind,
+    required this.message,
+    required this.rejectedAt,
+  })  : assert(streamId != '', 'Virtual media stream id must not be empty.'),
+        assert(
+            profileId != '', 'Timeline overlay profile id must not be empty.'),
+        assert(failureKind != '',
+            'Timeline overlay failure kind must not be empty.');
+
+  final String streamId;
+  final String profileId;
+  final String failureKind;
+  final String message;
+  final DateTime rejectedAt;
+}
+
 abstract interface class TimelineOverlayStore {
   Future<StoredTimelineOverlayProfileRecord> storeProfile(
       StoredTimelineOverlayProfileRecord profile);
@@ -98,6 +118,9 @@ abstract interface class TimelineOverlayStore {
   Future<StoredActiveTimelineOverlayProfileRecord?> activeProfile(
       String streamId);
 
+  Future<List<StoredActiveTimelineOverlayProfileRecord>>
+      activeProfilesForProfile(String profileId);
+
   Future<void> storeLayers(
       {required String profileId,
       required Iterable<StoredTimelineOverlayLayerRecord> layers});
@@ -110,6 +133,14 @@ abstract interface class TimelineOverlayStore {
 
   Future<StoredTimelineOverlaySnapshotMetadataRecord?> latestSnapshotMetadata(
       String streamId);
+
+  Future<void> recordCompositionRejection(
+      StoredTimelineOverlayCompositionRejectionRecord rejection);
+
+  Future<StoredTimelineOverlayCompositionRejectionRecord?>
+      latestCompositionRejection(String streamId);
+
+  Future<void> clearCompositionRejection(String streamId);
 }
 
 final class DeterministicTimelineOverlayStore implements TimelineOverlayStore {
@@ -130,12 +161,38 @@ final class DeterministicTimelineOverlayStore implements TimelineOverlayStore {
   final Map<String, StoredTimelineOverlaySnapshotMetadataRecord>
       _latestSnapshotByStream =
       <String, StoredTimelineOverlaySnapshotMetadataRecord>{};
+  final Map<String, StoredTimelineOverlayCompositionRejectionRecord>
+      _latestRejectionByStream =
+      <String, StoredTimelineOverlayCompositionRejectionRecord>{};
 
   @override
   Future<StoredActiveTimelineOverlayProfileRecord?> activeProfile(
       String streamId) {
     return Future<StoredActiveTimelineOverlayProfileRecord?>.value(
         _activeByStream[streamId]);
+  }
+
+  @override
+  Future<List<StoredActiveTimelineOverlayProfileRecord>>
+      activeProfilesForProfile(String profileId) {
+    return Future<List<StoredActiveTimelineOverlayProfileRecord>>.value(
+      <StoredActiveTimelineOverlayProfileRecord>[
+        for (final StoredActiveTimelineOverlayProfileRecord active
+            in _activeByStream.values)
+          if (active.profileId == profileId) active,
+      ]..sort((StoredActiveTimelineOverlayProfileRecord left,
+            StoredActiveTimelineOverlayProfileRecord right) {
+          final int selectedOrder = right.selectedAt.compareTo(left.selectedAt);
+          if (selectedOrder != 0) return selectedOrder;
+          return left.streamId.compareTo(right.streamId);
+        }),
+    );
+  }
+
+  @override
+  Future<void> clearCompositionRejection(String streamId) {
+    _latestRejectionByStream.remove(streamId);
+    return Future<void>.value();
   }
 
   @override
@@ -150,6 +207,13 @@ final class DeterministicTimelineOverlayStore implements TimelineOverlayStore {
       String streamId) {
     return Future<StoredTimelineOverlaySnapshotMetadataRecord?>.value(
         _latestSnapshotByStream[streamId]);
+  }
+
+  @override
+  Future<StoredTimelineOverlayCompositionRejectionRecord?>
+      latestCompositionRejection(String streamId) {
+    return Future<StoredTimelineOverlayCompositionRejectionRecord?>.value(
+        _latestRejectionByStream[streamId]);
   }
 
   @override
@@ -173,6 +237,13 @@ final class DeterministicTimelineOverlayStore implements TimelineOverlayStore {
   Future<void> recordSnapshotMetadata(
       StoredTimelineOverlaySnapshotMetadataRecord metadata) {
     _latestSnapshotByStream[metadata.streamId] = metadata;
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> recordCompositionRejection(
+      StoredTimelineOverlayCompositionRejectionRecord rejection) {
+    _latestRejectionByStream[rejection.streamId] = rejection;
     return Future<void>.value();
   }
 
