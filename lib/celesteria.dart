@@ -69,6 +69,7 @@ export 'src/playback/subtitle/subtitle_scanner.dart';
 export 'src/playback/subtitle/subtitle_source.dart';
 export 'src/playback/track_management.dart';
 export 'src/playback/video_enhancement_pipeline.dart';
+export 'src/playback/video_enhancement_pipeline_runtime.dart';
 export 'src/playback/virtual_stream_playback_source.dart';
 export 'src/provider/bangumi/bangumi_auth.dart';
 export 'src/provider/bangumi/bangumi_provider.dart';
