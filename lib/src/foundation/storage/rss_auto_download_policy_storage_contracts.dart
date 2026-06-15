@@ -1,3 +1,6 @@
+import '../../provider/rss/feed_contracts.dart';
+import '../../provider/rss/rss_auto_download_policy.dart';
+
 enum StoredRssAutoDownloadMatcherField {
   title,
   releaseGroup,
@@ -585,4 +588,33 @@ final class DeterministicRssAutoDownloadPolicyStore
   }
 
   static String _key(String first, String second) => '$first::$second';
+}
+
+final class DeterministicRssAutomationHistoryStore
+    implements RssAutomationHistoryStore {
+  DeterministicRssAutomationHistoryStore({
+    Iterable<FeedDedupeKey> seedAcceptedKeys = const <FeedDedupeKey>[],
+  }) {
+    for (final FeedDedupeKey key in seedAcceptedKeys) {
+      _acceptedKeys.add(key.value);
+    }
+  }
+
+  final Set<String> _acceptedKeys = <String>{};
+  final List<RssAutomationHistoryEntry> _entries =
+      <RssAutomationHistoryEntry>[];
+
+  @override
+  Future<bool> hasAccepted(FeedDedupeKey itemKey) {
+    return Future<bool>.value(_acceptedKeys.contains(itemKey.value));
+  }
+
+  @override
+  Future<void> record(RssAutomationHistoryEntry entry) {
+    _entries.add(entry);
+    if (entry.decision is RssAutomationAccepted) {
+      _acceptedKeys.add(entry.itemKey.value);
+    }
+    return Future<void>.value();
+  }
 }
