@@ -87,6 +87,14 @@ The system SHALL expose storage-backed contracts for AV sync guard policy config
 - **WHEN** AV sync policy, health, sample metadata, or degradation decisions are written to Storage
 - **THEN** later Playback flows can restore deterministic guard state without direct database, renderer, native plugin, diagnostics, or UI persistence coupling
 
+#### Scenario: Runtime rebuilds projection from store after restart
+- **WHEN** a new runtime instance is created for a scope that has previously stored health and degradation records
+- **THEN** the runtime projection reads health and degradation data from the existing guard store contracts without requiring additional storage schema changes
+
+#### Scenario: Runtime persists degradation decisions on accepted requests
+- **WHEN** the runtime accepts a degradation request
+- **THEN** the underlying deterministic guard records the degradation decision to the guard store, and the runtime projection reflects it on the next snapshot
+
 ### Requirement: Storage foundation SHALL expose advanced caption persistence contracts
 The system SHALL expose storage-backed contracts for advanced caption profiles, active feature selection, dual-subtitle preferences, and latest renderer state metadata.
 

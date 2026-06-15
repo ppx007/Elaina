@@ -217,3 +217,17 @@ The repository SHALL include validation that rejects Step 22 video enhancement r
 #### Scenario: Checker rejects native renderer dependencies
 - **WHEN** the Step 22 boundary checker scans video enhancement runtime files
 - **THEN** it SHALL fail if those files import or invoke concrete MPV/VLC/media-kit bindings, shader bundle execution, platform channels, Flutter widget/rendering packages, diagnostics center behavior, network/RSS automation, captions, fallback adapter implementation, or AVSyncGuard drift policy
+
+### Requirement: Step 23 AV sync guard runtime baseline
+The repository SHALL treat Phase 5 Step 23 AV sync guard runtime as an optional, isolated Playback runtime layer over declarative guard health, degradation, storage, and invalidation contracts.
+
+#### Scenario: Core playback remains available without AV sync guard runtime
+- **WHEN** AV sync guard runtime is unavailable
+- **THEN** core playback, player adapter contracts, video enhancement pipeline runtime, timeline overlay runtime, and non-AV-sync-guard runtime slices SHALL remain usable
+
+### Requirement: Step 23 AV sync guard boundary validation
+The repository SHALL include validation that rejects Step 23 AV sync guard runtime leakage into concrete MPV timing probes, native FFI bindings, VLC fallback selection, diagnostics center integration, network policy, RSS automation, WebView session handling, or Flutter rendering.
+
+#### Scenario: Checker rejects native timing dependencies
+- **WHEN** the Step 23 boundary checker scans AV sync guard runtime files
+- **THEN** it SHALL fail if those files import or invoke concrete MPV property handles, libmpv/media-kit bindings, native renderer callbacks, VLC fallback selection, diagnostics center behavior, network policy modules, RSS automation, WebView challenge handling, or Flutter widget/rendering packages

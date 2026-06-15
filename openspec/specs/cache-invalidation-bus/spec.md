@@ -67,11 +67,19 @@ The system SHALL publish explicit invalidation events when timeline overlay snap
 - **THEN** a timeline overlay invalidation event is published so playback surfaces and later diagnostics consumers can refresh derived state without direct cross-module mutation
 
 ### Requirement: AV sync guard mutations SHALL publish invalidation events
-The system SHALL publish explicit invalidation events when AV sync samples are ingested, guard health transitions, degradation decisions are recorded, or guard state recovers.
+The system SHALL publish cache invalidation events when AV sync samples are ingested, guard health transitions, degradation decisions are recorded, or guard state recovers.
 
 #### Scenario: AV sync health transitions
 - **WHEN** sustained samples move guard health from target to warning, warning to degraded, or degraded toward target
 - **THEN** an AV sync invalidation event is published so playback surfaces and future diagnostics consumers can refresh derived state without direct cross-module mutation
+
+#### Scenario: Runtime publishes health transition on ingestion
+- **WHEN** a sample is ingested through the runtime and the deterministic guard health transitions
+- **THEN** an `AVSyncHealthTransitioned` event is published to the cache invalidation bus accepted at bootstrap
+
+#### Scenario: Runtime publishes degradation decision
+- **WHEN** a degradation request is accepted through the runtime
+- **THEN** an `AVSyncDegradationDecisionRecorded` event is published to the bus
 
 ### Requirement: Advanced caption mutations SHALL publish invalidation events
 The system SHALL publish explicit invalidation events when advanced caption feature state, capability evaluation, renderer state, dual-subtitle selection, or degradation state changes.
