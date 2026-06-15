@@ -48,6 +48,7 @@ export 'src/foundation/storage/video_enhancement_storage_contracts.dart';
 export 'src/foundation/storage/virtual_stream_storage_contracts.dart';
 export 'src/foundation/storage/webview_session_backfill_storage_contracts.dart';
 export 'src/network/network_policy.dart';
+export 'src/network/network_policy_runtime.dart';
 export 'src/network/webview_session_backfill.dart';
 export 'src/network/webview_session_backfill_runtime.dart';
 export 'src/playback/advanced_caption_rendering.dart';
