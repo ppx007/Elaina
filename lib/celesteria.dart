@@ -60,6 +60,7 @@ export 'src/playback/danmaku/danmaku_renderer.dart';
 export 'src/playback/danmaku/danmaku_runtime_state.dart';
 export 'src/playback/deterministic_mpv_binding.dart';
 export 'src/playback/fallback_adapter.dart';
+export 'src/playback/fallback_adapter_runtime.dart';
 export 'src/playback/mpv_adapter_facade.dart';
 export 'src/playback/player_adapter.dart';
 export 'src/playback/player_clock.dart';
