@@ -24,6 +24,10 @@ The system SHALL return typed registration, evaluation, selection, disable, and 
 - **WHEN** a fallback-compatible primary adapter failure occurs but no registered candidate can support the source
 - **THEN** the outcome contains a typed no-candidate failure with an explicit reason and no mandatory VLC dependency is assumed
 
+#### Scenario: Runtime surfaces contract failures through typed ActionResult
+- **WHEN** the runtime wraps a strategy method that returns a contract failure
+- **THEN** the runtime returns a `FallbackAdapterRuntimeActionResult` with kind `failed` and a `FallbackAdapterRuntimeFailure` mapping the contract failure kind to the runtime failure kind
+
 ### Requirement: VLC fallback adapter contract SHALL hide unsupported fallback capabilities
 The system SHALL preserve capability differences after fallback by exposing hidden capabilities and reason strings for features the selected fallback adapter cannot support.
 
@@ -37,4 +41,11 @@ The system MUST keep concrete VLC packages, native plugins, FFI, media-kit/libmp
 #### Scenario: Phase 5 checker runs
 - **WHEN** boundary checks scan Step 25 contracts
 - **THEN** no concrete VLC binding, native fallback implementation, UI widget, diagnostics center, or Phase 6 provider/network dependency is required by the fallback contract
+
+### Requirement: VLC fallback adapter contract SHALL enforce runtime boundary
+The system SHALL ensure that the fallback adapter runtime acceptance layer does not import or depend on concrete VLC implementations, PlayerAdapter method invocations, native plugins, FFI, Flutter widgets, diagnostics center, RSS automation, online rule runtime, WebView, captions, or network policy.
+
+#### Scenario: Runtime boundary scan
+- **WHEN** boundary checks scan the fallback adapter runtime file
+- **THEN** no PlayerAdapter import, VLC binding, or cross-domain dependency is present in the runtime slice
 
