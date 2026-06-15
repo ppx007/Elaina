@@ -245,3 +245,17 @@ The system SHALL require Step 24 runtime code to import only cache invalidation 
 #### Scenario: Boundary validation rejects out-of-scope imports
 - **WHEN** the Step 24 runtime import boundary is checked
 - **THEN** no import of native, FFI, VLC, renderer bindings, Flutter UI, diagnostics, network, RSS, WebView, or online rule modules is found
+
+### Requirement: Repository baseline SHALL record Step 25 VLC fallback adapter runtime
+The system SHALL include a Step 25 baseline entry documenting the VLC fallback adapter runtime/bootstrap acceptance layer, its typed projection and action result contracts, and its scope-gate boundary.
+
+#### Scenario: Step 25 runtime baseline entry exists
+- **WHEN** the repository baseline spec is read
+- **THEN** a Step 25 VLC fallback adapter runtime entry is present with bootstrap, projection, restart, and boundary descriptions
+
+### Requirement: Repository baseline SHALL enforce Step 25 runtime boundary
+The system SHALL require Step 25 runtime code to import only cache invalidation bus, fallback adapter storage contracts, fallback adapter, and capability matrix — rejecting imports of VLC-specific packages, native FFI, PlayerAdapter invocations, Flutter widgets, diagnostics, network, RSS, WebView, captions, and online rule modules.
+
+#### Scenario: Boundary validation rejects out-of-scope imports
+- **WHEN** the Step 25 runtime import boundary is checked
+- **THEN** no import of VLC-specific packages, native FFI, PlayerAdapter method invocations, Flutter widgets, diagnostics, network, RSS, WebView, captions, or online rule modules is found
