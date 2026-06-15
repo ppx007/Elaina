@@ -18,11 +18,15 @@ The system SHALL evaluate normalized AV sync samples against target, warning, re
 - **THEN** AVSyncGuard returns a degraded health outcome with an explicit reason and selected degradation action
 
 ### Requirement: AV sync guard contract SHALL expose typed evaluation and degradation outcomes
-The system SHALL define typed outcomes for sample evaluation, health transitions, and degradation requests without throwing concrete adapter exceptions or requiring native rendering implementations.
+The system SHALL define typed outcomes for sample evaluation, health transitions, and degradation requests without throwing concrete adapter exceptions or requiring native rendering implementations. The runtime acceptance layer SHALL expose `AVSyncGuardRuntimeActionResult<T>` with success/failed/unavailable/disposed states so consuming code can inspect runtime-level outcomes without depending on guard internals.
 
 #### Scenario: Degradation decision is accepted
 - **WHEN** sustained drift exceeds the red line and the active policy has an available ordered degradation action
 - **THEN** the guard records a degradation decision and publishes an invalidation event without invoking MPV, VLC, FFI, shader compiler, diagnostics center, or platform renderer code
+
+#### Scenario: Runtime action result distinguishes success from failure
+- **WHEN** the runtime processes an ingest or degradation request
+- **THEN** the returned `AVSyncGuardRuntimeActionResult<T>` exposes `isSuccess` and typed failure kinds (unsupported, unavailable, disposed, policyNotConfigured, insufficientSamples)
 
 ### Requirement: AV sync guard contract SHALL consume enhancement pressure as input data
 The system SHALL consume video enhancement render-budget pressure and candidate degradation targets as AV sync input data while keeping AVSyncGuard responsible for drift policy and leaving concrete enhancement application to future adapters.
@@ -39,9 +43,9 @@ The system SHALL publish cache invalidation events when AV sync samples are inge
 - **THEN** an AV sync invalidation event is published so playback surfaces and future diagnostics consumers can refresh derived state without direct cross-module mutation
 
 ### Requirement: AV sync guard contract MUST remain scoped to Step 23
-The system MUST keep concrete MPV timing probes, libmpv/media-kit bindings, native renderer callbacks, VLC fallback selection, diagnostics center behavior, DNS/network policy, online source rules, RSS automation, WebView challenge handling, and Flutter rendering outside the AVSyncGuard contract slice.
+The system MUST keep concrete MPV timing probes, libmpv/media-kit bindings, native renderer callbacks, VLC fallback selection, diagnostics center behavior, DNS/network policy, online source rules, RSS automation, WebView challenge handling, and Flutter rendering outside the AVSyncGuard contract slice. The runtime acceptance layer SHALL enforce this boundary by rejecting any import or dependency on native/UI/renderer/diagnostics/network/automation modules.
 
-#### Scenario: Phase 5 checker runs
-- **WHEN** boundary checks scan Step 23 contracts
-- **THEN** no concrete timing probe implementation, native plugin, FFI, VLC fallback, diagnostics center, network policy, automation extension, or Flutter widget dependency is required by the AV sync guard contract
+#### Scenario: Step 23 runtime boundary is enforced
+- **WHEN** the runtime, tests, and checkers are scanned for boundary violations
+- **THEN** no MPV property, native FFI, shader compiler, VLC adapter, diagnostics center, network policy, or Flutter widget dependency is found
 
