@@ -51,6 +51,7 @@ export 'src/network/network_policy.dart';
 export 'src/network/webview_session_backfill.dart';
 export 'src/playback/advanced_caption_rendering.dart';
 export 'src/playback/av_sync_guard.dart';
+export 'src/playback/av_sync_guard_runtime.dart';
 export 'src/playback/capability_matrix.dart';
 export 'src/playback/danmaku/danmaku_event.dart';
 export 'src/playback/danmaku/danmaku_filter.dart';
