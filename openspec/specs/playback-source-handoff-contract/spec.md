@@ -50,10 +50,14 @@ The playback source handoff contract SHALL accept scanner-produced `MediaScanCan
 - **THEN** the playback source handoff returns its existing explicit failure result rather than accepting scanner-local source assumptions or constructing a parallel playback source model
 
 ### Requirement: Playback source handoff SHALL prepare virtual stream playback sources
-The playback source handoff contract SHALL accept engine-neutral virtual media stream descriptors or equivalent virtual stream source values and prepare playback sources without importing BT task core, download engine, piece scheduler, timeline overlay, or concrete byte-serving implementation dependencies.
+The playback source handoff contract SHALL accept playback-owned virtual stream
+descriptors or equivalent virtual stream source values and prepare playback
+sources without importing Streaming runtime, BT task core, download engine,
+piece scheduler, timeline overlay, or concrete byte-serving implementation
+dependencies.
 
 #### Scenario: Virtual stream descriptor is prepared
-- **WHEN** playback is handed a virtual stream descriptor for a selected BT task file
+- **WHEN** playback is handed a playback-owned virtual stream descriptor for a selected virtual stream
 - **THEN** the handoff returns a playback-compatible source that references the virtual stream abstraction without requiring provider metadata, storage implementation details, network clients, concrete streaming engines, UI widgets, or native player bindings
 
 ### Requirement: Playback source handoff MUST reject direct BT engine handoff
@@ -99,11 +103,15 @@ Media-library runtime playback handoff MUST NOT import concrete player adapters,
 - **THEN** only Domain media values and playback source handoff contracts are required for local playback preparation
 
 ### Requirement: Playback source handoff SHALL consume virtual stream runtime projections
-The playback source handoff contract SHALL prepare playback-compatible source values from Step 19 virtual stream runtime projections or descriptors without importing BT task runtime internals, concrete byte-serving implementations, schedulers, timeline overlays, or native player bindings.
+The playback source handoff contract SHALL prepare playback-compatible source
+values from playback-owned virtual stream descriptors derived at caller
+boundaries from runtime projections, without importing Step 19 runtime snapshot
+types, BT task runtime internals, concrete byte-serving implementations,
+schedulers, timeline overlays, or native player bindings.
 
 #### Scenario: Runtime projection is handed to playback
-- **WHEN** playback receives a virtual stream projection for a selected BT task file
-- **THEN** handoff prepares an existing playback source representation that references the virtual stream abstraction only
+- **WHEN** a caller receives a virtual stream runtime projection for a selected BT task file
+- **THEN** the caller maps it to a playback-owned descriptor before invoking handoff, and handoff prepares an existing playback source representation that references only the virtual stream abstraction
 
 ### Requirement: Playback source handoff MUST reject virtual stream boundary violations
 The playback source handoff contract MUST reject direct torrent engine values, task-internal storage records, piece maps, scheduler plans, timeline overlay objects, sockets, file handles, and native player values as playback source inputs.

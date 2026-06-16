@@ -60,11 +60,16 @@ The virtual media stream contract SHALL distinguish adapter-neutral range availa
 - **THEN** it records range availability through stream/storage contracts without requiring concrete byte chunks to be served
 
 ### Requirement: Virtual media stream contract SHALL normalize range failures
-The virtual media stream contract SHALL provide normalized failures for missing stream, wrong stream, closed stream, failed stream, missing task metadata, missing selected file, skipped file, out-of-bounds range, unavailable adapter boundary, and disposed runtime state.
+The virtual media stream contract SHALL provide normalized failures for missing
+stream, wrong stream, closed stream, failed stream, missing task metadata,
+missing selected file, skipped selected file, out-of-bounds range, unavailable
+adapter boundary, and disposed runtime state. A missing selected file SHALL be
+reported as `fileUnavailable`; a selected file explicitly marked skipped SHALL
+be reported as `fileSkipped`.
 
-#### Scenario: Range exceeds stream length
-- **WHEN** a caller requests a range whose end exceeds the virtual stream length
-- **THEN** the contract returns or records a typed range failure without throwing concrete IO, engine, network, or native-player exceptions
+#### Scenario: Skipped selected file is requested
+- **WHEN** stream creation is requested for a persisted BT task file whose selection state is skipped
+- **THEN** stream creation returns a typed `fileSkipped` failure without probing concrete IO, engine, network, or native-player implementations
 
 ### Requirement: Virtual media stream contract SHALL support restart-safe stream lookup
 The virtual media stream contract SHALL allow runtime bootstrap code to reconstruct active, closed, failed, and incomplete stream projections from persisted stream records and related BT task state after process restart.
@@ -100,3 +105,4 @@ Virtual media stream contract SHALL allow timeline overlay runtime to distinguis
 #### Scenario: Missing stream produces typed overlay failure
 - **WHEN** timeline overlay runtime composes for a stream identifier without a persisted stream snapshot
 - **THEN** it SHALL return a typed dependency-unavailable outcome.
+
