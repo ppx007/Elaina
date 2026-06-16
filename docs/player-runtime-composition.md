@@ -38,6 +38,10 @@ file playback path. It enables only verified capabilities:
 HTTP, HLS, track discovery, and track switching remain unsupported until a
 later change implements and validates them.
 
+See `docs/player-capability-gate.md` for the Step 33 UI-facing capability
+gate: playback pages should render and dispatch only from the active surface
+descriptor or capability matrix.
+
 The optional `libmpvPath` may point to `libmpv-2.dll` or to a directory
 containing it. When omitted on Windows, the binding looks for
 `libmpv-2.dll` beside the running executable. That is the production packaging

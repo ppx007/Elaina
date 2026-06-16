@@ -220,6 +220,44 @@ void main() {
     );
   });
 
+  test('composition exposes only verified UI-facing controls', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final PlayerCoreBootstrap bootstrap = PlayerCoreBootstrap.withComposition(
+      composition: mediaKitLocalFilePlayerRuntimeComposition(backend: backend),
+    );
+    final PlaybackPageContract page = PlaybackPageContract(
+      controller: bootstrap.controller,
+    );
+
+    final PlaybackPageSurfaceDescriptor surface = page.resolveSurface();
+
+    expect(surface.hasActiveControl(PlaybackPageControlId.playPause), isTrue);
+    expect(surface.hasActiveControl(PlaybackPageControlId.seek), isTrue);
+    expect(surface.hasActiveControl(PlaybackPageControlId.stop), isTrue);
+    expect(surface.hasActiveControl(PlaybackPageControlId.progress), isFalse);
+    expect(
+        surface.hasActiveControl(PlaybackPageControlId.audioTracks), isFalse);
+    expect(surface.hasActiveControl(PlaybackPageControlId.subtitleTracks),
+        isFalse);
+    expect(surface.hasActivePanel(PlaybackPagePanelId.tracks), isFalse);
+
+    final PlaybackPageIntentResult panelResult =
+        await page.dispatch(const PlaybackPageIntent.openPanel(
+      PlaybackPagePanelId.tracks,
+    ));
+    final PlaybackPageIntentResult trackResult =
+        await page.dispatch(const PlaybackPageIntent.selectTrack(
+      trackId: DomainMediaTrackId('audio-main'),
+      trackType: DomainMediaTrackType.audio,
+    ));
+
+    expect(panelResult.outcome, PlaybackPageIntentOutcome.unsupported);
+    expect(trackResult.outcome, PlaybackPageIntentOutcome.unsupported);
+    expect(backend.operations, isEmpty);
+
+    await bootstrap.dispose();
+  });
+
   test('bootstrap can wire concrete binding with verified capabilities',
       () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();

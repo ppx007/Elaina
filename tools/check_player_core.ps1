@@ -18,6 +18,7 @@ $requiredFiles = @(
   'lib/src/domain/playback/player_core_runtime.dart',
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
+  'docs/player-capability-gate.md',
   'docs/player-runtime-composition.md',
   'docs/next-change-acg-data-experience.md',
   'tools/package_windows_release.ps1'
@@ -403,6 +404,20 @@ $compositionDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-runtime
 foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlayerCoreBootstrap.withComposition', 'package_windows_release.ps1', 'libmpv-2.dll', 'UI code must not import')) {
   if ($compositionDoc -notmatch [regex]::Escape($term)) {
     throw "Player runtime composition doc missing required term: $term"
+  }
+}
+
+$capabilityGateDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-capability-gate.md') -Raw
+foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlaybackPageContract', 'PlaybackPageSurfaceDescriptor', 'localFilePlayback', 'playPause', 'seek', 'stop', 'httpPlayback', 'hlsPlayback', 'progressReporting', 'audioTrackDiscovery', 'subtitleTrackSwitching', 'fallbackAdapter', 'UI code must not call a concrete media_kit/libmpv backend directly')) {
+  if ($capabilityGateDoc -notmatch [regex]::Escape($term)) {
+    throw "Player capability gate doc missing required term: $term"
+  }
+}
+
+$mediaKitBindingTest = Get-Content -LiteralPath (Join-Path $root 'test/playback/media_kit_mpv_binding_test.dart') -Raw
+foreach ($term in @('composition exposes only verified UI-facing controls', 'PlaybackPageContract', 'PlaybackPageControlId.playPause', 'PlaybackPageControlId.seek', 'PlaybackPageControlId.stop', 'PlaybackPageControlId.progress', 'PlaybackPagePanelId.tracks', 'PlaybackPageIntentOutcome.unsupported')) {
+  if ($mediaKitBindingTest -notmatch [regex]::Escape($term)) {
+    throw "Concrete MPV binding tests missing capability gate assertion: $term"
   }
 }
 
