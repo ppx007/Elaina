@@ -17,7 +17,8 @@ $requiredFiles = @(
   'lib/src/domain/playback/player_core_runtime.dart',
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
-  'docs/next-change-acg-data-experience.md'
+  'docs/next-change-acg-data-experience.md',
+  'tools/package_windows_release.ps1'
 )
 
 foreach ($file in $requiredFiles) {
@@ -344,7 +345,7 @@ foreach ($term in @('DeterministicMpvBinding', 'MpvAdapterBinding', 'PlaybackOpe
 }
 
 $mediaKitBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/media_kit_mpv_binding.dart') -Raw
-foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybackSource', 'mediaKitLocalFilePlaybackCapabilities', 'PlaybackFailureKind.operationFailed')) {
+foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybackSource', 'BundledMpvLibraryResolver', 'libmpv-2.dll', 'MediaKit.ensureInitialized', 'mediaKitLocalFilePlaybackCapabilities', 'PlaybackFailureKind.operationFailed')) {
   if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
     throw "Concrete MPV binding missing required term: $term"
   }
@@ -352,6 +353,18 @@ foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybac
 foreach ($term in @('HttpPlaybackSource', 'HlsPlaybackSource')) {
   if ($mediaKitBinding -match [regex]::Escape($term)) {
     throw "Concrete MPV binding must not implement unverified source type directly: $term"
+  }
+}
+
+$windowsReleasePackageScript = Get-Content -LiteralPath (Join-Path $root 'tools/package_windows_release.ps1') -Raw
+foreach ($term in @('libmpv-2.dll', 'CELESTERIA_LIBMPV_PATH', 'Copy-Item', 'Compress-Archive', 'Assert-ZipContainsReleaseFiles')) {
+  if ($windowsReleasePackageScript -notmatch [regex]::Escape($term)) {
+    throw "Windows release packaging script missing required term: $term"
+  }
+}
+foreach ($term in @('setx', '[Environment]::SetEnvironmentVariable', 'PathMachine', 'PathUser')) {
+  if ($windowsReleasePackageScript -match [regex]::Escape($term)) {
+    throw "Windows release packaging script must not mutate global PATH or environment: $term"
   }
 }
 

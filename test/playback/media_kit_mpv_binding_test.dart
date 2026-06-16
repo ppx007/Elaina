@@ -2,6 +2,93 @@ import 'package:celesteria/celesteria.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('bundled libmpv resolver', () {
+    test('prefers explicit dll path when it exists', () {
+      const String dll = r'C:\app\libmpv-2.dll';
+
+      final String? resolved =
+          BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+        explicitLibMpvPath: dll,
+        isWindows: true,
+        fileExists: (String path) => path == dll,
+        directoryExists: (_) => false,
+      );
+
+      expect(resolved, dll);
+    });
+
+    test('accepts explicit directory containing libmpv dll', () {
+      const String directory = r'C:\app';
+      const String dll = r'C:\app\libmpv-2.dll';
+
+      final String? resolved =
+          BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+        explicitLibMpvPath: directory,
+        isWindows: true,
+        fileExists: (String path) => path == dll,
+        directoryExists: (String path) => path == directory,
+      );
+
+      expect(resolved, dll);
+    });
+
+    test('uses environment dll path before executable directory', () {
+      const String envDll = r'C:\portable\libmpv-2.dll';
+      const String exeDll = r'C:\release\libmpv-2.dll';
+
+      final String? resolved =
+          BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+        environment: const <String, String>{
+          celesteriaLibMpvPathEnvironmentKey: envDll,
+        },
+        executablePath: r'C:\release\Celesteria.exe',
+        isWindows: true,
+        fileExists: (String path) => path == envDll || path == exeDll,
+        directoryExists: (_) => false,
+      );
+
+      expect(resolved, envDll);
+    });
+
+    test('uses dll beside executable for unzip-and-run release', () {
+      const String exeDll = r'C:\release\libmpv-2.dll';
+
+      final String? resolved =
+          BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+        environment: const <String, String>{},
+        executablePath: r'C:\release\Celesteria.exe',
+        isWindows: true,
+        fileExists: (String path) => path == exeDll,
+        directoryExists: (_) => false,
+      );
+
+      expect(resolved, exeDll);
+    });
+
+    test('returns null for non-windows platforms and missing candidates', () {
+      expect(
+        BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+          explicitLibMpvPath: r'C:\missing\libmpv-2.dll',
+          isWindows: false,
+          fileExists: (_) => true,
+          directoryExists: (_) => true,
+        ),
+        isNull,
+      );
+      expect(
+        BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+          explicitLibMpvPath: r'C:\missing\libmpv-2.dll',
+          environment: const <String, String>{},
+          executablePath: r'C:\release\Celesteria.exe',
+          isWindows: true,
+          fileExists: (_) => false,
+          directoryExists: (_) => false,
+        ),
+        isNull,
+      );
+    });
+  });
+
   test('concrete binding maps local file commands to backend operations',
       () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();

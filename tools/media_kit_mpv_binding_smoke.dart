@@ -4,14 +4,17 @@ import 'dart:io';
 import 'package:celesteria/celesteria.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 1) {
+  final _SmokeArguments? parsed = _SmokeArguments.parse(args);
+  if (parsed == null) {
     stderr.writeln(
-        'Usage: dart run tools/media_kit_mpv_binding_smoke.dart <local-media-file>');
+      'Usage: dart run tools/media_kit_mpv_binding_smoke.dart '
+      '[--libmpv <libmpv-2.dll-or-directory>] <local-media-file>',
+    );
     exitCode = 64;
     return;
   }
 
-  final File mediaFile = File(args.single).absolute;
+  final File mediaFile = File(parsed.mediaPath).absolute;
   if (!mediaFile.existsSync()) {
     stderr.writeln('Local media file does not exist: ${mediaFile.path}');
     exitCode = 66;
@@ -19,7 +22,7 @@ Future<void> main(List<String> args) async {
   }
 
   final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
-    binding: MediaKitMpvBinding(),
+    binding: MediaKitMpvBinding(libmpvPath: parsed.libmpvPath),
     capabilities: mediaKitLocalFilePlaybackCapabilities(),
   );
 
@@ -39,6 +42,36 @@ Future<void> main(List<String> args) async {
     exitCode = 1;
   } finally {
     await runtime.dispose();
+  }
+}
+
+final class _SmokeArguments {
+  const _SmokeArguments({
+    required this.mediaPath,
+    this.libmpvPath,
+  });
+
+  final String mediaPath;
+  final String? libmpvPath;
+
+  static _SmokeArguments? parse(List<String> args) {
+    String? libmpvPath;
+    final List<String> positional = <String>[];
+    for (int index = 0; index < args.length; index += 1) {
+      final String arg = args[index];
+      if (arg == '--libmpv') {
+        index += 1;
+        if (index >= args.length) return null;
+        libmpvPath = args[index];
+        continue;
+      }
+      positional.add(arg);
+    }
+    if (positional.length != 1) return null;
+    return _SmokeArguments(
+      mediaPath: positional.single,
+      libmpvPath: libmpvPath,
+    );
   }
 }
 

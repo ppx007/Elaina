@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:media_kit/media_kit.dart';
 
 import 'capability_matrix.dart';
@@ -6,6 +8,9 @@ import 'player_adapter.dart';
 import 'track_management.dart';
 
 typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
+
+const String windowsLibMpvFileName = 'libmpv-2.dll';
+const String celesteriaLibMpvPathEnvironmentKey = 'CELESTERIA_LIBMPV_PATH';
 
 abstract interface class MediaKitMpvBackend {
   Future<void> openLocalFile(Uri uri);
@@ -22,12 +27,19 @@ abstract interface class MediaKitMpvBackend {
 }
 
 final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
-  MediaKitMpvBackendAdapter({Player? player}) {
+  MediaKitMpvBackendAdapter({
+    Player? player,
+    String? libmpvPath,
+  }) {
     if (player != null) {
       _player = player;
       return;
     }
-    MediaKit.ensureInitialized();
+    MediaKit.ensureInitialized(
+      libmpv: BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+        explicitLibMpvPath: libmpvPath,
+      ),
+    );
     _player = Player();
   }
 
@@ -58,12 +70,14 @@ final class MediaKitMpvBinding implements MpvAdapterBinding {
   MediaKitMpvBinding({
     MediaKitMpvBackend? backend,
     MediaKitMpvBackendFactory? backendFactory,
+    String? libmpvPath,
   })  : assert(
           backend == null || backendFactory == null,
           'Provide either a backend instance or a backend factory, not both.',
         ),
         _backend = backend,
-        _backendFactory = backendFactory ?? MediaKitMpvBackendAdapter.new;
+        _backendFactory = backendFactory ??
+            (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath));
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
@@ -199,6 +213,92 @@ final class MediaKitMpvBinding implements MpvAdapterBinding {
         message: message,
       ),
     );
+  }
+}
+
+final class BundledMpvLibraryResolver {
+  const BundledMpvLibraryResolver._();
+
+  static String? resolveWindowsLibMpvPath({
+    String? explicitLibMpvPath,
+    Map<String, String>? environment,
+    String? executablePath,
+    bool? isWindows,
+    bool Function(String path)? fileExists,
+    bool Function(String path)? directoryExists,
+  }) {
+    final bool runsOnWindows = isWindows ?? Platform.isWindows;
+    if (!runsOnWindows) return null;
+
+    final bool Function(String path) doesFileExist =
+        fileExists ?? (String path) => File(path).existsSync();
+    final bool Function(String path) doesDirectoryExist =
+        directoryExists ?? (String path) => Directory(path).existsSync();
+
+    final String? explicit = _resolveCandidate(
+      explicitLibMpvPath,
+      fileExists: doesFileExist,
+      directoryExists: doesDirectoryExist,
+    );
+    if (explicit != null) return explicit;
+
+    final Map<String, String> env = environment ?? Platform.environment;
+    final String? envCandidate = _resolveCandidate(
+      env[celesteriaLibMpvPathEnvironmentKey],
+      fileExists: doesFileExist,
+      directoryExists: doesDirectoryExist,
+    );
+    if (envCandidate != null) return envCandidate;
+
+    final String resolvedExecutable =
+        executablePath ?? Platform.resolvedExecutable;
+    final String executableDirectory = _parentPath(resolvedExecutable);
+    if (executableDirectory.isEmpty) return null;
+
+    final String bundledCandidate = _joinPath(
+      executableDirectory,
+      windowsLibMpvFileName,
+    );
+    if (doesFileExist(bundledCandidate)) return bundledCandidate;
+
+    return null;
+  }
+
+  static String? _resolveCandidate(
+    String? candidate, {
+    required bool Function(String path) fileExists,
+    required bool Function(String path) directoryExists,
+  }) {
+    final String? normalized = _normalizeCandidate(candidate);
+    if (normalized == null) return null;
+    if (fileExists(normalized)) return normalized;
+    if (directoryExists(normalized)) {
+      final String dllPath = _joinPath(normalized, windowsLibMpvFileName);
+      if (fileExists(dllPath)) return dllPath;
+    }
+    return null;
+  }
+
+  static String? _normalizeCandidate(String? candidate) {
+    final String? trimmed = candidate?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
+
+  static String _parentPath(String path) {
+    final int slash = path.lastIndexOf('/');
+    final int backslash = path.lastIndexOf('\\');
+    final int index = slash > backslash ? slash : backslash;
+    if (index <= 0) return '';
+    return path.substring(0, index);
+  }
+
+  static String _joinPath(String directory, String fileName) {
+    if (directory.endsWith('/') || directory.endsWith('\\')) {
+      return '$directory$fileName';
+    }
+    final String separator = directory.contains('\\') ? '\\' : '/';
+    return '$directory$separator$fileName';
   }
 }
 

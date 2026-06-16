@@ -34,8 +34,15 @@ foreach ($file in $uiFiles) {
   }
 }
 
+$approvedConcretePlaybackFiles = @(
+  'lib/src/playback/media_kit_mpv_binding.dart'
+)
 $playbackFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/playback') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $playbackFiles) {
+  $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+  if ($approvedConcretePlaybackFiles -contains $relativePath) {
+    continue
+  }
   $content = Get-Content -LiteralPath $file.FullName -Raw
   $forbiddenImplTerms = @('dart:ffi', 'package:flutter', 'package:vlc', 'package:dart_vlc', 'package:flutter_vlc_player', 'libmpv', 'shaderc')
   foreach ($term in $forbiddenImplTerms) {
