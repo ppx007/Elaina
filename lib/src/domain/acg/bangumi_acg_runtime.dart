@@ -16,6 +16,8 @@ final class BangumiAcgRuntime {
     BangumiAuthSession? session,
     bool progressSyncAvailable = true,
     DateTime Function()? now,
+    BangumiProvider? bangumiProvider,
+    BangumiAuthProvider? bangumiAuthProvider,
     DandanplayProvider? dandanplayProvider,
     DandanplayCommentProvider? dandanplayCommentProvider,
   }) : bangumiRuntime = BangumiProviderRuntime(
@@ -25,6 +27,8 @@ final class BangumiAcgRuntime {
           session: session,
           progressSyncAvailable: progressSyncAvailable,
           now: now,
+          metadataProvider: bangumiProvider,
+          authProvider: bangumiAuthProvider,
         ) {
     controller = AcgDataController(
       bangumiProvider: bangumiRuntime,

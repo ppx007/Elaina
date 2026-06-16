@@ -71,8 +71,85 @@ Future<void> verifyBangumiRuntimeContract() async {
         unauthenticatedSync.kind == AcgProviderFailureKind.unauthenticated,
     'Unauthenticated progress sync must normalize to unauthenticated failure.',
   );
+
+  final DeterministicProviderGateway apiGateway =
+      DeterministicProviderGateway(storage: DeterministicStorageFoundation());
+  final _CheckBangumiTransport transport = _CheckBangumiTransport(
+    responses: <String, BangumiApiResponse>{
+      'GET /v0/subjects/1017': const BangumiApiResponse(
+        statusCode: 200,
+        body: '{"id":1017,"name":"Check","name_cn":"Concrete Check"}',
+      ),
+      'GET /v0/me': const BangumiApiResponse(
+        statusCode: 200,
+        body: '{"username":"check-user"}',
+      ),
+      'PUT /v0/users/-/collections/-/episodes/1':
+          const BangumiApiResponse(statusCode: 204, body: ''),
+    },
+  );
+  final BangumiApiProvider apiProvider = BangumiApiProvider(
+    gateway: apiGateway,
+    client: BangumiApiClient(
+      transport: transport,
+      baseUri: Uri.parse('https://api.test'),
+    ),
+    accessTokenProvider: () async => BangumiApiAccessToken(
+      value: 'check-token',
+      expiresAt: DateTime.utc(2026, 6, 10),
+    ),
+    now: () => DateTime.utc(2026, 6, 9),
+  );
+  final BangumiAcgRuntime concreteRuntime = BangumiAcgRuntime(
+    gateway: apiGateway,
+    bangumiProvider: apiProvider,
+    bangumiAuthProvider: apiProvider,
+  );
+  final AcgProviderResult<BangumiSubject> concreteSubject =
+      await concreteRuntime.controller
+          .bangumiSubject(const BangumiSubjectId('1017'));
+  _expect(
+    concreteSubject is AcgProviderSuccess<BangumiSubject> &&
+        concreteSubject.value.title == 'Concrete Check',
+    'Concrete Bangumi API provider must map subject JSON.',
+  );
+  final AcgProviderResult<BangumiAuthSession> concreteSession =
+      await concreteRuntime.controller.bangumiSession();
+  _expect(
+    concreteSession is AcgProviderSuccess<BangumiAuthSession> &&
+        concreteSession.value.userId == 'check-user',
+    'Concrete Bangumi API provider must map current session JSON.',
+  );
+  final AcgProviderResult<void> concreteProgress =
+      await concreteRuntime.controller.syncBangumiProgress(
+    const BangumiProgressUpdate(
+      subjectId: BangumiSubjectId('1017'),
+      episodeId: BangumiEpisodeId('1'),
+      state: BangumiProgressState.completed,
+    ),
+  );
+  _expect(concreteProgress is AcgProviderSuccess<void>,
+      'Concrete Bangumi API provider must sync progress via fake transport.');
 }
 
 void _expect(bool condition, String message) {
   if (!condition) throw StateError(message);
+}
+
+final class _CheckBangumiTransport implements BangumiApiTransport {
+  const _CheckBangumiTransport({required this.responses});
+
+  final Map<String, BangumiApiResponse> responses;
+
+  @override
+  Future<BangumiApiResponse> send(BangumiApiRequest request) async {
+    final String query = request.uri.hasQuery ? '?${request.uri.query}' : '';
+    final BangumiApiResponse? response =
+        responses['${request.method} ${request.uri.path}$query'];
+    if (response != null) return response;
+    return const BangumiApiResponse(
+      statusCode: 404,
+      body: '{"title":"missing check response"}',
+    );
+  }
 }

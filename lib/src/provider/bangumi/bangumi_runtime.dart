@@ -322,28 +322,32 @@ final class BangumiProviderRuntime
     BangumiAuthSession? session,
     bool progressSyncAvailable = true,
     DateTime Function()? now,
+    BangumiProvider? metadataProvider,
+    BangumiAuthProvider? authProvider,
   })  : _gateway = gateway,
-        _metadataProvider = DeterministicBangumiProvider(
-          gateway: gateway,
-          subjects: subjects,
-          episodes: episodes,
-        ),
-        _authProvider = DeterministicBangumiAuthProvider(
-          gateway: gateway,
-          session: session,
-          progressSyncAvailable: progressSyncAvailable,
-          now: now,
-        );
+        _metadataProvider = metadataProvider ??
+            DeterministicBangumiProvider(
+              gateway: gateway,
+              subjects: subjects,
+              episodes: episodes,
+            ),
+        _authProvider = authProvider ??
+            DeterministicBangumiAuthProvider(
+              gateway: gateway,
+              session: session,
+              progressSyncAvailable: progressSyncAvailable,
+              now: now,
+            );
 
   final ProviderGateway _gateway;
-  final DeterministicBangumiProvider _metadataProvider;
-  final DeterministicBangumiAuthProvider _authProvider;
+  final BangumiProvider _metadataProvider;
+  final BangumiAuthProvider _authProvider;
   bool _registered = false;
   bool _disposed = false;
 
-  DeterministicBangumiProvider get metadataProvider => _metadataProvider;
+  BangumiProvider get metadataProvider => _metadataProvider;
 
-  DeterministicBangumiAuthProvider get authProvider => _authProvider;
+  BangumiAuthProvider get authProvider => _authProvider;
 
   bool get isDisposed => _disposed;
 
@@ -455,6 +459,8 @@ final class BangumiProviderBootstrap {
     BangumiAuthSession? session,
     bool progressSyncAvailable = true,
     DateTime Function()? now,
+    BangumiProvider? metadataProvider,
+    BangumiAuthProvider? authProvider,
   }) : runtime = BangumiProviderRuntime(
           gateway: gateway,
           subjects: subjects,
@@ -462,6 +468,8 @@ final class BangumiProviderBootstrap {
           session: session,
           progressSyncAvailable: progressSyncAvailable,
           now: now,
+          metadataProvider: metadataProvider,
+          authProvider: authProvider,
         );
 
   final BangumiProviderRuntime runtime;
