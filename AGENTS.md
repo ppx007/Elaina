@@ -1,7 +1,7 @@
 <!-- REPOSITORY-BASELINE:START -->
 # Active Workflow Authority
 
-OpenSpec is now the active workflow authority for this project. Use OpenSpec proposal, apply, validate, and archive flows for new work.
+OpenSpec is the active workflow authority for this project. Use OpenSpec proposal, apply, validate, and archive flows for new work.
 
 The Trellis block below is retained as legacy context because `.trellis/` still contains historical workflow, task, spec, and workspace material. Do not treat Trellis as the primary workflow unless a future explicit change re-enables it.
 
@@ -10,105 +10,111 @@ The Trellis block below is retained as legacy context because `.trellis/` still 
 <!-- TRELLIS:START -->
 # Trellis Instructions
 
-These instructions are for AI assistants working in this project.
+These instructions are retained for legacy context only.
 
-This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+Historical Trellis material lives under `.trellis/`:
 
-- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
-- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
-- `.trellis/workspace/` — per-developer journals and session traces
-- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+- `.trellis/workflow.md` - legacy development phases and skill routing
+- `.trellis/spec/` - historical package/layer guideline drafts and thinking guides
+- `.trellis/workspace/` - legacy developer journals and session traces
+- `.trellis/tasks/` - historical task PRDs, research, and jsonl context
 
-If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+Do not create or route new work through Trellis unless a future explicit project decision re-enables it. Prefer OpenSpec commands and docs for current work.
 
-If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
-- `.agents/skills/` — reusable Trellis skills
-- `.codex/agents/` — optional custom subagents
-
-Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+If a legacy Trellis command is needed for archaeology, use `.trellis/scripts/` instead of manually rewriting Trellis internal state.
 
 <!-- TRELLIS:END -->
 
-# PROJECT KNOWLEDGE BASE
+# Project Knowledge Base
 
-## OVERVIEW
+## Overview
 
-Celesteria (代号 1017) — 端侧优先的跨平台 ACG 播放器。Flutter/Dart 前端 + MPV/native 后端，Provider/Adapter 扩展体系。当前处于 Phase 0 规划阶段，无源代码目录。
+Celesteria (code name 1017) is an end-side-first cross-platform ACG player. The current repository is a Flutter/Dart contract scaffold with native playback, provider, streaming, storage, network, diagnostics, and UI boundary contracts.
 
-## STRUCTURE
+The project is no longer a source-free planning repository. `lib/`, `test/`, `tools/`, `docs/`, and `openspec/` are project source-of-truth areas.
 
-```
+## Structure
+
+```text
 pkpk/
-├── .agents/skills/    # 10 Trellis skills (before-dev, brainstorm, check, etc.)
-├── .codex/            # Codex agents + hooks config
-├── .gemini/           # Gemini agents + commands + hooks
-├── .sisyphus/         # Sisyphus continuation state
-├── .trellis/          # Workflow engine (workflow.md, spec/, tasks/, workspace/)
-│   ├── spec/backend/  # Backend guidelines (placeholder — "To fill")
-│   ├── spec/frontend/ # Frontend guidelines (placeholder — "To fill")
-│   ├── spec/guides/   # Cross-layer + code-reuse thinking guides
-│   └── scripts/       # Python CLI (task.py, get_context.py, add_session.py, etc.)
-└── docs/              # Architecture plan (celesteria-architecture-plan.md)
+├── AGENTS.md          # Current agent-facing project baseline
+├── README.md          # Human project entrypoint and validation commands
+├── analysis_options.yaml
+├── pubspec.yaml
+├── lib/               # Dart contract scaffolding and runtime slices
+├── test/              # Dart/Flutter contract and runtime tests
+├── tools/             # Runtime validation scripts and PowerShell wrappers
+├── docs/              # Architecture, phase, decision, guide, and process docs
+├── openspec/          # Active OpenSpec specs and archived changes
+├── .trellis/          # Legacy Trellis context, not the active workflow
+├── .agents/           # Legacy/project-scoped agent skills
+├── .codex/            # Codex configuration
+├── .gemini/           # Gemini configuration
+├── .opencode/         # OpenCode configuration and local indexing state
+└── .sisyphus/         # Local continuation/runtime state
 ```
 
-## WHERE TO LOOK
+## Where To Look
 
 | Task | Location |
 |------|----------|
+| Current baseline and validation | `README.md` |
 | Architecture decisions | `docs/celesteria-architecture-plan.md` |
-| Workflow phases & skill routing | `.trellis/workflow.md` |
-| Backend coding rules | `.trellis/spec/backend/index.md` → links to sub-guides |
-| Frontend coding rules | `.trellis/spec/frontend/index.md` → links to sub-guides |
-| Cross-layer thinking | `.trellis/spec/guides/cross-layer-thinking-guide.md` |
-| Code reuse patterns | `.trellis/spec/guides/code-reuse-thinking-guide.md` |
-| Active task context | `.trellis/tasks/{MM-DD-name}/prd.md` |
-| Session logs | `.trellis/workspace/{developer}/journal-*.md` |
-| Trellis CLI help | `python ./.trellis/scripts/task.py --help` |
+| Phase implementation docs | `docs/phase*.md` |
+| Stable process docs | `docs/process/` |
+| Cross-layer thinking | `docs/guides/cross-layer-thinking.md` |
+| Code reuse patterns | `docs/guides/code-reuse-thinking.md` |
+| Active specs | `openspec/specs/*/spec.md` |
+| Archived changes | `openspec/changes/archive/` |
+| Public Dart exports | `lib/celesteria.dart` |
+| Local validation scripts | `tools/check_*.ps1` and `tools/*_runtime_check.dart` |
 
-## CONVENTIONS
+## Conventions
 
-- Trellis 管理所有开发流程：brainstorm → plan → implement → check → commit
-- spec 文件全部 "To fill" —— 实际编码规则待项目源代码建立后回填
-- `python ./.trellis/scripts/` 是唯一 CLI 入口；不要绕过脚本直接操作 .trellis 内部文件
-- spec 文档语言：English（per `.trellis/spec/*/index.md`）
-- 架构文档用中文，代码和 spec 用英文
-- Windows 环境：PowerShell 5.1，不支持 `&&` 链式命令，用 `;` 或分步执行
+- Use OpenSpec for new changes: proposal, apply, validate, archive.
+- Keep Trellis as legacy context only unless explicitly re-enabled.
+- Spec and code documentation should be English unless a specific architecture note intentionally remains Chinese.
+- Windows shell is PowerShell 5.1; prefer separate commands or `;` over Bash-style `&&`.
+- Use `openspec.cmd` from PowerShell when `openspec.ps1` is blocked by execution policy.
+- Run OpenSpec validation and Dart analysis before reporting a baseline as ready.
 
-## ANTI-PATTERNS (THIS PROJECT)
+## Architecture Rules
 
-- UI 不得直接依赖 MPV/VLC/Bangumi/弹弹play/libtorrent/yuc.wiki —— 必须通过 PlayerAdapter / Provider / FeedSource 扩展
-- 在线源解析不得成为 Core 播放闭环前提
-- 验证码禁止自动破解，只支持手动完成后同源会话回填
-- yuc.wiki 不作为特殊抓取源 —— 只是 RSS Engine 的一个 FeedSource
-- 不要把播放页 UI 当项目起点 —— 先冻结 Step 1-4 架构地基
-- iOS 不承诺长期后台 BT 下载
+- Preserve 8-layer isolation: UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network.
+- UI must not directly depend on MPV, VLC, Bangumi, Dandanplay, libtorrent, or yuc.wiki.
+- External integrations enter through PlayerAdapter, Provider, FeedSource, Profile, Gateway, or other declared extension points.
+- Online source parsing must not become a prerequisite for the core playback loop.
+- Captcha auto-cracking is forbidden; support only manual completion plus same-origin session backfill.
+- Treat yuc.wiki as one RSS FeedSource, not a privileged scraper.
+- iOS does not promise long-running background BT download.
 
-## UNIQUE STYLES
+## Runtime Red Lines
 
-- 8 层架构隔离：UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network
-- 每层只暴露接口，具体实现通过 Adapter/Provider/Profile 接入
-- CapabilityMatrix 声明所有能力，UI 只展示当前环境支持的功能
-- 音画同步红线：A/V drift < 40ms，超过 120ms 必须降级；降级链 Anime4K Ultra → … → 关闭超分
-- 所有高级渲染接入 FrameBudgetManager + AVSyncGuard + 诊断中心
+- CapabilityMatrix declares feature availability; UI only exposes capabilities supported by the current environment.
+- A/V drift target is under 40 ms; drift over 120 ms must trigger degradation.
+- Advanced rendering must integrate with frame budget, AV sync guard, and diagnostics surfaces.
+- Degradation must prefer deterministic capability and budget decisions over UI-side special cases.
 
-## COMMANDS
+## Commands
 
-```bash
-# Trellis workflow
-python ./.trellis/scripts/task.py create "<title>" --slug <name>
-python ./.trellis/scripts/task.py start <task-dir>
-python ./.trellis/scripts/task.py finish
-python ./.trellis/scripts/get_context.py --mode packages
-python ./.trellis/scripts/get_context.py --mode phase --step 1.1
+```powershell
+# OpenSpec workflow
+openspec.cmd list --json
+openspec.cmd new change "<change-name>"
+openspec.cmd status --change "<change-name>" --json
+openspec.cmd instructions apply --change "<change-name>" --json
+openspec.cmd validate --all
+openspec.cmd archive "<change-name>" -y
 
-# Developer identity
-python ./.trellis/scripts/init_developer.py <your-name>
+# Dart/Flutter validation
+dart analyze
+powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
 ```
 
-## NOTES
+## Notes
 
-- 项目无源代码目录，处于 Phase 0 规划期；首批实施应严格限定 Step 1-4
-- `.trellis/spec/` 所有 guideline 文件为 placeholder，需在代码落地后从实际代码库回填
-- 不是 git 仓库（尚未初始化）
-- 多平台 AI 工具配置共存：OpenCode (.opencode/) + Codex (.codex/) + Gemini (.gemini/) + Trellis (.trellis/)
-- 发布切线：MVP = Step 1-17，差异化 = Step 1-21，高级播放 = Step 1-25，完整 = Step 1-30
+- The Step 1-30 contract bootstrap has been archived into `openspec/changes/archive/` and synced into `openspec/specs/`.
+- Phase 0-6 runtime and contract scaffolding exist in `lib/`, `test/`, and `tools/`.
+- `.trellis/tasks/06-*` directories are legacy historical material. Do not delete or commit them casually; use local Git exclude when they are only dirty-tree noise.
+- `.opencode/index/*`, `.omo/run-continuation/*`, local IDE settings, and generated caches are local runtime state unless a specific change says otherwise.
+- Repository policy: do not commit, push, configure remotes, or publish without explicit user confirmation.

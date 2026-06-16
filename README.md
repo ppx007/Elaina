@@ -14,20 +14,29 @@ Celesteria (code name 1017) is an end-side-first cross-platform ACG player plann
 Use OpenSpec for new changes:
 
 ```powershell
-openspec list --json
-openspec new change "<change-name>"
-openspec status --change "<change-name>" --json
-openspec instructions apply --change "<change-name>" --json
-openspec validate --all
-openspec archive "<change-name>" -y
+openspec.cmd list --json
+openspec.cmd new change "<change-name>"
+openspec.cmd status --change "<change-name>" --json
+openspec.cmd instructions apply --change "<change-name>" --json
+openspec.cmd validate --all
+openspec.cmd archive "<change-name>" -y
 ```
 
 Run local validation before reporting a baseline as ready:
 
 ```powershell
-openspec validate --all
+openspec.cmd validate --all
 dart analyze
 powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
+```
+
+On Windows, `openspec.cmd` avoids PowerShell execution-policy blocking of `openspec.ps1`.
+If `dart.bat` hangs in the Flutter shim because Git rejects the Flutter SDK checkout as
+`dubious ownership`, validate with the direct SDK executable until the Flutter checkout is
+added to Git `safe.directory`:
+
+```powershell
+& "D:\CodeWork\flutter_windows_3.44.0-stable\flutter\bin\cache\dart-sdk\bin\dart.exe" analyze lib test tools
 ```
 
 
@@ -45,7 +54,7 @@ Run bootstrap validation:
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tools\check_phase0_foundation.ps1"
 dart run tools\player_core_runtime_check.dart
-openspec validate "bootstrap-phase0-foundation-runtime" --strict
+openspec.cmd validate "bootstrap-phase0-foundation-runtime" --strict
 ```
 
 ## Repository Policy

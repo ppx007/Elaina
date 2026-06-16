@@ -1,11 +1,13 @@
 schema: spec-driven
 
 context: |
-  Celesteria (1017) — cross-platform ACG player. Flutter/Dart frontend + MPV/native backend.
+  Celesteria (1017) is an end-side-first cross-platform ACG player.
+  The repository contains a Flutter/Dart contract scaffold under lib/, tests under test/, validation scripts under tools/, and active OpenSpec specs under openspec/specs/.
   8-layer architecture: UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network.
-  All external capabilities via Adapter/Provider/Profile extension points.
+  All external capabilities enter through Adapter, Provider, FeedSource, Profile, Gateway, or other declared extension points.
   A/V sync red line: drift < 40ms, > 120ms triggers degradation.
-  Currently Phase 0 (planning) — no source code directory yet.
+  OpenSpec is the active workflow authority. Trellis is retained only as legacy context.
+  Phase 0-6 contract/runtime scaffolding has landed; new work must preserve the existing layer contracts and validation scripts.
 
 rules:
   proposal:
@@ -17,5 +19,5 @@ rules:
     - iOS does not promise long-background BT download
   tasks:
     - Break tasks into chunks that align with architecture Steps (1-30)
-    - Phase 0 tasks (Step 1-4) must complete before any playback UI work
+    - Treat completed Phase 0-6 contract/runtime scaffolding as the current baseline
     - Each task must identify which layer(s) it touches
