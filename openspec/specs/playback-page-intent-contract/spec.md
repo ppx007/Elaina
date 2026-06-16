@@ -53,3 +53,14 @@ The playback page intent contract MUST NOT require provider metadata, danmaku re
 - **WHEN** the playback page intent contract is checked by automation
 - **THEN** validation completes without importing or requiring Bangumi, Dandanplay, RSS, BT streaming, Anime4K, VLC fallback, online rule runtime, diagnostics center, MPV, libmpv, or media-kit code
 
+### Requirement: Playback page intents SHALL remain capability-gated for local-file runtime
+Playback page intents SHALL use the active surface descriptor as the execution
+gate for local-file runtime actions, so unsupported controls cannot dispatch
+controller commands just because a concrete player binding exists.
+
+#### Scenario: Unsupported local-file surface action is dispatched
+- **WHEN** a playback page intent targets a control or panel omitted from the
+  local-file runtime surface descriptor
+- **THEN** the intent returns an unsupported result without calling the
+  corresponding Domain command
+
