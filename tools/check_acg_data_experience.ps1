@@ -18,6 +18,7 @@ $requiredFiles = @(
   'lib/src/provider/bangumi/bangumi_registration.dart',
   'lib/src/provider/dandanplay/dandanplay_provider.dart',
   'lib/src/provider/dandanplay/dandanplay_comments.dart',
+  'lib/src/provider/dandanplay/dandanplay_api_client.dart',
   'lib/src/provider/dandanplay/dandanplay_registration.dart',
   'lib/src/playback/danmaku/danmaku_event.dart',
   'lib/src/playback/danmaku/danmaku_filter.dart',
@@ -25,6 +26,7 @@ $requiredFiles = @(
   'lib/src/domain/acg/acg_data_controller.dart',
   'docs/phase2-acg-data-experience.md',
   'docs/bangumi-api-client.md',
+  'docs/dandanplay-api-client.md',
   'docs/next-change-detail-library-seasonal.md'
 )
 

@@ -4,6 +4,8 @@ $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_bangumi_runtime.ps1')
 
 $requiredFiles = @(
+  'docs/dandanplay-api-client.md',
+  'lib/src/provider/dandanplay/dandanplay_api_client.dart',
   'lib/src/provider/dandanplay/dandanplay_runtime.dart',
   'lib/src/domain/acg/dandanplay_acg_runtime.dart',
   'test/provider/dandanplay/dandanplay_runtime_test.dart',
@@ -70,6 +72,65 @@ foreach ($file in $runtimeFiles) {
   }
 }
 
+$apiClient = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/dandanplay/dandanplay_api_client.dart') -Raw
+foreach ($term in @(
+  'DandanplayApiClient',
+  'DandanplayApiProvider',
+  'DandanplayApiTransport',
+  'HttpDandanplayApiTransport',
+  'ProviderGateway',
+  'dandanplayGatewayRequest',
+  '/api/v2/match',
+  '/api/v2/search/episodes',
+  '/api/v2/comment/',
+  'X-AppId',
+  'X-AppSecret'
+)) {
+  if ($apiClient -notmatch [regex]::Escape($term)) {
+    throw "Dandanplay concrete API client missing required term: $term"
+  }
+}
+
+foreach ($term in @(
+  'package:flutter',
+  'dart:ui',
+  'media_kit',
+  'libmpv',
+  'src/ui',
+  '../../ui',
+  '../ui',
+  'src/playback',
+  '../../playback',
+  '../playback',
+  'src/streaming',
+  '../../streaming',
+  '../streaming',
+  'src/foundation/storage',
+  '../../foundation/storage',
+  '../foundation/storage'
+)) {
+  if ($apiClient -match [regex]::Escape($term)) {
+    throw "Forbidden Dandanplay concrete API dependency '$term' found."
+  }
+}
+
+$domainRuntime = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/acg/dandanplay_acg_runtime.dart') -Raw
+foreach ($term in @('DandanplayApiClient', 'HttpDandanplayApiTransport', 'dart:io', 'https://api.dandanplay.net')) {
+  if ($domainRuntime -match [regex]::Escape($term)) {
+    throw "Dandanplay Domain runtime must not import concrete API detail: $term"
+  }
+}
+
+$uiFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/ui') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $uiFiles) {
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  foreach ($term in @('DandanplayApiClient', 'DandanplayApiProvider', 'HttpDandanplayApiTransport', 'package:celesteria/src/provider/dandanplay')) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Dandanplay concrete API dependency '$term' leaked into UI file: $($file.FullName)"
+    }
+  }
+}
+
 $runtime = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/dandanplay/dandanplay_runtime.dart') -Raw
 foreach ($term in @(
   'dandanplayMatchRequestKey',
@@ -90,6 +151,7 @@ foreach ($term in @(
 
 $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 foreach ($export in @(
+  'src/provider/dandanplay/dandanplay_api_client.dart',
   'src/provider/dandanplay/dandanplay_runtime.dart',
   'src/domain/acg/dandanplay_acg_runtime.dart'
 )) {

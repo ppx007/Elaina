@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:celesteria/celesteria.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,7 +68,9 @@ void main() {
     expect(gateway.lastCacheKey, startsWith('post-comment:episode-1:13000:'));
     expect(gateway.lastCachePolicy, ProviderCachePolicy.networkOnly);
     expect(
-        runtime.commentProvider.postedComments.single.comment.text, 'posted');
+        runtime
+            .deterministicCommentProvider?.postedComments.single.comment.text,
+        'posted');
   });
 
   test('request helpers preserve provider id semantic keys and defaults', () {
@@ -280,6 +284,201 @@ void main() {
       AcgProviderFailureKind.cachedMiss,
     );
   });
+
+  test('concrete API provider maps match search comments and post via gateway',
+      () async {
+    final _RecordingGateway gateway = _RecordingGateway();
+    final _FakeDandanplayTransport transport = _FakeDandanplayTransport(
+      responses: <String, DandanplayApiResponse>{
+        'POST /api/v2/match': const DandanplayApiResponse(
+          statusCode: 200,
+          body:
+              '{"success":true,"isMatched":true,"matches":[{"animeId":1017,"episodeId":7,"animeTitle":"Concrete Anime","episodeTitle":"Episode 7"}]}',
+        ),
+        'GET /api/v2/search/episodes?anime=Concrete':
+            const DandanplayApiResponse(
+          statusCode: 200,
+          body:
+              '{"success":true,"hasMore":false,"animes":[{"animeId":1018,"animeTitle":"Search Anime","episodes":[{"episodeId":8,"episodeTitle":"Search Ep"}]}]}',
+        ),
+        'GET /api/v2/comment/7?from=0&withRelated=true&chConvert=0':
+            const DandanplayApiResponse(
+          statusCode: 200,
+          body:
+              '{"count":1,"comments":[{"cid":1,"p":"12.34,1,16777215,user","m":"hello"}]}',
+        ),
+        'POST /api/v2/comment/7': const DandanplayApiResponse(
+          statusCode: 200,
+          body: '{"success":true,"cid":99}',
+        ),
+      },
+    );
+    final DandanplayApiProvider provider = DandanplayApiProvider(
+      gateway: gateway,
+      client: DandanplayApiClient(
+        transport: transport,
+        baseUri: Uri.parse('https://api.test'),
+      ),
+      credentialProvider: () async => const DandanplayApiCredentials(
+        bearerToken: 'token-1',
+        appId: 'app-1',
+        appSecret: 'secret-1',
+      ),
+    );
+    final DandanplayProviderRuntime runtime = DandanplayProviderRuntime(
+      gateway: gateway,
+      provider: provider,
+      commentProvider: provider,
+    );
+
+    final AcgProviderResult<List<DandanplayMatchCandidate>> match =
+        await runtime.matchLocalMedia('Concrete - 07.mkv');
+    final DandanplayMatchCandidate matched =
+        (match as AcgProviderSuccess<List<DandanplayMatchCandidate>>)
+            .value
+            .single;
+    expect(matched.animeId.value, '1017');
+    expect(matched.episodeId.value, '7');
+    expect(matched.confidence, dandanplayExactMatchConfidence);
+    expect(gateway.registeredProviderId, dandanplayProviderId.value);
+    expect(gateway.lastCacheKey, 'match:concrete - 07.mkv');
+    final DandanplayApiRequest matchRequest = transport.requests.single;
+    expect(matchRequest.method, 'POST');
+    expect(matchRequest.uri.path, '/api/v2/match');
+    final Map<String, Object?> matchBody =
+        jsonDecode(matchRequest.body!) as Map<String, Object?>;
+    expect(matchBody['fileName'], 'Concrete - 07.mkv');
+    expect(matchBody['matchMode'], dandanplayMatchModeFileNameOnly);
+
+    final AcgProviderResult<List<DandanplayMatchCandidate>> search =
+        await runtime.search('Concrete');
+    expect(
+      (search as AcgProviderSuccess<List<DandanplayMatchCandidate>>)
+          .value
+          .single
+          .title,
+      'Search Anime - Search Ep',
+    );
+    expect(gateway.lastCacheKey, 'search:concrete');
+    expect(transport.requests.last.uri.path, '/api/v2/search/episodes');
+
+    final AcgProviderResult<List<DandanplayComment>> comments =
+        await runtime.commentsForEpisode(const DandanplayEpisodeId('7'));
+    final DandanplayComment comment =
+        (comments as AcgProviderSuccess<List<DandanplayComment>>).value.single;
+    expect(comment.timestamp, const Duration(milliseconds: 12340));
+    expect(comment.text, 'hello');
+    expect(comment.mode, DandanplayCommentMode.scrolling);
+    expect(comment.colorArgb, 16777215);
+    expect(gateway.lastCacheKey, 'comments:7');
+
+    final AcgProviderResult<void> post = await runtime.postComment(
+      const DandanplayCommentPost(
+        episodeId: DandanplayEpisodeId('7'),
+        comment: DandanplayComment(
+          timestamp: Duration(milliseconds: 12340),
+          text: 'posted',
+          mode: DandanplayCommentMode.top,
+          colorArgb: 255,
+        ),
+      ),
+    );
+    expect(post, isA<AcgProviderSuccess<void>>());
+    expect(gateway.lastCacheKey, startsWith('post-comment:7:12340:'));
+    final DandanplayApiRequest postRequest = transport.requests.last;
+    expect(postRequest.headers['authorization'], 'Bearer token-1');
+    expect(postRequest.headers['X-AppId'], 'app-1');
+    expect(postRequest.headers['X-AppSecret'], 'secret-1');
+    final Map<String, Object?> postBody =
+        jsonDecode(postRequest.body!) as Map<String, Object?>;
+    expect(postBody['mode'], dandanplayRequestModeTop);
+    expect(postBody['comment'], 'posted');
+  });
+
+  test('concrete API provider normalizes auth and API failures', () async {
+    final _RecordingGateway gateway = _RecordingGateway();
+    final _FakeDandanplayTransport transport = _FakeDandanplayTransport(
+      responses: <String, DandanplayApiResponse>{
+        'POST /api/v2/match': const DandanplayApiResponse(
+          statusCode: 429,
+          body: '{"success":false,"errorCode":429}',
+        ),
+        'GET /api/v2/search/episodes?anime=Malformed':
+            const DandanplayApiResponse(statusCode: 200, body: '{bad'),
+        'GET /api/v2/comment/missing?from=0&withRelated=true&chConvert=0':
+            const DandanplayApiResponse(statusCode: 404, body: '{}'),
+        'POST /api/v2/comment/7': const DandanplayApiResponse(
+          statusCode: 401,
+          body: '{"success":false}',
+        ),
+      },
+    );
+    final DandanplayApiProvider unauthenticated = DandanplayApiProvider(
+      gateway: gateway,
+      client: DandanplayApiClient(
+        transport: transport,
+        baseUri: Uri.parse('https://api.test'),
+      ),
+    );
+
+    final AcgProviderResult<void> noCredentialPost =
+        await unauthenticated.postComment(
+      const DandanplayCommentPost(
+        episodeId: DandanplayEpisodeId('7'),
+        comment: DandanplayComment(
+          timestamp: Duration.zero,
+          text: 'posted',
+          mode: DandanplayCommentMode.scrolling,
+        ),
+      ),
+    );
+    expect((noCredentialPost as AcgProviderFailure<void>).kind,
+        AcgProviderFailureKind.unauthenticated);
+    expect(transport.requests, isEmpty);
+
+    final AcgProviderResult<List<DandanplayMatchCandidate>> throttled =
+        await unauthenticated.matchLocalMedia('throttled.mkv');
+    expect(
+      (throttled as AcgProviderFailure<List<DandanplayMatchCandidate>>).kind,
+      AcgProviderFailureKind.throttled,
+    );
+
+    final AcgProviderResult<List<DandanplayMatchCandidate>> malformed =
+        await unauthenticated.search('Malformed');
+    expect(
+      (malformed as AcgProviderFailure<List<DandanplayMatchCandidate>>).kind,
+      AcgProviderFailureKind.terminal,
+    );
+
+    final AcgProviderResult<List<DandanplayComment>> missing =
+        await unauthenticated
+            .commentsForEpisode(const DandanplayEpisodeId('missing'));
+    expect((missing as AcgProviderFailure<List<DandanplayComment>>).kind,
+        AcgProviderFailureKind.cachedMiss);
+
+    final DandanplayApiProvider invalidCredential = DandanplayApiProvider(
+      gateway: gateway,
+      client: DandanplayApiClient(
+        transport: transport,
+        baseUri: Uri.parse('https://api.test'),
+      ),
+      credentialProvider: () async =>
+          const DandanplayApiCredentials(bearerToken: 'bad-token'),
+    );
+    final AcgProviderResult<void> invalidPost =
+        await invalidCredential.postComment(
+      const DandanplayCommentPost(
+        episodeId: DandanplayEpisodeId('7'),
+        comment: DandanplayComment(
+          timestamp: Duration.zero,
+          text: 'posted',
+          mode: DandanplayCommentMode.scrolling,
+        ),
+      ),
+    );
+    expect((invalidPost as AcgProviderFailure<void>).kind,
+        AcgProviderFailureKind.unauthenticated);
+  });
 }
 
 final class _RecordingGateway implements ProviderGateway {
@@ -330,5 +529,30 @@ final class _FailingGateway implements ProviderGateway {
     return Future<ProviderGatewayResponse<T>>.error(
       ProviderFailure(kind: kind, message: 'Injected gateway failure.'),
     );
+  }
+}
+
+final class _FakeDandanplayTransport implements DandanplayApiTransport {
+  _FakeDandanplayTransport({
+    required Map<String, DandanplayApiResponse> responses,
+  }) : _responses = responses;
+
+  final Map<String, DandanplayApiResponse> _responses;
+  final List<DandanplayApiRequest> requests = <DandanplayApiRequest>[];
+
+  @override
+  Future<DandanplayApiResponse> send(DandanplayApiRequest request) async {
+    requests.add(request);
+    final DandanplayApiResponse? response = _responses[_requestKey(request)];
+    if (response != null) return response;
+    return const DandanplayApiResponse(
+      statusCode: 404,
+      body: '{"success":false,"errorMessage":"missing fake response"}',
+    );
+  }
+
+  String _requestKey(DandanplayApiRequest request) {
+    final String query = request.uri.hasQuery ? '?${request.uri.query}' : '';
+    return '${request.method} ${request.uri.path}$query';
   }
 }

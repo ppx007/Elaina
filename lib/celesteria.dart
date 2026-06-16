@@ -85,6 +85,7 @@ export 'src/provider/bangumi/bangumi_auth.dart';
 export 'src/provider/bangumi/bangumi_provider.dart';
 export 'src/provider/bangumi/bangumi_registration.dart';
 export 'src/provider/bangumi/bangumi_runtime.dart';
+export 'src/provider/dandanplay/dandanplay_api_client.dart';
 export 'src/provider/dandanplay/dandanplay_comments.dart';
 export 'src/provider/dandanplay/dandanplay_provider.dart';
 export 'src/provider/dandanplay/dandanplay_registration.dart';

@@ -276,28 +276,36 @@ final class DandanplayProviderRuntime
     Map<String, List<DandanplayComment>> commentsByEpisodeId =
         const <String, List<DandanplayComment>>{},
     bool postingAvailable = true,
+    DandanplayProvider? provider,
+    DandanplayCommentProvider? commentProvider,
   })  : _gateway = gateway,
-        _provider = DeterministicDandanplayProvider(
-          gateway: gateway,
-          matchCandidatesByFilename: matchCandidatesByFilename,
-          searchCandidates: searchCandidates,
-        ),
-        _commentProvider = DeterministicDandanplayCommentProvider(
-          gateway: gateway,
-          commentsByEpisodeId: commentsByEpisodeId,
-          postingAvailable: postingAvailable,
-        );
+        _provider = provider ??
+            DeterministicDandanplayProvider(
+              gateway: gateway,
+              matchCandidatesByFilename: matchCandidatesByFilename,
+              searchCandidates: searchCandidates,
+            ),
+        _commentProvider = commentProvider ??
+            DeterministicDandanplayCommentProvider(
+              gateway: gateway,
+              commentsByEpisodeId: commentsByEpisodeId,
+              postingAvailable: postingAvailable,
+            );
 
   final ProviderGateway _gateway;
-  final DeterministicDandanplayProvider _provider;
-  final DeterministicDandanplayCommentProvider _commentProvider;
+  final DandanplayProvider _provider;
+  final DandanplayCommentProvider _commentProvider;
   bool _registered = false;
   bool _disposed = false;
 
-  DeterministicDandanplayProvider get provider => _provider;
+  DandanplayProvider get provider => _provider;
 
-  DeterministicDandanplayCommentProvider get commentProvider =>
-      _commentProvider;
+  DandanplayCommentProvider get commentProvider => _commentProvider;
+
+  DeterministicDandanplayCommentProvider? get deterministicCommentProvider {
+    final DandanplayCommentProvider provider = _commentProvider;
+    return provider is DeterministicDandanplayCommentProvider ? provider : null;
+  }
 
   bool get isDisposed => _disposed;
 
@@ -412,12 +420,16 @@ final class DandanplayProviderBootstrap {
     Map<String, List<DandanplayComment>> commentsByEpisodeId =
         const <String, List<DandanplayComment>>{},
     bool postingAvailable = true,
+    DandanplayProvider? provider,
+    DandanplayCommentProvider? commentProvider,
   }) : runtime = DandanplayProviderRuntime(
           gateway: gateway,
           matchCandidatesByFilename: matchCandidatesByFilename,
           searchCandidates: searchCandidates,
           commentsByEpisodeId: commentsByEpisodeId,
           postingAvailable: postingAvailable,
+          provider: provider,
+          commentProvider: commentProvider,
         );
 
   final DandanplayProviderRuntime runtime;

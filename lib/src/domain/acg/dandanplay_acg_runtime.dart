@@ -18,6 +18,8 @@ final class DandanplayAcgRuntime {
     Map<String, List<DandanplayComment>> commentsByEpisodeId =
         const <String, List<DandanplayComment>>{},
     bool postingAvailable = true,
+    DandanplayProvider? dandanplayProvider,
+    DandanplayCommentProvider? dandanplayCommentProvider,
     BangumiProvider? bangumiProvider,
     BangumiAuthProvider? bangumiAuthProvider,
   }) : dandanplayRuntime = DandanplayProviderRuntime(
@@ -26,6 +28,8 @@ final class DandanplayAcgRuntime {
           searchCandidates: searchCandidates,
           commentsByEpisodeId: commentsByEpisodeId,
           postingAvailable: postingAvailable,
+          provider: dandanplayProvider,
+          commentProvider: dandanplayCommentProvider,
         ) {
     controller = AcgDataController(
       bangumiProvider: bangumiProvider ?? const UnavailableBangumiProvider(),
