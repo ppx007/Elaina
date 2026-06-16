@@ -1,7 +1,5 @@
 import '../../playback/player_adapter.dart';
 import '../../playback/virtual_stream_playback_source.dart';
-import '../../streaming/virtual_media_stream.dart';
-import '../../streaming/virtual_media_stream_runtime.dart';
 import '../media/media_library.dart';
 
 sealed class PlaybackSourceHandoffInput {
@@ -17,12 +15,8 @@ sealed class PlaybackSourceHandoffInput {
       VirtualStreamPlaybackSource source) = VirtualStreamSourceHandoffInput;
 
   const factory PlaybackSourceHandoffInput.virtualStreamDescriptor(
-          VirtualMediaStreamDescriptor descriptor) =
+          PlaybackVirtualStreamDescriptor descriptor) =
       VirtualStreamDescriptorHandoffInput;
-
-  const factory PlaybackSourceHandoffInput.virtualStreamSnapshot(
-          VirtualMediaStreamSnapshot snapshot) =
-      VirtualStreamSnapshotHandoffInput;
 
   const factory PlaybackSourceHandoffInput.unsupportedSource(Object value) =
       UnsupportedPlaybackSourceHandoffInput;
@@ -50,13 +44,7 @@ final class VirtualStreamDescriptorHandoffInput
     extends PlaybackSourceHandoffInput {
   const VirtualStreamDescriptorHandoffInput(this.descriptor);
 
-  final VirtualMediaStreamDescriptor descriptor;
-}
-
-final class VirtualStreamSnapshotHandoffInput extends PlaybackSourceHandoffInput {
-  const VirtualStreamSnapshotHandoffInput(this.snapshot);
-
-  final VirtualMediaStreamSnapshot snapshot;
+  final PlaybackVirtualStreamDescriptor descriptor;
 }
 
 final class UnsupportedPlaybackSourceHandoffInput
@@ -120,11 +108,6 @@ final class LocalPlaybackSourceHandoff
           VirtualStreamPlaybackSource.fromDescriptor(descriptor));
     }
 
-    if (input case VirtualStreamSnapshotHandoffInput(:final snapshot)) {
-      return PlaybackSourceHandoffResult.success(
-          VirtualStreamPlaybackSource.fromDescriptor(snapshot.descriptor));
-    }
-
     if (input case UnsupportedPlaybackSourceHandoffInput()) {
       return const PlaybackSourceHandoffResult.failure(
         PlaybackSourceHandoffFailure(
@@ -138,8 +121,8 @@ final class LocalPlaybackSourceHandoff
       LocalMediaIdentityHandoffInput(:final identity) => identity,
       MediaScanCandidateHandoffInput(:final candidate) => candidate.identity,
       VirtualStreamSourceHandoffInput() => throw StateError('Handled above.'),
-      VirtualStreamDescriptorHandoffInput() => throw StateError('Handled above.'),
-      VirtualStreamSnapshotHandoffInput() => throw StateError('Handled above.'),
+      VirtualStreamDescriptorHandoffInput() =>
+        throw StateError('Handled above.'),
       UnsupportedPlaybackSourceHandoffInput() =>
         throw StateError('Handled above.'),
     };

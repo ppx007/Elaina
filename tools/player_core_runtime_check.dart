@@ -1194,11 +1194,12 @@ Future<void> _verifyDiagnosticsCenterContract() async {
     registry: registry,
     retentionPolicy: const DiagnosticsRetentionPolicy(
         maxEvents: 10, maxAge: Duration(days: 7)),
-    redactionPolicy:
-        DiagnosticsRedactionPolicy(sensitivePayloadKeys: const <String>['secret']),
+    redactionPolicy: DiagnosticsRedactionPolicy(
+        sensitivePayloadKeys: const <String>['secret']),
     capabilityMatrix: DiagnosticsCapabilityMatrix(
       capabilities: <DiagnosticsCapability, DiagnosticsCapabilityStatus>{
-        for (final DiagnosticsCapability capability in DiagnosticsCapability.values)
+        for (final DiagnosticsCapability capability
+            in DiagnosticsCapability.values)
           capability: const DiagnosticsCapabilityStatus.supported(),
       },
     ),
@@ -1232,7 +1233,8 @@ Future<void> _verifyDiagnosticsCenterContract() async {
     format: 'jsonl',
     now: observedAt,
   );
-  _expect(outcome.isSuccess, 'Diagnostics center must record registered events.');
+  _expect(
+      outcome.isSuccess, 'Diagnostics center must record registered events.');
   _expect(snapshot.events.single.payload['secret'] == '<redacted>',
       'Diagnostics center must redact sensitive payload keys.');
   _expect(exportDescriptor.redacted,
@@ -1255,7 +1257,8 @@ Future<void> _verifyDiagnosticsCenterContract() async {
       'Provider diagnostics correlation must preserve request keys.');
 
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-  final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(2).toList();
   bus.publish(DiagnosticsEventRecorded(
     occurredAt: observedAt,
     eventId: 'runtime-diagnostics-event',
@@ -1553,7 +1556,9 @@ Future<void> _verifyVirtualMediaStreamContract() async {
   final PlaybackSourceHandoffResult handoff =
       const LocalPlaybackSourceHandoff().prepare(
     PlaybackSourceHandoffInput.virtualStreamSource(
-      VirtualStreamPlaybackSource.fromDescriptor(created.descriptor!),
+      VirtualStreamPlaybackSource.fromDescriptor(
+        _playbackDescriptorFromVirtualDescriptor(created.descriptor!),
+      ),
     ),
   );
   _expect(handoff.source is VirtualStreamPlaybackSource,
@@ -1573,6 +1578,15 @@ Future<void> _verifyVirtualMediaStreamContract() async {
       'Virtual stream range buffering must publish invalidation.');
   _expect(delivered.whereType<VirtualStreamClosed>().length == 1,
       'Virtual stream closure must publish invalidation.');
+}
+
+PlaybackVirtualStreamDescriptor _playbackDescriptorFromVirtualDescriptor(
+  VirtualMediaStreamDescriptor descriptor,
+) {
+  return PlaybackVirtualStreamDescriptor(
+    id: VirtualPlaybackStreamId(descriptor.id.value),
+    contentUri: descriptor.contentUri,
+  );
 }
 
 Future<void> _verifyPiecePrioritySchedulerContract() async {
@@ -2708,8 +2722,8 @@ Future<void> _verifyFoundationBootstrapContract() async {
   final ProviderGateway gateway = bootstrap.gateway;
   await gateway.registerProvider(ProviderRegistration(
     providerId: const ProviderId("runtime-foundation-provider"),
-    ratePolicy: const ProviderRatePolicy(
-        maxRequests: 10, window: Duration(minutes: 1)),
+    ratePolicy:
+        const ProviderRatePolicy(maxRequests: 10, window: Duration(minutes: 1)),
     retryPolicy: const ProviderRetryPolicy(
         maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
   ));
@@ -2787,7 +2801,8 @@ Future<void> _verifyFoundationBootstrapContract() async {
       "Layer manifest must reject UI->Playback dependency.");
 }
 
-bool _tryPublishAfterClose(StreamCacheInvalidationBus bus, DateTime observedAt) {
+bool _tryPublishAfterClose(
+    StreamCacheInvalidationBus bus, DateTime observedAt) {
   try {
     bus.publish(DanmakuPosted(
       occurredAt: observedAt,
@@ -2799,6 +2814,7 @@ bool _tryPublishAfterClose(StreamCacheInvalidationBus bus, DateTime observedAt) 
     return true;
   }
 }
+
 final class _StaticAdapterResolver implements ActivePlayerAdapterResolver {
   const _StaticAdapterResolver(this.activeAdapter);
 
@@ -3539,10 +3555,10 @@ final class _ManualPlaybackStateObservable implements PlaybackStateObservable {
   }
 }
 
-
 Future<void> _verifyFoundationRuntimeContract() async {
   // Verify FoundationRuntime composes Step 1-4 surfaces
-  final DeterministicStorageFoundation storage = DeterministicStorageFoundation();
+  final DeterministicStorageFoundation storage =
+      DeterministicStorageFoundation();
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
   final FoundationRuntime runtime = FoundationRuntime(
     storage: storage,
@@ -3564,8 +3580,7 @@ Future<void> _verifyFoundationRuntimeContract() async {
 
   // Verify layer boundary checker
   final List<String> manifestErrors = LayerBoundaryChecker.validateManifest();
-  _expect(manifestErrors.isEmpty,
-      'Layer manifest must be consistent.');
+  _expect(manifestErrors.isEmpty, 'Layer manifest must be consistent.');
 
   // Verify storage foundation exposes all 24 store contracts
   _expect(storage.metadata is DeterministicMetadataStore,
@@ -3590,8 +3605,10 @@ Future<void> _verifyFoundationRuntimeContract() async {
   await gateway.registerProvider(
     const ProviderRegistration(
       providerId: ProviderId('runtime-test'),
-      ratePolicy: ProviderRatePolicy(maxRequests: 5, window: Duration(minutes: 1)),
-      retryPolicy: ProviderRetryPolicy(maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
+      ratePolicy:
+          ProviderRatePolicy(maxRequests: 5, window: Duration(minutes: 1)),
+      retryPolicy: ProviderRetryPolicy(
+          maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
     ),
   );
   final ProviderGatewayResponse<String> response = await gateway.execute(
@@ -3627,7 +3644,8 @@ Future<void> _verifyFoundationRuntimeContract() async {
       'ProviderGateway must deduplicate requests within the deduplication window.');
 
   // Verify invalidation bus lifecycle
-  final Future<List<CacheInvalidationEvent>> events = bus.events.take(1).toList();
+  final Future<List<CacheInvalidationEvent>> events =
+      bus.events.take(1).toList();
   bus.publish(BindingChanged(
     occurredAt: DateTime.utc(2026, 6, 8),
     localMediaId: 'test-media',
@@ -3639,15 +3657,16 @@ Future<void> _verifyFoundationRuntimeContract() async {
 
   // Verify disposal
   await runtime.dispose();
-  _expect(runtime.isDisposed, 'FoundationRuntime must be disposed after dispose().');
+  _expect(runtime.isDisposed,
+      'FoundationRuntime must be disposed after dispose().');
   bool disposedAccess = false;
   try {
     runtime.storage;
   } on StateError {
     disposedAccess = true;
   }
-  _expect(disposedAccess,
-      'FoundationRuntime must reject access after disposal.');
+  _expect(
+      disposedAccess, 'FoundationRuntime must reject access after disposal.');
 }
 
 Future<void> _verifyPlayerCoreRuntimeContract() async {
@@ -3657,7 +3676,8 @@ Future<void> _verifyPlayerCoreRuntimeContract() async {
   );
   _expect(unsupportedBootstrap.runtime.foundationDependency == foundation,
       'PlayerCoreBootstrap must preserve the Phase 0 foundation dependency boundary.');
-  _expect(!unsupportedBootstrap.runtime.capabilityMatrix
+  _expect(
+      !unsupportedBootstrap.runtime.capabilityMatrix
           .supports(PlaybackCapability.localFilePlayback),
       'Default player core bootstrap must not claim native playback support.');
   _expectFailureKind(await unsupportedBootstrap.controller.open(_localSource()),
@@ -3711,7 +3731,8 @@ Future<void> _verifyPlayerCoreRuntimeContract() async {
       'Player core runtime must publish playback state snapshots.');
   _expect(runtime.currentState.timeline.position == const Duration(seconds: 18),
       'Player core runtime must update timeline state after seek.');
-  _expect(runtime.currentState.activeTracks.subtitleTrackId?.value == 'subtitle-ja',
+  _expect(
+      runtime.currentState.activeTracks.subtitleTrackId?.value == 'subtitle-ja',
       'Player core runtime must update active subtitle track state.');
 
   final PlaybackPageContract page = PlaybackPageContract(

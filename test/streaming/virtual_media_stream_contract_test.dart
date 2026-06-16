@@ -126,8 +126,8 @@ void main() {
     );
 
     expect(skippedFile.isSuccess, isFalse);
-    expect(skippedFile.failure?.kind,
-        VirtualMediaStreamFailureKind.fileUnavailable);
+    expect(
+        skippedFile.failure?.kind, VirtualMediaStreamFailureKind.fileSkipped);
   });
 
   test('stream records buffered ranges failures closure and invalidations',

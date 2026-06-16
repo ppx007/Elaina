@@ -1,5 +1,21 @@
-import '../streaming/virtual_media_stream.dart';
 import 'player_adapter.dart';
+
+final class VirtualPlaybackStreamId {
+  const VirtualPlaybackStreamId(this.value)
+      : assert(value != '', 'Virtual playback stream id must not be empty.');
+
+  final String value;
+}
+
+final class PlaybackVirtualStreamDescriptor {
+  const PlaybackVirtualStreamDescriptor({
+    required this.id,
+    this.contentUri,
+  });
+
+  final VirtualPlaybackStreamId id;
+  final Uri? contentUri;
+}
 
 final class VirtualStreamPlaybackSource extends PlaybackSource {
   const VirtualStreamPlaybackSource({
@@ -9,7 +25,7 @@ final class VirtualStreamPlaybackSource extends PlaybackSource {
   });
 
   factory VirtualStreamPlaybackSource.fromDescriptor(
-      VirtualMediaStreamDescriptor descriptor) {
+      PlaybackVirtualStreamDescriptor descriptor) {
     return VirtualStreamPlaybackSource(
       streamId: descriptor.id,
       uri: descriptor.contentUri ??
@@ -18,5 +34,19 @@ final class VirtualStreamPlaybackSource extends PlaybackSource {
     );
   }
 
-  final VirtualMediaStreamId streamId;
+  factory VirtualStreamPlaybackSource.fromValues({
+    required String streamId,
+    Uri? contentUri,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return VirtualStreamPlaybackSource(
+      streamId: VirtualPlaybackStreamId(streamId),
+      uri: contentUri ??
+          Uri.parse(
+              'celesteria-virtual-stream://${Uri.encodeComponent(streamId)}'),
+      headers: headers,
+    );
+  }
+
+  final VirtualPlaybackStreamId streamId;
 }

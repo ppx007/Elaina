@@ -70,13 +70,9 @@ void main() {
     final PlaybackSourceHandoffResult result = handoff.prepare(
       PlaybackSourceHandoffInput.virtualStreamSource(
         VirtualStreamPlaybackSource.fromDescriptor(
-          VirtualMediaStreamDescriptor(
-            id: const VirtualMediaStreamId('task-1::1'),
-            taskId: const BtTaskId('task-1'),
-            fileIndex: const BtFileIndex(1),
-            lengthBytes: 2048,
+          PlaybackVirtualStreamDescriptor(
+            id: const VirtualPlaybackStreamId('task-1::1'),
             contentUri: uri,
-            mimeType: 'video/x-matroska',
           ),
         ),
       ),
@@ -95,13 +91,9 @@ void main() {
 
     final PlaybackSourceHandoffResult result = handoff.prepare(
       PlaybackSourceHandoffInput.virtualStreamDescriptor(
-        VirtualMediaStreamDescriptor(
-          id: const VirtualMediaStreamId('task-2::0'),
-          taskId: const BtTaskId('task-2'),
-          fileIndex: const BtFileIndex(0),
-          lengthBytes: 4096,
+        PlaybackVirtualStreamDescriptor(
+          id: const VirtualPlaybackStreamId('task-2::0'),
           contentUri: uri,
-          mimeType: 'video/mp4',
         ),
       ),
     );
@@ -133,7 +125,9 @@ void main() {
     );
 
     final PlaybackSourceHandoffResult result = handoff.prepare(
-      PlaybackSourceHandoffInput.virtualStreamSnapshot(snapshot),
+      PlaybackSourceHandoffInput.virtualStreamDescriptor(
+        _playbackDescriptorFromVirtualSnapshot(snapshot),
+      ),
     );
 
     expect(result.isSuccess, isTrue);
@@ -144,12 +138,8 @@ void main() {
 
   test('converts virtual stream descriptors in playback source layer', () {
     final PlaybackSource source = VirtualStreamPlaybackSource.fromDescriptor(
-      const VirtualMediaStreamDescriptor(
-        id: VirtualMediaStreamId('task-1::1'),
-        taskId: BtTaskId('task-1'),
-        fileIndex: BtFileIndex(1),
-        lengthBytes: 2048,
-        mimeType: 'video/x-matroska',
+      const PlaybackVirtualStreamDescriptor(
+        id: VirtualPlaybackStreamId('task-1::1'),
       ),
     );
 
@@ -208,5 +198,14 @@ LocalMediaIdentity _identity(Uri uri) {
     id: const LocalMediaId('local-media'),
     uri: uri,
     basename: 'example.mkv',
+  );
+}
+
+PlaybackVirtualStreamDescriptor _playbackDescriptorFromVirtualSnapshot(
+  VirtualMediaStreamSnapshot snapshot,
+) {
+  return PlaybackVirtualStreamDescriptor(
+    id: VirtualPlaybackStreamId(snapshot.descriptor.id.value),
+    contentUri: snapshot.descriptor.contentUri,
   );
 }

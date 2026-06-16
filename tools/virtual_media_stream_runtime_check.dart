@@ -63,8 +63,9 @@ Future<void> verifyVirtualMediaStreamRuntimeContract() async {
     const VirtualMediaStreamId('check-task-1::1'),
     message: 'Adapter boundary unavailable.',
   );
-  _expect(failed.value?.lifecycleState ==
-      StoredVirtualMediaStreamLifecycleState.failed,
+  _expect(
+      failed.value?.lifecycleState ==
+          StoredVirtualMediaStreamLifecycleState.failed,
       'Runtime must persist failed lifecycle state.');
 
   final List<CacheInvalidationEvent> delivered = await mutationEvents;
@@ -165,29 +166,41 @@ Future<void> verifyVirtualMediaStreamRuntimeContract() async {
     streamStore: restartStreamStore,
     clock: _now,
   );
-  final VirtualMediaStreamRuntimeActionResult<List<VirtualStreamRestartProjection>>
-      restart = await restartRuntime.restartReconciliation();
+  final VirtualMediaStreamRuntimeActionResult<
+          List<VirtualStreamRestartProjection>> restart =
+      await restartRuntime.restartReconciliation();
   final Map<String, VirtualStreamRestartDisposition> dispositions =
       <String, VirtualStreamRestartDisposition>{
     for (final VirtualStreamRestartProjection projection in restart.value!)
       projection.streamId.value: projection.disposition,
   };
-  _expect(dispositions['active-task::0'] == VirtualStreamRestartDisposition.active,
+  _expect(
+      dispositions['active-task::0'] == VirtualStreamRestartDisposition.active,
       'Restart must classify active streams.');
-  _expect(dispositions['closed-task::0'] == VirtualStreamRestartDisposition.closed,
+  _expect(
+      dispositions['closed-task::0'] == VirtualStreamRestartDisposition.closed,
       'Restart must classify closed streams.');
-  _expect(dispositions['failed-task::0'] == VirtualStreamRestartDisposition.failed,
+  _expect(
+      dispositions['failed-task::0'] == VirtualStreamRestartDisposition.failed,
       'Restart must classify failed streams.');
-  _expect(dispositions['range-task::0'] == VirtualStreamRestartDisposition.rangeFailed,
+  _expect(
+      dispositions['range-task::0'] ==
+          VirtualStreamRestartDisposition.rangeFailed,
       'Restart must classify range-failed streams.');
-  _expect(dispositions['missing-task::0'] == VirtualStreamRestartDisposition.missingTask,
+  _expect(
+      dispositions['missing-task::0'] ==
+          VirtualStreamRestartDisposition.missingTask,
       'Restart must classify missing-task streams.');
-  _expect(dispositions['incomplete-task::0'] == VirtualStreamRestartDisposition.incomplete,
+  _expect(
+      dispositions['incomplete-task::0'] ==
+          VirtualStreamRestartDisposition.incomplete,
       'Restart must classify incomplete streams.');
 
   const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
   final PlaybackSourceHandoffResult handoffResult = handoff.prepare(
-    PlaybackSourceHandoffInput.virtualStreamSnapshot(created.value!),
+    PlaybackSourceHandoffInput.virtualStreamDescriptor(
+      _playbackDescriptorFromVirtualSnapshot(created.value!),
+    ),
   );
   _expect(handoffResult.source is VirtualStreamPlaybackSource,
       'Playback handoff must stay on virtual stream abstraction.');
@@ -197,6 +210,15 @@ Future<void> verifyVirtualMediaStreamRuntimeContract() async {
 
 void _expect(bool condition, String message) {
   if (!condition) throw StateError(message);
+}
+
+PlaybackVirtualStreamDescriptor _playbackDescriptorFromVirtualSnapshot(
+  VirtualMediaStreamSnapshot snapshot,
+) {
+  return PlaybackVirtualStreamDescriptor(
+    id: VirtualPlaybackStreamId(snapshot.descriptor.id.value),
+    contentUri: snapshot.descriptor.contentUri,
+  );
 }
 
 Future<void> _seedTask(DeterministicBtTaskStore store) async {
