@@ -1,3 +1,4 @@
+import '../../playback/capability_matrix.dart';
 import '../../playback/deterministic_mpv_binding.dart';
 import '../../playback/mpv_adapter_facade.dart';
 import '../../playback/player_adapter.dart';
@@ -42,10 +43,12 @@ final class PlayerCoreBootstrap {
 
   PlayerCoreBootstrap.withBinding({
     required MpvAdapterBinding binding,
+    PlaybackCapabilityMatrix? capabilities,
     Object? foundationDependency,
   }) {
     _runtime = PlayerCoreRuntime.bound(
       binding: binding,
+      capabilities: capabilities,
       foundationDependency: foundationDependency,
     );
   }

@@ -7,6 +7,7 @@ $requiredFiles = @(
   'lib/src/playback/player_adapter.dart',
   'lib/src/playback/capability_matrix.dart',
   'lib/src/playback/deterministic_mpv_binding.dart',
+  'lib/src/playback/media_kit_mpv_binding.dart',
   'lib/src/playback/mpv_adapter_facade.dart',
   'lib/src/playback/track_management.dart',
   'lib/src/domain/playback/playback_controller.dart',
@@ -79,11 +80,26 @@ if ($publicBarrel.Contains('flutter_playback_shell.dart')) {
 }
 foreach ($export in @(
   'src/playback/deterministic_mpv_binding.dart',
+  'src/playback/media_kit_mpv_binding.dart',
   'src/domain/playback/player_core_bootstrap.dart',
   'src/domain/playback/player_core_runtime.dart'
 )) {
   if ($publicBarrel -notmatch [regex]::Escape("export '$export';")) {
     throw "Public Dart contract barrel missing player-core runtime export: $export"
+  }
+}
+
+$approvedConcretePlayerImportFiles = @(
+  'lib/src/playback/media_kit_mpv_binding.dart'
+)
+$sourceDartFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $sourceDartFiles) {
+  $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  if ($content -match [regex]::Escape('package:media_kit/')) {
+    if ($approvedConcretePlayerImportFiles -notcontains $relativePath) {
+      throw "Concrete player package import is only allowed in approved Playback binding files: $($file.FullName)"
+    }
   }
 }
 
@@ -324,6 +340,18 @@ $deterministicBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playb
 foreach ($term in @('DeterministicMpvBinding', 'MpvAdapterBinding', 'PlaybackOperation', 'TrackDiscoveryResult', 'TrackSwitchResult')) {
   if ($deterministicBinding -notmatch [regex]::Escape($term)) {
     throw "Deterministic MPV binding missing required term: $term"
+  }
+}
+
+$mediaKitBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/media_kit_mpv_binding.dart') -Raw
+foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybackSource', 'mediaKitLocalFilePlaybackCapabilities', 'PlaybackFailureKind.operationFailed')) {
+  if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
+    throw "Concrete MPV binding missing required term: $term"
+  }
+}
+foreach ($term in @('HttpPlaybackSource', 'HlsPlaybackSource')) {
+  if ($mediaKitBinding -match [regex]::Escape($term)) {
+    throw "Concrete MPV binding must not implement unverified source type directly: $term"
   }
 }
 
