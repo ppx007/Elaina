@@ -1,3 +1,5 @@
+import '../baseline_defaults.dart';
+
 enum StoredFallbackStrategyStateKind {
   disabled,
   evaluating,
@@ -16,7 +18,8 @@ final class StoredFallbackAdapterCandidateRecord {
   })  : assert(id != '', 'Fallback adapter id must not be empty.'),
         assert(displayName != '',
             'Fallback adapter display name must not be empty.'),
-        assert(priority >= 0, 'Fallback adapter priority must not be negative.'),
+        assert(
+            priority >= 0, 'Fallback adapter priority must not be negative.'),
         declaredCapabilities =
             Map<String, String>.unmodifiable(declaredCapabilities);
 
@@ -61,7 +64,8 @@ final class StoredFallbackSelectionHistoryRecord {
         assert(sourceKind != '', 'Fallback source kind must not be empty.'),
         assert(failureKind != '', 'Fallback failure kind must not be empty.'),
         assert(reason != '', 'Fallback selection reason must not be empty.'),
-        hiddenCapabilities = Map<String, String>.unmodifiable(hiddenCapabilities);
+        hiddenCapabilities =
+            Map<String, String>.unmodifiable(hiddenCapabilities);
 
   final String id;
   final String scopeId;
@@ -120,11 +124,12 @@ abstract interface class FallbackAdapterStore {
 
   Future<List<StoredFallbackSelectionHistoryRecord>> selectionHistory(
       String scopeId,
-      {int limit = 20});
+      {int limit = defaultRecentListLimit});
 
   Future<void> recordStrategyState(StoredFallbackStrategyStateRecord state);
 
-  Future<StoredFallbackStrategyStateRecord?> latestStrategyState(String scopeId);
+  Future<StoredFallbackStrategyStateRecord?> latestStrategyState(
+      String scopeId);
 }
 
 final class DeterministicFallbackAdapterStore implements FallbackAdapterStore {
@@ -189,10 +194,10 @@ final class DeterministicFallbackAdapterStore implements FallbackAdapterStore {
   @override
   Future<List<StoredFallbackAdapterCandidateRecord>> listCandidates() {
     return Future<List<StoredFallbackAdapterCandidateRecord>>.value(
-      <StoredFallbackAdapterCandidateRecord>[..._candidatesById.values]
-        ..sort((StoredFallbackAdapterCandidateRecord left,
-                StoredFallbackAdapterCandidateRecord right) =>
-            left.priority.compareTo(right.priority)),
+      <StoredFallbackAdapterCandidateRecord>[..._candidatesById.values]..sort(
+          (StoredFallbackAdapterCandidateRecord left,
+                  StoredFallbackAdapterCandidateRecord right) =>
+              left.priority.compareTo(right.priority)),
     );
   }
 
@@ -211,9 +216,9 @@ final class DeterministicFallbackAdapterStore implements FallbackAdapterStore {
   @override
   Future<bool> removeCandidate(String candidateId) {
     final bool removed = _candidatesById.remove(candidateId) != null;
-    _configurationsByScope.removeWhere(
-        (String scopeId, StoredActiveFallbackConfigurationRecord configuration) =>
-            configuration.selectedCandidateId == candidateId);
+    _configurationsByScope.removeWhere((String scopeId,
+            StoredActiveFallbackConfigurationRecord configuration) =>
+        configuration.selectedCandidateId == candidateId);
     _latestStateByScope.removeWhere(
         (String scopeId, StoredFallbackStrategyStateRecord state) =>
             state.selectedCandidateId == candidateId);
@@ -223,15 +228,15 @@ final class DeterministicFallbackAdapterStore implements FallbackAdapterStore {
   @override
   Future<List<StoredFallbackSelectionHistoryRecord>> selectionHistory(
       String scopeId,
-      {int limit = 20}) {
+      {int limit = defaultRecentListLimit}) {
     final List<StoredFallbackSelectionHistoryRecord> history =
         <StoredFallbackSelectionHistoryRecord>[
       for (final StoredFallbackSelectionHistoryRecord selection
           in _historyById.values)
         if (selection.scopeId == scopeId) selection,
     ]..sort((StoredFallbackSelectionHistoryRecord left,
-            StoredFallbackSelectionHistoryRecord right) =>
-        right.selectedAt.compareTo(left.selectedAt));
+                StoredFallbackSelectionHistoryRecord right) =>
+            right.selectedAt.compareTo(left.selectedAt));
     return Future<List<StoredFallbackSelectionHistoryRecord>>.value(
         history.take(limit).toList(growable: false));
   }

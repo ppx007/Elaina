@@ -1,3 +1,4 @@
+import '../baseline_defaults.dart';
 import 'advanced_caption_storage_contracts.dart';
 import 'av_sync_guard_storage_contracts.dart';
 import 'bt_task_storage_contracts.dart';
@@ -163,7 +164,7 @@ abstract interface class MediaLibraryStore {
       StoredMediaFileFingerprint fingerprint);
 
   Future<List<StoredMediaLibraryItemRecord>> list(
-      {int offset = 0, int limit = 50});
+      {int offset = 0, int limit = defaultListPageLimit});
 
   Future<StoredMediaLibraryItemRecord> update(
       StoredMediaLibraryItemRecord record);
@@ -197,7 +198,8 @@ abstract interface class PlaybackHistoryRepository {
 
   Future<StoredPlaybackHistoryRecord?> latestFor(String localMediaId);
 
-  Future<List<StoredPlaybackHistoryRecord>> continueWatching({int limit = 20});
+  Future<List<StoredPlaybackHistoryRecord>> continueWatching(
+      {int limit = defaultRecentListLimit});
 }
 
 final class StoredProviderBindingRecord {

@@ -1,3 +1,5 @@
+import '../baseline_defaults.dart';
+
 enum StoredBtTaskSourceKind {
   magnet,
   torrentData,
@@ -181,7 +183,8 @@ abstract interface class BtTaskStore {
 
   Future<StoredBtTaskRecord?> findTaskById(String taskId);
 
-  Future<List<StoredBtTaskRecord>> listTasks({int offset = 0, int limit = 50});
+  Future<List<StoredBtTaskRecord>> listTasks(
+      {int offset = 0, int limit = defaultListPageLimit});
 
   Future<bool> removeTask(String taskId);
 
@@ -256,7 +259,8 @@ final class DeterministicBtTaskStore implements BtTaskStore {
   }
 
   @override
-  Future<List<StoredBtTaskRecord>> listTasks({int offset = 0, int limit = 50}) {
+  Future<List<StoredBtTaskRecord>> listTasks(
+      {int offset = 0, int limit = defaultListPageLimit}) {
     assert(offset >= 0, 'offset must not be negative.');
     assert(limit > 0, 'limit must be positive.');
     final List<StoredBtTaskRecord> tasks = <StoredBtTaskRecord>[

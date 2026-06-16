@@ -215,6 +215,7 @@ foreach ($term in $forbiddenPlaybackSourceHandoffTerms) {
 
 $mediaLibraryPath = Join-Path $root 'lib/src/domain/media/media_library.dart'
 $mediaLibraryContent = Get-Content -LiteralPath $mediaLibraryPath -Raw
+$normalizedMediaLibraryContent = $mediaLibraryContent -replace '\s+', ' '
 $requiredMediaScannerTerms = @(
   'enum MediaScanFailureKind',
   'final class NormalizedMediaScanScope',
@@ -229,7 +230,7 @@ $requiredMediaScannerTerms = @(
   'final class DeterministicProviderBindingStore implements ProviderBindingStore'
 )
 foreach ($term in $requiredMediaScannerTerms) {
-  if ($mediaLibraryContent -notmatch [regex]::Escape($term)) {
+  if ($normalizedMediaLibraryContent -notmatch [regex]::Escape($term)) {
     throw "Media library scanner contract missing required term: $term"
   }
 }

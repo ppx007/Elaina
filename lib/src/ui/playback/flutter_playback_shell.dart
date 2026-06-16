@@ -4,6 +4,9 @@ import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
 import 'playback_page_contract.dart';
 
+final DateTime mockPlaybackShellObservedAt = DateTime.utc(2026, 6, 3, 12, 0);
+const Duration demoPlaybackSeekPosition = Duration(seconds: 42);
+
 abstract interface class FlutterPlaybackShellDriver {
   PlaybackStateSnapshot get snapshot;
 
@@ -64,7 +67,7 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier
           timeline: PlaybackTimelineState(
             position: intent.position ?? _snapshot.timeline.position,
             duration: _snapshot.timeline.duration,
-            observedAt: DateTime.utc(2026, 6, 3, 12, 0),
+            observedAt: mockPlaybackShellObservedAt,
           ),
         );
         _lastIntentResult = const PlaybackPageIntentResult.ignored(
@@ -248,7 +251,7 @@ final class _FlutterPlaybackPageState extends State<FlutterPlaybackPage> {
             if (surface.hasActiveControl(PlaybackPageControlId.seek))
               OutlinedButton(
                 onPressed: () => widget.driver.dispatch(
-                    const PlaybackPageIntent.seek(Duration(seconds: 42))),
+                    const PlaybackPageIntent.seek(demoPlaybackSeekPosition)),
                 child: const Text('Seek'),
               ),
             if (surface.hasActiveControl(PlaybackPageControlId.stop))

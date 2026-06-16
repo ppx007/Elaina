@@ -64,12 +64,8 @@ final class UnavailableBangumiProvider implements BangumiProvider {
   @override
   ProviderRegistration get registration => const ProviderRegistration(
         providerId: ProviderId('bangumi-unavailable'),
-        ratePolicy:
-            ProviderRatePolicy(maxRequests: 1, window: Duration(seconds: 1)),
-        retryPolicy: ProviderRetryPolicy(
-          maxAttempts: 1,
-          initialBackoff: Duration(milliseconds: 1),
-        ),
+        ratePolicy: unavailableProviderRatePolicy,
+        retryPolicy: unavailableProviderRetryPolicy,
       );
 
   @override

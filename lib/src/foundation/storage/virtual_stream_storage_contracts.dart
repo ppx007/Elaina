@@ -1,3 +1,5 @@
+import '../baseline_defaults.dart';
+
 enum StoredVirtualMediaStreamLifecycleState {
   active,
   closed,
@@ -91,8 +93,8 @@ final class StoredVirtualStreamEventRecord {
             'rangeStart must not be negative.'),
         assert(rangeEnd == null || rangeStart != null,
             'rangeEnd requires rangeStart.'),
-        assert(rangeEnd == null ||
-            (rangeStart != null && rangeEnd >= rangeStart),
+        assert(
+            rangeEnd == null || (rangeStart != null && rangeEnd >= rangeStart),
             'rangeEnd must be greater than or equal to rangeStart.');
 
   final String streamId;
@@ -116,11 +118,12 @@ abstract interface class VirtualMediaStreamStore {
   });
 
   Future<List<StoredVirtualMediaStreamRecord>> listStreams(
-      {int offset = 0, int limit = 50});
+      {int offset = 0, int limit = defaultListPageLimit});
 
   Future<int> count();
 
-  Future<void> recordBufferedRange(StoredVirtualStreamBufferedRangeRecord range);
+  Future<void> recordBufferedRange(
+      StoredVirtualStreamBufferedRangeRecord range);
 
   Future<List<StoredVirtualStreamBufferedRangeRecord>> bufferedRangesFor(
       String streamId);
@@ -144,7 +147,8 @@ final class DeterministicVirtualMediaStreamStore
   final Map<String, StoredVirtualMediaStreamRecord> _streamsById =
       <String, StoredVirtualMediaStreamRecord>{};
   final Map<String, List<StoredVirtualStreamBufferedRangeRecord>>
-      _rangesByStreamId = <String, List<StoredVirtualStreamBufferedRangeRecord>>{};
+      _rangesByStreamId =
+      <String, List<StoredVirtualStreamBufferedRangeRecord>>{};
   final Map<String, StoredVirtualStreamEventRecord> _eventsByStreamId =
       <String, StoredVirtualStreamEventRecord>{};
 
@@ -163,7 +167,8 @@ final class DeterministicVirtualMediaStreamStore
 
   @override
   Future<StoredVirtualMediaStreamRecord?> findStreamById(String streamId) {
-    return Future<StoredVirtualMediaStreamRecord?>.value(_streamsById[streamId]);
+    return Future<StoredVirtualMediaStreamRecord?>.value(
+        _streamsById[streamId]);
   }
 
   @override
@@ -187,15 +192,14 @@ final class DeterministicVirtualMediaStreamStore
 
   @override
   Future<List<StoredVirtualMediaStreamRecord>> listStreams(
-      {int offset = 0, int limit = 50}) {
+      {int offset = 0, int limit = defaultListPageLimit}) {
     assert(offset >= 0, 'offset must not be negative.');
     assert(limit > 0, 'limit must be positive.');
     final List<StoredVirtualMediaStreamRecord> streams =
         <StoredVirtualMediaStreamRecord>[..._streamsById.values];
     final int start = offset > streams.length ? streams.length : offset;
-    final int end = start + limit > streams.length
-        ? streams.length
-        : start + limit;
+    final int end =
+        start + limit > streams.length ? streams.length : start + limit;
     return Future<List<StoredVirtualMediaStreamRecord>>.value(
         streams.sublist(start, end));
   }
@@ -246,9 +250,8 @@ final class DeterministicVirtualMediaStreamStore
       merged[merged.length - 1] = StoredVirtualStreamBufferedRangeRecord(
         streamId: previous.streamId,
         startByte: previous.startByte,
-        endByte: range.endByte > previous.endByte
-            ? range.endByte
-            : previous.endByte,
+        endByte:
+            range.endByte > previous.endByte ? range.endByte : previous.endByte,
         observedAt: range.observedAt.isAfter(previous.observedAt)
             ? range.observedAt
             : previous.observedAt,

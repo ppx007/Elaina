@@ -3,7 +3,11 @@ import 'subtitle_source.dart';
 final class SubtitleScanRequest {
   const SubtitleScanRequest({
     required this.media,
-    this.allowedFormats = const <SubtitleFormat>{SubtitleFormat.srt, SubtitleFormat.vtt, SubtitleFormat.ass},
+    this.allowedFormats = const <SubtitleFormat>{
+      SubtitleFormat.srt,
+      SubtitleFormat.vtt,
+      SubtitleFormat.ass
+    },
   });
 
   final LocalMediaReference media;
@@ -14,7 +18,8 @@ final class ExternalSubtitleCandidate {
   const ExternalSubtitleCandidate({
     required this.source,
     required this.matchConfidence,
-  }) : assert(matchConfidence >= 0 && matchConfidence <= 1, 'matchConfidence must be between 0 and 1.');
+  }) : assert(matchConfidence >= 0 && matchConfidence <= 1,
+            'matchConfidence must be between 0 and 1.');
 
   final ExternalSubtitleSource source;
   final double matchConfidence;
@@ -23,6 +28,10 @@ final class ExternalSubtitleCandidate {
 abstract interface class LocalExternalSubtitleScanner {
   Future<List<ExternalSubtitleCandidate>> scan(SubtitleScanRequest request);
 }
+
+const double exactSubtitleBasenameConfidence = 1.0;
+const double languageSuffixSubtitleConfidence = 0.9;
+const double containsStemSubtitleConfidence = 0.6;
 
 final class DeterministicSubtitleFileCandidate {
   const DeterministicSubtitleFileCandidate({
@@ -38,7 +47,8 @@ final class DeterministicSubtitleFileCandidate {
   final String? title;
 }
 
-final class DeterministicLocalExternalSubtitleScanner implements LocalExternalSubtitleScanner {
+final class DeterministicLocalExternalSubtitleScanner
+    implements LocalExternalSubtitleScanner {
   const DeterministicLocalExternalSubtitleScanner({
     required List<DeterministicSubtitleFileCandidate> candidates,
   }) : _candidates = candidates;
@@ -46,20 +56,24 @@ final class DeterministicLocalExternalSubtitleScanner implements LocalExternalSu
   final List<DeterministicSubtitleFileCandidate> _candidates;
 
   @override
-  Future<List<ExternalSubtitleCandidate>> scan(SubtitleScanRequest request) async {
-    final String mediaStem = _basenameStem(request.media.basename).toLowerCase();
-    final List<ExternalSubtitleCandidate> results = <ExternalSubtitleCandidate>[];
+  Future<List<ExternalSubtitleCandidate>> scan(
+      SubtitleScanRequest request) async {
+    final String mediaStem =
+        _basenameStem(request.media.basename).toLowerCase();
+    final List<ExternalSubtitleCandidate> results =
+        <ExternalSubtitleCandidate>[];
     for (final DeterministicSubtitleFileCandidate candidate in _candidates) {
       final SubtitleFormat? format = _formatForBasename(candidate.basename);
       if (format == null || !request.allowedFormats.contains(format)) continue;
-      final String candidateStem = _basenameStem(candidate.basename).toLowerCase();
+      final String candidateStem =
+          _basenameStem(candidate.basename).toLowerCase();
       final double confidence;
       if (candidateStem == mediaStem) {
-        confidence = 1;
+        confidence = exactSubtitleBasenameConfidence;
       } else if (candidateStem.startsWith('$mediaStem.')) {
-        confidence = 0.9;
+        confidence = languageSuffixSubtitleConfidence;
       } else if (candidateStem.contains(mediaStem)) {
-        confidence = 0.6;
+        confidence = containsStemSubtitleConfidence;
       } else {
         continue;
       }
@@ -77,7 +91,8 @@ final class DeterministicLocalExternalSubtitleScanner implements LocalExternalSu
       );
     }
     results.sort(
-      (ExternalSubtitleCandidate left, ExternalSubtitleCandidate right) => right.matchConfidence.compareTo(left.matchConfidence),
+      (ExternalSubtitleCandidate left, ExternalSubtitleCandidate right) =>
+          right.matchConfidence.compareTo(left.matchConfidence),
     );
     return List<ExternalSubtitleCandidate>.unmodifiable(results);
   }
@@ -86,7 +101,8 @@ final class DeterministicLocalExternalSubtitleScanner implements LocalExternalSu
 SubtitleFormat? _formatForBasename(String basename) {
   final String lower = basename.toLowerCase();
   if (lower.endsWith('.srt')) return SubtitleFormat.srt;
-  if (lower.endsWith('.vtt') || lower.endsWith('.webvtt')) return SubtitleFormat.vtt;
+  if (lower.endsWith('.vtt') || lower.endsWith('.webvtt'))
+    return SubtitleFormat.vtt;
   if (lower.endsWith('.ass')) return SubtitleFormat.ass;
   return null;
 }
@@ -95,7 +111,8 @@ String _basenameStem(String basename) {
   final int slash = basename.lastIndexOf('/');
   final int backslash = basename.lastIndexOf('\\');
   final int separator = slash > backslash ? slash : backslash;
-  final String name = separator >= 0 ? basename.substring(separator + 1) : basename;
+  final String name =
+      separator >= 0 ? basename.substring(separator + 1) : basename;
   final int dot = name.lastIndexOf('.');
   return dot > 0 ? name.substring(0, dot) : name;
 }

@@ -1,17 +1,22 @@
+import '../../foundation/baseline_defaults.dart';
+
 final class LocalMediaId {
-  const LocalMediaId(this.value) : assert(value != '', 'Local media id must not be empty.');
+  const LocalMediaId(this.value)
+      : assert(value != '', 'Local media id must not be empty.');
 
   final String value;
 }
 
 final class MediaScanId {
-  const MediaScanId(this.value) : assert(value != '', 'Media scan id must not be empty.');
+  const MediaScanId(this.value)
+      : assert(value != '', 'Media scan id must not be empty.');
 
   final String value;
 }
 
 final class MediaLibraryItemId {
-  const MediaLibraryItemId(this.value) : assert(value != '', 'Media library item id must not be empty.');
+  const MediaLibraryItemId(this.value)
+      : assert(value != '', 'Media library item id must not be empty.');
 
   final String value;
 }
@@ -45,7 +50,8 @@ final class MediaScanScope {
     required this.extensions,
     this.recursive = true,
     this.excludePatterns = const <String>[],
-  }) : assert(roots.length > 0, 'Media scan scope must include at least one root.');
+  }) : assert(roots.length > 0,
+            'Media scan scope must include at least one root.');
 
   final List<Uri> roots;
   final Set<String> extensions;
@@ -75,7 +81,8 @@ final class NormalizedMediaScanScope {
     }
 
     final String candidateName = basename ?? _basenameFromUri(uri);
-    if (extensions.isNotEmpty && !extensions.contains(_extensionOf(candidateName))) {
+    if (extensions.isNotEmpty &&
+        !extensions.contains(_extensionOf(candidateName))) {
       return false;
     }
 
@@ -101,11 +108,16 @@ final class NormalizedMediaScanScope {
 }
 
 final class MediaScanScopeNormalizationResult {
-  const MediaScanScopeNormalizationResult._({this.scope, this.failures = const <MediaScanFailure>[]});
+  const MediaScanScopeNormalizationResult._(
+      {this.scope, this.failures = const <MediaScanFailure>[]});
 
-  const MediaScanScopeNormalizationResult.success(NormalizedMediaScanScope scope) : this._(scope: scope);
+  const MediaScanScopeNormalizationResult.success(
+      NormalizedMediaScanScope scope)
+      : this._(scope: scope);
 
-  const MediaScanScopeNormalizationResult.failure(List<MediaScanFailure> failures) : this._(failures: failures);
+  const MediaScanScopeNormalizationResult.failure(
+      List<MediaScanFailure> failures)
+      : this._(failures: failures);
 
   final NormalizedMediaScanScope? scope;
   final List<MediaScanFailure> failures;
@@ -113,7 +125,8 @@ final class MediaScanScopeNormalizationResult {
   bool get isSuccess => scope != null;
 }
 
-MediaScanScopeNormalizationResult normalizeMediaScanScope(MediaScanScope scope) {
+MediaScanScopeNormalizationResult normalizeMediaScanScope(
+    MediaScanScope scope) {
   final List<Uri> roots = <Uri>[];
   final List<MediaScanFailure> failures = <MediaScanFailure>[];
   for (final Uri root in scope.roots) {
@@ -177,7 +190,7 @@ final class MediaLibraryItem {
 final class MediaLibraryQuery {
   const MediaLibraryQuery({
     this.offset = 0,
-    this.limit = 50,
+    this.limit = defaultListPageLimit,
     this.onlyUnbound = false,
   })  : assert(offset >= 0, 'offset must not be negative.'),
         assert(limit > 0, 'limit must be positive.');
@@ -198,7 +211,8 @@ abstract interface class MediaLibraryCatalogRepository {
 
   Future<MediaLibraryItem?> findByFingerprint(MediaFileFingerprint fingerprint);
 
-  Future<List<MediaLibraryItem>> list({MediaLibraryQuery query = const MediaLibraryQuery()});
+  Future<List<MediaLibraryItem>> list(
+      {MediaLibraryQuery query = const MediaLibraryQuery()});
 
   Future<MediaLibraryItem> update(MediaLibraryItem item);
 
@@ -214,7 +228,8 @@ enum MediaImportFailureKind {
 }
 
 final class MediaImportFailure {
-  const MediaImportFailure({required this.kind, required this.candidate, required this.message})
+  const MediaImportFailure(
+      {required this.kind, required this.candidate, required this.message})
       : assert(message != '', 'Import failure message must not be empty.');
 
   final MediaImportFailureKind kind;
@@ -236,14 +251,25 @@ final class MediaImportItemOutcome {
     this.failure,
   });
 
-  const MediaImportItemOutcome.imported({required MediaScanCandidate candidate, required MediaLibraryItem item})
-      : this._(kind: MediaImportItemOutcomeKind.imported, candidate: candidate, item: item);
+  const MediaImportItemOutcome.imported(
+      {required MediaScanCandidate candidate, required MediaLibraryItem item})
+      : this._(
+            kind: MediaImportItemOutcomeKind.imported,
+            candidate: candidate,
+            item: item);
 
-  const MediaImportItemOutcome.skippedDuplicate({required MediaScanCandidate candidate, required MediaLibraryItem item})
-      : this._(kind: MediaImportItemOutcomeKind.skippedDuplicate, candidate: candidate, item: item);
+  const MediaImportItemOutcome.skippedDuplicate(
+      {required MediaScanCandidate candidate, required MediaLibraryItem item})
+      : this._(
+            kind: MediaImportItemOutcomeKind.skippedDuplicate,
+            candidate: candidate,
+            item: item);
 
   MediaImportItemOutcome.failed(MediaImportFailure failure)
-      : this._(kind: MediaImportItemOutcomeKind.failed, candidate: failure.candidate, failure: failure);
+      : this._(
+            kind: MediaImportItemOutcomeKind.failed,
+            candidate: failure.candidate,
+            failure: failure);
 
   final MediaImportItemOutcomeKind kind;
   final MediaScanCandidate candidate;
@@ -261,7 +287,8 @@ final class MediaImportResult {
   List<MediaLibraryItem> get imported {
     final List<MediaLibraryItem> items = <MediaLibraryItem>[];
     for (final MediaImportItemOutcome outcome in outcomes) {
-      if (outcome.kind == MediaImportItemOutcomeKind.imported && outcome.item != null) {
+      if (outcome.kind == MediaImportItemOutcomeKind.imported &&
+          outcome.item != null) {
         items.add(outcome.item!);
       }
     }
@@ -271,7 +298,8 @@ final class MediaImportResult {
   List<MediaLibraryItem> get skippedDuplicates {
     final List<MediaLibraryItem> items = <MediaLibraryItem>[];
     for (final MediaImportItemOutcome outcome in outcomes) {
-      if (outcome.kind == MediaImportItemOutcomeKind.skippedDuplicate && outcome.item != null) {
+      if (outcome.kind == MediaImportItemOutcomeKind.skippedDuplicate &&
+          outcome.item != null) {
         items.add(outcome.item!);
       }
     }
@@ -296,11 +324,14 @@ final class MediaImportResult {
 }
 
 abstract interface class MediaBatchImportContract {
-  Future<MediaImportResult> importBatch(Iterable<MediaScanCandidate> candidates);
+  Future<MediaImportResult> importBatch(
+      Iterable<MediaScanCandidate> candidates);
 }
 
-final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCatalogRepository {
-  DeterministicMediaLibraryCatalogRepository({Iterable<MediaLibraryItem> seedItems = const <MediaLibraryItem>[]}) {
+final class DeterministicMediaLibraryCatalogRepository
+    implements MediaLibraryCatalogRepository {
+  DeterministicMediaLibraryCatalogRepository(
+      {Iterable<MediaLibraryItem> seedItems = const <MediaLibraryItem>[]}) {
     for (final MediaLibraryItem item in seedItems) {
       _itemsById[item.id.value] = item;
     }
@@ -312,10 +343,13 @@ final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCa
   Future<int> count() => Future<int>.value(_itemsById.length);
 
   @override
-  Future<MediaLibraryItem?> findByFingerprint(MediaFileFingerprint fingerprint) {
+  Future<MediaLibraryItem?> findByFingerprint(
+      MediaFileFingerprint fingerprint) {
     for (final MediaLibraryItem item in _itemsById.values) {
       final MediaFileFingerprint? existing = item.identity.fingerprint;
-      if (existing != null && existing.algorithm == fingerprint.algorithm && existing.value == fingerprint.value) {
+      if (existing != null &&
+          existing.algorithm == fingerprint.algorithm &&
+          existing.value == fingerprint.value) {
         return Future<MediaLibraryItem?>.value(item);
       }
     }
@@ -323,7 +357,8 @@ final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCa
   }
 
   @override
-  Future<MediaLibraryItem?> findById(MediaLibraryItemId id) => Future<MediaLibraryItem?>.value(_itemsById[id.value]);
+  Future<MediaLibraryItem?> findById(MediaLibraryItemId id) =>
+      Future<MediaLibraryItem?>.value(_itemsById[id.value]);
 
   @override
   Future<MediaLibraryItem?> findByLocalMediaId(LocalMediaId mediaId) {
@@ -346,18 +381,21 @@ final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCa
   }
 
   @override
-  Future<List<MediaLibraryItem>> list({MediaLibraryQuery query = const MediaLibraryQuery()}) {
+  Future<List<MediaLibraryItem>> list(
+      {MediaLibraryQuery query = const MediaLibraryQuery()}) {
     final List<MediaLibraryItem> items = <MediaLibraryItem>[
       for (final MediaLibraryItem item in _itemsById.values)
         if (!query.onlyUnbound || item.binding == null) item,
     ];
     final int start = query.offset > items.length ? items.length : query.offset;
-    final int end = start + query.limit > items.length ? items.length : start + query.limit;
+    final int end =
+        start + query.limit > items.length ? items.length : start + query.limit;
     return Future<List<MediaLibraryItem>>.value(items.sublist(start, end));
   }
 
   @override
-  Future<bool> remove(MediaLibraryItemId id) => Future<bool>.value(_itemsById.remove(id.value) != null);
+  Future<bool> remove(MediaLibraryItemId id) =>
+      Future<bool>.value(_itemsById.remove(id.value) != null);
 
   @override
   Future<MediaLibraryItem> store(MediaLibraryItem item) {
@@ -372,7 +410,8 @@ final class DeterministicMediaLibraryCatalogRepository implements MediaLibraryCa
   }
 }
 
-final class DeterministicMediaBatchImportContract implements MediaBatchImportContract {
+final class DeterministicMediaBatchImportContract
+    implements MediaBatchImportContract {
   DeterministicMediaBatchImportContract({
     required this.repository,
     DateTime Function()? clock,
@@ -385,21 +424,28 @@ final class DeterministicMediaBatchImportContract implements MediaBatchImportCon
   final String itemIdPrefix;
 
   @override
-  Future<MediaImportResult> importBatch(Iterable<MediaScanCandidate> candidates) async {
+  Future<MediaImportResult> importBatch(
+      Iterable<MediaScanCandidate> candidates) async {
     final List<MediaImportItemOutcome> outcomes = <MediaImportItemOutcome>[];
     var index = 0;
     for (final MediaScanCandidate candidate in candidates) {
-      final MediaLibraryItem? uriMatch = await repository.findByUri(candidate.identity.uri);
+      final MediaLibraryItem? uriMatch =
+          await repository.findByUri(candidate.identity.uri);
       final MediaFileFingerprint? fingerprint = candidate.identity.fingerprint;
-      final MediaLibraryItem? fingerprintMatch = fingerprint == null ? null : await repository.findByFingerprint(fingerprint);
+      final MediaLibraryItem? fingerprintMatch = fingerprint == null
+          ? null
+          : await repository.findByFingerprint(fingerprint);
 
-      if (uriMatch != null && fingerprintMatch != null && uriMatch.id.value != fingerprintMatch.id.value) {
+      if (uriMatch != null &&
+          fingerprintMatch != null &&
+          uriMatch.id.value != fingerprintMatch.id.value) {
         outcomes.add(
           MediaImportItemOutcome.failed(
             MediaImportFailure(
               kind: MediaImportFailureKind.duplicateConflict,
               candidate: candidate,
-              message: 'Candidate URI and fingerprint match different catalog items.',
+              message:
+                  'Candidate URI and fingerprint match different catalog items.',
             ),
           ),
         );
@@ -409,24 +455,27 @@ final class DeterministicMediaBatchImportContract implements MediaBatchImportCon
 
       final MediaLibraryItem? duplicate = uriMatch ?? fingerprintMatch;
       if (duplicate != null) {
-        outcomes.add(MediaImportItemOutcome.skippedDuplicate(candidate: candidate, item: duplicate));
+        outcomes.add(MediaImportItemOutcome.skippedDuplicate(
+            candidate: candidate, item: duplicate));
         index += 1;
         continue;
       }
 
       final MediaLibraryItem item = MediaLibraryItem(
-        id: MediaLibraryItemId('$itemIdPrefix-${candidate.identity.id.value}-$index'),
+        id: MediaLibraryItemId(
+            '$itemIdPrefix-${candidate.identity.id.value}-$index'),
         identity: candidate.identity,
         addedAt: _clock(),
         duration: candidate.duration,
       );
-      outcomes.add(MediaImportItemOutcome.imported(candidate: candidate, item: await repository.store(item)));
+      outcomes.add(MediaImportItemOutcome.imported(
+          candidate: candidate, item: await repository.store(item)));
       index += 1;
     }
     return MediaImportResult(outcomes: outcomes);
   }
 
-  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+  static DateTime _defaultClock() => deterministicContractEpoch;
 }
 
 abstract interface class MediaLibraryScanner {
@@ -449,7 +498,8 @@ final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
   final MediaScanId _scanId;
   final List<MediaScanCandidate> _candidates;
   final List<MediaScanFailure> _unreadableEntries;
-  final Map<String, List<MediaScanEvent>> _eventsByScanId = <String, List<MediaScanEvent>>{};
+  final Map<String, List<MediaScanEvent>> _eventsByScanId =
+      <String, List<MediaScanEvent>>{};
   final Set<String> _cancelledScanIds = <String>{};
 
   @override
@@ -460,15 +510,22 @@ final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
         uri: _firstRootOrEmpty(scope),
         message: 'Media scan was cancelled.',
       );
-      final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: const <MediaScanCandidate>[], failures: <MediaScanFailure>[failure]);
+      final MediaScanResult result = MediaScanResult(
+          scanId: _scanId,
+          candidates: const <MediaScanCandidate>[],
+          failures: <MediaScanFailure>[failure]);
       _recordCancelled(_scanId, failure);
       return Future<MediaScanResult>.value(result);
     }
 
-    final MediaScanScopeNormalizationResult normalization = normalizeMediaScanScope(scope);
+    final MediaScanScopeNormalizationResult normalization =
+        normalizeMediaScanScope(scope);
     final NormalizedMediaScanScope? normalizedScope = normalization.scope;
     if (normalizedScope == null) {
-      final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: const <MediaScanCandidate>[], failures: normalization.failures);
+      final MediaScanResult result = MediaScanResult(
+          scanId: _scanId,
+          candidates: const <MediaScanCandidate>[],
+          failures: normalization.failures);
       for (final MediaScanFailure failure in normalization.failures) {
         _record(_scanId, MediaScanFailed(scanId: _scanId, failure: failure));
       }
@@ -476,16 +533,27 @@ final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
     }
 
     final List<MediaScanCandidate> accepted = <MediaScanCandidate>[];
-    final List<MediaScanFailure> failures = <MediaScanFailure>[..._unreadableEntries];
+    final List<MediaScanFailure> failures = <MediaScanFailure>[
+      ..._unreadableEntries
+    ];
     for (final MediaScanCandidate candidate in _candidates) {
-      if (normalizedScope.accepts(candidate.identity.uri, basename: candidate.identity.basename)) {
+      if (normalizedScope.accepts(candidate.identity.uri,
+          basename: candidate.identity.basename)) {
         accepted.add(candidate);
-        _record(_scanId, MediaScanCandidateDiscovered(scanId: _scanId, candidate: candidate));
-        _record(_scanId, MediaScanProgressChanged(scanId: _scanId, scannedCount: accepted.length));
+        _record(
+            _scanId,
+            MediaScanCandidateDiscovered(
+                scanId: _scanId, candidate: candidate));
+        _record(
+            _scanId,
+            MediaScanProgressChanged(
+                scanId: _scanId, scannedCount: accepted.length));
       } else {
         failures.add(
           MediaScanFailure(
-            kind: candidate.identity.uri.isScheme('file') ? MediaScanFailureKind.excluded : MediaScanFailureKind.unsupportedScheme,
+            kind: candidate.identity.uri.isScheme('file')
+                ? MediaScanFailureKind.excluded
+                : MediaScanFailureKind.unsupportedScheme,
             uri: candidate.identity.uri,
             message: 'Media scan candidate is outside the normalized scope.',
           ),
@@ -493,14 +561,16 @@ final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
       }
     }
 
-    final MediaScanResult result = MediaScanResult(scanId: _scanId, candidates: accepted, failures: failures);
+    final MediaScanResult result = MediaScanResult(
+        scanId: _scanId, candidates: accepted, failures: failures);
     _record(_scanId, MediaScanCompleted(scanId: _scanId, result: result));
     return Future<MediaScanResult>.value(result);
   }
 
   @override
   Stream<MediaScanEvent> watch(MediaScanId scanId) {
-    return Stream<MediaScanEvent>.fromIterable(_eventsByScanId[scanId.value] ?? const <MediaScanEvent>[]);
+    return Stream<MediaScanEvent>.fromIterable(
+        _eventsByScanId[scanId.value] ?? const <MediaScanEvent>[]);
   }
 
   @override
@@ -517,14 +587,17 @@ final class DeterministicMediaLibraryScanner implements MediaLibraryScanner {
   }
 
   void _recordCancelled(MediaScanId scanId, MediaScanFailure failure) {
-    final List<MediaScanEvent> events = _eventsByScanId.putIfAbsent(scanId.value, () => <MediaScanEvent>[]);
+    final List<MediaScanEvent> events =
+        _eventsByScanId.putIfAbsent(scanId.value, () => <MediaScanEvent>[]);
     if (events.whereType<MediaScanCancelled>().isEmpty) {
       events.add(MediaScanCancelled(scanId: scanId, failure: failure));
     }
   }
 
   void _record(MediaScanId scanId, MediaScanEvent event) {
-    _eventsByScanId.putIfAbsent(scanId.value, () => <MediaScanEvent>[]).add(event);
+    _eventsByScanId
+        .putIfAbsent(scanId.value, () => <MediaScanEvent>[])
+        .add(event);
   }
 }
 
@@ -549,7 +622,8 @@ enum MediaScanFailureKind {
 }
 
 final class MediaScanFailure {
-  const MediaScanFailure({required this.kind, required this.uri, required this.message});
+  const MediaScanFailure(
+      {required this.kind, required this.uri, required this.message});
 
   final MediaScanFailureKind kind;
   final Uri uri;
@@ -563,13 +637,15 @@ sealed class MediaScanEvent {
 }
 
 final class MediaScanCandidateDiscovered extends MediaScanEvent {
-  const MediaScanCandidateDiscovered({required super.scanId, required this.candidate});
+  const MediaScanCandidateDiscovered(
+      {required super.scanId, required this.candidate});
 
   final MediaScanCandidate candidate;
 }
 
 final class MediaScanProgressChanged extends MediaScanEvent {
-  const MediaScanProgressChanged({required super.scanId, required this.scannedCount});
+  const MediaScanProgressChanged(
+      {required super.scanId, required this.scannedCount});
 
   final int scannedCount;
 }
@@ -595,7 +671,8 @@ final class MediaScanCancelled extends MediaScanEvent {
 Set<String> _normalizeExtensions(Set<String> extensions) {
   return <String>{
     for (final String extension in extensions)
-      if (extension.trim().isNotEmpty) extension.trim().toLowerCase().replaceFirst(RegExp(r'^\.+'), ''),
+      if (extension.trim().isNotEmpty)
+        extension.trim().toLowerCase().replaceFirst(RegExp(r'^\.+'), ''),
   };
 }
 
@@ -629,7 +706,8 @@ Uri _firstRootOrEmpty(MediaScanScope scope) {
 }
 
 final class PlaybackHistoryEntryId {
-  const PlaybackHistoryEntryId(this.value) : assert(value != '', 'Playback history entry id must not be empty.');
+  const PlaybackHistoryEntryId(this.value)
+      : assert(value != '', 'Playback history entry id must not be empty.');
 
   final String value;
 }
@@ -679,7 +757,8 @@ abstract interface class PlaybackHistoryStore {
 
   Future<PlaybackHistoryEntry?> latestFor(LocalMediaId mediaId);
 
-  Future<List<ContinueWatchingState>> continueWatching({int limit = 20});
+  Future<List<ContinueWatchingState>> continueWatching(
+      {int limit = defaultRecentListLimit});
 }
 
 enum ProviderBindingAuthority {
@@ -688,13 +767,15 @@ enum ProviderBindingAuthority {
 }
 
 final class ProviderBindingId {
-  const ProviderBindingId(this.value) : assert(value != '', 'Provider binding id must not be empty.');
+  const ProviderBindingId(this.value)
+      : assert(value != '', 'Provider binding id must not be empty.');
 
   final String value;
 }
 
 final class ProviderSubjectId {
-  const ProviderSubjectId(this.value) : assert(value != '', 'Provider subject id must not be empty.');
+  const ProviderSubjectId(this.value)
+      : assert(value != '', 'Provider subject id must not be empty.');
 
   final String value;
 }
@@ -708,7 +789,8 @@ final class ProviderBinding {
     required this.authority,
     required this.confidence,
     required this.createdAt,
-  }) : assert(confidence >= 0 && confidence <= 1, 'confidence must be between 0 and 1.');
+  }) : assert(confidence >= 0 && confidence <= 1,
+            'confidence must be between 0 and 1.');
 
   final ProviderBindingId id;
   final LocalMediaId localMediaId;
@@ -729,7 +811,8 @@ final class ProviderBinding {
 abstract interface class ProviderBindingStore {
   Future<ProviderBinding?> bindingFor(LocalMediaId mediaId);
 
-  Future<ProviderBinding?> bindingForProvider({required LocalMediaId mediaId, required String providerId});
+  Future<ProviderBinding?> bindingForProvider(
+      {required LocalMediaId mediaId, required String providerId});
 
   Future<List<ProviderBinding>> bindingsFor(LocalMediaId mediaId);
 
@@ -739,10 +822,12 @@ abstract interface class ProviderBindingStore {
 }
 
 final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore {
-  final Map<String, List<PlaybackHistoryEntry>> _entriesByMediaId = <String, List<PlaybackHistoryEntry>>{};
+  final Map<String, List<PlaybackHistoryEntry>> _entriesByMediaId =
+      <String, List<PlaybackHistoryEntry>>{};
 
   @override
-  Future<List<ContinueWatchingState>> continueWatching({int limit = 20}) {
+  Future<List<ContinueWatchingState>> continueWatching(
+      {int limit = defaultRecentListLimit}) {
     assert(limit > 0, 'limit must be positive.');
     final List<PlaybackHistoryEntry> latestEntries = <PlaybackHistoryEntry>[];
     for (final String mediaId in _entriesByMediaId.keys) {
@@ -751,7 +836,9 @@ final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore {
         latestEntries.add(entry);
       }
     }
-    latestEntries.sort((PlaybackHistoryEntry left, PlaybackHistoryEntry right) => right.updatedAt.compareTo(left.updatedAt));
+    latestEntries.sort(
+        (PlaybackHistoryEntry left, PlaybackHistoryEntry right) =>
+            right.updatedAt.compareTo(left.updatedAt));
     final int end = latestEntries.length > limit ? limit : latestEntries.length;
     return Future<List<ContinueWatchingState>>.value(
       <ContinueWatchingState>[
@@ -767,11 +854,14 @@ final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore {
   }
 
   @override
-  Future<PlaybackHistoryEntry?> latestFor(LocalMediaId mediaId) => Future<PlaybackHistoryEntry?>.value(_latestEntryFor(mediaId.value));
+  Future<PlaybackHistoryEntry?> latestFor(LocalMediaId mediaId) =>
+      Future<PlaybackHistoryEntry?>.value(_latestEntryFor(mediaId.value));
 
   @override
   Future<void> record(PlaybackHistoryEntry entry) {
-    _entriesByMediaId.putIfAbsent(entry.mediaId.value, () => <PlaybackHistoryEntry>[]).add(entry);
+    _entriesByMediaId
+        .putIfAbsent(entry.mediaId.value, () => <PlaybackHistoryEntry>[])
+        .add(entry);
     return Future<void>.value();
   }
 
@@ -791,7 +881,8 @@ final class DeterministicPlaybackHistoryStore implements PlaybackHistoryStore {
 }
 
 final class DeterministicProviderBindingStore implements ProviderBindingStore {
-  final Map<String, ProviderBinding> _bindingsByLocalAndProvider = <String, ProviderBinding>{};
+  final Map<String, ProviderBinding> _bindingsByLocalAndProvider =
+      <String, ProviderBinding>{};
 
   @override
   Future<ProviderBinding?> bindingFor(LocalMediaId mediaId) {
@@ -805,12 +896,15 @@ final class DeterministicProviderBindingStore implements ProviderBindingStore {
   }
 
   @override
-  Future<ProviderBinding?> bindingForProvider({required LocalMediaId mediaId, required String providerId}) {
-    return Future<ProviderBinding?>.value(_bindingsByLocalAndProvider[_key(mediaId, providerId)]);
+  Future<ProviderBinding?> bindingForProvider(
+      {required LocalMediaId mediaId, required String providerId}) {
+    return Future<ProviderBinding?>.value(
+        _bindingsByLocalAndProvider[_key(mediaId, providerId)]);
   }
 
   @override
-  Future<List<ProviderBinding>> bindingsFor(LocalMediaId mediaId) => Future<List<ProviderBinding>>.value(_bindingsForMedia(mediaId));
+  Future<List<ProviderBinding>> bindingsFor(LocalMediaId mediaId) =>
+      Future<List<ProviderBinding>>.value(_bindingsForMedia(mediaId));
 
   @override
   Future<ProviderBinding> saveAutomaticIfAllowed(ProviderBinding candidate) {
@@ -825,7 +919,8 @@ final class DeterministicProviderBindingStore implements ProviderBindingStore {
 
   @override
   Future<ProviderBinding> saveUserConfirmed(ProviderBinding binding) {
-    _bindingsByLocalAndProvider[_key(binding.localMediaId, binding.providerId)] = binding;
+    _bindingsByLocalAndProvider[
+        _key(binding.localMediaId, binding.providerId)] = binding;
     return Future<ProviderBinding>.value(binding);
   }
 
@@ -836,5 +931,6 @@ final class DeterministicProviderBindingStore implements ProviderBindingStore {
     ];
   }
 
-  static String _key(LocalMediaId mediaId, String providerId) => '${mediaId.value}::$providerId';
+  static String _key(LocalMediaId mediaId, String providerId) =>
+      '${mediaId.value}::$providerId';
 }

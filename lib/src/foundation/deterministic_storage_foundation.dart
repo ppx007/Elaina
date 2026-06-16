@@ -1,4 +1,5 @@
-﻿import 'storage/storage_contracts.dart';
+import 'baseline_defaults.dart';
+import 'storage/storage_contracts.dart';
 
 // ---------------------------------------------------------------------------
 // Missing deterministic store implementations (Task 2.2)
@@ -135,7 +136,7 @@ final class DeterministicMediaLibraryStore implements MediaLibraryStore {
 
   @override
   Future<List<StoredMediaLibraryItemRecord>> list(
-      {int offset = 0, int limit = 50}) async {
+      {int offset = 0, int limit = defaultListPageLimit}) async {
     final List<StoredMediaLibraryItemRecord> all = _itemsById.values.toList();
     return all.skip(offset).take(limit).toList();
   }
@@ -169,17 +170,15 @@ final class DeterministicPlaybackHistoryRepository
   }
 
   @override
-  Future<StoredPlaybackHistoryRecord?> latestFor(
-      String localMediaId) async {
+  Future<StoredPlaybackHistoryRecord?> latestFor(String localMediaId) async {
     return _latestByMediaId[localMediaId];
   }
 
   @override
   Future<List<StoredPlaybackHistoryRecord>> continueWatching(
-      {int limit = 20}) async {
+      {int limit = defaultRecentListLimit}) async {
     final List<StoredPlaybackHistoryRecord> sorted = _allRecords.toList()
-      ..sort((StoredPlaybackHistoryRecord a,
-              StoredPlaybackHistoryRecord b) =>
+      ..sort((StoredPlaybackHistoryRecord a, StoredPlaybackHistoryRecord b) =>
           b.updatedAt.compareTo(a.updatedAt));
     return sorted.take(limit).toList();
   }
@@ -192,8 +191,7 @@ final class DeterministicProviderBindingRepository
       <String, List<StoredProviderBindingRecord>>{};
 
   @override
-  Future<StoredProviderBindingRecord?> bindingFor(
-      String localMediaId) async {
+  Future<StoredProviderBindingRecord?> bindingFor(String localMediaId) async {
     final List<StoredProviderBindingRecord>? bindings =
         _bindingsByMediaId[localMediaId];
     if (bindings == null || bindings.isEmpty) return null;
@@ -224,8 +222,8 @@ final class DeterministicProviderBindingRepository
   Future<StoredProviderBindingRecord> saveUserConfirmed(
       StoredProviderBindingRecord binding) async {
     _bindingsByMediaId
-        .putIfAbsent(binding.localMediaId,
-            () => <StoredProviderBindingRecord>[])
+        .putIfAbsent(
+            binding.localMediaId, () => <StoredProviderBindingRecord>[])
         .add(binding);
     return binding;
   }
@@ -295,19 +293,21 @@ final class DeterministicStorageFoundation implements StorageFoundation {
             rssAutoDownloadPolicy ?? DeterministicRssAutoDownloadPolicyStore(),
         _onlineRuleRuntime =
             onlineRuleRuntime ?? DeterministicOnlineRuleRuntimeStore(),
-        _webViewSessionBackfill =
-            webViewSessionBackfill ?? DeterministicWebViewSessionBackfillStore(),
+        _webViewSessionBackfill = webViewSessionBackfill ??
+            DeterministicWebViewSessionBackfillStore(),
         _networkPolicy = networkPolicy ?? DeterministicNetworkPolicyStore(),
         _diagnostics = diagnostics ?? DeterministicDiagnosticsStore(),
-        _seasonalCatalog = seasonalCatalog ?? DeterministicSeasonalCatalogStore(),
+        _seasonalCatalog =
+            seasonalCatalog ?? DeterministicSeasonalCatalogStore(),
         _bangumiMatchQueue =
             bangumiMatchQueue ?? DeterministicBangumiMatchQueueStore(),
         _btTask = btTask ?? DeterministicBtTaskStore(),
         _virtualMediaStream =
             virtualMediaStream ?? DeterministicVirtualMediaStreamStore(),
-        _piecePriorityScheduler =
-            piecePriorityScheduler ?? DeterministicPiecePrioritySchedulerStore(),
-        _timelineOverlay = timelineOverlay ?? DeterministicTimelineOverlayStore(),
+        _piecePriorityScheduler = piecePriorityScheduler ??
+            DeterministicPiecePrioritySchedulerStore(),
+        _timelineOverlay =
+            timelineOverlay ?? DeterministicTimelineOverlayStore(),
         _videoEnhancement =
             videoEnhancement ?? DeterministicEnhancementProfileStore(),
         _avSyncGuard = avSyncGuard ?? DeterministicAVSyncGuardStore(),
@@ -416,5 +416,3 @@ final class DeterministicStorageFoundation implements StorageFoundation {
   @override
   FallbackAdapterStore get fallbackAdapter => _fallbackAdapter;
 }
-
-

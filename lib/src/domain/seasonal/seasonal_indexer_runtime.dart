@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../foundation/baseline_defaults.dart';
 import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/bangumi/bangumi_provider.dart';
@@ -384,12 +385,14 @@ final class SeasonalIndexerRuntime {
   SeasonalIndexerActionResult<SeasonalCatalogUpdateObservation>
       observeCatalogUpdates() {
     if (_disposed) return _disposedResult();
-    return SeasonalIndexerActionResult<SeasonalCatalogUpdateObservation>
-        .success(SeasonalCatalogUpdateObservation(updates: catalogUpdates));
+    return SeasonalIndexerActionResult<
+            SeasonalCatalogUpdateObservation>.success(
+        SeasonalCatalogUpdateObservation(updates: catalogUpdates));
   }
 
   Future<SeasonalIndexerActionResult<SeasonalCatalogProjection>>
-      listCatalogEntries({int offset = 0, int limit = 50}) async {
+      listCatalogEntries(
+          {int offset = 0, int limit = defaultListPageLimit}) async {
     if (_disposed) return _disposedResult();
     _publish(status: SeasonalIndexerRuntimeStatus.projecting);
     try {
@@ -543,7 +546,7 @@ final class SeasonalIndexerRuntime {
 
   Future<List<SeasonalCatalogEntry>> _catalogEntries({
     int offset = 0,
-    int limit = 50,
+    int limit = defaultListPageLimit,
   }) async {
     return <SeasonalCatalogEntry>[
       for (final StoredSeasonalCatalogEntryRecord record
@@ -635,7 +638,7 @@ final class SeasonalIndexerBootstrap {
     BangumiProvider? bangumiProvider,
     CacheInvalidationBus? cacheInvalidationBus,
     DateTime Function()? clock,
-    double minimumConfidence = 0.8,
+    double minimumConfidence = defaultAutomaticBangumiMatchMinimumConfidence,
   }) : runtime = SeasonalIndexerRuntime(
           rssEngine: rssEngine,
           consumers: consumers,
@@ -665,7 +668,7 @@ final class SeasonalIndexerBootstrap {
     BangumiProvider? bangumiProvider,
     CacheInvalidationBus? cacheInvalidationBus,
     DateTime Function()? clock,
-    double minimumConfidence = 0.8,
+    double minimumConfidence = defaultAutomaticBangumiMatchMinimumConfidence,
   }) : runtime = SeasonalIndexerRuntime.fromRssRuntime(
           rssRuntime: rssRuntime,
           consumers: consumers,
@@ -714,7 +717,7 @@ final class SeasonalIndexerBootstrap {
   }
 
   Future<SeasonalIndexerActionResult<SeasonalCatalogProjection>>
-      listCatalogEntries({int offset = 0, int limit = 50}) {
+      listCatalogEntries({int offset = 0, int limit = defaultListPageLimit}) {
     return runtime.listCatalogEntries(offset: offset, limit: limit);
   }
 
@@ -744,9 +747,12 @@ SeasonalIndexerRuntimeFailureKind _failureKindFromRssResult(
       SeasonalIndexerRuntimeFailureKind.disposed,
     RssEngineActionResultKind.unavailable =>
       SeasonalIndexerRuntimeFailureKind.unavailable,
-    RssEngineActionResultKind.ignored => SeasonalIndexerRuntimeFailureKind.ignored,
-    RssEngineActionResultKind.failed => SeasonalIndexerRuntimeFailureKind.rssFailure,
-    RssEngineActionResultKind.success => SeasonalIndexerRuntimeFailureKind.rssFailure,
+    RssEngineActionResultKind.ignored =>
+      SeasonalIndexerRuntimeFailureKind.ignored,
+    RssEngineActionResultKind.failed =>
+      SeasonalIndexerRuntimeFailureKind.rssFailure,
+    RssEngineActionResultKind.success =>
+      SeasonalIndexerRuntimeFailureKind.rssFailure,
   };
 }
 

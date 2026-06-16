@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../foundation/baseline_defaults.dart';
 import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
@@ -55,8 +56,7 @@ final class BtTaskCoreRuntimeActionResult<T> {
   const BtTaskCoreRuntimeActionResult.success([T? value])
       : this._(kind: BtTaskCoreRuntimeActionResultKind.success, value: value);
 
-  const BtTaskCoreRuntimeActionResult.ignored(
-      BtTaskCoreRuntimeFailure failure)
+  const BtTaskCoreRuntimeActionResult.ignored(BtTaskCoreRuntimeFailure failure)
       : this._(
           kind: BtTaskCoreRuntimeActionResultKind.ignored,
           failure: failure,
@@ -75,8 +75,7 @@ final class BtTaskCoreRuntimeActionResult<T> {
           failure: failure,
         );
 
-  const BtTaskCoreRuntimeActionResult.disposed(
-      BtTaskCoreRuntimeFailure failure)
+  const BtTaskCoreRuntimeActionResult.disposed(BtTaskCoreRuntimeFailure failure)
       : this._(
           kind: BtTaskCoreRuntimeActionResultKind.disposed,
           failure: failure,
@@ -333,7 +332,8 @@ final class BtTaskCoreRuntime {
     try {
       final BtTaskCreateOutcome outcome = await _core.createTask(request);
       if (!outcome.isSuccess) return _failureFromBtFailure(outcome.failure!);
-      final BtTaskProjection? projection = await _taskProjection(outcome.taskId!);
+      final BtTaskProjection? projection =
+          await _taskProjection(outcome.taskId!);
       await _refreshSnapshot(status: BtTaskCoreRuntimeStatus.ready);
       return BtTaskCoreRuntimeActionResult<BtTaskProjection>.success(
         projection,
@@ -411,7 +411,7 @@ final class BtTaskCoreRuntime {
 
   Future<BtTaskCoreRuntimeActionResult<List<BtTaskProjection>>> listTasks({
     int offset = 0,
-    int limit = 50,
+    int limit = defaultListPageLimit,
   }) async {
     if (_disposed) return _disposedResult();
     _publish(status: BtTaskCoreRuntimeStatus.projecting);
@@ -465,8 +465,9 @@ final class BtTaskCoreRuntime {
         for (final BtTaskProjection task in tasks) task.restart!,
       ];
       _publish(status: BtTaskCoreRuntimeStatus.ready, tasks: tasks);
-      return BtTaskCoreRuntimeActionResult<List<BtTaskRestartProjection>>
-          .success(List<BtTaskRestartProjection>.unmodifiable(reconciliation));
+      return BtTaskCoreRuntimeActionResult<
+              List<BtTaskRestartProjection>>.success(
+          List<BtTaskRestartProjection>.unmodifiable(reconciliation));
     } on Object catch (error) {
       return _failedResult(
         BtTaskCoreRuntimeFailureKind.storageFailure,
@@ -483,13 +484,13 @@ final class BtTaskCoreRuntime {
         BtTaskRuntimeObservation<BtTaskStatus>>.success(
       BtTaskRuntimeObservation<BtTaskStatus>(
         values: _core.watchStatus(taskId).transform(
-              StreamTransformer<BtTaskStatus, BtTaskStatus>.fromHandlers(
-                handleData: (BtTaskStatus status, EventSink<BtTaskStatus> sink) {
-                  _refreshSnapshot(status: BtTaskCoreRuntimeStatus.ready);
-                  sink.add(status);
-                },
-              ),
-            ),
+          StreamTransformer<BtTaskStatus, BtTaskStatus>.fromHandlers(
+            handleData: (BtTaskStatus status, EventSink<BtTaskStatus> sink) {
+              _refreshSnapshot(status: BtTaskCoreRuntimeStatus.ready);
+              sink.add(status);
+            },
+          ),
+        ),
       ),
     );
   }
@@ -502,13 +503,13 @@ final class BtTaskCoreRuntime {
         BtTaskRuntimeObservation<BtTaskEvent>>.success(
       BtTaskRuntimeObservation<BtTaskEvent>(
         values: _core.watchEvents(taskId).transform(
-              StreamTransformer<BtTaskEvent, BtTaskEvent>.fromHandlers(
-                handleData: (BtTaskEvent event, EventSink<BtTaskEvent> sink) {
-                  _refreshSnapshot(status: BtTaskCoreRuntimeStatus.ready);
-                  sink.add(event);
-                },
-              ),
-            ),
+          StreamTransformer<BtTaskEvent, BtTaskEvent>.fromHandlers(
+            handleData: (BtTaskEvent event, EventSink<BtTaskEvent> sink) {
+              _refreshSnapshot(status: BtTaskCoreRuntimeStatus.ready);
+              sink.add(event);
+            },
+          ),
+        ),
       ),
     );
   }
@@ -553,13 +554,14 @@ final class BtTaskCoreRuntime {
     }
   }
 
-  Future<void> _refreshSnapshot({required BtTaskCoreRuntimeStatus status}) async {
+  Future<void> _refreshSnapshot(
+      {required BtTaskCoreRuntimeStatus status}) async {
     _publish(status: status, tasks: await _taskProjections());
   }
 
   Future<List<BtTaskProjection>> _taskProjections({
     int offset = 0,
-    int limit = 50,
+    int limit = defaultListPageLimit,
   }) async {
     return <BtTaskProjection>[
       for (final StoredBtTaskRecord record
@@ -727,7 +729,8 @@ BtTaskEventProjection _eventProjection(StoredBtTaskEventRecord event) {
     taskId: BtTaskId(event.taskId),
     eventKind: event.eventKind,
     occurredAt: event.occurredAt,
-    pieceIndex: event.pieceIndex == null ? null : BtPieceIndex(event.pieceIndex!),
+    pieceIndex:
+        event.pieceIndex == null ? null : BtPieceIndex(event.pieceIndex!),
     message: event.message,
   );
 }
@@ -738,24 +741,26 @@ BtTaskRestartProjection _restartProjection(
 ) {
   final BtRuntimeRestartDisposition disposition = switch (task.lifecycleState) {
     StoredBtTaskLifecycleState.queued ||
-    StoredBtTaskLifecycleState.fetchingMetadata => metadata == null
-        ? BtRuntimeRestartDisposition.incomplete
-        : BtRuntimeRestartDisposition.resumable,
+    StoredBtTaskLifecycleState.fetchingMetadata =>
+      metadata == null
+          ? BtRuntimeRestartDisposition.incomplete
+          : BtRuntimeRestartDisposition.resumable,
     StoredBtTaskLifecycleState.ready ||
     StoredBtTaskLifecycleState.downloading =>
       BtRuntimeRestartDisposition.resumable,
     StoredBtTaskLifecycleState.paused => BtRuntimeRestartDisposition.paused,
-    StoredBtTaskLifecycleState.completed => BtRuntimeRestartDisposition.terminal,
+    StoredBtTaskLifecycleState.completed =>
+      BtRuntimeRestartDisposition.terminal,
     StoredBtTaskLifecycleState.failed => BtRuntimeRestartDisposition.failed,
     StoredBtTaskLifecycleState.removed => BtRuntimeRestartDisposition.removed,
   };
   return BtTaskRestartProjection(
     taskId: BtTaskId(task.id),
     disposition: disposition,
-    requiresAdapterReconciliation: disposition ==
-            BtRuntimeRestartDisposition.resumable ||
-        disposition == BtRuntimeRestartDisposition.paused ||
-        disposition == BtRuntimeRestartDisposition.incomplete,
+    requiresAdapterReconciliation:
+        disposition == BtRuntimeRestartDisposition.resumable ||
+            disposition == BtRuntimeRestartDisposition.paused ||
+            disposition == BtRuntimeRestartDisposition.incomplete,
     reason: disposition == BtRuntimeRestartDisposition.incomplete
         ? 'Task metadata is not available after restart.'
         : null,

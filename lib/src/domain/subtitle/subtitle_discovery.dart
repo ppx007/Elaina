@@ -1,3 +1,4 @@
+import '../../foundation/baseline_defaults.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../playback/subtitle/subtitle_parser.dart';
 import '../../playback/subtitle/subtitle_scanner.dart';
@@ -226,7 +227,7 @@ final class DeterministicSubtitleDiscoveryContract
     }
   }
 
-  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+  static DateTime _defaultClock() => deterministicContractEpoch;
 }
 
 String subtitleSearchQueryKey(SubtitleSearchQuery query) {

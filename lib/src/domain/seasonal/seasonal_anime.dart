@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../foundation/baseline_defaults.dart';
 import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/bangumi/bangumi_provider.dart';
@@ -7,6 +8,10 @@ import '../../provider/provider_result.dart';
 import '../../provider/rss/feed_contracts.dart';
 import '../media/media_library.dart';
 import '../rss/rss_engine.dart';
+
+const double defaultAutomaticBangumiMatchMinimumConfidence = 0.8;
+const double exactBangumiTitleMatchConfidence = 1.0;
+const double partialBangumiTitleMatchConfidence = 0.6;
 
 enum AnimeSeasonKind {
   winter,
@@ -332,7 +337,7 @@ final class DeterministicSeasonalIndexer implements SeasonalIndexerContract {
     );
   }
 
-  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+  static DateTime _defaultClock() => deterministicContractEpoch;
 }
 
 abstract interface class BangumiMatchWorkerContract {
@@ -385,7 +390,7 @@ final class DeterministicBangumiMatchQueue implements BangumiMatchQueue {
     required this.store,
     required this.bindingStore,
     DateTime Function()? clock,
-    this.minimumConfidence = 0.8,
+    this.minimumConfidence = defaultAutomaticBangumiMatchMinimumConfidence,
   }) : _clock = clock ?? _defaultClock;
 
   final BangumiMatchQueueStore store;
@@ -453,7 +458,7 @@ final class DeterministicBangumiMatchQueue implements BangumiMatchQueue {
     return _queueItemFromRecord(record);
   }
 
-  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+  static DateTime _defaultClock() => deterministicContractEpoch;
 }
 
 final class DeterministicBangumiMatchWorker
@@ -464,7 +469,7 @@ final class DeterministicBangumiMatchWorker
     required this.bangumiProvider,
     this.cacheInvalidationBus,
     DateTime Function()? clock,
-    this.minimumConfidence = 0.8,
+    this.minimumConfidence = defaultAutomaticBangumiMatchMinimumConfidence,
   })  : _clock = clock ?? _defaultClock,
         _queue = DeterministicBangumiMatchQueue(
           store: queueStore,
@@ -572,10 +577,12 @@ final class DeterministicBangumiMatchWorker
   }
 
   static double _confidenceFor(String query, String title) {
-    return query.trim().toLowerCase() == title.trim().toLowerCase() ? 1 : 0.6;
+    return query.trim().toLowerCase() == title.trim().toLowerCase()
+        ? exactBangumiTitleMatchConfidence
+        : partialBangumiTitleMatchConfidence;
   }
 
-  static DateTime _defaultClock() => DateTime.utc(2026, 1, 1);
+  static DateTime _defaultClock() => deterministicContractEpoch;
 }
 
 StoredBangumiMatchQueueItemRecord _recordFromQueueItem(

@@ -6,6 +6,10 @@ import 'bt_task_core.dart';
 import 'piece_priority_scheduler.dart';
 import 'virtual_media_stream.dart';
 
+const int balancedProfileLookaheadBytes = 2048;
+const int balancedProfileSeekLookaheadBytes = 1024;
+const int balancedProfileEdgePieceCount = 1;
+
 final class PiecePrioritySchedulerBootstrap {
   PiecePrioritySchedulerBootstrap({
     required this.btTaskStore,
@@ -134,9 +138,9 @@ final class PiecePrioritySchedulerRuntime implements PiecePriorityScheduler {
     playbackWindowPriority: DownloadPriority.high,
     seekTargetPriority: DownloadPriority.critical,
     staleWindowPriority: DownloadPriority.low,
-    lookaheadBytes: 2048,
-    seekLookaheadBytes: 1024,
-    edgePieceCount: 1,
+    lookaheadBytes: balancedProfileLookaheadBytes,
+    seekLookaheadBytes: balancedProfileSeekLookaheadBytes,
+    edgePieceCount: balancedProfileEdgePieceCount,
   );
 
   final BtTaskStore btTaskStore;

@@ -6,6 +6,8 @@ import 'playback_state.dart';
 typedef DomainPlaybackCommandResult = PlaybackCommandResult;
 typedef DomainTrackSwitchResult = TrackSwitchResult;
 
+final DateTime mockPlaybackObservedAt = DateTime.utc(2026, 6, 3, 12, 0);
+
 abstract interface class ActivePlayerAdapterResolver {
   PlayerAdapter get activeAdapter;
 }
@@ -33,23 +35,32 @@ final class PlaybackSurfaceState {
   final Set<PlaybackSurfacePanel> availablePanels;
 }
 
-PlaybackSurfaceState playbackSurfaceStateForCapabilities(PlaybackCapabilityMatrix capabilityMatrix) {
+PlaybackSurfaceState playbackSurfaceStateForCapabilities(
+    PlaybackCapabilityMatrix capabilityMatrix) {
   return PlaybackSurfaceState(
     visibleControls: <PlaybackSurfaceControl>{
-      if (capabilityMatrix.supports(PlaybackCapability.playPause)) PlaybackSurfaceControl.playPause,
-      if (capabilityMatrix.supports(PlaybackCapability.seek)) PlaybackSurfaceControl.seek,
-      if (capabilityMatrix.supports(PlaybackCapability.stop)) PlaybackSurfaceControl.stop,
-      if (capabilityMatrix.supports(PlaybackCapability.progressReporting)) PlaybackSurfaceControl.progress,
-      if (capabilityMatrix.supports(PlaybackCapability.audioTrackSwitching)) PlaybackSurfaceControl.audioTracks,
-      if (capabilityMatrix.supports(PlaybackCapability.subtitleTrackSwitching)) PlaybackSurfaceControl.subtitleTracks,
+      if (capabilityMatrix.supports(PlaybackCapability.playPause))
+        PlaybackSurfaceControl.playPause,
+      if (capabilityMatrix.supports(PlaybackCapability.seek))
+        PlaybackSurfaceControl.seek,
+      if (capabilityMatrix.supports(PlaybackCapability.stop))
+        PlaybackSurfaceControl.stop,
+      if (capabilityMatrix.supports(PlaybackCapability.progressReporting))
+        PlaybackSurfaceControl.progress,
+      if (capabilityMatrix.supports(PlaybackCapability.audioTrackSwitching))
+        PlaybackSurfaceControl.audioTracks,
+      if (capabilityMatrix.supports(PlaybackCapability.subtitleTrackSwitching))
+        PlaybackSurfaceControl.subtitleTracks,
     },
     availablePanels: <PlaybackSurfacePanel>{
-      if (capabilityMatrix.supports(PlaybackCapability.secondaryPanels)) PlaybackSurfacePanel.tracks,
+      if (capabilityMatrix.supports(PlaybackCapability.secondaryPanels))
+        PlaybackSurfacePanel.tracks,
     },
   );
 }
 
-abstract interface class PlaybackControllerContract implements ActivePlaybackCapabilities, PlaybackStateObservable {
+abstract interface class PlaybackControllerContract
+    implements ActivePlaybackCapabilities, PlaybackStateObservable {
   PlaybackSurfaceState resolveSurfaceState();
 
   Future<PlaybackCommandResult> open(PlaybackSource source);
@@ -64,28 +75,35 @@ abstract interface class PlaybackControllerContract implements ActivePlaybackCap
 
   Future<TrackDiscoveryResult> discoverTracks();
 
-  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId, {DomainMediaTrackType? trackType});
+  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
+      {DomainMediaTrackType? trackType});
 }
 
 TrackSwitchResult playbackTrackSwitchSupportResult({
   required PlaybackCapabilityMatrix capabilityMatrix,
   DomainMediaTrackType? trackType,
 }) {
-  final bool canSwitchAudio = capabilityMatrix.supports(PlaybackCapability.audioTrackSwitching);
-  final bool canSwitchSubtitle = capabilityMatrix.supports(PlaybackCapability.subtitleTrackSwitching);
+  final bool canSwitchAudio =
+      capabilityMatrix.supports(PlaybackCapability.audioTrackSwitching);
+  final bool canSwitchSubtitle =
+      capabilityMatrix.supports(PlaybackCapability.subtitleTrackSwitching);
   return switch (trackType) {
     DomainMediaTrackType.audio when !canSwitchAudio =>
-      const TrackSwitchResult.unsupported('Audio track switching is unsupported by the active adapter.'),
+      const TrackSwitchResult.unsupported(
+          'Audio track switching is unsupported by the active adapter.'),
     DomainMediaTrackType.subtitle when !canSwitchSubtitle =>
-      const TrackSwitchResult.unsupported('Subtitle track switching is unsupported by the active adapter.'),
+      const TrackSwitchResult.unsupported(
+          'Subtitle track switching is unsupported by the active adapter.'),
     null when !canSwitchAudio && !canSwitchSubtitle =>
-      const TrackSwitchResult.unsupported('Track switching is unsupported by the active adapter.'),
+      const TrackSwitchResult.unsupported(
+          'Track switching is unsupported by the active adapter.'),
     _ => const TrackSwitchResult.success(),
   };
 }
 
 final class PlaybackController implements PlaybackControllerContract {
-  const PlaybackController({required ActivePlayerAdapterResolver adapterResolver})
+  const PlaybackController(
+      {required ActivePlayerAdapterResolver adapterResolver})
       : _adapterResolver = adapterResolver;
 
   final ActivePlayerAdapterResolver _adapterResolver;
@@ -96,7 +114,8 @@ final class PlaybackController implements PlaybackControllerContract {
   PlaybackCapabilityMatrix get matrix => activeAdapter.capabilities;
 
   @override
-  PlaybackStateSnapshot get currentState => const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle);
+  PlaybackStateSnapshot get currentState =>
+      const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle);
 
   @override
   void addPlaybackStateObserver(PlaybackStateObserver observer) {}
@@ -129,16 +148,19 @@ final class PlaybackController implements PlaybackControllerContract {
   Future<PlaybackCommandResult> pause() => activeAdapter.pause();
 
   @override
-  Future<PlaybackCommandResult> seek(Duration position) => activeAdapter.seek(position);
+  Future<PlaybackCommandResult> seek(Duration position) =>
+      activeAdapter.seek(position);
 
   @override
   Future<PlaybackCommandResult> stop() => activeAdapter.stop();
 
   @override
-  Future<TrackDiscoveryResult> discoverTracks() => activeAdapter.discoverTracks();
+  Future<TrackDiscoveryResult> discoverTracks() =>
+      activeAdapter.discoverTracks();
 
   @override
-  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId, {DomainMediaTrackType? trackType}) {
+  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
+      {DomainMediaTrackType? trackType}) {
     final TrackSwitchResult support = playbackTrackSwitchSupportResult(
       capabilityMatrix: matrix,
       trackType: trackType,
@@ -154,7 +176,8 @@ final class PlaybackController implements PlaybackControllerContract {
 final class MockPlaybackController implements PlaybackControllerContract {
   MockPlaybackController({
     required PlaybackCapabilityMatrix matrix,
-    PlaybackStateSnapshot initialState = const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
+    PlaybackStateSnapshot initialState =
+        const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
   })  : _matrix = matrix,
         _currentState = initialState;
 
@@ -201,20 +224,24 @@ final class MockPlaybackController implements PlaybackControllerContract {
       return Future<PlaybackCommandResult>.value(sourceSupport);
     }
 
-    _setState(_snapshotWith(status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
-    return Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+    _setState(_snapshotWith(
+        status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
+    return Future<PlaybackCommandResult>.value(
+        const PlaybackCommandResult.success());
   }
 
   @override
   Future<PlaybackCommandResult> play() {
     _setState(_snapshotWith(status: PlaybackLifecycleStatus.playing));
-    return Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+    return Future<PlaybackCommandResult>.value(
+        const PlaybackCommandResult.success());
   }
 
   @override
   Future<PlaybackCommandResult> pause() {
     _setState(_snapshotWith(status: PlaybackLifecycleStatus.paused));
-    return Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+    return Future<PlaybackCommandResult>.value(
+        const PlaybackCommandResult.success());
   }
 
   @override
@@ -224,17 +251,19 @@ final class MockPlaybackController implements PlaybackControllerContract {
         timeline: PlaybackTimelineState(
           position: position,
           duration: currentState.timeline.duration,
-          observedAt: DateTime.utc(2026, 6, 3, 12, 0),
+          observedAt: mockPlaybackObservedAt,
         ),
       ),
     );
-    return Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+    return Future<PlaybackCommandResult>.value(
+        const PlaybackCommandResult.success());
   }
 
   @override
   Future<PlaybackCommandResult> stop() {
     _setState(_snapshotWith(status: PlaybackLifecycleStatus.ended));
-    return Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+    return Future<PlaybackCommandResult>.value(
+        const PlaybackCommandResult.success());
   }
 
   @override
@@ -248,7 +277,8 @@ final class MockPlaybackController implements PlaybackControllerContract {
   }
 
   @override
-  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId, {DomainMediaTrackType? trackType}) {
+  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
+      {DomainMediaTrackType? trackType}) {
     final TrackSwitchResult support = playbackTrackSwitchSupportResult(
       capabilityMatrix: matrix,
       trackType: trackType,
@@ -296,7 +326,8 @@ final class MockPlaybackController implements PlaybackControllerContract {
 
   void _setState(PlaybackStateSnapshot snapshot) {
     _currentState = snapshot;
-    for (final PlaybackStateObserver observer in List<PlaybackStateObserver>.of(_observers)) {
+    for (final PlaybackStateObserver observer
+        in List<PlaybackStateObserver>.of(_observers)) {
       observer.onPlaybackState(snapshot);
     }
   }

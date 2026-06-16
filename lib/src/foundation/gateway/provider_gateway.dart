@@ -1,7 +1,13 @@
 import '../storage/storage_contracts.dart';
 
+const ProviderRatePolicy unavailableProviderRatePolicy =
+    ProviderRatePolicy(maxRequests: 1, window: Duration(seconds: 1));
+const ProviderRetryPolicy unavailableProviderRetryPolicy = ProviderRetryPolicy(
+    maxAttempts: 1, initialBackoff: Duration(milliseconds: 1));
+
 final class ProviderId {
-  const ProviderId(this.value) : assert(value != '', 'Provider id must not be empty.');
+  const ProviderId(this.value)
+      : assert(value != '', 'Provider id must not be empty.');
 
   final String value;
 }
@@ -132,5 +138,6 @@ abstract interface class ProviderGateway {
 
   Future<void> registerProvider(ProviderRegistration registration);
 
-  Future<ProviderGatewayResponse<T>> execute<T>(ProviderGatewayRequest<T> request);
+  Future<ProviderGatewayResponse<T>> execute<T>(
+      ProviderGatewayRequest<T> request);
 }

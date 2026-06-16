@@ -1,3 +1,5 @@
+import '../baseline_defaults.dart';
+
 final class StoredSeasonalCatalogEntryRecord {
   const StoredSeasonalCatalogEntryRecord({
     required this.id,
@@ -45,7 +47,7 @@ abstract interface class SeasonalCatalogStore {
       {required int year, required String kind});
 
   Future<List<StoredSeasonalCatalogEntryRecord>> list(
-      {int offset = 0, int limit = 50});
+      {int offset = 0, int limit = defaultListPageLimit});
 
   Future<bool> remove(String id);
 
@@ -97,7 +99,7 @@ final class DeterministicSeasonalCatalogStore implements SeasonalCatalogStore {
 
   @override
   Future<List<StoredSeasonalCatalogEntryRecord>> list(
-      {int offset = 0, int limit = 50}) {
+      {int offset = 0, int limit = defaultListPageLimit}) {
     assert(offset >= 0, 'offset must not be negative.');
     assert(limit > 0, 'limit must be positive.');
     final List<StoredSeasonalCatalogEntryRecord> entries =

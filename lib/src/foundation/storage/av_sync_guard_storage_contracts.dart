@@ -1,3 +1,5 @@
+import '../baseline_defaults.dart';
+
 enum StoredAVSyncHealthKind {
   target,
   warning,
@@ -148,14 +150,14 @@ abstract interface class AVSyncGuardStore {
 
   Future<List<StoredAVSyncSampleHistoryMetadataRecord>> sampleHistory(
       String scopeId,
-      {int limit = 20});
+      {int limit = defaultRecentListLimit});
 
   Future<void> recordDegradationDecision(
       StoredAVSyncDegradationDecisionRecord decision);
 
   Future<List<StoredAVSyncDegradationDecisionRecord>> degradationHistory(
       String scopeId,
-      {int limit = 20});
+      {int limit = defaultRecentListLimit});
 }
 
 final class DeterministicAVSyncGuardStore implements AVSyncGuardStore {
@@ -209,7 +211,7 @@ final class DeterministicAVSyncGuardStore implements AVSyncGuardStore {
   @override
   Future<List<StoredAVSyncDegradationDecisionRecord>> degradationHistory(
       String scopeId,
-      {int limit = 20}) {
+      {int limit = defaultRecentListLimit}) {
     final List<StoredAVSyncDegradationDecisionRecord> decisions =
         <StoredAVSyncDegradationDecisionRecord>[
       ...?_decisionsByScope[scopeId],
@@ -254,7 +256,7 @@ final class DeterministicAVSyncGuardStore implements AVSyncGuardStore {
   @override
   Future<List<StoredAVSyncSampleHistoryMetadataRecord>> sampleHistory(
       String scopeId,
-      {int limit = 20}) {
+      {int limit = defaultRecentListLimit}) {
     final List<StoredAVSyncSampleHistoryMetadataRecord> samples =
         <StoredAVSyncSampleHistoryMetadataRecord>[...?_samplesByScope[scopeId]]
           ..sort((StoredAVSyncSampleHistoryMetadataRecord left,

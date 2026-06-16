@@ -1,3 +1,4 @@
+import '../foundation/baseline_defaults.dart';
 import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
@@ -80,7 +81,8 @@ final class VirtualMediaStreamRuntimeActionResult<T> {
   final T? value;
   final VirtualMediaStreamRuntimeFailure? failure;
 
-  bool get isSuccess => kind == VirtualMediaStreamRuntimeActionResultKind.success;
+  bool get isSuccess =>
+      kind == VirtualMediaStreamRuntimeActionResultKind.success;
 }
 
 final class VirtualBufferedRangeProjection {
@@ -252,15 +254,14 @@ final class VirtualMediaStreamRuntime {
       fileIndex: request.fileIndex,
     );
     if (!outcome.isSuccess) {
-      return _failed<VirtualMediaStreamSnapshot>(
-          _mapFailure(outcome.failure!));
+      return _failed<VirtualMediaStreamSnapshot>(_mapFailure(outcome.failure!));
     }
 
     final VirtualMediaStreamSnapshot snapshot =
         await _snapshotForId(outcome.descriptor!.id.value);
     await _publishSnapshot();
-    return VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
-        .success(snapshot);
+    return VirtualMediaStreamRuntimeActionResult<
+        VirtualMediaStreamSnapshot>.success(snapshot);
   }
 
   Future<VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot?>>
@@ -283,14 +284,17 @@ final class VirtualMediaStreamRuntime {
     final VirtualMediaStreamSnapshot snapshot =
         await _snapshotFromRecord(record);
     await _publishSnapshot();
-    return VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot?>
-        .success(snapshot);
+    return VirtualMediaStreamRuntimeActionResult<
+        VirtualMediaStreamSnapshot?>.success(snapshot);
   }
 
-  Future<VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>>
-      listStreams({int offset = 0, int limit = 50}) async {
-    final VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>?
-        gate = _gate<List<VirtualMediaStreamSnapshot>>();
+  Future<
+      VirtualMediaStreamRuntimeActionResult<
+          List<VirtualMediaStreamSnapshot>>> listStreams(
+      {int offset = 0, int limit = defaultListPageLimit}) async {
+    final VirtualMediaStreamRuntimeActionResult<
+            List<VirtualMediaStreamSnapshot>>? gate =
+        _gate<List<VirtualMediaStreamSnapshot>>();
     if (gate != null) return gate;
 
     final List<StoredVirtualMediaStreamRecord> records =
@@ -302,8 +306,9 @@ final class VirtualMediaStreamRuntime {
       streams: snapshots,
       failures: _snapshot.failures,
     );
-    return VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>
-        .success(List<VirtualMediaStreamSnapshot>.unmodifiable(snapshots));
+    return VirtualMediaStreamRuntimeActionResult<
+            List<VirtualMediaStreamSnapshot>>.success(
+        List<VirtualMediaStreamSnapshot>.unmodifiable(snapshots));
   }
 
   Future<VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>>
@@ -312,8 +317,8 @@ final class VirtualMediaStreamRuntime {
         gate = _gate<VirtualMediaStreamSnapshot>();
     if (gate != null) return gate;
 
-    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStream> streamResult =
-        await _runtimeStream(request.streamId);
+    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStream>
+        streamResult = await _runtimeStream(request.streamId);
     if (!streamResult.isSuccess) {
       return _forwardFailure<VirtualMediaStream, VirtualMediaStreamSnapshot>(
           streamResult);
@@ -328,8 +333,8 @@ final class VirtualMediaStreamRuntime {
     final VirtualMediaStreamSnapshot snapshot =
         await _snapshotForId(request.streamId.value);
     await _publishSnapshot();
-    return VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
-        .success(snapshot);
+    return VirtualMediaStreamRuntimeActionResult<
+        VirtualMediaStreamSnapshot>.success(snapshot);
   }
 
   Future<VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>>
@@ -354,22 +359,24 @@ final class VirtualMediaStreamRuntime {
       return _failed<VirtualMediaStreamSnapshot>(lifecycleFailure);
     }
 
-    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStream> streamResult =
-        await _runtimeStream(streamId);
+    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStream>
+        streamResult = await _runtimeStream(streamId);
     if (!streamResult.isSuccess) {
       return _forwardFailure<VirtualMediaStream, VirtualMediaStreamSnapshot>(
           streamResult);
     }
 
-    final VirtualStreamCommandOutcome outcome = await streamResult.value!.close();
+    final VirtualStreamCommandOutcome outcome =
+        await streamResult.value!.close();
     if (!outcome.isSuccess) {
       return _failed<VirtualMediaStreamSnapshot>(_mapFailure(outcome.failure!));
     }
 
-    final VirtualMediaStreamSnapshot snapshot = await _snapshotForId(streamId.value);
+    final VirtualMediaStreamSnapshot snapshot =
+        await _snapshotForId(streamId.value);
     await _publishSnapshot();
-    return VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
-        .success(snapshot);
+    return VirtualMediaStreamRuntimeActionResult<
+        VirtualMediaStreamSnapshot>.success(snapshot);
   }
 
   Future<VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>>
@@ -418,15 +425,16 @@ final class VirtualMediaStreamRuntime {
       message: message,
     ));
 
-    final VirtualMediaStreamSnapshot snapshot = await _snapshotForId(streamId.value);
+    final VirtualMediaStreamSnapshot snapshot =
+        await _snapshotForId(streamId.value);
     await _publishSnapshot();
-    return VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
-        .success(snapshot);
+    return VirtualMediaStreamRuntimeActionResult<
+        VirtualMediaStreamSnapshot>.success(snapshot);
   }
 
   Future<
-      VirtualMediaStreamRuntimeActionResult<List<VirtualStreamRestartProjection>>>
-      restartReconciliation() async {
+      VirtualMediaStreamRuntimeActionResult<
+          List<VirtualStreamRestartProjection>>> restartReconciliation() async {
     final VirtualMediaStreamRuntimeActionResult<
             List<VirtualStreamRestartProjection>>? gate =
         _gate<List<VirtualStreamRestartProjection>>();
@@ -475,8 +483,8 @@ final class VirtualMediaStreamRuntime {
       return VirtualMediaStreamRuntimeActionResult<T>.unavailable(
         VirtualMediaStreamRuntimeFailure(
           kind: VirtualMediaStreamRuntimeFailureKind.unavailable,
-          message:
-              _unavailableReason ?? 'Virtual media stream runtime is unavailable.',
+          message: _unavailableReason ??
+              'Virtual media stream runtime is unavailable.',
         ),
       );
     }
@@ -597,7 +605,8 @@ final class VirtualMediaStreamRuntime {
       ],
       latestEventKind: latestEvent?.eventKind,
       latestFailure: latestFailure,
-      restart: await _restartProjection(record, latestEventOverride: latestEvent),
+      restart:
+          await _restartProjection(record, latestEventOverride: latestEvent),
     );
   }
 
@@ -605,10 +614,11 @@ final class VirtualMediaStreamRuntime {
     StoredVirtualMediaStreamRecord record, {
     StoredVirtualStreamEventRecord? latestEventOverride,
   }) async {
-    final StoredVirtualStreamEventRecord? latestEvent = latestEventOverride ??
-        await _streamStore.latestEvent(record.id);
+    final StoredVirtualStreamEventRecord? latestEvent =
+        latestEventOverride ?? await _streamStore.latestEvent(record.id);
 
-    if (record.lifecycleState == StoredVirtualMediaStreamLifecycleState.failed) {
+    if (record.lifecycleState ==
+        StoredVirtualMediaStreamLifecycleState.failed) {
       return VirtualStreamRestartProjection(
         streamId: VirtualMediaStreamId(record.id),
         disposition: VirtualStreamRestartDisposition.failed,
@@ -616,7 +626,8 @@ final class VirtualMediaStreamRuntime {
         reason: record.message ?? latestEvent?.message,
       );
     }
-    if (record.lifecycleState == StoredVirtualMediaStreamLifecycleState.closed) {
+    if (record.lifecycleState ==
+        StoredVirtualMediaStreamLifecycleState.closed) {
       return VirtualStreamRestartProjection(
         streamId: VirtualMediaStreamId(record.id),
         disposition: VirtualStreamRestartDisposition.closed,
@@ -624,8 +635,10 @@ final class VirtualMediaStreamRuntime {
       );
     }
 
-    final StoredBtTaskRecord? task = await _btTaskStore.findTaskById(record.taskId);
-    if (task == null || task.lifecycleState == StoredBtTaskLifecycleState.removed) {
+    final StoredBtTaskRecord? task =
+        await _btTaskStore.findTaskById(record.taskId);
+    if (task == null ||
+        task.lifecycleState == StoredBtTaskLifecycleState.removed) {
       return VirtualStreamRestartProjection(
         streamId: VirtualMediaStreamId(record.id),
         disposition: VirtualStreamRestartDisposition.missingTask,
@@ -689,10 +702,12 @@ final class VirtualMediaStreamRuntime {
     StoredVirtualMediaStreamRecord record,
     StoredVirtualStreamEventRecord? latestEvent,
   ) {
-    if (record.lifecycleState == StoredVirtualMediaStreamLifecycleState.failed) {
+    if (record.lifecycleState ==
+        StoredVirtualMediaStreamLifecycleState.failed) {
       return VirtualMediaStreamRuntimeFailure(
         kind: VirtualMediaStreamRuntimeFailureKind.streamFailed,
-        message: record.message ?? latestEvent?.message ?? 'Virtual stream failed.',
+        message:
+            record.message ?? latestEvent?.message ?? 'Virtual stream failed.',
       );
     }
     if (latestEvent?.eventKind == StoredVirtualStreamEventKind.rangeFailed) {
@@ -704,7 +719,8 @@ final class VirtualMediaStreamRuntime {
     return null;
   }
 
-  VirtualMediaStreamRuntimeFailure _mapFailure(VirtualMediaStreamFailure failure) {
+  VirtualMediaStreamRuntimeFailure _mapFailure(
+      VirtualMediaStreamFailure failure) {
     return VirtualMediaStreamRuntimeFailure(
       kind: switch (failure.kind) {
         VirtualMediaStreamFailureKind.taskUnavailable =>
