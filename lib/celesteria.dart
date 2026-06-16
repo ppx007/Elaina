@@ -26,6 +26,7 @@ export 'src/domain/subtitle/subtitle_provider_runtime.dart';
 export 'src/foundation/cache_invalidation/cache_invalidation_bus.dart';
 export 'src/foundation/deterministic_storage_foundation.dart';
 export 'src/foundation/diagnostics/diagnostics_center.dart';
+export 'src/foundation/diagnostics/diagnostics_center_runtime.dart';
 export 'src/foundation/extension_points.dart';
 export 'src/foundation/foundation_bootstrap.dart';
 export 'src/foundation/foundation_runtime.dart';
