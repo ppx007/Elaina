@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../lib/celesteria.dart';
 
 void main() {
@@ -93,19 +95,20 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
   final RssAutoDownloadPolicyRuntime runtime = bootstrap.createRuntime();
 
   // --- Test: initial snapshot ---
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      snapshot = await runtime.snapshot('scope-1');
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> snapshot =
+      await runtime.snapshot('scope-1');
   _expect(snapshot.isSuccess, 'snapshot should succeed');
   _expect(snapshot.value!.activePolicyId?.value == 'policy-1',
       'snapshot should show policy-1');
-  _expect(snapshot.value!.activePolicyEnabled == true,
-      'policy should be enabled');
+  _expect(
+      snapshot.value!.activePolicyEnabled == true, 'policy should be enabled');
   _expect(snapshot.value!.restart.activePolicyId == 'policy-1',
       'restart should replay policy-1');
 
   // --- Test: evaluate ---
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      evalResult =
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> evalResult =
       await runtime.evaluate('scope-1', policy, <FeedItem>[feedItem]);
   _expect(evalResult.isSuccess, 'evaluate should succeed');
   _expect(evalResult.value!.latestEvaluationOutcome != null,
@@ -122,8 +125,8 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
     source: MagnetRssDownloadSource('magnet:?xt=urn:btih:abc123'),
   );
 
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      handoffResult =
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> handoffResult =
       await runtime.handoff('scope-1', candidate);
   _expect(handoffResult.isSuccess, 'handoff should succeed');
   _expect(handoffResult.value!.latestHandoffOutcome != null,
@@ -132,17 +135,17 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
       'handoff outcome should be success');
 
   // --- Test: disable ---
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      disableResult = await runtime.disable(
-          'scope-1', RssAutoDownloadPolicyId('policy-1'));
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> disableResult =
+      await runtime.disable('scope-1', RssAutoDownloadPolicyId('policy-1'));
   _expect(disableResult.isSuccess, 'disable should succeed');
   _expect(disableResult.value!.activePolicyEnabled == false,
       'policy should be disabled after disable');
 
   // --- Test: reenable ---
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      reenableResult = await runtime.reenable(
-          'scope-1', RssAutoDownloadPolicyId('policy-1'));
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> reenableResult =
+      await runtime.reenable('scope-1', RssAutoDownloadPolicyId('policy-1'));
   _expect(reenableResult.isSuccess, 'reenable should succeed');
   _expect(reenableResult.value!.activePolicyEnabled == true,
       'policy should be enabled after reenable');
@@ -161,11 +164,11 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
     clock: _now,
   ).createRuntime();
 
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      unsupportedResult = await unsupportedRuntime.evaluate(
-          'scope-unsupported', policy, <FeedItem>[feedItem]);
-  _expect(!unsupportedResult.isSuccess,
-      'unsupported evaluate should fail');
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> unsupportedResult =
+      await unsupportedRuntime
+          .evaluate('scope-unsupported', policy, <FeedItem>[feedItem]);
+  _expect(!unsupportedResult.isSuccess, 'unsupported evaluate should fail');
   _expect(
       unsupportedResult.failure!.kind ==
           RssAutoDownloadPolicyRuntimeFailureKind.capabilityUnsupported,
@@ -176,8 +179,9 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
       RssAutoDownloadPolicyRuntime.unavailable(
           reason: 'RSS automation unavailable.');
 
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      unavailResult = await unavailable.snapshot('scope-1');
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> unavailResult =
+      await unavailable.snapshot('scope-1');
   _expect(!unavailResult.isSuccess, 'unavailable snapshot should fail');
   _expect(
       unavailResult.failure!.kind ==
@@ -186,15 +190,16 @@ Future<void> verifyRssAutoDownloadPolicyRuntimeContract() async {
 
   // --- Test: disposed ---
   await runtime.dispose();
-  final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-      disposedResult = await runtime.snapshot('scope-1');
+  final RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection> disposedResult =
+      await runtime.snapshot('scope-1');
   _expect(!disposedResult.isSuccess, 'disposed snapshot should fail');
   _expect(
       disposedResult.failure!.kind ==
           RssAutoDownloadPolicyRuntimeFailureKind.disposed,
       'disposed should return disposed');
 
-  print('RSS auto-download policy runtime contract verified.');
+  stdout.writeln('RSS auto-download policy runtime contract verified.');
 }
 
 DateTime _now() => DateTime.utc(2026, 6, 15, 12);

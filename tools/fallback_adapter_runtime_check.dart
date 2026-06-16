@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../lib/celesteria.dart';
 
 void main() {
@@ -65,8 +67,7 @@ Future<void> verifyFallbackAdapterRuntimeContract() async {
   final FallbackAdapterRuntimeProjection proj = snapshotResult.value!;
   _expect(proj.scopeId == 'adapter-1', 'scopeId must be adapter-1.');
   _expect(proj.enabled == true, 'enabled must be true.');
-  _expect(
-      proj.strategyState == StoredFallbackStrategyStateKind.selected,
+  _expect(proj.strategyState == StoredFallbackStrategyStateKind.selected,
       'strategyState must be selected.');
   _expect(proj.selectedCandidateId == 'fallback-vlc-runtime',
       'selectedCandidateId must be fallback-vlc-runtime.');
@@ -85,11 +86,9 @@ Future<void> verifyFallbackAdapterRuntimeContract() async {
     capabilities: _fallbackCapabilities(),
   );
   final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
-      regResult =
-      await runtime.registerCandidate('adapter-1', extraCandidate);
+      regResult = await runtime.registerCandidate('adapter-1', extraCandidate);
   _expect(regResult.isSuccess, 'registerCandidate must succeed.');
-  _expect(
-      regResult.value!.latestRegistrationOutcome?.isSuccess == true,
+  _expect(regResult.value!.latestRegistrationOutcome?.isSuccess == true,
       'registration outcome must succeed.');
 
   // 3. selectFallback succeeds
@@ -130,8 +129,7 @@ Future<void> verifyFallbackAdapterRuntimeContract() async {
   final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
       unsupportedResult =
       await unsupportedRuntime.snapshot('adapter-unsupported');
-  _expect(!unsupportedResult.isSuccess,
-      'Unsupported snapshot must fail.');
+  _expect(!unsupportedResult.isSuccess, 'Unsupported snapshot must fail.');
   _expect(
       unsupportedResult.failure?.kind ==
           FallbackAdapterRuntimeFailureKind.capabilityUnsupported,
@@ -140,25 +138,32 @@ Future<void> verifyFallbackAdapterRuntimeContract() async {
   // 6. Unavailable runtime rejects all operations
   final FallbackAdapterRuntime unavailable =
       FallbackAdapterRuntime.unavailable(reason: 'No fallback service.');
-  final List<Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>>
-      unavailableOps = <Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>>[
+  final List<
+      Future<
+          FallbackAdapterRuntimeActionResult<
+              FallbackAdapterRuntimeProjection>>> unavailableOps = <Future<
+      FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>>[
     unavailable.snapshot('any'),
-    unavailable.registerCandidate('any', _candidate(id: 'unavail', capabilities: _fallbackCapabilities())),
+    unavailable.registerCandidate('any',
+        _candidate(id: 'unavail', capabilities: _fallbackCapabilities())),
     unavailable.deregisterCandidate('any', const FallbackAdapterId('x')),
     unavailable.selectFallback(
       scopeId: 'any',
       source: LocalFilePlaybackSource(uri: Uri.file('D:/media/u.mkv')),
-      failure: const FallbackFailure(kind: FallbackFailureKind.loadFailure, message: 'f'),
+      failure: const FallbackFailure(
+          kind: FallbackFailureKind.loadFailure, message: 'f'),
     ),
     unavailable.disable('any'),
-    unavailable.reevaluateCapabilities(scopeId: 'any', candidateId: const FallbackAdapterId('x')),
+    unavailable.reevaluateCapabilities(
+        scopeId: 'any', candidateId: const FallbackAdapterId('x')),
   ];
-  for (final Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>> op
-      in unavailableOps) {
-    final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection> r = await op;
+  for (final Future<
+      FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>> op in unavailableOps) {
+    final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
+        r = await op;
     _expect(!r.isSuccess, 'Unavailable operation must fail.');
-    _expect(
-        r.failure?.kind == FallbackAdapterRuntimeFailureKind.unavailable,
+    _expect(r.failure?.kind == FallbackAdapterRuntimeFailureKind.unavailable,
         'Unavailable must be unavailable kind.');
   }
 
@@ -216,7 +221,7 @@ Future<void> verifyFallbackAdapterRuntimeContract() async {
           FallbackAdapterRuntimeFailureKind.noCandidate,
       'Must be noCandidate kind.');
 
-  print('All fallback adapter runtime contract checks passed.');
+  stdout.writeln('All fallback adapter runtime contract checks passed.');
 }
 
 DateTime _now() => DateTime.utc(2026, 6, 15, 12);
@@ -267,7 +272,8 @@ final class _TestFallbackAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> dispose() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
   Future<TrackDiscoveryResult> discoverTracks() =>
@@ -277,23 +283,25 @@ final class _TestFallbackAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> pause() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> pause() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> play() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> play() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<PlaybackCommandResult> seek(Duration position) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> stop() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> stop() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) =>
