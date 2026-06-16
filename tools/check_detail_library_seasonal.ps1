@@ -12,11 +12,13 @@ $requiredFiles = @(
   'lib/src/domain/subtitle/subtitle_discovery.dart',
   'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
   'lib/src/provider/subtitle/subtitle_provider.dart',
+  'lib/src/provider/subtitle/opensubtitles_provider.dart',
   'lib/src/provider/subtitle/subtitle_registration.dart',
   'lib/src/provider/rss/feed_contracts.dart',
   'lib/src/provider/rss/yuc_wiki_feed_source.dart',
   'lib/src/ui/detail/video_detail_page_contract.dart',
-  'docs/phase3-detail-library-seasonal.md'
+  'docs/phase3-detail-library-seasonal.md',
+  'docs/opensubtitles-provider.md'
 )
 
 foreach ($file in $requiredFiles) {
@@ -27,7 +29,7 @@ foreach ($file in $requiredFiles) {
 }
 
 $uiPath = Join-Path $root 'lib/src/ui'
-$forbiddenUiTerms = @('bangumi', 'dandanplay', 'ProviderGateway', 'ProviderContract', 'FeedSource', 'yucWiki', 'StorageFoundation')
+$forbiddenUiTerms = @('bangumi', 'dandanplay', 'OpenSubtitles', 'opensubtitles', 'ProviderGateway', 'ProviderContract', 'FeedSource', 'yucWiki', 'StorageFoundation')
 $uiFiles = Get-ChildItem -LiteralPath $uiPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $uiFiles) {
   $content = Get-Content -LiteralPath $file.FullName -Raw
@@ -47,6 +49,44 @@ if ($subtitleProvider -notmatch 'SubtitleProviderCandidate' -or $subtitleProvide
 }
 if ($subtitleProvider -notmatch 'ProviderCachePolicy' -or $subtitleProvider -notmatch 'SubtitleProviderCachePolicy') {
   throw 'SubtitleProvider cache behavior must be declared through gateway cache policy contracts.'
+}
+
+$openSubtitlesProvider = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/subtitle/opensubtitles_provider.dart') -Raw
+$requiredOpenSubtitlesTerms = @(
+  'OpenSubtitlesApiClient',
+  'OpenSubtitlesProvider',
+  'OpenSubtitlesApiTransport',
+  'HttpOpenSubtitlesApiTransport',
+  'ProviderGateway',
+  'GatewayBoundProvider',
+  'opensubtitlesSubtitlesPath',
+  'opensubtitlesDownloadPath',
+  'opensubtitlesRuntimeDeduplicationWindow',
+  'opensubtitlesApiKeyHeader',
+  '/api/v1/subtitles',
+  '/api/v1/download',
+  'Api-Key'
+)
+foreach ($term in $requiredOpenSubtitlesTerms) {
+  if ($openSubtitlesProvider -notmatch [regex]::Escape($term)) {
+    throw "OpenSubtitles provider missing required term: $term"
+  }
+}
+
+$forbiddenOpenSubtitlesLeakFiles = @(
+  'lib/src/domain/subtitle/subtitle_discovery.dart',
+  'lib/src/domain/subtitle/subtitle_provider_runtime.dart',
+  'lib/src/domain/subtitle/subtitle_provider_bridge.dart',
+  'lib/src/playback/subtitle/subtitle_parser.dart',
+  'lib/src/playback/subtitle/subtitle_scanner.dart',
+  'lib/src/streaming/virtual_media_stream.dart',
+  'lib/src/network/network_policy_runtime.dart'
+)
+foreach ($file in $forbiddenOpenSubtitlesLeakFiles) {
+  $content = Get-Content -LiteralPath (Join-Path $root $file) -Raw
+  if ($content -match 'OpenSubtitles|opensubtitles|HttpOpenSubtitlesApiTransport') {
+    throw "Concrete OpenSubtitles dependency leaked into boundary file: $file"
+  }
 }
 
 $rssContracts = Get-Content -LiteralPath (Join-Path $root 'lib/src/provider/rss/feed_contracts.dart') -Raw
