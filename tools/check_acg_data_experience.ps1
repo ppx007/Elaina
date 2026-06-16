@@ -24,9 +24,12 @@ $requiredFiles = @(
   'lib/src/playback/danmaku/danmaku_filter.dart',
   'lib/src/playback/danmaku/danmaku_renderer.dart',
   'lib/src/domain/acg/acg_data_controller.dart',
+  'lib/src/domain/playback/playback_metadata_bridge.dart',
+  'tools/playback_metadata_bridge_runtime_check.dart',
   'docs/phase2-acg-data-experience.md',
   'docs/bangumi-api-client.md',
   'docs/dandanplay-api-client.md',
+  'docs/playback-metadata-bridge.md',
   'docs/next-change-detail-library-seasonal.md'
 )
 
@@ -95,6 +98,34 @@ if ($subtitleScanner -match 'Provider') {
 $danmakuRenderer = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/danmaku/danmaku_renderer.dart') -Raw
 if ($danmakuRenderer -notmatch 'PlayerClockSnapshot') {
   throw 'Danmaku renderer must be driven by PlayerClockSnapshot.'
+}
+
+$metadataBridge = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/playback/playback_metadata_bridge.dart') -Raw
+$requiredMetadataBridgeTerms = @(
+  'PlaybackMetadataBridge',
+  'PlaybackMetadataBridgeSnapshot',
+  'loadProviderSubtitle',
+  'loadPreparedSubtitle',
+  'loadDandanplayComments',
+  'loadDandanplayCommentValues',
+  'BasicSubtitleRuntime',
+  'BasicDanmakuRuntime',
+  'SubtitleProviderRuntime',
+  'DandanplayCommentProvider',
+  'PlayerClockSnapshot',
+  'PlaybackSubtitleStateSnapshot',
+  'PlaybackDanmakuStateSnapshot',
+  'applyTo'
+)
+foreach ($term in $requiredMetadataBridgeTerms) {
+  if ($metadataBridge -notmatch [regex]::Escape($term)) {
+    throw "Playback metadata bridge missing required term: $term"
+  }
+}
+foreach ($term in @('BangumiApiClient', 'DandanplayApiClient', 'OpenSubtitlesApiClient', 'HttpOpenSubtitlesApiTransport', 'HttpClient(', 'package:flutter', 'libmpv', 'media_kit', 'MpvAdapterBinding', 'WebViewController', 'DownloadEngineAdapter')) {
+  if ($metadataBridge -match [regex]::Escape($term)) {
+    throw "Playback metadata bridge contains forbidden concrete dependency: $term"
+  }
 }
 
 'ACG data experience checks passed.'

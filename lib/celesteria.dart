@@ -11,6 +11,7 @@ export 'src/domain/media/media_library.dart';
 export 'src/domain/media/media_library_runtime.dart';
 export 'src/domain/playback/basic_danmaku_state.dart';
 export 'src/domain/playback/playback_controller.dart';
+export 'src/domain/playback/playback_metadata_bridge.dart';
 export 'src/domain/playback/playback_source_handoff.dart';
 export 'src/domain/playback/playback_state.dart';
 export 'src/domain/playback/player_core_bootstrap.dart';
