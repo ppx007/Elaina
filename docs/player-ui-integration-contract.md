@@ -98,3 +98,10 @@ Playback failures are typed contract values:
 The UI may display `failureReason` or a mapped message from the failure kind,
 but it must not parse concrete backend exception strings or branch on
 media_kit/libmpv-specific error types.
+
+## Smoke Gate
+
+Before UI work is joined, run the core-owned smoke gate documented in
+`docs/player-smoke-gate.md`. After UI work is joined, use the same packaging
+script against the real Windows release directory and keep UI smoke separate
+from core runtime validation.

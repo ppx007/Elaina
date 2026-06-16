@@ -19,9 +19,11 @@ $requiredFiles = @(
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
   'docs/player-capability-gate.md',
+  'docs/player-smoke-gate.md',
   'docs/player-ui-integration-contract.md',
   'docs/player-runtime-composition.md',
   'docs/next-change-acg-data-experience.md',
+  'tools/check_player_smoke_gate.ps1',
   'tools/package_windows_release.ps1'
 )
 
@@ -409,9 +411,28 @@ foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlayerCoreBoot
 }
 
 $uiIntegrationDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-ui-integration-contract.md') -Raw
-foreach ($term in @('PlaybackSourceHandoffResult', 'PlaybackSourceHandoffInput.localMediaIdentity', 'PlaybackControllerContract.currentState', 'PlaybackStateObserver', 'PlaybackPageContract.dispatch', 'await playerCore.dispose()', 'PlaybackCommandResult.failure', 'PlaybackFailureKind', 'PlaybackStateSnapshot.failureReason', 'must not parse concrete backend exception strings')) {
+foreach ($term in @('PlaybackSourceHandoffResult', 'PlaybackSourceHandoffInput.localMediaIdentity', 'PlaybackControllerContract.currentState', 'PlaybackStateObserver', 'PlaybackPageContract.dispatch', 'await playerCore.dispose()', 'PlaybackCommandResult.failure', 'PlaybackFailureKind', 'PlaybackStateSnapshot.failureReason', 'must not parse concrete backend exception strings', 'docs/player-smoke-gate.md')) {
   if ($uiIntegrationDoc -notmatch [regex]::Escape($term)) {
     throw "Player UI integration contract doc missing required term: $term"
+  }
+}
+
+$smokeGateDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-smoke-gate.md') -Raw
+foreach ($term in @('tools\check_player_smoke_gate.ps1', 'tools/package_windows_release.ps1', 'tools/media_kit_mpv_binding_smoke.dart', 'libmpv-2.dll', '-RequireNativeSmoke', '-SampleMediaPath', 'system temp directory', 'Native binaries', 'repository', 'unzip-and-run local playback')) {
+  if ($smokeGateDoc -notmatch [regex]::Escape($term)) {
+    throw "Player smoke gate doc missing required term: $term"
+  }
+}
+
+$smokeGateScript = Get-Content -LiteralPath (Join-Path $root 'tools/check_player_smoke_gate.ps1') -Raw
+foreach ($term in @('RequireNativeSmoke', 'SkipNativeSmoke', 'CELESTERIA_LIBMPV_PATH', 'package_windows_release.ps1', 'media_kit_mpv_binding_smoke.dart', 'testsrc=size=160x90:rate=10', 'Assert-TempChild', 'Remove-Item -LiteralPath $tempRoot -Recurse -Force')) {
+  if ($smokeGateScript -notmatch [regex]::Escape($term)) {
+    throw "Player smoke gate script missing required term: $term"
+  }
+}
+foreach ($term in @('setx', '[Environment]::SetEnvironmentVariable', 'PathMachine', 'PathUser')) {
+  if ($smokeGateScript -match [regex]::Escape($term)) {
+    throw "Player smoke gate script must not mutate global PATH or environment: $term"
   }
 }
 
