@@ -204,12 +204,29 @@ void main() {
     expect(matrix.supports(PlaybackCapability.subtitleTrackSwitching), isFalse);
   });
 
+  test('composition factory returns binding with verified capabilities', () {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final PlayerRuntimeCompositionContract composition =
+        mediaKitLocalFilePlayerRuntimeComposition(backend: backend);
+
+    expect(composition.binding, isA<MediaKitMpvBinding>());
+    expect(
+      composition.capabilities.supports(PlaybackCapability.localFilePlayback),
+      isTrue,
+    );
+    expect(
+      composition.capabilities.supports(PlaybackCapability.hlsPlayback),
+      isFalse,
+    );
+  });
+
   test('bootstrap can wire concrete binding with verified capabilities',
       () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
-    final PlayerCoreBootstrap bootstrap = PlayerCoreBootstrap.withBinding(
-      binding: MediaKitMpvBinding(backend: backend),
-      capabilities: mediaKitLocalFilePlaybackCapabilities(),
+    final PlayerRuntimeCompositionContract composition =
+        mediaKitLocalFilePlayerRuntimeComposition(backend: backend);
+    final PlayerCoreBootstrap bootstrap = PlayerCoreBootstrap.withComposition(
+      composition: composition,
     );
 
     expect(

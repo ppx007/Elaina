@@ -3684,6 +3684,29 @@ Future<void> _verifyPlayerCoreRuntimeContract() async {
       PlaybackFailureKind.unsupported);
   await unsupportedBootstrap.dispose();
 
+  final PlayerRuntimeCompositionContract composition =
+      PlayerRuntimeCompositionContract(
+    binding: DeterministicMpvBinding(),
+    capabilities: PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+      },
+    ),
+  );
+  final PlayerCoreBootstrap compositionBootstrap =
+      PlayerCoreBootstrap.withComposition(
+    composition: composition,
+    foundationDependency: foundation,
+  );
+  _expect(
+      compositionBootstrap.runtime.capabilityMatrix
+          .supports(PlaybackCapability.localFilePlayback),
+      'PlayerCoreBootstrap.withComposition must apply descriptor capabilities.');
+  _expectSuccess(await compositionBootstrap.controller.open(_localSource()));
+  _expectSuccess(await compositionBootstrap.controller.play());
+  await compositionBootstrap.dispose();
+
   final DeterministicMpvBinding binding =
       PlayerCoreBootstrap.deterministicBinding(tracks: _tracks);
   final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(

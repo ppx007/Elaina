@@ -10,6 +10,7 @@ $requiredFiles = @(
   'lib/src/playback/media_kit_mpv_binding.dart',
   'lib/src/playback/mpv_adapter_facade.dart',
   'lib/src/playback/track_management.dart',
+  'lib/src/playback/player_runtime_composition.dart',
   'lib/src/domain/playback/playback_controller.dart',
   'lib/src/domain/playback/playback_source_handoff.dart',
   'lib/src/domain/playback/playback_state.dart',
@@ -17,6 +18,7 @@ $requiredFiles = @(
   'lib/src/domain/playback/player_core_runtime.dart',
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
+  'docs/player-runtime-composition.md',
   'docs/next-change-acg-data-experience.md',
   'tools/package_windows_release.ps1'
 )
@@ -36,6 +38,22 @@ foreach ($file in $uiFiles) {
   foreach ($term in $forbiddenUiTerms) {
     if ($content -match [regex]::Escape($term)) {
       throw "Forbidden playback UI concrete dependency '$term' found in $($file.FullName)"
+    }
+  }
+}
+
+$uiOwnedEntryFiles = @(
+  'lib/main.dart'
+)
+foreach ($entryFile in $uiOwnedEntryFiles) {
+  $path = Join-Path $root $entryFile
+  if (-not (Test-Path -LiteralPath $path)) {
+    continue
+  }
+  $content = Get-Content -LiteralPath $path -Raw
+  foreach ($term in $forbiddenUiTerms + @('package:media_kit/')) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Forbidden concrete player dependency '$term' found in UI entry file: $path"
     }
   }
 }
@@ -82,6 +100,7 @@ if ($publicBarrel.Contains('flutter_playback_shell.dart')) {
 foreach ($export in @(
   'src/playback/deterministic_mpv_binding.dart',
   'src/playback/media_kit_mpv_binding.dart',
+  'src/playback/player_runtime_composition.dart',
   'src/domain/playback/player_core_bootstrap.dart',
   'src/domain/playback/player_core_runtime.dart'
 )) {
@@ -344,8 +363,20 @@ foreach ($term in @('DeterministicMpvBinding', 'MpvAdapterBinding', 'PlaybackOpe
   }
 }
 
+$runtimeComposition = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/player_runtime_composition.dart') -Raw
+foreach ($term in @('PlayerRuntimeCompositionContract', 'MpvAdapterBinding', 'PlaybackCapabilityMatrix')) {
+  if ($runtimeComposition -notmatch [regex]::Escape($term)) {
+    throw "Player runtime composition contract missing required term: $term"
+  }
+}
+foreach ($term in @('package:media_kit/', 'libmpv', 'MediaKitMpvBinding')) {
+  if ($runtimeComposition -match [regex]::Escape($term)) {
+    throw "Neutral player runtime composition contract must not import concrete player details: $term"
+  }
+}
+
 $mediaKitBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/media_kit_mpv_binding.dart') -Raw
-foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybackSource', 'BundledMpvLibraryResolver', 'libmpv-2.dll', 'MediaKit.ensureInitialized', 'mediaKitLocalFilePlaybackCapabilities', 'PlaybackFailureKind.operationFailed')) {
+foreach ($term in @('MediaKitMpvBinding', 'MpvAdapterBinding', 'LocalFilePlaybackSource', 'BundledMpvLibraryResolver', 'libmpv-2.dll', 'MediaKit.ensureInitialized', 'mediaKitLocalFilePlaybackCapabilities', 'mediaKitLocalFilePlayerRuntimeComposition', 'PlayerRuntimeCompositionContract', 'PlaybackFailureKind.operationFailed')) {
   if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
     throw "Concrete MPV binding missing required term: $term"
   }
@@ -365,6 +396,13 @@ foreach ($term in @('libmpv-2.dll', 'CELESTERIA_LIBMPV_PATH', 'Copy-Item', 'Comp
 foreach ($term in @('setx', '[Environment]::SetEnvironmentVariable', 'PathMachine', 'PathUser')) {
   if ($windowsReleasePackageScript -match [regex]::Escape($term)) {
     throw "Windows release packaging script must not mutate global PATH or environment: $term"
+  }
+}
+
+$compositionDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-runtime-composition.md') -Raw
+foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlayerCoreBootstrap.withComposition', 'package_windows_release.ps1', 'libmpv-2.dll', 'UI code must not import')) {
+  if ($compositionDoc -notmatch [regex]::Escape($term)) {
+    throw "Player runtime composition doc missing required term: $term"
   }
 }
 

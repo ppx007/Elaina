@@ -2,6 +2,7 @@ import '../../playback/capability_matrix.dart';
 import '../../playback/deterministic_mpv_binding.dart';
 import '../../playback/mpv_adapter_facade.dart';
 import '../../playback/player_adapter.dart';
+import '../../playback/player_runtime_composition.dart';
 import '../../playback/track_management.dart';
 import 'playback_controller.dart';
 import 'player_core_runtime.dart';
@@ -49,6 +50,17 @@ final class PlayerCoreBootstrap {
     _runtime = PlayerCoreRuntime.bound(
       binding: binding,
       capabilities: capabilities,
+      foundationDependency: foundationDependency,
+    );
+  }
+
+  PlayerCoreBootstrap.withComposition({
+    required PlayerRuntimeCompositionContract composition,
+    Object? foundationDependency,
+  }) {
+    _runtime = PlayerCoreRuntime.bound(
+      binding: composition.binding,
+      capabilities: composition.capabilities,
       foundationDependency: foundationDependency,
     );
   }

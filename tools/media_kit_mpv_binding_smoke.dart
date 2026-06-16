@@ -21,10 +21,12 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
-    binding: MediaKitMpvBinding(libmpvPath: parsed.libmpvPath),
-    capabilities: mediaKitLocalFilePlaybackCapabilities(),
+  final PlayerRuntimeCompositionContract composition =
+      mediaKitLocalFilePlayerRuntimeComposition(libmpvPath: parsed.libmpvPath);
+  final PlayerCoreBootstrap bootstrap = PlayerCoreBootstrap.withComposition(
+    composition: composition,
   );
+  final PlayerCoreRuntime runtime = bootstrap.runtime;
 
   try {
     await _expectSuccess(

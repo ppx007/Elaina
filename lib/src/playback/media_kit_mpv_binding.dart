@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
+import 'player_runtime_composition.dart';
 import 'track_management.dart';
 
 typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
@@ -310,5 +311,26 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities() {
       PlaybackCapability.seek: CapabilityStatus.supported(),
       PlaybackCapability.stop: CapabilityStatus.supported(),
     },
+  );
+}
+
+/// Creates the concrete Playback-side inputs needed by app composition roots.
+///
+/// UI/app-shell code should pass the returned descriptor into
+/// `PlayerCoreBootstrap.withComposition(...)` or into equivalent application
+/// composition code. The optional [libmpvPath] may point to `libmpv-2.dll` or
+/// a directory containing it for smoke tests and packaged release checks.
+PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
+  String? libmpvPath,
+  MediaKitMpvBackend? backend,
+  MediaKitMpvBackendFactory? backendFactory,
+}) {
+  return PlayerRuntimeCompositionContract(
+    binding: MediaKitMpvBinding(
+      backend: backend,
+      backendFactory: backendFactory,
+      libmpvPath: libmpvPath,
+    ),
+    capabilities: mediaKitLocalFilePlaybackCapabilities(),
   );
 }

@@ -69,6 +69,7 @@ export 'src/playback/media_kit_mpv_binding.dart';
 export 'src/playback/mpv_adapter_facade.dart';
 export 'src/playback/player_adapter.dart';
 export 'src/playback/player_clock.dart';
+export 'src/playback/player_runtime_composition.dart';
 export 'src/playback/subtitle/subtitle_cue.dart';
 export 'src/playback/subtitle/subtitle_offset.dart';
 export 'src/playback/subtitle/subtitle_parser.dart';
