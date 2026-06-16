@@ -19,6 +19,7 @@ $requiredFiles = @(
   'lib/src/ui/playback/playback_page_contract.dart',
   'docs/phase1-player-core.md',
   'docs/player-capability-gate.md',
+  'docs/player-ui-integration-contract.md',
   'docs/player-runtime-composition.md',
   'docs/next-change-acg-data-experience.md',
   'tools/package_windows_release.ps1'
@@ -407,6 +408,13 @@ foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlayerCoreBoot
   }
 }
 
+$uiIntegrationDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-ui-integration-contract.md') -Raw
+foreach ($term in @('PlaybackSourceHandoffResult', 'PlaybackSourceHandoffInput.localMediaIdentity', 'PlaybackControllerContract.currentState', 'PlaybackStateObserver', 'PlaybackPageContract.dispatch', 'await playerCore.dispose()', 'PlaybackCommandResult.failure', 'PlaybackFailureKind', 'PlaybackStateSnapshot.failureReason', 'must not parse concrete backend exception strings')) {
+  if ($uiIntegrationDoc -notmatch [regex]::Escape($term)) {
+    throw "Player UI integration contract doc missing required term: $term"
+  }
+}
+
 $capabilityGateDoc = Get-Content -LiteralPath (Join-Path $root 'docs/player-capability-gate.md') -Raw
 foreach ($term in @('mediaKitLocalFilePlayerRuntimeComposition', 'PlaybackPageContract', 'PlaybackPageSurfaceDescriptor', 'localFilePlayback', 'playPause', 'seek', 'stop', 'httpPlayback', 'hlsPlayback', 'progressReporting', 'audioTrackDiscovery', 'subtitleTrackSwitching', 'fallbackAdapter', 'UI code must not call a concrete media_kit/libmpv backend directly')) {
   if ($capabilityGateDoc -notmatch [regex]::Escape($term)) {
@@ -418,6 +426,13 @@ $mediaKitBindingTest = Get-Content -LiteralPath (Join-Path $root 'test/playback/
 foreach ($term in @('composition exposes only verified UI-facing controls', 'PlaybackPageContract', 'PlaybackPageControlId.playPause', 'PlaybackPageControlId.seek', 'PlaybackPageControlId.stop', 'PlaybackPageControlId.progress', 'PlaybackPagePanelId.tracks', 'PlaybackPageIntentOutcome.unsupported')) {
   if ($mediaKitBindingTest -notmatch [regex]::Escape($term)) {
     throw "Concrete MPV binding tests missing capability gate assertion: $term"
+  }
+}
+
+$playerCoreRuntimeTest = Get-Content -LiteralPath (Join-Path $root 'test/playback/player_core_runtime_test.dart') -Raw
+foreach ($term in @('ui integration flow prepares source observes lifecycle and disposes', 'PlaybackSourceHandoffInput.localMediaIdentity', 'PlaybackStateObserver', 'PlaybackLifecycleStatus.opening', 'PlaybackLifecycleStatus.playing', 'PlaybackFailureKind.disposed', 'ui integration flow preserves normalized source and runtime errors', 'PlaybackSourceHandoffFailureKind.unsupportedScheme', 'PlaybackFailureKind.unsupported', 'PlaybackLifecycleStatus.failed')) {
+  if ($playerCoreRuntimeTest -notmatch [regex]::Escape($term)) {
+    throw "Player core runtime tests missing UI integration assertion: $term"
   }
 }
 

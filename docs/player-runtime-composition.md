@@ -42,6 +42,10 @@ See `docs/player-capability-gate.md` for the Step 33 UI-facing capability
 gate: playback pages should render and dispatch only from the active surface
 descriptor or capability matrix.
 
+See `docs/player-ui-integration-contract.md` for the Step 34 source handoff,
+lifecycle observation, disposal, and normalized error contract for external UI
+work.
+
 The optional `libmpvPath` may point to `libmpv-2.dll` or to a directory
 containing it. When omitted on Windows, the binding looks for
 `libmpv-2.dll` beside the running executable. That is the production packaging
