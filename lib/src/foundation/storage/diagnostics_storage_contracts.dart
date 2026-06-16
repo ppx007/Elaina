@@ -214,6 +214,12 @@ abstract interface class DiagnosticsStore {
 
   Future<StoredDiagnosticsCapabilityRecord?> capability(
       DiagnosticsCapability capability);
+
+  Future<int> schemaCount();
+
+  Future<StoredDiagnosticsSnapshotRecord?> latestSnapshot();
+
+  Future<StoredDiagnosticsExportOutcomeRecord?> latestExportOutcome();
 }
 
 final class DeterministicDiagnosticsStore implements DiagnosticsStore {
@@ -337,5 +343,36 @@ final class DeterministicDiagnosticsStore implements DiagnosticsStore {
   Future<void> storeSnapshot(StoredDiagnosticsSnapshotRecord snapshot) {
     _snapshotsById[snapshot.id] = snapshot;
     return Future<void>.value();
+  }
+
+  @override
+  Future<int> schemaCount() {
+    return Future<int>.value(_schemasByType.length);
+  }
+
+  @override
+  Future<StoredDiagnosticsSnapshotRecord?> latestSnapshot() {
+    if (_snapshotsById.isEmpty) {
+      return Future<StoredDiagnosticsSnapshotRecord?>.value(null);
+    }
+    final List<StoredDiagnosticsSnapshotRecord> sorted =
+        _snapshotsById.values.toList()
+          ..sort((StoredDiagnosticsSnapshotRecord left,
+                  StoredDiagnosticsSnapshotRecord right) =>
+              left.createdAt.compareTo(right.createdAt));
+    return Future<StoredDiagnosticsSnapshotRecord?>.value(sorted.last);
+  }
+
+  @override
+  Future<StoredDiagnosticsExportOutcomeRecord?> latestExportOutcome() {
+    if (_exportOutcomesById.isEmpty) {
+      return Future<StoredDiagnosticsExportOutcomeRecord?>.value(null);
+    }
+    final List<StoredDiagnosticsExportOutcomeRecord> sorted =
+        _exportOutcomesById.values.toList()
+          ..sort((StoredDiagnosticsExportOutcomeRecord left,
+                  StoredDiagnosticsExportOutcomeRecord right) =>
+              left.recordedAt.compareTo(right.recordedAt));
+    return Future<StoredDiagnosticsExportOutcomeRecord?>.value(sorted.last);
   }
 }
