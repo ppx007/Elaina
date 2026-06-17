@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../foundation/baseline_defaults.dart';
+import '../../foundation/gateway/provider_gateway.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/provider_result.dart';
 import '../../provider/rss/feed_contracts.dart';
@@ -141,11 +142,34 @@ final class DeterministicRssEngine implements RssEngineContract, FeedEngine {
             sourceId: source.id,
             failure: RssRefreshFailure(kind: kind, message: message));
       case AcgProviderSuccess<FeedFetchResponse>(:final value):
-        final FeedParseResult parsed = await parser
-            .parse(FeedParseRequest(source: source, body: value.body));
+        final DateTime now = _clock();
+        if (value.notModified) {
+          await store.saveCursor(
+            StoredFeedCursorRecord(
+              sourceId: source.id.value,
+              etag: value.etag ?? cursor?.etag,
+              lastModified: value.lastModified ?? cursor?.lastModified,
+              refreshedAt: now,
+            ),
+          );
+          return RssRefreshOutcome.success(
+              sourceId: source.id, newItems: const <FeedItem>[]);
+        }
+        final FeedParseResult parsed;
+        try {
+          parsed = await parser
+              .parse(FeedParseRequest(source: source, body: value.body));
+        } on ProviderFailure catch (failure) {
+          return RssRefreshOutcome.failure(
+            sourceId: source.id,
+            failure: RssRefreshFailure(
+              kind: acgFailureKindFromGateway(failure.kind),
+              message: failure.message,
+            ),
+          );
+        }
         final List<FeedItem> deduplicatorAccepted =
             await deduplicator.retainNewItems(parsed.items);
-        final DateTime now = _clock();
         final List<FeedItem> accepted = <FeedItem>[];
         for (final FeedItem item in deduplicatorAccepted) {
           final bool known = await store.hasDedupeKey(
@@ -189,12 +213,7 @@ final class DeterministicFeedDeduplicator implements FeedDeduplicator {
 
   @override
   FeedDedupeKey keyFor(FeedSource source, String rawGuid, Uri? link) {
-    final String normalizedGuid = rawGuid.trim().toLowerCase();
-    if (normalizedGuid.isNotEmpty) {
-      return FeedDedupeKey('${source.id.value}::$normalizedGuid');
-    }
-    final String linkValue = link?.toString().trim().toLowerCase() ?? '';
-    return FeedDedupeKey('${source.id.value}::$linkValue');
+    return feedDedupeKeyFor(source, rawGuid: rawGuid, link: link);
   }
 
   @override

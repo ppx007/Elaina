@@ -2,13 +2,16 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_subtitle_provider_runtime.ps1')
+& (Join-Path $PSScriptRoot 'check_rss_feed_fetcher_parser.ps1')
 
 $requiredFiles = @(
   'lib/src/domain/rss/rss_engine.dart',
   'lib/src/domain/rss/rss_engine_runtime.dart',
   'lib/src/provider/rss/feed_contracts.dart',
+  'lib/src/provider/rss/rss_feed_fetcher_parser.dart',
   'test/domain/rss/rss_engine_contract_test.dart',
   'test/domain/rss/rss_engine_runtime_test.dart',
+  'test/provider/rss/rss_feed_fetcher_parser_test.dart',
   'tools/rss_engine_runtime_check.dart'
 )
 

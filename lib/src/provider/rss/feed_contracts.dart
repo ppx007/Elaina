@@ -49,12 +49,14 @@ final class FeedFetchResponse {
     required this.body,
     this.etag,
     this.lastModified,
+    this.notModified = false,
   });
 
   final FeedSourceId sourceId;
   final String body;
   final String? etag;
   final DateTime? lastModified;
+  final bool notModified;
 }
 
 abstract interface class FeedFetcher implements GatewayBoundProvider {
@@ -155,6 +157,19 @@ abstract interface class FeedDeduplicator {
   FeedDedupeKey keyFor(FeedSource source, String rawGuid, Uri? link);
 
   Future<List<FeedItem>> retainNewItems(Iterable<FeedItem> items);
+}
+
+FeedDedupeKey feedDedupeKeyFor(
+  FeedSource source, {
+  required String rawGuid,
+  Uri? link,
+}) {
+  final String normalizedGuid = rawGuid.trim().toLowerCase();
+  if (normalizedGuid.isNotEmpty) {
+    return FeedDedupeKey('${source.id.value}::$normalizedGuid');
+  }
+  final String linkValue = link?.toString().trim().toLowerCase() ?? '';
+  return FeedDedupeKey('${source.id.value}::$linkValue');
 }
 
 final class FeedRefreshResult {

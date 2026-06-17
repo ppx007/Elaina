@@ -2,20 +2,27 @@ import 'package:celesteria/celesteria.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('runtime registers lists removes and snapshots immutable source state', () async {
+  test('runtime registers lists removes and snapshots immutable source state',
+      () async {
     final RssEngineBootstrap bootstrap = _bootstrap(
-      fetcher: _FakeFeedFetcher(responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+      fetcher: _FakeFeedFetcher(
+          responses: const <AcgProviderResult<FeedFetchResponse>>[]),
       parser: _FakeFeedParser(items: const <FeedItem>[]),
       scheduler: _FiniteFeedScheduler(),
     );
     final _RuntimeObserver observer = _RuntimeObserver();
     bootstrap.runtime.addObserver(observer);
 
-    final RssEngineActionResult<FeedSource> registered = await bootstrap.registerSource(_source());
-    final RssEngineActionResult<List<FeedSource>> listed = await bootstrap.listSources();
-    final List<FeedSource> snapshotSources = bootstrap.runtime.currentSnapshot.sources;
-    final RssEngineActionResult<bool> removed = await bootstrap.removeSource(const FeedSourceId('anime-feed'));
-    final RssEngineActionResult<FeedSource> missing = await bootstrap.runtime.sourceById(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<FeedSource> registered =
+        await bootstrap.registerSource(_source());
+    final RssEngineActionResult<List<FeedSource>> listed =
+        await bootstrap.listSources();
+    final List<FeedSource> snapshotSources =
+        bootstrap.runtime.currentSnapshot.sources;
+    final RssEngineActionResult<bool> removed =
+        await bootstrap.removeSource(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<FeedSource> missing =
+        await bootstrap.runtime.sourceById(const FeedSourceId('anime-feed'));
 
     expect(registered.isSuccess, isTrue);
     expect(snapshotSources.single.id.value, 'anime-feed');
@@ -23,27 +30,37 @@ void main() {
     expect(listed.value!.single.id.value, 'anime-feed');
     expect(removed.isSuccess, isTrue);
     expect(missing.kind, RssEngineActionResultKind.unavailable);
-    expect(observer.snapshots.map((RssEngineRuntimeSnapshot snapshot) => snapshot.status), contains(RssEngineRuntimeStatus.registering));
+    expect(
+        observer.snapshots
+            .map((RssEngineRuntimeSnapshot snapshot) => snapshot.status),
+        contains(RssEngineRuntimeStatus.registering));
     await bootstrap.dispose();
   });
 
-  test('runtime projects due sources from registered feed sources only', () async {
+  test('runtime projects due sources from registered feed sources only',
+      () async {
     final RssEngineBootstrap bootstrap = _bootstrap(
-      fetcher: _FakeFeedFetcher(responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+      fetcher: _FakeFeedFetcher(
+          responses: const <AcgProviderResult<FeedFetchResponse>>[]),
       parser: _FakeFeedParser(items: const <FeedItem>[]),
       scheduler: _FiniteFeedScheduler(extraDecision: _otherSource()),
     );
 
     await bootstrap.registerSource(_source());
-    final RssEngineActionResult<List<FeedSource>> due = await bootstrap.dueSources();
+    final RssEngineActionResult<List<FeedSource>> due =
+        await bootstrap.dueSources();
 
     expect(due.isSuccess, isTrue);
-    expect(due.value!.map((FeedSource source) => source.id.value), <String>['anime-feed']);
-    expect(bootstrap.runtime.currentSnapshot.dueSources.single.id.value, 'anime-feed');
+    expect(due.value!.map((FeedSource source) => source.id.value),
+        <String>['anime-feed']);
+    expect(bootstrap.runtime.currentSnapshot.dueSources.single.id.value,
+        'anime-feed');
     await bootstrap.dispose();
   });
 
-  test('runtime refresh preserves parser warnings cursor dedupe storage and updates', () async {
+  test(
+      'runtime refresh preserves parser warnings cursor dedupe storage and updates',
+      () async {
     final DateTime firstRefresh = DateTime.utc(2026, 6, 11, 12);
     final DeterministicRssFeedStore store = DeterministicRssFeedStore();
     final _FakeFeedFetcher fetcher = _FakeFeedFetcher(
@@ -65,15 +82,20 @@ void main() {
     final RssEngineBootstrap bootstrap = _bootstrap(
       store: store,
       fetcher: fetcher,
-      parser: _FakeFeedParser(items: <FeedItem>[_item()], warnings: const <String>['parser warning']),
+      parser: _FakeFeedParser(
+          items: <FeedItem>[_item()],
+          warnings: const <String>['parser warning']),
       scheduler: _FiniteFeedScheduler(),
       clock: () => firstRefresh,
     );
 
     await bootstrap.registerSource(_source());
-    final Future<List<FeedItem>> updates = bootstrap.runtime.updates.take(1).toList();
-    final RssEngineActionResult<RssEngineRefreshSnapshot> first = await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
-    final RssEngineActionResult<RssEngineRefreshSnapshot> second = await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
+    final Future<List<FeedItem>> updates =
+        bootstrap.runtime.updates.take(1).toList();
+    final RssEngineActionResult<RssEngineRefreshSnapshot> first =
+        await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<RssEngineRefreshSnapshot> second =
+        await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
     final List<FeedItem> emitted = await updates;
 
     expect(first.isSuccess, isTrue);
@@ -81,57 +103,130 @@ void main() {
     expect(first.value!.acceptedItems.single.id.value, 'feed-item-1');
     expect(second.value!.acceptedItems, isEmpty);
     expect(emitted.single.id.value, 'feed-item-1');
-    expect((await bootstrap.runtime.cursorSnapshot(const FeedSourceId('anime-feed'))).value!.etag, 'etag-v2');
-    expect((await bootstrap.runtime.dedupeSnapshot(const FeedSourceId('anime-feed'))).value!.records.single.dedupeKey, 'item-1');
-    expect((await bootstrap.runtime.acceptedItemsForSource(const FeedSourceId('anime-feed'))).value!.single.title, 'Episode 1');
+    expect(
+        (await bootstrap.runtime
+                .cursorSnapshot(const FeedSourceId('anime-feed')))
+            .value!
+            .etag,
+        'etag-v2');
+    expect(
+        (await bootstrap.runtime
+                .dedupeSnapshot(const FeedSourceId('anime-feed')))
+            .value!
+            .records
+            .single
+            .dedupeKey,
+        'item-1');
+    expect(
+        (await bootstrap.runtime
+                .acceptedItemsForSource(const FeedSourceId('anime-feed')))
+            .value!
+            .single
+            .title,
+        'Episode 1');
     expect(fetcher.requests[1].etag, 'etag-v1');
-    expect(bootstrap.runtime.currentSnapshot.latestRefreshes['anime-feed']?.isSuccess, isTrue);
+    expect(
+        bootstrap
+            .runtime.currentSnapshot.latestRefreshes['anime-feed']?.isSuccess,
+        isTrue);
     await bootstrap.dispose();
   });
 
-  test('runtime normalizes missing source provider parser and disposed outcomes', () async {
+  test('runtime records not-modified refresh without parsing items', () async {
+    final DateTime refreshedAt = DateTime.utc(2026, 6, 11, 13);
+    final _FakeFeedParser parser = _FakeFeedParser(items: const <FeedItem>[]);
+    final RssEngineBootstrap bootstrap = _bootstrap(
+      fetcher: _FakeFeedFetcher(
+        responses: <AcgProviderResult<FeedFetchResponse>>[
+          FeedFetchResponse(
+            sourceId: const FeedSourceId('anime-feed'),
+            body: '',
+            etag: 'etag-v1',
+            lastModified: refreshedAt,
+            notModified: true,
+          ).success,
+        ],
+      ),
+      parser: parser,
+      scheduler: _FiniteFeedScheduler(),
+      clock: () => refreshedAt,
+    );
+
+    await bootstrap.registerSource(_source());
+    final RssEngineActionResult<RssEngineRefreshSnapshot> refreshed =
+        await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
+
+    expect(refreshed.isSuccess, isTrue);
+    expect(refreshed.value!.acceptedItems, isEmpty);
+    expect(parser.requests, isEmpty);
+    expect(
+      (await bootstrap.runtime.cursorSnapshot(const FeedSourceId('anime-feed')))
+          .value!
+          .etag,
+      'etag-v1',
+    );
+    await bootstrap.dispose();
+  });
+
+  test(
+      'runtime normalizes missing source provider parser and disposed outcomes',
+      () async {
     final RssEngineBootstrap bootstrap = _bootstrap(
       fetcher: _FakeFeedFetcher(
         responses: const <AcgProviderResult<FeedFetchResponse>>[
-          AcgProviderFailure<FeedFetchResponse>(kind: AcgProviderFailureKind.retryable, message: 'gateway failure'),
+          AcgProviderFailure<FeedFetchResponse>(
+              kind: AcgProviderFailureKind.retryable,
+              message: 'gateway failure'),
         ],
       ),
       parser: _FakeFeedParser(items: const <FeedItem>[]),
       scheduler: _FiniteFeedScheduler(),
     );
     final RssEngineBootstrap mismatch = _bootstrap(
-      fetcher: _FakeFeedFetcher(responses: const <AcgProviderResult<FeedFetchResponse>>[]),
-      parser: _FakeFeedParser(items: const <FeedItem>[], format: FeedFormat.atom),
+      fetcher: _FakeFeedFetcher(
+          responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+      parser:
+          _FakeFeedParser(items: const <FeedItem>[], format: FeedFormat.atom),
       scheduler: _FiniteFeedScheduler(),
     );
 
-    final RssEngineActionResult<RssEngineRefreshSnapshot> missing = await bootstrap.refreshSource(const FeedSourceId('missing'));
+    final RssEngineActionResult<RssEngineRefreshSnapshot> missing =
+        await bootstrap.refreshSource(const FeedSourceId('missing'));
     await bootstrap.registerSource(_source());
-    final RssEngineActionResult<RssEngineRefreshSnapshot> providerFailure = await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<RssEngineRefreshSnapshot> providerFailure =
+        await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
     await mismatch.registerSource(_source());
-    final RssEngineActionResult<RssEngineRefreshSnapshot> parserFailure = await mismatch.refreshSource(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<RssEngineRefreshSnapshot> parserFailure =
+        await mismatch.refreshSource(const FeedSourceId('anime-feed'));
     await bootstrap.dispose();
-    final RssEngineActionResult<List<FeedSource>> disposed = await bootstrap.listSources();
+    final RssEngineActionResult<List<FeedSource>> disposed =
+        await bootstrap.listSources();
 
     expect(missing.kind, RssEngineActionResultKind.unavailable);
     expect(providerFailure.kind, RssEngineActionResultKind.failed);
-    expect(providerFailure.failure?.kind, RssEngineRuntimeFailureKind.providerFailure);
+    expect(providerFailure.failure?.kind,
+        RssEngineRuntimeFailureKind.providerFailure);
     expect(parserFailure.kind, RssEngineActionResultKind.failed);
-    expect(parserFailure.failure?.kind, RssEngineRuntimeFailureKind.parserFailure);
+    expect(
+        parserFailure.failure?.kind, RssEngineRuntimeFailureKind.parserFailure);
     expect(disposed.kind, RssEngineActionResultKind.disposed);
     await mismatch.dispose();
   });
 
-  test('runtime suppresses persisted dedupe keys after restart-like conditions', () async {
+  test('runtime suppresses persisted dedupe keys after restart-like conditions',
+      () async {
     final DateTime refreshedAt = DateTime.utc(2026, 6, 11, 14);
     final DeterministicRssFeedStore store = DeterministicRssFeedStore();
     await store.storeSource(_storedSource());
-    await store.recordDedupeKey(StoredFeedDedupeKeyRecord(sourceId: 'anime-feed', dedupeKey: 'item-1', acceptedAt: refreshedAt));
+    await store.recordDedupeKey(StoredFeedDedupeKeyRecord(
+        sourceId: 'anime-feed', dedupeKey: 'item-1', acceptedAt: refreshedAt));
     final RssEngineBootstrap bootstrap = _bootstrap(
       store: store,
       fetcher: _FakeFeedFetcher(
         responses: <AcgProviderResult<FeedFetchResponse>>[
-          FeedFetchResponse(sourceId: const FeedSourceId('anime-feed'), body: '<rss />').success,
+          FeedFetchResponse(
+                  sourceId: const FeedSourceId('anime-feed'), body: '<rss />')
+              .success,
         ],
       ),
       parser: _FakeFeedParser(items: <FeedItem>[_item()]),
@@ -139,18 +234,27 @@ void main() {
       clock: () => refreshedAt,
     );
 
-    final RssEngineActionResult<RssEngineRefreshSnapshot> refreshed = await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
+    final RssEngineActionResult<RssEngineRefreshSnapshot> refreshed =
+        await bootstrap.refreshSource(const FeedSourceId('anime-feed'));
 
     expect(refreshed.isSuccess, isTrue);
     expect(refreshed.value!.acceptedItems, isEmpty);
     expect((await store.itemsForSource('anime-feed')), isEmpty);
-    expect((await bootstrap.runtime.dedupeSnapshot(const FeedSourceId('anime-feed'))).value!.records.single.dedupeKey, 'item-1');
+    expect(
+        (await bootstrap.runtime
+                .dedupeSnapshot(const FeedSourceId('anime-feed')))
+            .value!
+            .records
+            .single
+            .dedupeKey,
+        'item-1');
     await bootstrap.dispose();
   });
 }
 
 extension on FeedFetchResponse {
-  AcgProviderSuccess<FeedFetchResponse> get success => AcgProviderSuccess<FeedFetchResponse>(this);
+  AcgProviderSuccess<FeedFetchResponse> get success =>
+      AcgProviderSuccess<FeedFetchResponse>(this);
 }
 
 RssEngineBootstrap _bootstrap({
@@ -231,25 +335,34 @@ final class _FiniteFeedScheduler implements FeedScheduler {
   @override
   Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) async* {
     for (final FeedSource source in sources) {
-      yield FeedScheduleDecision(source: source, dueAt: DateTime.utc(2026, 6, 11, 12));
+      yield FeedScheduleDecision(
+          source: source, dueAt: DateTime.utc(2026, 6, 11, 12));
     }
     final FeedSource? extra = extraDecision;
-    if (extra != null) yield FeedScheduleDecision(source: extra, dueAt: DateTime.utc(2026, 6, 11, 12));
+    if (extra != null)
+      yield FeedScheduleDecision(
+          source: extra, dueAt: DateTime.utc(2026, 6, 11, 12));
   }
 }
 
 final class _FakeFeedParser implements FeedParser {
-  _FakeFeedParser({required this.items, this.warnings = const <String>[], this.format = FeedFormat.rss});
+  _FakeFeedParser(
+      {required this.items,
+      this.warnings = const <String>[],
+      this.format = FeedFormat.rss});
 
   final List<FeedItem> items;
   final List<String> warnings;
+  final List<FeedParseRequest> requests = <FeedParseRequest>[];
 
   @override
   final FeedFormat format;
 
   @override
   Future<FeedParseResult> parse(FeedParseRequest request) {
-    return Future<FeedParseResult>.value(FeedParseResult(sourceId: request.source.id, items: items, warnings: warnings));
+    requests.add(request);
+    return Future<FeedParseResult>.value(FeedParseResult(
+        sourceId: request.source.id, items: items, warnings: warnings));
   }
 }
 
@@ -273,7 +386,8 @@ final class _FakeFeedFetcher implements FeedFetcher {
   ProviderKind get kind => ProviderKind.rss;
 
   @override
-  ProviderRegistration get registration => rssProviderRegistration(sourceId: const FeedSourceId('fake-feed-fetcher'));
+  ProviderRegistration get registration => rssProviderRegistration(
+      sourceId: const FeedSourceId('fake-feed-fetcher'));
 
   @override
   Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
@@ -281,32 +395,41 @@ final class _FakeFeedFetcher implements FeedFetcher {
     required Future<T> Function() load,
     ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
   }) async {
-    return ProviderGatewayResponse<T>(value: await load(), source: ProviderGatewayResponseSource.network);
+    return ProviderGatewayResponse<T>(
+        value: await load(), source: ProviderGatewayResponseSource.network);
   }
 
   @override
-  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(FeedFetchRequest request) {
+  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(
+      FeedFetchRequest request) {
     requests.add(request);
-    final AcgProviderResult<FeedFetchResponse> response = responses[_index < responses.length ? _index : responses.length - 1];
+    final AcgProviderResult<FeedFetchResponse> response =
+        responses[_index < responses.length ? _index : responses.length - 1];
     _index += 1;
     return Future<AcgProviderResult<FeedFetchResponse>>.value(response);
   }
 
   @override
   ProviderRequestKey requestKey(String cacheKey) {
-    return ProviderRequestKey(providerId: const ProviderId('fake-feed-fetcher'), cacheKey: cacheKey);
+    return ProviderRequestKey(
+        providerId: const ProviderId('fake-feed-fetcher'), cacheKey: cacheKey);
   }
 }
 
 final class _UnsupportedProviderGateway implements ProviderGateway {
   @override
-  StorageFoundation get storage => throw StateError('Storage is not used by this test gateway.');
+  StorageFoundation get storage =>
+      throw StateError('Storage is not used by this test gateway.');
 
   @override
-  Future<ProviderGatewayResponse<T>> execute<T>(ProviderGatewayRequest<T> request) async {
-    return ProviderGatewayResponse<T>(value: await request.load(), source: ProviderGatewayResponseSource.network);
+  Future<ProviderGatewayResponse<T>> execute<T>(
+      ProviderGatewayRequest<T> request) async {
+    return ProviderGatewayResponse<T>(
+        value: await request.load(),
+        source: ProviderGatewayResponseSource.network);
   }
 
   @override
-  Future<void> registerProvider(ProviderRegistration registration) => Future<void>.value();
+  Future<void> registerProvider(ProviderRegistration registration) =>
+      Future<void>.value();
 }

@@ -104,6 +104,7 @@ export 'src/provider/provider_result.dart';
 export 'src/provider/rss/feed_contracts.dart';
 export 'src/provider/rss/rss_auto_download_policy.dart';
 export 'src/provider/rss/rss_auto_download_runtime.dart';
+export 'src/provider/rss/rss_feed_fetcher_parser.dart';
 export 'src/provider/rss/yuc_wiki_feed_source.dart';
 export 'src/provider/subtitle/opensubtitles_provider.dart';
 export 'src/provider/subtitle/subtitle_provider.dart';
