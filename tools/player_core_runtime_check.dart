@@ -745,6 +745,7 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
             kind: OnlineExtractionKind.cssSelector,
             expression: '.detail',
             outputKey: 'detailUri',
+            attribute: 'href',
             required: true,
           ),
         ],
@@ -756,8 +757,11 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
       manifest: manifest,
       target: OnlineRuleTarget.search,
       pageUri: Uri.parse('https://source.example.test/search'),
-      document:
-          'title="Runtime Result" detailUri="https://source.example.test/detail"',
+      document: '<article class="result">'
+          '<h2 title="Runtime Result">Runtime Result</h2>'
+          '<a class="detail" href="https://source.example.test/detail">'
+          'Detail</a>'
+          '</article>',
     ),
   );
   _expect(evaluated.isSuccess,
@@ -766,6 +770,8 @@ Future<void> _verifyOnlineRuleRuntimeContract() async {
       runtime.normalize(evaluated.result!) as OnlineRuleSearchOutput;
   _expect(output.results.single.title == 'Runtime Result',
       'Online rule runtime must normalize search result records.');
+  _expect(output.results.single.detailUri.host == 'source.example.test',
+      'Online rule runtime must extract declared attributes.');
 
   final OnlineRuleValidationResult unsupported =
       await runtime.validateManifest(OnlineRuleManifest(

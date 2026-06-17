@@ -47,8 +47,10 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(result.value?.sourceId, 'source-1');
       expect(result.value?.manifestDisplayName, 'Test Source');
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.valid);
-      expect(result.value?.restart.manifestValidationState, StoredOnlineRuleValidationState.valid);
+      expect(
+          result.value?.validationState, StoredOnlineRuleValidationState.valid);
+      expect(result.value?.restart.manifestValidationState,
+          StoredOnlineRuleValidationState.valid);
       expect(result.value?.restart.latestEvaluationState, isNull);
     });
 
@@ -56,7 +58,8 @@ void main() {
       final runtime = _runtime();
       final result = await runtime.validate('source-1', _testManifest());
       expect(result.isSuccess, isTrue);
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.valid);
+      expect(
+          result.value?.validationState, StoredOnlineRuleValidationState.valid);
       final stored = await store.manifestBySource('source-1');
       expect(stored?.validationState, StoredOnlineRuleValidationState.valid);
     });
@@ -65,11 +68,14 @@ void main() {
       final runtime = _runtime();
       final result = await runtime.validate('source-1', _wasmManifest());
       expect(result.isSuccess, isTrue);
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.invalid);
+      expect(result.value?.validationState,
+          StoredOnlineRuleValidationState.invalid);
       final issues = await store.validationIssuesForSource('source-1');
       expect(issues, isNotEmpty);
-      expect(issues.first.unsupportedKind, StoredUnsupportedOnlineOperationKind.wasm);
-      final unsupported = await store.unsupportedOperationsForSource('source-1');
+      expect(issues.first.unsupportedKind,
+          StoredUnsupportedOnlineOperationKind.wasm);
+      final unsupported =
+          await store.unsupportedOperationsForSource('source-1');
       expect(unsupported, isNotEmpty);
     });
 
@@ -82,11 +88,12 @@ void main() {
           manifest: _testManifest(),
           target: OnlineRuleTarget.search,
           pageUri: Uri.parse('https://source.example.test/search'),
-          document: 'title="Test Title" detailUri="https://source.example.test/detail"',
+          document: _searchDocument('Test Title'),
         ),
       );
       expect(result.isSuccess, isTrue);
-      expect(result.value?.latestEvaluationState, StoredOnlineRuleEvaluationState.succeeded);
+      expect(result.value?.latestEvaluationState,
+          StoredOnlineRuleEvaluationState.succeeded);
       expect(result.value?.latestEvaluationOutcome?.isSuccess, isTrue);
       final snapshots = await store.evaluationsForSource('source-1');
       expect(snapshots, isNotEmpty);
@@ -115,7 +122,8 @@ void main() {
         ),
       );
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.manifestDisabled);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.manifestDisabled);
     });
 
     test('6 evaluate fails for missing target', () async {
@@ -131,14 +139,16 @@ void main() {
         ),
       );
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.evaluationFailed);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.evaluationFailed);
     });
 
     test('7 disable sets validation state to disabled', () async {
       final runtime = _runtime();
       final result = await runtime.disable('source-1');
       expect(result.isSuccess, isTrue);
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.disabled);
+      expect(result.value?.validationState,
+          StoredOnlineRuleValidationState.disabled);
       final stored = await store.manifestBySource('source-1');
       expect(stored?.validationState, StoredOnlineRuleValidationState.disabled);
     });
@@ -148,7 +158,8 @@ void main() {
       await runtime.disable('source-1');
       final result = await runtime.reenable('source-1');
       expect(result.isSuccess, isTrue);
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.valid);
+      expect(
+          result.value?.validationState, StoredOnlineRuleValidationState.valid);
       final stored = await store.manifestBySource('source-1');
       expect(stored?.validationState, StoredOnlineRuleValidationState.valid);
     });
@@ -158,14 +169,17 @@ void main() {
       await runtime.validate('source-1', _wasmManifest());
       final result = await runtime.reenable('source-1');
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.manifestInvalid);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.manifestInvalid);
     });
 
-    test('10 reenable with already-valid manifest returns success idempotent', () async {
+    test('10 reenable with already-valid manifest returns success idempotent',
+        () async {
       final runtime = _runtime();
       final result = await runtime.reenable('source-1');
       expect(result.isSuccess, isTrue);
-      expect(result.value?.validationState, StoredOnlineRuleValidationState.valid);
+      expect(
+          result.value?.validationState, StoredOnlineRuleValidationState.valid);
     });
 
     test('11 disable with missing manifest returns manifestNotFound', () async {
@@ -183,7 +197,8 @@ void main() {
       ).createRuntime();
       final result = await runtime.disable('source-2');
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.manifestNotFound);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.manifestNotFound);
     });
 
     test('12 unsupported capability returns capabilityUnsupported', () async {
@@ -199,10 +214,13 @@ void main() {
       ).createRuntime();
       final result = await runtime.snapshot('source-1');
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.capabilityUnsupported);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.capabilityUnsupported);
     });
 
-    test('13 evaluate with no suppliedDocumentEvaluation returns capabilityUnsupported', () async {
+    test(
+        '13 evaluate with no suppliedDocumentEvaluation returns capabilityUnsupported',
+        () async {
       final runtime = OnlineRuleSourceRuntimeBootstrap(
         store: store,
         runtimeByScope: <String, DeterministicOnlineRuleRuntime>{
@@ -223,14 +241,17 @@ void main() {
         ),
       );
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind, OnlineRuleSourceRuntimeFailureKind.capabilityUnsupported);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.capabilityUnsupported);
     });
 
     test('14 unavailable runtime rejects all 5 ops', () async {
-      final runtime = OnlineRuleSourceRuntime.unavailable(reason: 'Platform unsupported');
+      final runtime =
+          OnlineRuleSourceRuntime.unavailable(reason: 'Platform unsupported');
       expect((await runtime.snapshot('source-1')).failure?.kind,
           OnlineRuleSourceRuntimeFailureKind.unavailable);
-      expect((await runtime.validate('source-1', _testManifest())).failure?.kind,
+      expect(
+          (await runtime.validate('source-1', _testManifest())).failure?.kind,
           OnlineRuleSourceRuntimeFailureKind.unavailable);
       expect(
           (await runtime.evaluate(
@@ -241,7 +262,9 @@ void main() {
               pageUri: Uri.parse('https://x.test'),
               document: 'x',
             ),
-          )).failure?.kind,
+          ))
+              .failure
+              ?.kind,
           OnlineRuleSourceRuntimeFailureKind.unavailable);
       expect((await runtime.disable('source-1')).failure?.kind,
           OnlineRuleSourceRuntimeFailureKind.unavailable);
@@ -268,7 +291,7 @@ void main() {
           manifest: _testManifest(),
           target: OnlineRuleTarget.search,
           pageUri: Uri.parse('https://source.example.test/search'),
-          document: 'title="Test Title" detailUri="https://source.example.test/detail"',
+          document: _searchDocument('Test Title'),
         ),
       );
       expect(events.whereType<OnlineRuleTargetEvaluated>(), isNotEmpty);
@@ -289,7 +312,8 @@ void main() {
       final manifestEvent = events.whereType<OnlineRuleManifestChanged>().first;
       expect(manifestEvent.sourceId, 'source-1');
       expect(manifestEvent.changeKind, OnlineRuleManifestChangeKind.registered);
-      final validEvent = events.whereType<OnlineRuleValidationStateChanged>().first;
+      final validEvent =
+          events.whereType<OnlineRuleValidationStateChanged>().first;
       expect(validEvent.sourceId, 'source-1');
       expect(validEvent.valid, isTrue);
       await subscription.cancel();
@@ -304,15 +328,17 @@ void main() {
           manifest: _testManifest(),
           target: OnlineRuleTarget.search,
           pageUri: Uri.parse('https://source.example.test/search'),
-          document: 'title="Test Title" detailUri="https://source.example.test/detail"',
+          document: _searchDocument('Test Title'),
         ),
       );
       final snapshot = await runtime.snapshot('source-1');
       final restart = snapshot.value!.restart;
       expect(restart.sourceId, 'source-1');
-      expect(restart.manifestValidationState, StoredOnlineRuleValidationState.valid);
+      expect(restart.manifestValidationState,
+          StoredOnlineRuleValidationState.valid);
       expect(restart.latestEvaluationTarget, StoredOnlineRuleTarget.search);
-      expect(restart.latestEvaluationState, StoredOnlineRuleEvaluationState.succeeded);
+      expect(restart.latestEvaluationState,
+          StoredOnlineRuleEvaluationState.succeeded);
     });
 
     test('19 normalize produces typed output on evaluate', () async {
@@ -324,12 +350,14 @@ void main() {
           manifest: _testManifest(),
           target: OnlineRuleTarget.search,
           pageUri: Uri.parse('https://source.example.test/search'),
-          document: 'title="Test Title" detailUri="https://source.example.test/detail"',
+          document: _searchDocument('Test Title'),
         ),
       );
       final snapshot = await runtime.snapshot('source-1');
-      expect(snapshot.value?.latestNormalizedOutput, isA<OnlineRuleSearchOutput>());
-      final output = snapshot.value!.latestNormalizedOutput! as OnlineRuleSearchOutput;
+      expect(snapshot.value?.latestNormalizedOutput,
+          isA<OnlineRuleSearchOutput>());
+      final output =
+          snapshot.value!.latestNormalizedOutput! as OnlineRuleSearchOutput;
       expect(output.results.single.title, 'Test Title');
     });
 
@@ -350,12 +378,17 @@ void main() {
 OnlineRuleCapabilityMatrix _supportedCapabilities() {
   return const OnlineRuleCapabilityMatrix(
     capabilities: <OnlineRuleCapability, OnlineRuleCapabilityStatus>{
-      OnlineRuleCapability.manifestValidation: OnlineRuleCapabilityStatus.supported(),
-      OnlineRuleCapability.suppliedDocumentEvaluation: OnlineRuleCapabilityStatus.supported(),
-      OnlineRuleCapability.gatewayPageRetrieval: OnlineRuleCapabilityStatus.unsupported('No gateway in bootstrap.'),
-      OnlineRuleCapability.cssSelectorIntent: OnlineRuleCapabilityStatus.supported(),
+      OnlineRuleCapability.manifestValidation:
+          OnlineRuleCapabilityStatus.supported(),
+      OnlineRuleCapability.suppliedDocumentEvaluation:
+          OnlineRuleCapabilityStatus.supported(),
+      OnlineRuleCapability.gatewayPageRetrieval:
+          OnlineRuleCapabilityStatus.unsupported('No gateway in bootstrap.'),
+      OnlineRuleCapability.cssSelectorIntent:
+          OnlineRuleCapabilityStatus.supported(),
       OnlineRuleCapability.xpath1Intent: OnlineRuleCapabilityStatus.supported(),
-      OnlineRuleCapability.regexExtraction: OnlineRuleCapabilityStatus.supported(),
+      OnlineRuleCapability.regexExtraction:
+          OnlineRuleCapabilityStatus.supported(),
     },
   );
 }
@@ -367,12 +400,18 @@ OnlineRuleCapabilityMatrix _unsupportedCapabilities() {
 OnlineRuleCapabilityMatrix _noEvaluationCapabilities() {
   return const OnlineRuleCapabilityMatrix(
     capabilities: <OnlineRuleCapability, OnlineRuleCapabilityStatus>{
-      OnlineRuleCapability.manifestValidation: OnlineRuleCapabilityStatus.supported(),
-      OnlineRuleCapability.suppliedDocumentEvaluation: OnlineRuleCapabilityStatus.unsupported('No document evaluation.'),
-      OnlineRuleCapability.gatewayPageRetrieval: OnlineRuleCapabilityStatus.unsupported('No gateway.'),
-      OnlineRuleCapability.cssSelectorIntent: OnlineRuleCapabilityStatus.unsupported('No CSS.'),
-      OnlineRuleCapability.xpath1Intent: OnlineRuleCapabilityStatus.unsupported('No XPath.'),
-      OnlineRuleCapability.regexExtraction: OnlineRuleCapabilityStatus.unsupported('No regex.'),
+      OnlineRuleCapability.manifestValidation:
+          OnlineRuleCapabilityStatus.supported(),
+      OnlineRuleCapability.suppliedDocumentEvaluation:
+          OnlineRuleCapabilityStatus.unsupported('No document evaluation.'),
+      OnlineRuleCapability.gatewayPageRetrieval:
+          OnlineRuleCapabilityStatus.unsupported('No gateway.'),
+      OnlineRuleCapability.cssSelectorIntent:
+          OnlineRuleCapabilityStatus.unsupported('No CSS.'),
+      OnlineRuleCapability.xpath1Intent:
+          OnlineRuleCapabilityStatus.unsupported('No XPath.'),
+      OnlineRuleCapability.regexExtraction:
+          OnlineRuleCapabilityStatus.unsupported('No regex.'),
     },
   );
 }
@@ -401,12 +440,21 @@ OnlineRuleManifest _testManifest() {
             kind: OnlineExtractionKind.cssSelector,
             expression: '.detail-link',
             outputKey: 'detailUri',
+            attribute: 'href',
             required: true,
           ),
         ],
       ),
     ],
   );
+}
+
+String _searchDocument(String title) {
+  return '<article class="result">'
+      '<h2 title="$title">$title</h2>'
+      '<a class="detail-link" href="https://source.example.test/detail">'
+      'Detail</a>'
+      '</article>';
 }
 
 OnlineRuleManifest _wasmManifest() {

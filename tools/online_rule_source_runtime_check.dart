@@ -81,6 +81,7 @@ Future<void> main() async {
                 kind: OnlineExtractionKind.cssSelector,
                 expression: '.detail-link',
                 outputKey: 'detailUri',
+                attribute: 'href',
                 required: true,
               ),
             ],
@@ -116,6 +117,7 @@ Future<void> main() async {
                   kind: OnlineExtractionKind.cssSelector,
                   expression: '.detail-link',
                   outputKey: 'detailUri',
+                  attribute: 'href',
                   required: true,
                 ),
               ],
@@ -124,12 +126,40 @@ Future<void> main() async {
         ),
         target: OnlineRuleTarget.search,
         pageUri: Uri.parse('https://source.example.test/search'),
-        document:
-            'title="Check Title" detailUri="https://source.example.test/detail"',
+        document: _searchDocument('Check Title'),
       ));
   _expect(evalResult.isSuccess, 'Evaluate must succeed.');
   _expect(evalResult.value?.latestNormalizedOutput is OnlineRuleSearchOutput,
       'Evaluate must produce search output.');
+
+  final xpathResult =
+      await const DeterministicOnlineRuleRuntime().evaluateTyped(
+    OnlineRuleEvaluationRequest(
+      manifest: _xpathManifest(),
+      target: OnlineRuleTarget.detail,
+      pageUri: Uri.parse('https://source.example.test/detail'),
+      document: '<html><body><section id="detail">'
+          '<h1>XPath Check</h1>'
+          '<a href="https://source.example.test/detail">Detail</a>'
+          '</section></body></html>',
+    ),
+  );
+  _expect(xpathResult.isSuccess, 'XPath evaluation must succeed.');
+  final xpathOutput = const DeterministicOnlineRuleRuntime()
+      .normalize(xpathResult.result!) as OnlineRuleDetailOutput;
+  _expect(xpathOutput.detail.title == 'XPath Check',
+      'XPath evaluation must extract element text.');
+
+  final unsupportedSelector =
+      await const DeterministicOnlineRuleRuntime().validateManifest(
+    _unsupportedSelectorManifest(),
+  );
+  _expect(!unsupportedSelector.isValid,
+      'Unsupported selector validation must fail.');
+  _expect(
+      unsupportedSelector.issues.single.unsupportedKind ==
+          UnsupportedOnlineOperationKind.unsupportedSelector,
+      'Unsupported selector must be normalized.');
 
   final disableResult = await runtime.disable('source-1');
   _expect(disableResult.isSuccess, 'Disable must succeed.');
@@ -203,4 +233,70 @@ void _expect(bool condition, String message) {
 
 void _expectFailure(bool condition, String message) {
   if (condition) throw StateError(message);
+}
+
+String _searchDocument(String title) {
+  return '<article class="result">'
+      '<h2 title="$title">$title</h2>'
+      '<a class="detail-link" href="https://source.example.test/detail">'
+      'Detail</a>'
+      '</article>';
+}
+
+OnlineRuleManifest _xpathManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('xpath-source'),
+    displayName: 'XPath Check Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/xpath.json'),
+    checksum: 'sha256:xpath',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.detail,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'title',
+            kind: OnlineExtractionKind.xpath1,
+            expression: '//section[@id="detail"]/h1',
+            outputKey: 'title',
+            required: true,
+          ),
+          OnlineExtractionOperation(
+            id: 'pageUri',
+            kind: OnlineExtractionKind.xpath1,
+            expression: '//section[@id="detail"]/a',
+            outputKey: 'pageUri',
+            attribute: 'href',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _unsupportedSelectorManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('unsupported-selector'),
+    displayName: 'Unsupported Selector Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/unsupported.json'),
+    checksum: 'sha256:unsupported',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'title',
+            kind: OnlineExtractionKind.cssSelector,
+            expression: '.result > .title',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
 }

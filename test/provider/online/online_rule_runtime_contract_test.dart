@@ -50,7 +50,8 @@ void main() {
       message: 'Optional selector missing.',
       recordedAt: observedAt,
     ));
-    await store.recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
+    await store
+        .recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
       id: 'eval-1',
       sourceId: 'online-source',
       target: StoredOnlineRuleTarget.search,
@@ -69,7 +70,8 @@ void main() {
         recordedAt: observedAt,
       ),
     );
-    await store.recordUnsupportedOperation(StoredUnsupportedOnlineOperationRecord(
+    await store
+        .recordUnsupportedOperation(StoredUnsupportedOnlineOperationRecord(
       id: 'unsupported-1',
       sourceId: 'online-source',
       kind: StoredUnsupportedOnlineOperationKind.wasm,
@@ -87,19 +89,27 @@ void main() {
         'sha256:abc');
     expect((await store.ruleSetsForSource('online-source')).single.target,
         StoredOnlineRuleTarget.search);
-    expect((await store.validationIssuesForSource('online-source')).single.message,
+    expect(
+        (await store.validationIssuesForSource('online-source')).single.message,
         'Optional selector missing.');
-    expect((await store.evaluationsForSource('online-source')).single.values['title'],
+    expect(
+        (await store.evaluationsForSource('online-source'))
+            .single
+            .values['title'],
         'Result');
     expect((await store.latestRetrievalOutcome('online-source'))?.state,
         StoredOnlineRuleRetrievalState.retrieved);
-    expect((await store.unsupportedOperationsForSource('online-source')).single.kind,
+    expect(
+        (await store.unsupportedOperationsForSource('online-source'))
+            .single
+            .kind,
         StoredUnsupportedOnlineOperationKind.wasm);
     expect((await store.capabilityForSource('online-source'))?.state,
         StoredOnlineRuleCapabilityState.supported);
   });
 
-  test('deterministic runtime validates rejects and normalizes outputs', () async {
+  test('deterministic runtime validates rejects and normalizes outputs',
+      () async {
     const DeterministicOnlineRuleRuntime runtime =
         DeterministicOnlineRuleRuntime();
 
@@ -108,8 +118,11 @@ void main() {
         manifest: _manifest(),
         target: OnlineRuleTarget.search,
         pageUri: Uri.parse('https://source.example.test/search'),
-        document:
-            'title="Runtime Result" detailUri="https://source.example.test/detail"',
+        document: '<article class="result">'
+            '<h2 title="Runtime Result">Runtime Result</h2>'
+            '<a class="detail-link" href="https://source.example.test/detail">'
+            'Detail</a>'
+            '</article>',
       ),
     );
     final OnlineRuleSearchOutput output =
@@ -119,7 +132,8 @@ void main() {
     expect(evaluated.result?.values['title'], 'Runtime Result');
     expect(output.results.single.detailUri.host, 'source.example.test');
 
-    final OnlineRuleValidationResult unsupported = await runtime.validateManifest(
+    final OnlineRuleValidationResult unsupported =
+        await runtime.validateManifest(
       OnlineRuleManifest(
         sourceId: const OnlineRuleSourceId('bad-source'),
         displayName: 'Bad Source',
@@ -149,7 +163,8 @@ void main() {
         UnsupportedOnlineOperationKind.wasm);
 
     final OnlineRuleEvaluationOutcome disabled =
-        await const DeterministicOnlineRuleRuntime(enabled: false).evaluateTyped(
+        await const DeterministicOnlineRuleRuntime(enabled: false)
+            .evaluateTyped(
       OnlineRuleEvaluationRequest(
         manifest: _manifest(),
         target: OnlineRuleTarget.search,
@@ -158,6 +173,36 @@ void main() {
       ),
     );
     expect(disabled.failure?.kind, OnlineRuleFailureKind.manifestDisabled);
+  });
+
+  test('deterministic runtime evaluates xpath subset and selector validation',
+      () async {
+    const DeterministicOnlineRuleRuntime runtime =
+        DeterministicOnlineRuleRuntime();
+
+    final OnlineRuleEvaluationOutcome evaluated = await runtime.evaluateTyped(
+      OnlineRuleEvaluationRequest(
+        manifest: _xpathManifest(),
+        target: OnlineRuleTarget.detail,
+        pageUri: Uri.parse('https://source.example.test/detail'),
+        document: '<html><body><section id="detail">'
+            '<h1>XPath Title</h1>'
+            '<a href="https://source.example.test/detail">Detail</a>'
+            '</section></body></html>',
+      ),
+    );
+    final OnlineRuleDetailOutput output =
+        runtime.normalize(evaluated.result!) as OnlineRuleDetailOutput;
+
+    expect(evaluated.isSuccess, isTrue);
+    expect(output.detail.title, 'XPath Title');
+    expect(output.detail.pageUri.host, 'source.example.test');
+
+    final OnlineRuleValidationResult unsupported =
+        await runtime.validateManifest(_unsupportedSelectorManifest());
+    expect(unsupported.isValid, isFalse);
+    expect(unsupported.issues.single.unsupportedKind,
+        UnsupportedOnlineOperationKind.unsupportedSelector);
   });
 
   test('gateway network descriptors and invalidation events stay declarative',
@@ -169,12 +214,13 @@ void main() {
       cacheKey: 'online-source::page',
       pageUri: Uri.parse('https://source.example.test/page'),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      ratePolicy:
-          const ProviderRatePolicy(maxRequests: 6, window: Duration(minutes: 1)),
+      ratePolicy: const ProviderRatePolicy(
+          maxRequests: 6, window: Duration(minutes: 1)),
       retryPolicy: const ProviderRetryPolicy(
           maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
     );
-    final OnlineRuleNetworkPolicyHandoff handoff = OnlineRuleNetworkPolicyHandoff(
+    final OnlineRuleNetworkPolicyHandoff handoff =
+        OnlineRuleNetworkPolicyHandoff(
       sourceId: const OnlineRuleSourceId('online-source'),
       providerScope: 'online-source',
       uri: Uri.https('source.example.test', '/page'),
@@ -182,7 +228,8 @@ void main() {
       reason: 'Private address blocked.',
     );
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-    final Future<List<CacheInvalidationEvent>> events = bus.events.take(6).toList();
+    final Future<List<CacheInvalidationEvent>> events =
+        bus.events.take(6).toList();
     final DateTime observedAt = DateTime.utc(2026, 6, 8, 12);
 
     bus.publish(OnlineRuleManifestChanged(
@@ -215,12 +262,15 @@ void main() {
 
     expect(descriptor.registration.providerId.value, 'online-source');
     expect(descriptor.requestKey.cacheKey, 'online-source::page');
-    expect(handoff.failureKind, OnlineRuleNetworkFailureKind.privateNetworkAddress);
+    expect(handoff.failureKind,
+        OnlineRuleNetworkFailureKind.privateNetworkAddress);
     expect(delivered.whereType<OnlineRuleManifestChanged>().length, 1);
     expect(delivered.whereType<OnlineRuleValidationStateChanged>().length, 1);
     expect(delivered.whereType<OnlineRuleTargetEvaluated>().length, 1);
-    expect(delivered.whereType<OnlineRulePageRetrievalOutcomeRecorded>().length, 1);
-    expect(delivered.whereType<OnlineRuleUnsupportedOperationRecorded>().length, 1);
+    expect(delivered.whereType<OnlineRulePageRetrievalOutcomeRecorded>().length,
+        1);
+    expect(delivered.whereType<OnlineRuleUnsupportedOperationRecorded>().length,
+        1);
     expect(delivered.whereType<OnlineRuleCapabilityChanged>().length, 1);
   });
 }
@@ -249,6 +299,65 @@ OnlineRuleManifest _manifest() {
             kind: OnlineExtractionKind.cssSelector,
             expression: '.detail-link',
             outputKey: 'detailUri',
+            attribute: 'href',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _xpathManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('xpath-source'),
+    displayName: 'XPath Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/xpath.json'),
+    checksum: 'sha256:xpath',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.detail,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'title',
+            kind: OnlineExtractionKind.xpath1,
+            expression: '//section[@id="detail"]/h1',
+            outputKey: 'title',
+            required: true,
+          ),
+          OnlineExtractionOperation(
+            id: 'pageUri',
+            kind: OnlineExtractionKind.xpath1,
+            expression: '//section[@id="detail"]/a',
+            outputKey: 'pageUri',
+            attribute: 'href',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _unsupportedSelectorManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('unsupported-selector'),
+    displayName: 'Unsupported Selector Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/unsupported.json'),
+    checksum: 'sha256:unsupported',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'title',
+            kind: OnlineExtractionKind.cssSelector,
+            expression: '.result > .title',
+            outputKey: 'title',
             required: true,
           ),
         ],

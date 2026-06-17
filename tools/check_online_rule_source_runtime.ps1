@@ -7,7 +7,8 @@ $requiredFiles = @(
   'lib/src/provider/online/online_rule_runtime.dart',
   'test/provider/online/online_rule_source_runtime_test.dart',
   'test/provider/online/online_rule_runtime_contract_test.dart',
-  'tools/online_rule_source_runtime_check.dart'
+  'tools/online_rule_source_runtime_check.dart',
+  'docs/online-rule-evaluator.md'
 )
 
 foreach ($file in $requiredFiles) {
@@ -18,6 +19,7 @@ foreach ($file in $requiredFiles) {
 }
 
 $runtimeFile = Join-Path $root 'lib/src/provider/online/online_rule_source_runtime.dart'
+$onlineRuleRuntimeFile = Join-Path $root 'lib/src/provider/online/online_rule_runtime.dart'
 
 $requiredRuntimeTerms = @(
   'OnlineRuleSourceRuntimeFailureKind',
@@ -39,9 +41,23 @@ $requiredRuntimeTerms = @(
 )
 
 $runtime = Get-Content -LiteralPath $runtimeFile -Raw
+$onlineRuleRuntime = Get-Content -LiteralPath $onlineRuleRuntimeFile -Raw
 foreach ($term in $requiredRuntimeTerms) {
   if ($runtime -notmatch [regex]::Escape($term)) {
     throw "Online rule source runtime missing required term: $term"
+  }
+}
+
+$requiredStep48Terms = @(
+  'OnlineExtractionKind.cssSelector',
+  'OnlineExtractionKind.xpath1',
+  'OnlineExtractionKind.regex',
+  'unsupportedSelector',
+  'attribute'
+)
+foreach ($term in $requiredStep48Terms) {
+  if ($onlineRuleRuntime -notmatch [regex]::Escape($term)) {
+    throw "Online rule evaluator missing Step 48 term: $term"
   }
 }
 
@@ -65,6 +81,7 @@ $requiredCheckerTerms = @(
   'OnlineRuleSourceRuntimeProjection',
   'OnlineRuleCapabilityMatrix',
   'DeterministicOnlineRuleRuntimeStore',
+  'UnsupportedOnlineOperationKind.unsupportedSelector',
   '_expect'
 )
 foreach ($term in $requiredCheckerTerms) {
@@ -101,6 +118,44 @@ foreach ($file in $filesToScan) {
   foreach ($term in $forbiddenTerms) {
     if ($content -match [regex]::Escape($term)) {
       throw "Forbidden boundary term '$term' found in $file"
+    }
+  }
+}
+
+$step48FilesToScan = @(
+  'lib/src/provider/online/online_rule_runtime.dart',
+  'lib/src/provider/online/online_rule_source_runtime.dart',
+  'test/provider/online/online_rule_runtime_contract_test.dart',
+  'test/provider/online/online_rule_source_runtime_test.dart',
+  'tools/online_rule_source_runtime_check.dart'
+)
+
+$step48ForbiddenTerms = @(
+  'HttpClient',
+  'package:flutter/',
+  'WebViewController',
+  'runJavascript',
+  'dart:js',
+  'package:js',
+  'js_interop',
+  'dart:ffi',
+  'dart:mirrors',
+  'package:html',
+  'package:webview',
+  'Crawler',
+  'Scraper',
+  'libtorrent',
+  'rss_auto_download',
+  'yuc.wiki',
+  'DiagnosticsCenter'
+)
+
+foreach ($file in $step48FilesToScan) {
+  $path = Join-Path $root $file
+  $content = Get-Content -LiteralPath $path -Raw
+  foreach ($term in $step48ForbiddenTerms) {
+    if ($content -match [regex]::Escape($term)) {
+      throw "Forbidden Step 48 boundary term '$term' found in $file"
     }
   }
 }
