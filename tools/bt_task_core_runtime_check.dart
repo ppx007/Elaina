@@ -16,6 +16,24 @@ Future<void> verifyBtTaskCoreRuntimeContract() async {
     cacheInvalidationBus: bus,
     clock: _now,
   );
+  final StreamCacheInvalidationBus compositionBus =
+      StreamCacheInvalidationBus();
+  final BtTaskCoreBootstrap compositionBootstrap =
+      BtTaskCoreBootstrap.withComposition(
+    composition: BtTaskRuntimeCompositionContract(
+      adapter: _CheckDownloadEngineAdapter(),
+      store: DeterministicBtTaskStore(),
+      cacheInvalidationBus: compositionBus,
+      clock: _now,
+    ),
+  );
+  final BtTaskCoreRuntimeActionResult<BtTaskProjection> composed =
+      await compositionBootstrap.runtime.createTask(const BtTaskCreateRequest(
+    source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:composed'),
+  ));
+  _expect(composed.isSuccess,
+      'BT runtime composition must create a working runtime.');
+  await compositionBus.close();
 
   final Future<List<CacheInvalidationEvent>> creationEvents =
       bus.events.take(1).toList();
@@ -42,7 +60,9 @@ Future<void> verifyBtTaskCoreRuntimeContract() async {
       await metadataEvents;
   _expect(metadata.value?.metadata?.name == 'Runtime Check Pack',
       'BT runtime must project metadata from storage.');
-  _expect(selected.value?.files.last.selectionState == BtFileSelectionState.selected,
+  _expect(
+      selected.value?.files.last.selectionState ==
+          BtFileSelectionState.selected,
       'BT runtime must project selected file state.');
   _expect(metadataInvalidations.whereType<BtMetadataUpdated>().length == 1,
       'BT runtime must publish metadata invalidation.');
@@ -56,7 +76,8 @@ Future<void> verifyBtTaskCoreRuntimeContract() async {
       'BT runtime must pause through adapter boundary.');
   _expect((await runtime.resume(const BtTaskId('check-task-1'))).isSuccess,
       'BT runtime must resume through adapter boundary.');
-  _expect((await lifecycleEvents).whereType<BtTaskLifecycleChanged>().length == 2,
+  _expect(
+      (await lifecycleEvents).whereType<BtTaskLifecycleChanged>().length == 2,
       'BT runtime must publish lifecycle invalidations after persistence.');
 
   final BtTaskCoreRuntimeActionResult<BtTaskRuntimeObservation<BtTaskStatus>>
@@ -85,13 +106,15 @@ Future<void> verifyBtTaskCoreRuntimeContract() async {
   ));
   _expect((await observedEvents).last is BtTaskFailed,
       'BT runtime must expose adapter event observation.');
-  _expect((await store.latestEvent('check-task-1'))?.eventKind ==
-      StoredBtTaskEventKind.failed,
+  _expect(
+      (await store.latestEvent('check-task-1'))?.eventKind ==
+          StoredBtTaskEventKind.failed,
       'BT runtime must persist observed task events.');
 
   final BtTaskCoreRuntimeActionResult<List<BtTaskRestartProjection>> restart =
       await runtime.restartReconciliation();
-  _expect(restart.value!.single.disposition == BtRuntimeRestartDisposition.failed,
+  _expect(
+      restart.value!.single.disposition == BtRuntimeRestartDisposition.failed,
       'BT runtime must project terminal failure restart state.');
 
   final DeterministicBtTaskStore restartStore = DeterministicBtTaskStore(
@@ -126,11 +149,15 @@ Future<void> verifyBtTaskCoreRuntimeContract() async {
       await unsupported.createTask(const BtTaskCreateRequest(
     source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:disabled'),
   ));
-  _expect(rejected.failure?.kind == BtTaskCoreRuntimeFailureKind.capabilityUnsupported,
+  _expect(
+      rejected.failure?.kind ==
+          BtTaskCoreRuntimeFailureKind.capabilityUnsupported,
       'BT runtime must normalize unsupported capability failures.');
 
   await runtime.dispose();
-  _expect((await runtime.listTasks()).kind == BtTaskCoreRuntimeActionResultKind.disposed,
+  _expect(
+      (await runtime.listTasks()).kind ==
+          BtTaskCoreRuntimeActionResultKind.disposed,
       'BT runtime must reject actions after disposal.');
   await bus.close();
 }

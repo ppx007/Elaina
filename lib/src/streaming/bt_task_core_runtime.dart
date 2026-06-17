@@ -223,6 +223,22 @@ final class BtTaskRuntimeObservation<T> {
   final Stream<T> values;
 }
 
+final class BtTaskRuntimeCompositionContract {
+  const BtTaskRuntimeCompositionContract({
+    required this.adapter,
+    required this.store,
+    this.cacheInvalidationBus,
+    this.clock,
+  });
+
+  final DownloadEngineAdapter adapter;
+  final BtTaskStore store;
+  final CacheInvalidationBus? cacheInvalidationBus;
+  final DateTime Function()? clock;
+
+  BtCapabilityMatrix get capabilities => adapter.capabilities;
+}
+
 final class BtTaskCoreRuntimeSnapshot {
   BtTaskCoreRuntimeSnapshot({
     required this.status,
@@ -259,12 +275,25 @@ final class BtTaskCoreBootstrap {
           clock: clock,
         );
 
+  BtTaskCoreBootstrap.withComposition({
+    required BtTaskRuntimeCompositionContract composition,
+  }) : runtime = BtTaskCoreRuntime.withComposition(composition: composition);
+
   BtTaskCoreBootstrap.withRuntime({required this.runtime});
 
   final BtTaskCoreRuntime runtime;
 }
 
 final class BtTaskCoreRuntime {
+  BtTaskCoreRuntime.withComposition({
+    required BtTaskRuntimeCompositionContract composition,
+  }) : this.withDependencies(
+          adapter: composition.adapter,
+          store: composition.store,
+          cacheInvalidationBus: composition.cacheInvalidationBus,
+          clock: composition.clock,
+        );
+
   BtTaskCoreRuntime.withDependencies({
     required DownloadEngineAdapter adapter,
     required BtTaskStore store,

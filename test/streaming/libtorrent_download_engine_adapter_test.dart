@@ -204,6 +204,128 @@ void main() {
       );
     }
   });
+
+  test('libtorrent runtime composition wires lifecycle metadata and selection',
+      () async {
+    final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend(
+      supportsCompleteMetadata: true,
+    )..seedMetadata(_torrentId);
+    final DeterministicBtTaskStore store = DeterministicBtTaskStore();
+    final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+    final BtTaskRuntimeCompositionContract composition =
+        libtorrentBtTaskRuntimeComposition(
+      backend: backend,
+      store: store,
+      cacheInvalidationBus: bus,
+      clock: _now,
+    );
+    final BtTaskCoreBootstrap bootstrap =
+        BtTaskCoreBootstrap.withComposition(composition: composition);
+
+    final Future<CacheInvalidationEvent> createdEvent = bus.events.first;
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> created =
+        await bootstrap.runtime.createTask(
+      const BtTaskCreateRequest(
+        source: MagnetBtTaskSource(uri: _magnetUri),
+      ),
+    );
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> metadata =
+        await bootstrap.runtime.ensureMetadata(const BtTaskId(_torrentIdValue));
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> selected =
+        await bootstrap.runtime.selectFiles(
+      const BtTaskId(_torrentIdValue),
+      const <BtFileIndex>[BtFileIndex(1)],
+    );
+    await bootstrap.runtime.pause(const BtTaskId(_torrentIdValue));
+    await bootstrap.runtime.resume(const BtTaskId(_torrentIdValue));
+    await bootstrap.runtime.remove(const BtTaskId(_torrentIdValue));
+
+    expect(created.isSuccess, isTrue);
+    expect(await createdEvent, isA<BtTaskCreated>());
+    expect(metadata.value?.metadata?.infoHash.value, _infoHash);
+    expect(
+      selected.value?.files.map((BtTaskFileProjection file) {
+        return file.selectionState;
+      }),
+      <BtFileSelectionState>[
+        BtFileSelectionState.skipped,
+        BtFileSelectionState.selected,
+      ],
+    );
+    expect(
+      backend.filePrioritiesByTorrentId[_torrentId],
+      <int>[
+        libtorrentSkipFilePriority,
+        libtorrentSelectedFilePriority,
+      ],
+    );
+    expect(backend.pausedTorrentIds, <int>[_torrentId]);
+    expect(backend.resumedTorrentIds, <int>[_torrentId]);
+    expect(backend.removedTorrentIds, <int>[_torrentId]);
+    expect((await store.findTaskById(_torrentIdValue))?.lifecycleState,
+        StoredBtTaskLifecycleState.removed);
+    await bus.close();
+  });
+
+  test('libtorrent runtime composition observes and replays task state',
+      () async {
+    final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend(
+      supportsCompleteMetadata: true,
+    )..seedMetadata(_torrentId);
+    final DeterministicBtTaskStore store = DeterministicBtTaskStore();
+    final BtTaskCoreRuntime runtime = BtTaskCoreBootstrap.withComposition(
+      composition: libtorrentBtTaskRuntimeComposition(
+        backend: backend,
+        store: store,
+        clock: _now,
+      ),
+    ).runtime;
+
+    await runtime.createTask(
+      const BtTaskCreateRequest(
+        source: MagnetBtTaskSource(uri: _magnetUri),
+      ),
+    );
+
+    final BtTaskCoreRuntimeActionResult<BtTaskRuntimeObservation<BtTaskStatus>>
+        statusObservation =
+        runtime.observeStatus(const BtTaskId(_torrentIdValue));
+    final Future<BtTaskStatus> observedStatus =
+        statusObservation.value!.values.first;
+    await Future<void>.delayed(Duration.zero);
+    backend.emitSnapshot(
+      _torrentId,
+      _snapshot(state: LibtorrentTaskState.downloading, progress: 0.5),
+    );
+    expect((await observedStatus).state, BtTaskLifecycleState.downloading);
+    expect(
+        (await store.latestTransferSnapshot(_torrentIdValue))?.progress, 0.5);
+
+    final BtTaskCoreRuntimeActionResult<BtTaskRuntimeObservation<BtTaskEvent>>
+        eventObservation =
+        runtime.observeEvents(const BtTaskId(_torrentIdValue));
+    final Future<List<BtTaskEvent>> observedEvents =
+        eventObservation.value!.values.take(2).toList();
+    await Future<void>.delayed(Duration.zero);
+    backend.emitSnapshot(_torrentId, _snapshot());
+    backend.emitSnapshot(
+      _torrentId,
+      _snapshot(
+        state: LibtorrentTaskState.error,
+        message: 'Tracker failed.',
+      ),
+    );
+    final List<BtTaskEvent> events = await observedEvents;
+    final BtTaskCoreRuntimeActionResult<List<BtTaskRestartProjection>> restart =
+        await runtime.restartReconciliation();
+
+    expect(events.first, isA<BtMetadataReceived>());
+    expect(events.last, isA<BtTaskFailed>());
+    expect((await store.latestEvent(_torrentIdValue))?.eventKind,
+        StoredBtTaskEventKind.failed);
+    expect(
+        restart.value?.single.disposition, BtRuntimeRestartDisposition.failed);
+  });
 }
 
 List<LibtorrentFileSnapshot> _fileSnapshots() {
@@ -250,6 +372,8 @@ LibtorrentTorrentSnapshot _snapshot({
     pieceLengthBytes: pieceLengthBytes,
   );
 }
+
+DateTime _now() => DateTime.utc(2026, 6, 18, 12);
 
 final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
   _FakeLibtorrentBackend({this.supportsCompleteMetadata = false});

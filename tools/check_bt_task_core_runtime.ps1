@@ -6,9 +6,11 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/streaming/bt_task_core.dart',
   'lib/src/streaming/bt_task_core_runtime.dart',
+  'lib/src/streaming/libtorrent_download_engine_adapter.dart',
   'lib/src/foundation/storage/bt_task_storage_contracts.dart',
   'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart',
   'test/streaming/bt_task_core_runtime_test.dart',
+  'test/streaming/libtorrent_download_engine_adapter_test.dart',
   'tools/bt_task_core_runtime_check.dart'
 )
 
@@ -29,10 +31,12 @@ foreach ($term in @(
   'BtTaskCoreRuntimeFailureKind',
   'BtTaskCoreRuntimeActionResult',
   'BtTaskCoreRuntimeObserver',
+  'BtTaskRuntimeCompositionContract',
   'BtTaskProjection',
   'BtTaskMetadataProjection',
   'BtTaskFileProjection',
   'BtTaskRestartProjection',
+  'withComposition',
   'restartReconciliation',
   'observeStatus',
   'observeEvents'
@@ -73,6 +77,17 @@ foreach ($term in @(
 $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/streaming/bt_task_core_runtime.dart';")) {
   throw 'Public Dart contract barrel missing BT task core runtime export.'
+}
+
+$libtorrentAdapter = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/libtorrent_download_engine_adapter.dart') -Raw
+foreach ($term in @(
+  'libtorrentBtTaskRuntimeComposition',
+  'BtTaskRuntimeCompositionContract',
+  'LibtorrentDownloadEngineAdapter'
+)) {
+  if ($libtorrentAdapter -notmatch [regex]::Escape($term)) {
+    throw "Concrete libtorrent adapter missing Step 52 composition term: $term"
+  }
 }
 
 & dart (Join-Path $root 'tools/bt_task_core_runtime_check.dart')

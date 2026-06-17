@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:libtorrent_flutter/libtorrent_flutter.dart' as lt;
 
+import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
+import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
+import 'bt_task_core_runtime.dart';
 
 typedef LibtorrentEngineBackendFactory = Future<LibtorrentEngineBackend>
     Function();
@@ -428,6 +431,41 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
   int _torrentId(BtTaskId taskId) {
     return int.parse(taskId.value);
   }
+}
+
+BtTaskRuntimeCompositionContract libtorrentBtTaskRuntimeComposition({
+  required BtTaskStore store,
+  CacheInvalidationBus? cacheInvalidationBus,
+  DateTime Function()? clock,
+  LibtorrentEngineBackend? backend,
+  LibtorrentEngineBackendFactory? backendFactory,
+  String? defaultSavePath,
+  Duration? pollInterval,
+  LibtorrentMetadataResolver? metadataResolver,
+  bool metadataFetchingSupported = false,
+}) {
+  final LibtorrentEngineBackendFactory? effectiveBackendFactory =
+      backend == null
+          ? backendFactory ??
+              () => _LibtorrentFlutterEngineBackend.initialize(
+                    defaultSavePath: defaultSavePath,
+                    pollInterval: pollInterval,
+                    metadataResolver: metadataResolver,
+                  )
+          : backendFactory;
+  final LibtorrentDownloadEngineAdapter adapter =
+      LibtorrentDownloadEngineAdapter(
+    backend: backend,
+    backendFactory: effectiveBackendFactory,
+    metadataFetchingSupported:
+        metadataResolver != null || metadataFetchingSupported,
+  );
+  return BtTaskRuntimeCompositionContract(
+    adapter: adapter,
+    store: store,
+    cacheInvalidationBus: cacheInvalidationBus,
+    clock: clock,
+  );
 }
 
 BtCapabilityMatrix libtorrentDownloadEngineCapabilities({
