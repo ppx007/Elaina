@@ -6,6 +6,8 @@ Future<void> main() async {
 }
 
 Future<void> verifyVideoDetailRuntimeContract() async {
+  await _verifyStorageBackedVideoDetailRuntime();
+
   final DateTime now = DateTime.utc(2026, 1, 3, 9);
   final LocalMediaIdentity firstMedia = LocalMediaIdentity(
     id: const LocalMediaId('detail-check-media-1'),
@@ -107,6 +109,92 @@ Future<void> verifyVideoDetailRuntimeContract() async {
 
   bootstrap.dispose();
   await verifyBasicDanmakuRuntimeContract();
+}
+
+Future<void> _verifyStorageBackedVideoDetailRuntime() async {
+  final DateTime now = DateTime.utc(2026, 6, 18, 12);
+  final SqliteStorageFoundation storage = SqliteStorageFoundation.inMemory();
+  try {
+    await storage.mediaLibrary.store(StoredMediaLibraryItemRecord(
+      id: 'detail-storage-item-1',
+      localMediaId: 'detail-storage-media-1',
+      uri: Uri.file('/library/detail-storage-1.mkv'),
+      basename: 'detail-storage-1.mkv',
+      addedAt: now,
+      duration: const Duration(minutes: 24),
+    ));
+    await storage.mediaLibrary.store(StoredMediaLibraryItemRecord(
+      id: 'detail-storage-item-2',
+      localMediaId: 'detail-storage-media-2',
+      uri: Uri.file('/library/detail-storage-2.mkv'),
+      basename: 'detail-storage-2.mkv',
+      addedAt: now.add(const Duration(minutes: 1)),
+      duration: const Duration(minutes: 24),
+    ));
+    await storage.playbackHistory.record(StoredPlaybackHistoryRecord(
+      id: 'detail-storage-history-2',
+      localMediaId: 'detail-storage-media-2',
+      position: const Duration(minutes: 11),
+      duration: const Duration(minutes: 24),
+      updatedAt: now.add(const Duration(minutes: 2)),
+    ));
+    await storage.providerBinding.saveAutomaticIfAllowed(
+      StoredProviderBindingRecord(
+        id: 'detail-storage-binding-1',
+        localMediaId: 'detail-storage-media-1',
+        providerId: defaultVideoDetailMetadataProviderId,
+        providerSubjectId: 'detail-storage-subject',
+        authority: storageProviderBindingAuthorityAutomatic,
+        confidence: 0.7,
+        createdAt: now,
+      ),
+    );
+    await storage.providerBinding.saveAutomaticIfAllowed(
+      StoredProviderBindingRecord(
+        id: 'detail-storage-binding-2',
+        localMediaId: 'detail-storage-media-2',
+        providerId: defaultVideoDetailMetadataProviderId,
+        providerSubjectId: 'detail-storage-subject',
+        authority: storageProviderBindingAuthorityAutomatic,
+        confidence: 0.8,
+        createdAt: now.add(const Duration(minutes: 1)),
+      ),
+    );
+
+    const BangumiSubject subject = BangumiSubject(
+      id: BangumiSubjectId('detail-storage-subject'),
+      title: 'Storage Detail Runtime Check',
+      summary: 'Storage-backed smoke subject.',
+    );
+    final VideoDetailBootstrap bootstrap = storageBackedVideoDetailBootstrap(
+      storage: storage,
+      metadataProvider: _CheckBangumiProvider(subject),
+      invalidationBus: StreamCacheInvalidationBus(),
+      now: () => now,
+    );
+    try {
+      final VideoDetailViewData detail =
+          await bootstrap.load(const VideoDetailId('detail-storage-subject'));
+      _expect(
+          detail.episodes.length == 2 &&
+              detail.episodes.first.localMediaId?.value ==
+                  'detail-storage-media-1',
+          'Storage-backed video detail runtime must project bound local media episodes.');
+      _expect(
+          detail.continueWatching?.mediaId.value == 'detail-storage-media-2',
+          'Storage-backed video detail runtime must replay latest history.');
+      _expect(detail.binding?.authority == ProviderBindingAuthority.automatic,
+          'Storage-backed video detail runtime must preserve binding state.');
+      final VideoDetailActionResult follow = await bootstrap.controller
+          .follow(const VideoDetailId('detail-storage-subject'));
+      _expect(follow.isSuccess,
+          'Storage-backed video detail runtime must reuse detail action handler.');
+    } finally {
+      bootstrap.dispose();
+    }
+  } finally {
+    storage.dispose();
+  }
 }
 
 void _expect(bool condition, String message) {

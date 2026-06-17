@@ -76,6 +76,18 @@ final class VideoDetailBootstrap {
           now: now,
         );
 
+  VideoDetailBootstrap.withDependencies({
+    required VideoDetailRepository repository,
+    required VideoDetailActionHandler actionHandler,
+    void Function()? disposeRepository,
+    void Function()? disposeActionHandler,
+  }) : runtime = VideoDetailRuntime.withDependencies(
+          repository: repository,
+          actionHandler: actionHandler,
+          disposeRepository: disposeRepository,
+          disposeActionHandler: disposeActionHandler,
+        );
+
   final VideoDetailRuntime runtime;
 
   VideoDetailController get controller => runtime.controller;

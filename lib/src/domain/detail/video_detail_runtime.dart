@@ -492,20 +492,29 @@ final class VideoDetailRuntime {
       providerId: providerId,
       now: now,
     );
-    return VideoDetailRuntime._(
-        repository: repository, actionHandler: actionHandler);
+    return VideoDetailRuntime.withDependencies(
+      repository: repository,
+      actionHandler: actionHandler,
+      disposeRepository: repository.dispose,
+      disposeActionHandler: actionHandler.dispose,
+    );
   }
 
-  VideoDetailRuntime._({
+  VideoDetailRuntime.withDependencies({
     required this.repository,
     required this.actionHandler,
-  }) {
+    void Function()? disposeRepository,
+    void Function()? disposeActionHandler,
+  })  : _disposeRepository = disposeRepository,
+        _disposeActionHandler = disposeActionHandler {
     controller =
         VideoDetailController(repository: repository, actions: actionHandler);
   }
 
-  final DeterministicVideoDetailRepository repository;
-  final DeterministicVideoDetailActionHandler actionHandler;
+  final VideoDetailRepository repository;
+  final VideoDetailActionHandler actionHandler;
+  final void Function()? _disposeRepository;
+  final void Function()? _disposeActionHandler;
   late final VideoDetailController controller;
   final List<VideoDetailRuntimeObserver> _observers =
       <VideoDetailRuntimeObserver>[];
@@ -537,8 +546,8 @@ final class VideoDetailRuntime {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    repository.dispose();
-    actionHandler.dispose();
+    _disposeRepository?.call();
+    _disposeActionHandler?.call();
     _publish(VideoDetailRuntimeSnapshot(
       status: VideoDetailRuntimeStatus.disposed,
       activeDetail: _snapshot.activeDetail,

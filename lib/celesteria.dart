@@ -8,6 +8,7 @@ export 'src/domain/automation/rss_download_handoff.dart';
 export 'src/domain/detail/video_detail.dart';
 export 'src/domain/detail/video_detail_bootstrap.dart';
 export 'src/domain/detail/video_detail_runtime.dart';
+export 'src/domain/detail/video_detail_storage_adapters.dart';
 export 'src/domain/media/local_file_media_scanner.dart';
 export 'src/domain/media/media_library.dart';
 export 'src/domain/media/media_library_runtime.dart';

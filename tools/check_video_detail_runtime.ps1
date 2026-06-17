@@ -6,9 +6,11 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/domain/detail/video_detail.dart',
   'lib/src/domain/detail/video_detail_runtime.dart',
+  'lib/src/domain/detail/video_detail_storage_adapters.dart',
   'lib/src/domain/detail/video_detail_bootstrap.dart',
   'lib/src/ui/detail/video_detail_page_contract.dart',
   'test/domain/detail/video_detail_runtime_test.dart',
+  'docs/video-detail-runtime-implementation.md',
   'tools/video_detail_runtime_check.dart'
 )
 
@@ -86,6 +88,50 @@ foreach ($term in @(
   }
 }
 
+$storageAdapters = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/detail/video_detail_storage_adapters.dart') -Raw
+foreach ($term in @(
+  'StorageBackedVideoDetailRepository',
+  'storageBackedVideoDetailBootstrap',
+  'StorageFoundation',
+  'StorageMediaLibraryCatalogRepository',
+  'StoragePlaybackHistoryStore',
+  'StorageProviderBindingStore',
+  'VideoDetailBootstrap.withDependencies',
+  'VideoDetailActionHandler',
+  'PlaybackSourceHandoffContract'
+)) {
+  if ($storageAdapters -notmatch [regex]::Escape($term)) {
+    throw "Storage-backed video detail adapter missing required term: $term"
+  }
+}
+foreach ($term in @(
+  'package:flutter',
+  'dart:ui',
+  'package:sqlite3',
+  'sqlite3',
+  'Database',
+  'ResultSet',
+  'select ',
+  'insert ',
+  'update ',
+  'delete ',
+  'HttpClient',
+  'WebView',
+  'Mpv',
+  'libmpv',
+  'media_kit',
+  'DownloadEngineAdapter',
+  'RssEngine',
+  'SeasonalIndexer',
+  'BtTask',
+  'BitTorrent',
+  'DiagnosticsCenter'
+)) {
+  if ($storageAdapters -match [regex]::Escape($term)) {
+    throw "Forbidden storage-backed video detail dependency '$term' found in video_detail_storage_adapters.dart"
+  }
+}
+
 $bootstrap = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/detail/video_detail_bootstrap.dart') -Raw
 foreach ($term in @('VideoDetailBootstrap', 'videoDetailRuntimeForbiddenTerms', 'videoDetailRuntimeRequiredTerms')) {
   if ($bootstrap -notmatch [regex]::Escape($term)) {
@@ -116,6 +162,7 @@ $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 foreach ($export in @(
   'src/domain/detail/video_detail.dart',
   'src/domain/detail/video_detail_runtime.dart',
+  'src/domain/detail/video_detail_storage_adapters.dart',
   'src/domain/detail/video_detail_bootstrap.dart',
   'src/ui/detail/video_detail_page_contract.dart'
 )) {
@@ -125,6 +172,26 @@ foreach ($export in @(
 }
 if ($barrel -match [regex]::Escape("export 'src/ui/detail/flutter_video_detail")) {
   throw 'Public Dart contract barrel must not export concrete Flutter video detail pages.'
+}
+
+foreach ($path in @('lib/src/ui', 'windows')) {
+  $fullPath = Join-Path $root $path
+  if (Test-Path -LiteralPath $fullPath) {
+    $matches = Get-ChildItem -Path $fullPath -Recurse -File |
+      Select-String -Pattern 'StorageBackedVideoDetailRepository|storageBackedVideoDetailBootstrap|SqliteStorageFoundation|package:sqlite3'
+    if ($matches) {
+      throw "Step 43 concrete video detail details leaked into $path"
+    }
+  }
+}
+$mainPath = Join-Path $root 'lib/main.dart'
+if (Test-Path -LiteralPath $mainPath) {
+  $mainContent = Get-Content -LiteralPath $mainPath -Raw
+  foreach ($term in @('StorageBackedVideoDetailRepository', 'storageBackedVideoDetailBootstrap', 'SqliteStorageFoundation', 'package:sqlite3')) {
+    if ($mainContent -match [regex]::Escape($term)) {
+      throw "Step 43 concrete video detail detail '$term' leaked into lib/main.dart"
+    }
+  }
 }
 
 & dart (Join-Path $root 'tools/video_detail_runtime_check.dart')

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:celesteria/celesteria.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -211,6 +212,94 @@ void main() {
     missingMediaRuntime.dispose();
     unsupportedRuntime.dispose();
   });
+
+  test('storage-backed detail runtime replays catalog history and bindings',
+      () async {
+    final File databaseFile = await _tempDatabaseFile();
+    addTearDown(() async {
+      if (databaseFile.parent.existsSync()) {
+        await databaseFile.parent.delete(recursive: true);
+      }
+    });
+    final DateTime now = DateTime.utc(2026, 6, 18, 10);
+    final SqliteStorageFoundation first =
+        SqliteStorageFoundation.open(databaseFile.path);
+    await first.mediaLibrary.store(_storedMedia(
+      id: 'item-storage-1',
+      localMediaId: 'detail-storage-1',
+      basename: 'Storage Episode 1.mkv',
+      addedAt: now,
+    ));
+    await first.mediaLibrary.store(_storedMedia(
+      id: 'item-storage-2',
+      localMediaId: 'detail-storage-2',
+      basename: 'Storage Episode 2.mkv',
+      addedAt: now.add(const Duration(minutes: 1)),
+    ));
+    await first.playbackHistory.record(StoredPlaybackHistoryRecord(
+      id: 'history-storage-2',
+      localMediaId: 'detail-storage-2',
+      position: const Duration(minutes: 9),
+      duration: const Duration(minutes: 24),
+      updatedAt: now.add(const Duration(minutes: 2)),
+    ));
+    await first.providerBinding.saveAutomaticIfAllowed(_storedBinding(
+      id: 'binding-storage-1',
+      localMediaId: 'detail-storage-1',
+      subjectId: 'subject-1',
+      createdAt: now,
+    ));
+    await first.providerBinding.saveAutomaticIfAllowed(_storedBinding(
+      id: 'binding-storage-2',
+      localMediaId: 'detail-storage-2',
+      subjectId: 'subject-1',
+      createdAt: now.add(const Duration(minutes: 1)),
+    ));
+    first.dispose();
+
+    final SqliteStorageFoundation second =
+        SqliteStorageFoundation.open(databaseFile.path);
+    addTearDown(second.dispose);
+    final _RecordingCacheInvalidationBus invalidationBus =
+        _RecordingCacheInvalidationBus();
+    final VideoDetailBootstrap bootstrap = storageBackedVideoDetailBootstrap(
+      storage: second,
+      metadataProvider: _FakeBangumiProvider(
+        subjects: <String, BangumiSubject>{'subject-1': _subject()},
+      ),
+      invalidationBus: invalidationBus,
+      now: () => now,
+    );
+    addTearDown(bootstrap.dispose);
+
+    final VideoDetailViewData detail =
+        await bootstrap.load(const VideoDetailId('subject-1'));
+    final VideoDetailActionResult select = await bootstrap.controller
+        .selectEpisode(const VideoDetailId('subject-1'),
+            const VideoEpisodeId('detail-storage-1'));
+    final VideoDetailActionResult follow =
+        await bootstrap.controller.follow(const VideoDetailId('subject-1'));
+    final VideoDetailViewData followed =
+        await bootstrap.load(const VideoDetailId('subject-1'));
+
+    expect(detail.title, 'Subject Title');
+    expect(
+      detail.episodes.map((VideoDetailEpisode episode) => episode.title),
+      <String>['Storage Episode 1.mkv', 'Storage Episode 2.mkv'],
+    );
+    expect(detail.continueWatching?.mediaId.value, 'detail-storage-2');
+    expect(detail.binding?.authority, ProviderBindingAuthority.automatic);
+    expect(detail.followState, VideoFollowState.notFollowed);
+    expect(detail.actions.primary.single.kind,
+        VideoDetailActionKind.continuePlayback);
+    expect(select.isSuccess, isTrue);
+    expect(follow.isSuccess, isTrue);
+    expect(followed.followState, VideoFollowState.followed);
+    expect(invalidationBus.publishedEvents.whereType<HistoryRecorded>(),
+        hasLength(1));
+    expect(invalidationBus.publishedEvents.whereType<BindingChanged>(),
+        hasLength(1));
+  });
 }
 
 VideoDetailRuntime _runtime({
@@ -257,6 +346,45 @@ LocalMediaIdentity _media(String id, String basename) {
       id: LocalMediaId(id),
       uri: Uri.file('/library/$basename'),
       basename: basename);
+}
+
+StoredMediaLibraryItemRecord _storedMedia({
+  required String id,
+  required String localMediaId,
+  required String basename,
+  required DateTime addedAt,
+}) {
+  return StoredMediaLibraryItemRecord(
+    id: id,
+    localMediaId: localMediaId,
+    uri: Uri.file('/library/$basename'),
+    basename: basename,
+    addedAt: addedAt,
+    duration: const Duration(minutes: 24),
+  );
+}
+
+StoredProviderBindingRecord _storedBinding({
+  required String id,
+  required String localMediaId,
+  required String subjectId,
+  required DateTime createdAt,
+}) {
+  return StoredProviderBindingRecord(
+    id: id,
+    localMediaId: localMediaId,
+    providerId: defaultVideoDetailMetadataProviderId,
+    providerSubjectId: subjectId,
+    authority: storageProviderBindingAuthorityAutomatic,
+    confidence: 0.8,
+    createdAt: createdAt,
+  );
+}
+
+Future<File> _tempDatabaseFile() async {
+  final Directory directory =
+      await Directory.systemTemp.createTemp('celesteria-video-detail-test-');
+  return File('${directory.path}${Platform.pathSeparator}storage.sqlite');
 }
 
 final class _RuntimeObserver implements VideoDetailRuntimeObserver {
