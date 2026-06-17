@@ -24,12 +24,15 @@ $requiredFiles = @(
   'lib/src/playback/danmaku/danmaku_filter.dart',
   'lib/src/playback/danmaku/danmaku_renderer.dart',
   'lib/src/domain/acg/acg_data_controller.dart',
+  'lib/src/domain/acg/acg_experience_runtime.dart',
   'lib/src/domain/playback/playback_metadata_bridge.dart',
+  'tools/acg_experience_runtime_check.dart',
   'tools/playback_metadata_bridge_runtime_check.dart',
   'docs/phase2-acg-data-experience.md',
   'docs/bangumi-api-client.md',
   'docs/dandanplay-api-client.md',
   'docs/playback-metadata-bridge.md',
+  'docs/acg-experience-smoke-gate.md',
   'docs/next-change-detail-library-seasonal.md'
 )
 
@@ -125,6 +128,31 @@ foreach ($term in $requiredMetadataBridgeTerms) {
 foreach ($term in @('BangumiApiClient', 'DandanplayApiClient', 'OpenSubtitlesApiClient', 'HttpOpenSubtitlesApiTransport', 'HttpClient(', 'package:flutter', 'libmpv', 'media_kit', 'MpvAdapterBinding', 'WebViewController', 'DownloadEngineAdapter')) {
   if ($metadataBridge -match [regex]::Escape($term)) {
     throw "Playback metadata bridge contains forbidden concrete dependency: $term"
+  }
+}
+
+$acgExperience = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/acg/acg_experience_runtime.dart') -Raw
+$requiredAcgExperienceTerms = @(
+  'AcgExperienceRuntime',
+  'AcgExperienceRequest',
+  'AcgExperienceResult',
+  'AcgExperienceFailure',
+  'AcgDataController',
+  'SubtitleProviderRuntime',
+  'PlaybackMetadataBridge',
+  'PlaybackMetadataBridgeSnapshot',
+  'DandanplayMatchCandidate',
+  'BangumiSubject',
+  'PlaybackStateSnapshot'
+)
+foreach ($term in $requiredAcgExperienceTerms) {
+  if ($acgExperience -notmatch [regex]::Escape($term)) {
+    throw "ACG experience runtime missing required term: $term"
+  }
+}
+foreach ($term in @('BangumiApiClient', 'DandanplayApiClient', 'OpenSubtitlesApiClient', 'HttpOpenSubtitlesApiTransport', 'HttpClient(', 'package:flutter', 'libmpv', 'media_kit', 'MpvAdapterBinding', 'WebViewController', 'DownloadEngineAdapter')) {
+  if ($acgExperience -match [regex]::Escape($term)) {
+    throw "ACG experience runtime contains forbidden concrete dependency: $term"
   }
 }
 

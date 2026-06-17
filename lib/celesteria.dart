@@ -1,6 +1,7 @@
 library celesteria;
 
 export 'src/domain/acg/acg_data_controller.dart';
+export 'src/domain/acg/acg_experience_runtime.dart';
 export 'src/domain/acg/bangumi_acg_runtime.dart';
 export 'src/domain/acg/dandanplay_acg_runtime.dart';
 export 'src/domain/automation/rss_download_handoff.dart';
