@@ -2,13 +2,16 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_rss_engine_runtime.ps1')
+& (Join-Path $PSScriptRoot 'check_seasonal_feed_flow.ps1')
 
 $requiredFiles = @(
   'lib/src/domain/seasonal/seasonal_anime.dart',
   'lib/src/domain/seasonal/seasonal_indexer_runtime.dart',
+  'lib/src/domain/seasonal/seasonal_feed_flow.dart',
   'lib/src/provider/rss/yuc_wiki_feed_source.dart',
   'test/domain/seasonal/seasonal_indexer_contract_test.dart',
   'test/domain/seasonal/seasonal_indexer_runtime_test.dart',
+  'test/domain/seasonal/seasonal_feed_flow_test.dart',
   'tools/seasonal_indexer_runtime_check.dart'
 )
 
@@ -22,6 +25,7 @@ foreach ($file in $requiredFiles) {
 $runtimeFiles = @(
   'lib/src/domain/seasonal/seasonal_anime.dart',
   'lib/src/domain/seasonal/seasonal_indexer_runtime.dart',
+  'lib/src/domain/seasonal/seasonal_feed_flow.dart',
   'lib/src/provider/rss/yuc_wiki_feed_source.dart'
 )
 
@@ -81,10 +85,15 @@ foreach ($term in @(
   'startListening',
   'stopListening',
   'pendingMatchQueue',
-  'processNextBangumiMatch'
+  'processNextBangumiMatch',
+  'SeasonalFeedFlowRuntime',
+  'SeasonalFeedFlowBootstrap'
 )) {
   if ($runtime -notmatch [regex]::Escape($term)) {
-    throw "Seasonal indexer runtime missing required term: $term"
+    $flow = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/seasonal/seasonal_feed_flow.dart') -Raw
+    if ($flow -notmatch [regex]::Escape($term)) {
+      throw "Seasonal indexer runtime missing required term: $term"
+    }
   }
 }
 
@@ -95,7 +104,8 @@ foreach ($term in @(
   'DeterministicSeasonalIndexer',
   'BangumiMatchQueueProjection',
   'DeterministicBangumiMatchWorker',
-  'AutomaticBangumiMatchOutcome'
+  'AutomaticBangumiMatchOutcome',
+  'FeedItemSeasonalAnimeConsumer'
 )) {
   if ($seasonal -notmatch [regex]::Escape($term) -and $runtime -notmatch [regex]::Escape($term)) {
     throw "Seasonal indexer contracts missing required term: $term"

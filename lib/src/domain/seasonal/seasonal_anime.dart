@@ -12,6 +12,7 @@ import '../rss/rss_engine.dart';
 const double defaultAutomaticBangumiMatchMinimumConfidence = 0.8;
 const double exactBangumiTitleMatchConfidence = 1.0;
 const double partialBangumiTitleMatchConfidence = 0.6;
+const String defaultSeasonalCatalogEntryIdPrefix = 'seasonal-entry';
 
 enum AnimeSeasonKind {
   winter,
@@ -157,6 +158,51 @@ abstract interface class SeasonalAnimeConsumer {
 
   Future<List<SeasonalCatalogEntry>> consume(
       SeasonalFeedSourceId sourceId, Iterable<SeasonalSourceItem> items);
+}
+
+final class FeedItemSeasonalAnimeConsumer implements SeasonalAnimeConsumer {
+  const FeedItemSeasonalAnimeConsumer({
+    required this.sourceId,
+    required this.season,
+    this.catalogEntryIdPrefix = defaultSeasonalCatalogEntryIdPrefix,
+  }) : assert(
+          catalogEntryIdPrefix != '',
+          'Catalog entry id prefix must not be empty.',
+        );
+
+  final SeasonalFeedSourceId sourceId;
+  final AnimeSeason season;
+  final String catalogEntryIdPrefix;
+
+  @override
+  bool accepts(SeasonalFeedSourceId sourceId) =>
+      sourceId.value == this.sourceId.value;
+
+  @override
+  Future<List<SeasonalCatalogEntry>> consume(
+    SeasonalFeedSourceId sourceId,
+    Iterable<SeasonalSourceItem> items,
+  ) {
+    if (!accepts(sourceId)) {
+      return Future<List<SeasonalCatalogEntry>>.value(
+        const <SeasonalCatalogEntry>[],
+      );
+    }
+    return Future<List<SeasonalCatalogEntry>>.value(
+      <SeasonalCatalogEntry>[
+        for (final SeasonalSourceItem item in items)
+          SeasonalCatalogEntry(
+            id: SeasonalCatalogEntryId('$catalogEntryIdPrefix-${item.id}'),
+            season: season,
+            title: item.title,
+            sourceItem: item,
+            summary: item.summary,
+            officialUri: item.link,
+            publishedAt: item.publishedAt,
+          ),
+      ],
+    );
+  }
 }
 
 final class BangumiMatchQueueItemId {
