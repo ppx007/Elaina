@@ -23,5 +23,5 @@
 - [x] 4.1 Run focused media-library/detail/history tests and smoke checker.
 - [x] 4.2 Run `openspec.cmd validate "step45-library-smoke-gate" --strict`.
 - [x] 4.3 Run baseline validation gates.
-- [ ] 4.4 Archive the OpenSpec change.
-- [ ] 4.5 Re-run `openspec.cmd validate --all` and report git status.
+- [x] 4.4 Archive the OpenSpec change.
+- [x] 4.5 Re-run `openspec.cmd validate --all` and report git status.
