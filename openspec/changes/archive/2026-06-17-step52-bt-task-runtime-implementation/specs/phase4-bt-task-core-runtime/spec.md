@@ -1,8 +1,5 @@
-# phase4-bt-task-core-runtime Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change bootstrap-phase4-bt-task-core-runtime. Update Purpose after archive.
-## Requirements
 ### Requirement: Phase 4 BT task core runtime SHALL compose engine-neutral task orchestration
 The system SHALL provide a BT task core runtime or bootstrap surface that
 composes `DownloadEngineAdapter`, `BtTaskStore`, optional cache invalidation,
@@ -27,27 +24,6 @@ engine-neutral projections and outcomes.
 - **THEN** it persists normalized transfer snapshots and events that can be
   replayed after restart without a concrete engine handle
 
-### Requirement: Phase 4 BT task core runtime SHALL persist metadata and file state
-The system SHALL persist adapter-provided metadata, file descriptors, file offsets, piece length, file selection state, and task lifecycle state through BT task storage contracts.
-
-#### Scenario: Metadata is fetched
-- **WHEN** the runtime ensures metadata for an existing task
-- **THEN** it stores normalized metadata and file records, updates task lifecycle state, records a metadata event, and exposes replayable metadata without concrete engine objects
-
-### Requirement: Phase 4 BT task core runtime SHALL project replayable task snapshots
-The system SHALL expose deterministic runtime snapshots or projections for task records, metadata, files, lifecycle state, latest transfer status, latest event state, runtime availability, and disposed state.
-
-#### Scenario: Domain reads task state after adapter updates
-- **WHEN** adapter status or events have been observed and stored
-- **THEN** later runtime reads can reconstruct the task projection from storage without subscribing to the concrete download engine
-
-### Requirement: Phase 4 BT task core runtime SHALL gate commands by capability
-The system SHALL return typed runtime failures for unsupported task creation, metadata fetching, lifecycle commands, file selection, observation, unavailable adapter/store dependencies, and disposed runtime state.
-
-#### Scenario: Platform does not support task management
-- **WHEN** a task creation, pause, resume, remove, or file-selection command is requested on a runtime without task-management capability
-- **THEN** the command returns a capability failure and does not promise unsupported background or engine behavior
-
 ### Requirement: Phase 4 BT task core runtime SHALL remain Step 18 scoped
 The system MUST keep Flutter UI, playback source handoff, concrete range
 servers, virtual byte serving, piece-priority application, timeline overlay
@@ -63,4 +39,3 @@ limited to the approved concrete adapter file and tests.
 - **THEN** native/libtorrent package imports are allowed only in the approved
   concrete BT adapter file and tests, while neutral streaming contracts remain
   free of concrete engine dependencies
-
