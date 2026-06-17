@@ -2,19 +2,22 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_advanced_playback_core.ps1')
+& (Join-Path $PSScriptRoot 'check_online_rule_test_harness.ps1')
 
 $requiredFiles = @(
   'lib/src/provider/rss/rss_auto_download_policy.dart',
   'lib/src/foundation/storage/rss_auto_download_policy_storage_contracts.dart',
   'lib/src/domain/automation/rss_download_handoff.dart',
   'lib/src/provider/online/online_rule_runtime.dart',
+  'lib/src/provider/online/online_rule_test_harness.dart',
   'lib/src/foundation/storage/online_rule_runtime_storage_contracts.dart',
   'lib/src/network/webview_session_backfill.dart',
   'lib/src/network/network_policy.dart',
   'lib/src/foundation/storage/network_policy_storage_contracts.dart',
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
   'lib/src/foundation/storage/diagnostics_storage_contracts.dart',
-  'docs/phase6-automation-extension-core.md'
+  'docs/phase6-automation-extension-core.md',
+  'docs/online-rule-test-harness.md'
 )
 
 foreach ($file in $requiredFiles) {
