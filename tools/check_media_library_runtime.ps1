@@ -6,10 +6,13 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/domain/media/media_library.dart',
   'lib/src/domain/media/media_library_runtime.dart',
+  'lib/src/domain/media/playback_history_integration.dart',
   'lib/src/domain/media/local_file_media_scanner.dart',
   'lib/src/domain/media/media_library_storage_adapters.dart',
+  'test/domain/media/playback_history_integration_test.dart',
   'test/domain/media/media_library_concrete_runtime_test.dart',
   'test/domain/media/media_library_runtime_test.dart',
+  'docs/playback-history-integration.md',
   'tools/media_library_runtime_check.dart'
 )
 
@@ -22,7 +25,8 @@ foreach ($file in $requiredFiles) {
 
 $runtimeFiles = @(
   'lib/src/domain/media/media_library.dart',
-  'lib/src/domain/media/media_library_runtime.dart'
+  'lib/src/domain/media/media_library_runtime.dart',
+  'lib/src/domain/media/playback_history_integration.dart'
 )
 
 $forbiddenRuntimeTerms = @(
@@ -93,6 +97,23 @@ foreach ($term in @(
 )) {
   if ($runtime -notmatch [regex]::Escape($term)) {
     throw "Media library runtime missing required term: $term"
+  }
+}
+
+$historyIntegration = Get-Content -LiteralPath (Join-Path $root 'lib/src/domain/media/playback_history_integration.dart') -Raw
+foreach ($term in @(
+  'PlaybackHistoryRecorder',
+  'PlaybackHistoryRecordingResult',
+  'PlaybackHistoryRecordingObserver',
+  'PlaybackStateSnapshot',
+  'PlaybackStateObservable',
+  'MediaLibraryCatalogRepository',
+  'PlaybackHistoryStore',
+  'HistoryRecorded',
+  'playbackHistoryRecordableStatuses'
+)) {
+  if ($historyIntegration -notmatch [regex]::Escape($term)) {
+    throw "Playback history integration missing required term: $term"
   }
 }
 
@@ -173,6 +194,7 @@ $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 foreach ($export in @(
   'src/domain/media/media_library.dart',
   'src/domain/media/media_library_runtime.dart',
+  'src/domain/media/playback_history_integration.dart',
   'src/domain/media/local_file_media_scanner.dart',
   'src/domain/media/media_library_storage_adapters.dart'
 )) {

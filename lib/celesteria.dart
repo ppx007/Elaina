@@ -13,6 +13,7 @@ export 'src/domain/media/local_file_media_scanner.dart';
 export 'src/domain/media/media_library.dart';
 export 'src/domain/media/media_library_runtime.dart';
 export 'src/domain/media/media_library_storage_adapters.dart';
+export 'src/domain/media/playback_history_integration.dart';
 export 'src/domain/playback/basic_danmaku_state.dart';
 export 'src/domain/playback/playback_controller.dart';
 export 'src/domain/playback/playback_metadata_bridge.dart';

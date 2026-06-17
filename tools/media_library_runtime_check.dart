@@ -9,6 +9,7 @@ Future<void> main() async {
 
 Future<void> verifyMediaLibraryRuntimeContract() async {
   await _verifyStorageBackedMediaLibraryRuntime();
+  await _verifyPlaybackHistoryIntegration();
 
   final DateTime now = DateTime.utc(2026, 6, 10, 12);
   final MediaScanCandidate first = _candidate('check-media-1', 'check-1.mkv');
@@ -86,6 +87,73 @@ Future<void> verifyMediaLibraryRuntimeContract() async {
   await verifyVideoDetailRuntimeContract();
 }
 
+Future<void> _verifyPlaybackHistoryIntegration() async {
+  final DateTime observedAt = DateTime.utc(2026, 6, 17, 15);
+  final MediaLibraryItem item = MediaLibraryItem(
+    id: const MediaLibraryItemId('check-history-item'),
+    identity: LocalMediaIdentity(
+      id: const LocalMediaId('check-history-media'),
+      uri: Uri.parse('file:///D:/media/check-history.mkv'),
+      basename: 'check-history.mkv',
+    ),
+    addedAt: observedAt,
+    duration: const Duration(minutes: 24),
+  );
+  final DeterministicPlaybackHistoryStore historyStore =
+      DeterministicPlaybackHistoryStore();
+  final StreamCacheInvalidationBus invalidationBus =
+      StreamCacheInvalidationBus();
+  final List<CacheInvalidationEvent> events = <CacheInvalidationEvent>[];
+  final subscription = invalidationBus.events.listen(events.add);
+  try {
+    final PlaybackHistoryRecorder recorder = PlaybackHistoryRecorder(
+      catalogRepository: DeterministicMediaLibraryCatalogRepository(
+        seedItems: <MediaLibraryItem>[item],
+      ),
+      historyStore: historyStore,
+      invalidationBus: invalidationBus,
+    );
+    final PlaybackHistoryRecordingResult result = await recorder.record(
+      PlaybackStateSnapshot(
+        status: PlaybackLifecycleStatus.paused,
+        sourceUri: item.identity.uri,
+        timeline: PlaybackTimelineState(
+          position: const Duration(minutes: 4),
+          duration: const Duration(minutes: 24),
+          observedAt: observedAt,
+        ),
+      ),
+    );
+    final PlaybackHistoryEntry? latest =
+        await historyStore.latestFor(item.identity.id);
+    _expect(
+      result.isRecorded,
+      'Playback history recorder must record catalog-backed snapshots.',
+    );
+    _expect(
+      latest?.position == const Duration(minutes: 4),
+      'Playback history recorder must persist snapshot position.',
+    );
+    _expect(
+      events.whereType<HistoryRecorded>().length == 1,
+      'Playback history recorder must publish HistoryRecorded.',
+    );
+
+    final PlaybackHistoryRecordingResult skipped = await recorder.record(
+      const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
+    );
+    _expect(
+      skipped.kind == PlaybackHistoryRecordingResultKind.skipped &&
+          skipped.failure?.kind ==
+              PlaybackHistoryRecordingFailureKind.nonRecordableStatus,
+      'Playback history recorder must skip non-recordable snapshots.',
+    );
+  } finally {
+    await subscription.cancel();
+    await invalidationBus.close();
+  }
+}
+
 Future<void> _verifyStorageBackedMediaLibraryRuntime() async {
   final Directory root = await Directory.systemTemp.createTemp(
     'celesteria-media-library-check-',
@@ -126,14 +194,26 @@ Future<void> _verifyStorageBackedMediaLibraryRuntime() async {
       'Concrete media library runtime must import scanned local files.',
     );
     final MediaLibraryItem item = imported.imported.single;
-    await bootstrap.runtime.recordHistory(
-      PlaybackHistoryEntry(
-        id: const PlaybackHistoryEntryId('real-history'),
-        mediaId: item.identity.id,
-        position: const Duration(minutes: 5),
-        duration: const Duration(minutes: 24),
-        updatedAt: now,
+    final PlaybackHistoryRecorder recorder = PlaybackHistoryRecorder(
+      catalogRepository:
+          StorageMediaLibraryCatalogRepository(storage.mediaLibrary),
+      historyStore: StoragePlaybackHistoryStore(storage.playbackHistory),
+      invalidationBus: invalidationBus,
+    );
+    final PlaybackHistoryRecordingResult historyResult = await recorder.record(
+      PlaybackStateSnapshot(
+        status: PlaybackLifecycleStatus.paused,
+        sourceUri: item.identity.uri,
+        timeline: PlaybackTimelineState(
+          position: const Duration(minutes: 5),
+          duration: const Duration(minutes: 24),
+          observedAt: now,
+        ),
       ),
+    );
+    _expect(
+      historyResult.isRecorded,
+      'Concrete media library runtime must record playback history from snapshots.',
     );
     await bootstrap.runtime.saveUserBinding(
       ProviderBinding(
@@ -160,6 +240,10 @@ Future<void> _verifyStorageBackedMediaLibraryRuntime() async {
     _expect(
       events.whereType<MediaLibraryItemChanged>().isNotEmpty,
       'Concrete media library runtime must publish import invalidations.',
+    );
+    _expect(
+      events.whereType<HistoryRecorded>().isNotEmpty,
+      'Concrete media library runtime must publish history invalidations.',
     );
     bootstrap.dispose();
   } finally {
