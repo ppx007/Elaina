@@ -191,3 +191,16 @@ Concrete SQLite imports, handles, SQL statements, schema bootstrap code, and row
 - **WHEN** UI, Domain, Playback, Provider, Streaming, or Network code needs persisted data
 - **THEN** it consumes existing storage contracts or runtime projections rather than importing SQLite packages, opening database handles, or issuing SQL directly
 
+### Requirement: Step 42 media-library implementation SHALL preserve layer boundaries
+Step 42 concrete media-library runtime work SHALL keep filesystem scanning and
+storage-backed composition behind Domain/Foundation contracts while preserving
+the external UI ownership boundary.
+
+#### Scenario: Boundary checks scan Step 42 files
+- **WHEN** media-library runtime validation scans Step 42 implementation,
+  tests, tools, and docs
+- **THEN** `lib/src/ui/**`, `lib/main.dart`, and `windows/**` remain untouched,
+  SQLite and SQL details are found only in Foundation/Storage implementation
+  and tests/tools, and Domain media runtime surfaces do not import provider
+  clients, streaming engines, network clients, MPV/VLC bindings, or Flutter UI
+
