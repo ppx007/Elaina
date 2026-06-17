@@ -9,12 +9,14 @@ $requiredFiles = @(
   'lib/src/foundation/storage/piece_priority_scheduler_storage_contracts.dart',
   'lib/src/foundation/storage/timeline_overlay_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
+  'lib/src/streaming/file_virtual_byte_source.dart',
   'lib/src/streaming/libtorrent_download_engine_adapter.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
   'lib/src/streaming/timeline_overlay.dart',
   'lib/src/playback/virtual_stream_playback_source.dart',
   'test/streaming/libtorrent_download_engine_adapter_test.dart',
+  'test/streaming/virtual_media_stream_byte_serving_test.dart',
   'docs/phase4-bt-streaming-core.md'
 )
 
@@ -42,7 +44,11 @@ foreach ($file in $streamingFiles) {
   $content = Get-Content -LiteralPath $file.FullName -Raw
   $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
   $isLibtorrentAdapter = $relativePath -eq 'lib/src/streaming/libtorrent_download_engine_adapter.dart'
-  $forbiddenImplTerms = @('dart:io', 'HttpServer', 'Socket', 'ffi', 'RandomAccessFile', 'package:flutter')
+  $isFileByteSource = $relativePath -eq 'lib/src/streaming/file_virtual_byte_source.dart'
+  $forbiddenImplTerms = @('HttpServer', 'Socket', 'ffi', 'package:flutter')
+  if (-not $isFileByteSource) {
+    $forbiddenImplTerms += @('dart:io', 'RandomAccessFile')
+  }
   if (-not $isLibtorrentAdapter) {
     $forbiddenImplTerms += 'libtorrent'
   }
@@ -50,6 +56,13 @@ foreach ($file in $streamingFiles) {
     if ($content -match [regex]::Escape($term)) {
       throw "Streaming contract contains forbidden implementation dependency '$term' in $($file.FullName)"
     }
+  }
+}
+
+$fileByteSource = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/file_virtual_byte_source.dart') -Raw
+foreach ($term in @('FileVirtualByteSource', 'VirtualByteRangeSource', 'RandomAccessFile', 'fileVirtualStreamContentUriResolver')) {
+  if ($fileByteSource -notmatch [regex]::Escape($term)) {
+    throw "Concrete file byte source missing required term: $term"
   }
 }
 

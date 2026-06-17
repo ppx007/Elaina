@@ -47,6 +47,13 @@ final class VirtualByteRangeChunk {
   final List<int> bytes;
 }
 
+typedef VirtualStreamContentUriResolver = Uri? Function({
+  required VirtualMediaStreamId streamId,
+  required BtTaskId taskId,
+  required BtFileIndex fileIndex,
+  required StoredBtTaskFileRecord file,
+});
+
 enum VirtualMediaStreamFailureKind {
   taskUnavailable,
   metadataUnavailable,
@@ -166,6 +173,18 @@ abstract interface class VirtualMediaStream {
   Future<VirtualStreamCommandOutcome> close();
 }
 
+abstract interface class VirtualByteRangeSource {
+  Future<VirtualRangeEnsureOutcome> ensureRange({
+    required VirtualMediaStreamDescriptor descriptor,
+    required VirtualByteRangeRequest request,
+  });
+
+  Stream<VirtualByteRangeChunk> openRange({
+    required VirtualMediaStreamDescriptor descriptor,
+    required VirtualByteRangeRequest request,
+  });
+}
+
 abstract interface class VirtualMediaStreamRegistry {
   Future<VirtualMediaStreamCreateOutcome> createForFile({
     required BtTaskId taskId,
@@ -181,12 +200,17 @@ final class DeterministicVirtualMediaStreamRegistry
     required this.btTaskStore,
     required this.streamStore,
     this.cacheInvalidationBus,
+    VirtualStreamContentUriResolver? contentUriResolver,
+    this.byteSource,
     DateTime Function()? clock,
-  }) : _clock = clock ?? _defaultClock;
+  })  : _contentUriResolver = contentUriResolver ?? _defaultContentUri,
+        _clock = clock ?? _defaultClock;
 
   final BtTaskStore btTaskStore;
   final VirtualMediaStreamStore streamStore;
   final CacheInvalidationBus? cacheInvalidationBus;
+  final VirtualByteRangeSource? byteSource;
+  final VirtualStreamContentUriResolver _contentUriResolver;
   final DateTime Function() _clock;
 
   @override
@@ -220,7 +244,7 @@ final class DeterministicVirtualMediaStreamRegistry
     if (file == null) {
       return VirtualMediaStreamCreateOutcome.failure(
           failure: _failure(VirtualMediaStreamFailureKind.fileUnavailable,
-               'BT task ${taskId.value} file ${fileIndex.value} is unavailable.'));
+              'BT task ${taskId.value} file ${fileIndex.value} is unavailable.'));
     }
     if (file.selectionState == StoredBtFileSelectionState.skipped) {
       return VirtualMediaStreamCreateOutcome.failure(
@@ -238,16 +262,28 @@ final class DeterministicVirtualMediaStreamRegistry
           descriptor: _descriptorFromRecord(existing));
     }
 
+    final VirtualMediaStreamId streamId = _streamId(taskId, fileIndex);
     final StoredVirtualMediaStreamRecord stream =
         StoredVirtualMediaStreamRecord(
-      id: _streamId(taskId, fileIndex).value,
+      id: streamId.value,
       taskId: taskId.value,
       fileIndex: fileIndex.value,
       lengthBytes: file.lengthBytes,
       lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
       createdAt: _clock(),
       updatedAt: _clock(),
-      contentUri: _contentUri(_streamId(taskId, fileIndex)),
+      contentUri: _contentUriResolver(
+            streamId: streamId,
+            taskId: taskId,
+            fileIndex: fileIndex,
+            file: file,
+          ) ??
+          _defaultContentUri(
+            streamId: streamId,
+            taskId: taskId,
+            fileIndex: fileIndex,
+            file: file,
+          ),
       mimeType: file.mediaMimeType,
     );
     await streamStore.storeStream(stream);
@@ -277,6 +313,7 @@ final class DeterministicVirtualMediaStreamRegistry
       descriptor: _descriptorFromRecord(stream),
       store: streamStore,
       cacheInvalidationBus: cacheInvalidationBus,
+      byteSource: byteSource,
       clock: _clock,
     );
   }
@@ -287,6 +324,7 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
     required this.descriptor,
     required this.store,
     this.cacheInvalidationBus,
+    this.byteSource,
     DateTime Function()? clock,
   }) : _clock = clock ?? _defaultClock;
 
@@ -294,6 +332,7 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
   final VirtualMediaStreamDescriptor descriptor;
   final VirtualMediaStreamStore store;
   final CacheInvalidationBus? cacheInvalidationBus;
+  final VirtualByteRangeSource? byteSource;
   final DateTime Function() _clock;
 
   @override
@@ -330,8 +369,10 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
     if (stream.lifecycleState ==
         StoredVirtualMediaStreamLifecycleState.failed) {
       return VirtualStreamCommandOutcome.failure(
-          failure: _failure(VirtualMediaStreamFailureKind.streamFailed,
-              stream.message ?? 'Virtual stream ${descriptor.id.value} failed.'));
+          failure: _failure(
+              VirtualMediaStreamFailureKind.streamFailed,
+              stream.message ??
+                  'Virtual stream ${descriptor.id.value} failed.'));
     }
     await store.storeStream(stream.copyWith(
       lifecycleState: StoredVirtualMediaStreamLifecycleState.closed,
@@ -360,25 +401,16 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
       await _recordRangeFailure(request, unavailable);
       return VirtualRangeEnsureOutcome.failure(failure: unavailable);
     }
-    await store.recordBufferedRange(StoredVirtualStreamBufferedRangeRecord(
-      streamId: descriptor.id.value,
-      startByte: request.range.start,
-      endByte: request.range.endInclusive,
-      observedAt: _clock(),
-    ));
-    await store.recordEvent(StoredVirtualStreamEventRecord(
-      streamId: descriptor.id.value,
-      eventKind: StoredVirtualStreamEventKind.rangeBuffered,
-      occurredAt: _clock(),
-      rangeStart: request.range.start,
-      rangeEnd: request.range.endInclusive,
-    ));
-    cacheInvalidationBus?.publish(VirtualStreamRangeBuffered(
-      occurredAt: _clock(),
-      streamId: descriptor.id.value,
-      startByte: request.range.start,
-      endByte: request.range.endInclusive,
-    ));
+    final VirtualByteRangeSource? source = byteSource;
+    if (source != null) {
+      final VirtualRangeEnsureOutcome sourceOutcome =
+          await source.ensureRange(descriptor: descriptor, request: request);
+      if (!sourceOutcome.isSuccess) {
+        await _recordRangeFailure(request, sourceOutcome.failure!);
+        return sourceOutcome;
+      }
+    }
+    await _recordRangeBuffered(request.range);
     return VirtualRangeEnsureOutcome.success(
       availability: VirtualRangeAvailability(
         streamId: descriptor.id,
@@ -395,6 +427,25 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
     if (unavailable != null) {
       await _recordRangeFailure(request, unavailable);
       throw unavailable;
+    }
+    final VirtualByteRangeSource? source = byteSource;
+    if (source == null) {
+      final VirtualMediaStreamFailure failure = _failure(
+        VirtualMediaStreamFailureKind.rangeUnavailable,
+        'Virtual byte range source is not configured.',
+      );
+      await _recordRangeFailure(request, failure);
+      throw failure;
+    }
+    try {
+      await for (final VirtualByteRangeChunk chunk
+          in source.openRange(descriptor: descriptor, request: request)) {
+        yield chunk;
+      }
+      await _recordRangeBuffered(request.range);
+    } on VirtualMediaStreamFailure catch (failure) {
+      await _recordRangeFailure(request, failure);
+      throw failure;
     }
   }
 
@@ -446,6 +497,28 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
       endByte: request.range.endInclusive,
     ));
   }
+
+  Future<void> _recordRangeBuffered(BtByteRange range) async {
+    await store.recordBufferedRange(StoredVirtualStreamBufferedRangeRecord(
+      streamId: descriptor.id.value,
+      startByte: range.start,
+      endByte: range.endInclusive,
+      observedAt: _clock(),
+    ));
+    await store.recordEvent(StoredVirtualStreamEventRecord(
+      streamId: descriptor.id.value,
+      eventKind: StoredVirtualStreamEventKind.rangeBuffered,
+      occurredAt: _clock(),
+      rangeStart: range.start,
+      rangeEnd: range.endInclusive,
+    ));
+    cacheInvalidationBus?.publish(VirtualStreamRangeBuffered(
+      occurredAt: _clock(),
+      streamId: descriptor.id.value,
+      startByte: range.start,
+      endByte: range.endInclusive,
+    ));
+  }
 }
 
 DateTime _defaultClock() => DateTime.now().toUtc();
@@ -477,7 +550,12 @@ StoredBtTaskFileRecord? _fileFor(
   return null;
 }
 
-Uri _contentUri(VirtualMediaStreamId streamId) {
+Uri _defaultContentUri({
+  required VirtualMediaStreamId streamId,
+  required BtTaskId taskId,
+  required BtFileIndex fileIndex,
+  required StoredBtTaskFileRecord file,
+}) {
   return Uri.parse(
       'celesteria-virtual-stream://${Uri.encodeComponent(streamId.value)}');
 }

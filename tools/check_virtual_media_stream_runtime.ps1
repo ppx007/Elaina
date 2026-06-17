@@ -5,10 +5,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/virtual_media_stream_runtime.dart',
+  'lib/src/streaming/file_virtual_byte_source.dart',
   'lib/src/domain/playback/playback_source_handoff.dart',
   'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart',
   'lib/src/foundation/storage/virtual_stream_storage_contracts.dart',
   'test/streaming/virtual_media_stream_runtime_test.dart',
+  'test/streaming/virtual_media_stream_byte_serving_test.dart',
   'test/domain/playback/playback_source_handoff_test.dart',
   'tools/virtual_media_stream_runtime_check.dart'
 )
@@ -32,6 +34,7 @@ foreach ($term in @(
   'VirtualStreamRestartDisposition',
   'createStream(',
   'ensureRange(',
+  'openRange(',
   'closeStream(',
   'failStream(',
   'restartReconciliation('
@@ -71,6 +74,22 @@ foreach ($term in @(
 $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/streaming/virtual_media_stream_runtime.dart';")) {
   throw 'Public Dart contract barrel missing virtual media stream runtime export.'
+}
+
+if ($barrel -notmatch [regex]::Escape("export 'src/streaming/file_virtual_byte_source.dart';")) {
+  throw 'Public Dart contract barrel missing concrete virtual file byte source export.'
+}
+
+$fileByteSource = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/file_virtual_byte_source.dart') -Raw
+foreach ($term in @(
+  'FileVirtualByteSource',
+  'VirtualByteRangeSource',
+  'RandomAccessFile',
+  'fileVirtualStreamContentUriResolver'
+)) {
+  if ($fileByteSource -notmatch [regex]::Escape($term)) {
+    throw "Concrete virtual file byte source missing required term: $term"
+  }
 }
 
 & dart (Join-Path $root 'tools/virtual_media_stream_runtime_check.dart')

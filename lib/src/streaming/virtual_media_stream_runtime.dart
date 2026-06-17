@@ -166,11 +166,15 @@ final class VirtualMediaStreamBootstrap {
     required BtTaskStore btTaskStore,
     required VirtualMediaStreamStore streamStore,
     CacheInvalidationBus? cacheInvalidationBus,
+    VirtualStreamContentUriResolver? contentUriResolver,
+    VirtualByteRangeSource? byteSource,
     DateTime Function()? clock,
   }) : runtime = VirtualMediaStreamRuntime.withDependencies(
           btTaskStore: btTaskStore,
           streamStore: streamStore,
           cacheInvalidationBus: cacheInvalidationBus,
+          contentUriResolver: contentUriResolver,
+          byteSource: byteSource,
           clock: clock,
         );
 
@@ -184,12 +188,16 @@ final class VirtualMediaStreamRuntime {
     required BtTaskStore btTaskStore,
     required VirtualMediaStreamStore streamStore,
     CacheInvalidationBus? cacheInvalidationBus,
+    VirtualStreamContentUriResolver? contentUriResolver,
+    VirtualByteRangeSource? byteSource,
     DateTime Function()? clock,
   }) : this(
           registry: DeterministicVirtualMediaStreamRegistry(
             btTaskStore: btTaskStore,
             streamStore: streamStore,
             cacheInvalidationBus: cacheInvalidationBus,
+            contentUriResolver: contentUriResolver,
+            byteSource: byteSource,
             clock: clock,
           ),
           btTaskStore: btTaskStore,
@@ -335,6 +343,25 @@ final class VirtualMediaStreamRuntime {
     await _publishSnapshot();
     return VirtualMediaStreamRuntimeActionResult<
         VirtualMediaStreamSnapshot>.success(snapshot);
+  }
+
+  Future<VirtualMediaStreamRuntimeActionResult<Stream<VirtualByteRangeChunk>>>
+      openRange(VirtualByteRangeRequest request) async {
+    final VirtualMediaStreamRuntimeActionResult<Stream<VirtualByteRangeChunk>>?
+        gate = _gate<Stream<VirtualByteRangeChunk>>();
+    if (gate != null) return gate;
+
+    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStream>
+        streamResult = await _runtimeStream(request.streamId);
+    if (!streamResult.isSuccess) {
+      return _forwardFailure<VirtualMediaStream, Stream<VirtualByteRangeChunk>>(
+          streamResult);
+    }
+
+    return VirtualMediaStreamRuntimeActionResult<
+        Stream<VirtualByteRangeChunk>>.success(
+      streamResult.value!.openRange(request),
+    );
   }
 
   Future<VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>>
