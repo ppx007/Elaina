@@ -31,5 +31,5 @@
 - [x] 5.1 Run focused RSS tests and checker.
 - [x] 5.2 Run `openspec.cmd validate "step46-rss-fetcher-parser" --strict`.
 - [x] 5.3 Run baseline validation gates.
-- [ ] 5.4 Archive the OpenSpec change.
-- [ ] 5.5 Re-run `openspec.cmd validate --all` and report git status.
+- [x] 5.4 Archive the OpenSpec change.
+- [x] 5.5 Re-run `openspec.cmd validate --all` and report git status.
