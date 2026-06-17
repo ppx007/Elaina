@@ -10,9 +10,13 @@ $requiredFiles = @(
   'lib/src/domain/media/local_file_media_scanner.dart',
   'lib/src/domain/media/media_library_storage_adapters.dart',
   'test/domain/media/playback_history_integration_test.dart',
+  'test/domain/media/library_smoke_gate_test.dart',
   'test/domain/media/media_library_concrete_runtime_test.dart',
   'test/domain/media/media_library_runtime_test.dart',
+  'docs/library-smoke-gate.md',
   'docs/playback-history-integration.md',
+  'tools/check_library_smoke_gate.ps1',
+  'tools/library_smoke_gate.dart',
   'tools/media_library_runtime_check.dart'
 )
 
@@ -230,5 +234,7 @@ if (Test-Path -LiteralPath $mainPath) {
 if ($LASTEXITCODE -ne 0) {
   throw 'Media library runtime smoke check failed.'
 }
+
+& (Join-Path $PSScriptRoot 'check_library_smoke_gate.ps1')
 
 Write-Output 'Media library runtime checks passed.'
