@@ -46,6 +46,7 @@ export 'src/foundation/storage/online_rule_runtime_storage_contracts.dart';
 export 'src/foundation/storage/piece_priority_scheduler_storage_contracts.dart';
 export 'src/foundation/storage/rss_auto_download_policy_storage_contracts.dart';
 export 'src/foundation/storage/seasonal_storage_contracts.dart';
+export 'src/foundation/storage/sqlite_storage_foundation.dart';
 export 'src/foundation/storage/storage_contracts.dart';
 export 'src/foundation/storage/timeline_overlay_storage_contracts.dart';
 export 'src/foundation/storage/video_enhancement_storage_contracts.dart';
