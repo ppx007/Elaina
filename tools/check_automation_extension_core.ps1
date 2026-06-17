@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'check_advanced_playback_core.ps1')
 & (Join-Path $PSScriptRoot 'check_online_rule_test_harness.ps1')
+& (Join-Path $PSScriptRoot 'check_automation_smoke_gate.ps1')
 
 $requiredFiles = @(
   'lib/src/provider/rss/rss_auto_download_policy.dart',
@@ -17,7 +18,8 @@ $requiredFiles = @(
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
   'lib/src/foundation/storage/diagnostics_storage_contracts.dart',
   'docs/phase6-automation-extension-core.md',
-  'docs/online-rule-test-harness.md'
+  'docs/online-rule-test-harness.md',
+  'docs/automation-smoke-gate.md'
 )
 
 foreach ($file in $requiredFiles) {
