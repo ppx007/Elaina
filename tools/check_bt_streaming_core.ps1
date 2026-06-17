@@ -9,10 +9,12 @@ $requiredFiles = @(
   'lib/src/foundation/storage/piece_priority_scheduler_storage_contracts.dart',
   'lib/src/foundation/storage/timeline_overlay_storage_contracts.dart',
   'lib/src/streaming/bt_task_core.dart',
+  'lib/src/streaming/libtorrent_download_engine_adapter.dart',
   'lib/src/streaming/virtual_media_stream.dart',
   'lib/src/streaming/piece_priority_scheduler.dart',
   'lib/src/streaming/timeline_overlay.dart',
   'lib/src/playback/virtual_stream_playback_source.dart',
+  'test/streaming/libtorrent_download_engine_adapter_test.dart',
   'docs/phase4-bt-streaming-core.md'
 )
 
@@ -38,11 +40,30 @@ foreach ($file in $uiFiles) {
 $streamingFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/streaming') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $streamingFiles) {
   $content = Get-Content -LiteralPath $file.FullName -Raw
-  $forbiddenImplTerms = @('dart:io', 'HttpServer', 'Socket', 'libtorrent', 'ffi', 'RandomAccessFile', 'package:flutter')
+  $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+  $isLibtorrentAdapter = $relativePath -eq 'lib/src/streaming/libtorrent_download_engine_adapter.dart'
+  $forbiddenImplTerms = @('dart:io', 'HttpServer', 'Socket', 'ffi', 'RandomAccessFile', 'package:flutter')
+  if (-not $isLibtorrentAdapter) {
+    $forbiddenImplTerms += 'libtorrent'
+  }
   foreach ($term in $forbiddenImplTerms) {
     if ($content -match [regex]::Escape($term)) {
       throw "Streaming contract contains forbidden implementation dependency '$term' in $($file.FullName)"
     }
+  }
+}
+
+$libtorrentAdapter = Get-Content -LiteralPath (Join-Path $root 'lib/src/streaming/libtorrent_download_engine_adapter.dart') -Raw
+if ($libtorrentAdapter -notmatch [regex]::Escape("package:libtorrent_flutter/")) {
+  throw 'Concrete libtorrent adapter must own the libtorrent Flutter package import.'
+}
+
+$libDartFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $libDartFiles) {
+  $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  if ($relativePath -ne 'lib/src/streaming/libtorrent_download_engine_adapter.dart' -and $content -match [regex]::Escape("package:libtorrent_flutter/")) {
+    throw "libtorrent Flutter import leaked outside the concrete adapter: $($file.FullName)"
   }
 }
 

@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  libtorrent_flutter: ^1.8.5
   media_kit: ^1.2.6
   media_kit_libs_windows_video: ^1.0.11
   sqlite3: ^3.3.3
