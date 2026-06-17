@@ -1,8 +1,5 @@
-# phase4-virtual-media-stream-runtime Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change bootstrap-phase4-virtual-media-stream-runtime. Update Purpose after archive.
-## Requirements
 ### Requirement: Phase 4 virtual media stream runtime SHALL compose selected BT files into virtual streams
 The system SHALL provide a virtual media stream runtime or bootstrap surface
 that creates, lists, looks up, closes, fails, restarts, and serves selected BT
@@ -24,27 +21,6 @@ torrent engine dependencies.
 - **THEN** the runtime returns a stream of `VirtualByteRangeChunk` values and
   persists the buffered range through existing virtual stream storage records
 
-### Requirement: Phase 4 virtual media stream runtime SHALL expose typed action outcomes
-The system SHALL return typed runtime outcomes for stream creation, lookup, range availability, buffered range recording, close, failure, unavailable dependencies, and disposed runtime state.
-
-#### Scenario: Metadata is missing
-- **WHEN** a stream is requested for a task whose metadata or file list is unavailable
-- **THEN** the runtime returns a typed failure and does not call concrete torrent engine, filesystem, HTTP server, socket, FFI, or native player APIs
-
-### Requirement: Phase 4 virtual media stream runtime SHALL persist replayable range state
-The system SHALL persist stream lifecycle, buffered byte ranges, latest range failures, and range event metadata so later reads can reconstruct virtual stream snapshots across process restarts.
-
-#### Scenario: Range availability is recorded
-- **WHEN** a runtime records that a byte range is available or failed for a virtual stream
-- **THEN** storage records the range or failure event before the runtime exposes the updated snapshot or publishes invalidation
-
-### Requirement: Phase 4 virtual media stream runtime SHALL provide playback handoff projections
-The system SHALL expose playback-safe virtual stream source projections that can be consumed by playback source handoff without exposing BT task internals, piece maps, scheduler plans, timeline overlays, concrete byte-serving details, or native player bindings.
-
-#### Scenario: Playback prepares a virtual stream source
-- **WHEN** playback source handoff receives a virtual stream projection from the runtime
-- **THEN** it prepares a playback-compatible source that references only the virtual stream abstraction
-
 ### Requirement: Phase 4 virtual media stream runtime SHALL remain Step 19 scoped
 The system MUST keep piece-priority scheduling, timeline overlay composition,
 HTTP/range servers, pipe servers, sockets, libtorrent, FFI, UI pages,
@@ -58,4 +34,3 @@ remain limited to the approved concrete byte source file and tests.
 - **WHEN** Step 53 virtual stream validation scans project files
 - **THEN** concrete file IO is allowed only in the approved byte source file
   and tests, while runtime and contract code stay adapter-neutral
-
