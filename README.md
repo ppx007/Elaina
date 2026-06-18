@@ -37,6 +37,12 @@ runtime baseline as complete:
 powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1"
 ```
 
+Frontend implementation should start from the handoff document:
+
+```text
+docs/frontend-handoff.md
+```
+
 On Windows, `openspec.cmd` avoids PowerShell execution-policy blocking of `openspec.ps1`.
 If `dart.bat` hangs in the Flutter shim because Git rejects the Flutter SDK checkout as
 `dubious ownership`, validate with the direct SDK executable until the Flutter checkout is
