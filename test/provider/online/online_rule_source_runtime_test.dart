@@ -361,7 +361,30 @@ void main() {
       expect(output.results.single.title, 'Test Title');
     });
 
-    test('20 disable publishes manifest changed event', () async {
+    test('20 evaluate maps normalization failures to typed failures', () async {
+      final runtime = _runtime();
+      await runtime.validate('source-1', _normalizationFailureManifest());
+      final result = await runtime.evaluate(
+        'source-1',
+        OnlineRuleEvaluationRequest(
+          manifest: _normalizationFailureManifest(),
+          target: OnlineRuleTarget.search,
+          pageUri: Uri.parse('https://source.example.test/search'),
+          document:
+              '<article class="result"><h2>Missing Detail URI</h2></article>',
+        ),
+      );
+      final snapshots = await store.evaluationsForSource('source-1');
+
+      expect(result.isSuccess, isFalse);
+      expect(result.failure?.kind,
+          OnlineRuleSourceRuntimeFailureKind.evaluationFailed);
+      expect(snapshots.last.state, StoredOnlineRuleEvaluationState.failed);
+      expect(snapshots.last.values['title'], 'Missing Detail URI');
+      expect(snapshots.last.reason, contains('detailUri'));
+    });
+
+    test('21 disable publishes manifest changed event', () async {
       final runtime = _runtime();
       final events = <CacheInvalidationEvent>[];
       final subscription = bus.events.listen(events.add);
@@ -473,6 +496,32 @@ OnlineRuleManifest _wasmManifest() {
             id: 'wasm-op',
             kind: OnlineExtractionKind.regex,
             expression: 'wasm:extract',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _normalizationFailureManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('source-1'),
+    displayName: 'Normalization Failure Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri:
+        Uri.parse('https://rules.example.test/normalization-failure.json'),
+    checksum: 'sha256:normalization-failure',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'search-title',
+            kind: OnlineExtractionKind.cssSelector,
+            expression: '.result h2',
             outputKey: 'title',
             required: true,
           ),

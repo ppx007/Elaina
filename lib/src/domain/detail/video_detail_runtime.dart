@@ -322,99 +322,100 @@ final class DeterministicVideoDetailActionHandler
 
   @override
   Future<VideoDetailActionResult> continuePlayback(VideoDetailId id) async {
-    if (_disposed) return _disposedResult();
-    final VideoDetailViewData data = await _loadSafely(id);
-    final ContinueWatchingState? continueWatching = data.continueWatching;
-    if (continueWatching == null)
-      return VideoDetailActionResult.unavailable(
-          'No continue-watching state is available.');
-    final VideoDetailEpisode? episode =
-        _episodeForMedia(data, continueWatching.mediaId);
-    if (episode == null)
-      return VideoDetailActionResult.unavailable(
-          'Continue-watching media is not attached to an episode.');
-    return _prepareEpisode(data, episode);
+    return _withLoadedData(id, (VideoDetailViewData data) async {
+      final ContinueWatchingState? continueWatching = data.continueWatching;
+      if (continueWatching == null)
+        return VideoDetailActionResult.unavailable(
+            'No continue-watching state is available.');
+      final VideoDetailEpisode? episode =
+          _episodeForMedia(data, continueWatching.mediaId);
+      if (episode == null)
+        return VideoDetailActionResult.unavailable(
+            'Continue-watching media is not attached to an episode.');
+      return _prepareEpisode(data, episode);
+    });
   }
 
   @override
   Future<VideoDetailActionResult> selectEpisode(
       VideoDetailId id, VideoEpisodeId episodeId) async {
-    if (_disposed) return _disposedResult();
-    final VideoDetailViewData data = await _loadSafely(id);
-    final VideoDetailEpisode? episode = data.episodes
-        .where((VideoDetailEpisode value) => value.id.value == episodeId.value)
-        .firstOrNull;
-    if (episode == null)
-      return VideoDetailActionResult.unavailable(
-          'Selected episode was not found.');
-    return _prepareEpisode(data, episode);
+    return _withLoadedData(id, (VideoDetailViewData data) async {
+      final VideoDetailEpisode? episode = data.episodes
+          .where(
+              (VideoDetailEpisode value) => value.id.value == episodeId.value)
+          .firstOrNull;
+      if (episode == null)
+        return VideoDetailActionResult.unavailable(
+            'Selected episode was not found.');
+      return _prepareEpisode(data, episode);
+    });
   }
 
   @override
   Future<VideoDetailActionResult> follow(VideoDetailId id) async {
-    if (_disposed) return _disposedResult();
-    final VideoDetailViewData data = await _loadSafely(id);
-    final LocalMediaId? mediaId = _primaryMediaId(data);
-    if (mediaId == null)
-      return VideoDetailActionResult.unavailable(
-          'Cannot follow a detail without local media.');
-    final ProviderBinding binding = ProviderBinding(
-      id: ProviderBindingId('${mediaId.value}:$_providerId:${data.id.value}'),
-      localMediaId: mediaId,
-      providerId: _providerId,
-      subjectId: ProviderSubjectId(data.id.value),
-      authority: ProviderBindingAuthority.userConfirmed,
-      confidence: 1,
-      createdAt: (_now ?? DateTime.now)(),
-    );
-    final ProviderBinding saved =
-        await _bindingStore.saveUserConfirmed(binding);
-    _invalidationBus.publish(BindingChanged(
-        occurredAt: saved.createdAt,
-        localMediaId: saved.localMediaId.value,
-        providerId: saved.providerId,
-        providerSubjectId: saved.subjectId?.value));
-    return const VideoDetailActionResult.success();
+    return _withLoadedData(id, (VideoDetailViewData data) async {
+      final LocalMediaId? mediaId = _primaryMediaId(data);
+      if (mediaId == null)
+        return VideoDetailActionResult.unavailable(
+            'Cannot follow a detail without local media.');
+      final ProviderBinding binding = ProviderBinding(
+        id: ProviderBindingId('${mediaId.value}:$_providerId:${data.id.value}'),
+        localMediaId: mediaId,
+        providerId: _providerId,
+        subjectId: ProviderSubjectId(data.id.value),
+        authority: ProviderBindingAuthority.userConfirmed,
+        confidence: 1,
+        createdAt: (_now ?? DateTime.now)(),
+      );
+      final ProviderBinding saved =
+          await _bindingStore.saveUserConfirmed(binding);
+      _invalidationBus.publish(BindingChanged(
+          occurredAt: saved.createdAt,
+          localMediaId: saved.localMediaId.value,
+          providerId: saved.providerId,
+          providerSubjectId: saved.subjectId?.value));
+      return const VideoDetailActionResult.success();
+    });
   }
 
   @override
   Future<VideoDetailActionResult> unfollow(VideoDetailId id) async {
-    if (_disposed) return _disposedResult();
-    final VideoDetailViewData data = await _loadSafely(id);
-    final ProviderBinding? binding = data.binding;
-    if (binding == null)
-      return VideoDetailActionResult.ignored('Detail is not followed.');
-    final ProviderBinding automatic = ProviderBinding(
-      id: binding.id,
-      localMediaId: binding.localMediaId,
-      providerId: binding.providerId,
-      subjectId: binding.subjectId,
-      authority: ProviderBindingAuthority.automatic,
-      confidence: 0,
-      createdAt: (_now ?? DateTime.now)(),
-    );
-    await _bindingStore.saveUserConfirmed(automatic);
-    _invalidationBus.publish(BindingChanged(
-        occurredAt: automatic.createdAt,
-        localMediaId: automatic.localMediaId.value,
-        providerId: automatic.providerId,
-        providerSubjectId: automatic.subjectId?.value));
-    return const VideoDetailActionResult.success();
+    return _withLoadedData(id, (VideoDetailViewData data) async {
+      final ProviderBinding? binding = data.binding;
+      if (binding == null)
+        return VideoDetailActionResult.ignored('Detail is not followed.');
+      final ProviderBinding automatic = ProviderBinding(
+        id: binding.id,
+        localMediaId: binding.localMediaId,
+        providerId: binding.providerId,
+        subjectId: binding.subjectId,
+        authority: ProviderBindingAuthority.automatic,
+        confidence: 0,
+        createdAt: (_now ?? DateTime.now)(),
+      );
+      await _bindingStore.saveUserConfirmed(automatic);
+      _invalidationBus.publish(BindingChanged(
+          occurredAt: automatic.createdAt,
+          localMediaId: automatic.localMediaId.value,
+          providerId: automatic.providerId,
+          providerSubjectId: automatic.subjectId?.value));
+      return const VideoDetailActionResult.success();
+    });
   }
 
   Future<VideoDetailActionResult> _refreshMetadata(VideoDetailId id) async {
-    if (_disposed) return _disposedResult();
-    final VideoDetailViewData data = await _loadSafely(id);
-    final LocalMediaId? mediaId = _primaryMediaId(data);
-    if (mediaId == null)
-      return VideoDetailActionResult.unavailable(
-          'Cannot refresh metadata without local media.');
-    _invalidationBus.publish(BindingChanged(
-        occurredAt: (_now ?? DateTime.now)(),
-        localMediaId: mediaId.value,
-        providerId: _providerId,
-        providerSubjectId: id.value));
-    return const VideoDetailActionResult.success();
+    return _withLoadedData(id, (VideoDetailViewData data) async {
+      final LocalMediaId? mediaId = _primaryMediaId(data);
+      if (mediaId == null)
+        return VideoDetailActionResult.unavailable(
+            'Cannot refresh metadata without local media.');
+      _invalidationBus.publish(BindingChanged(
+          occurredAt: (_now ?? DateTime.now)(),
+          localMediaId: mediaId.value,
+          providerId: _providerId,
+          providerSubjectId: id.value));
+      return const VideoDetailActionResult.success();
+    });
   }
 
   Future<VideoDetailActionResult> _prepareEpisode(
@@ -450,12 +451,18 @@ final class DeterministicVideoDetailActionHandler
     return data.binding?.localMediaId;
   }
 
-  Future<VideoDetailViewData> _loadSafely(VideoDetailId id) async {
+  Future<VideoDetailActionResult> _withLoadedData(
+      VideoDetailId id,
+      Future<VideoDetailActionResult> Function(VideoDetailViewData data)
+          action) async {
+    if (_disposed) return _disposedResult();
+    final VideoDetailViewData data;
     try {
-      return await _repository.load(id);
+      data = await _repository.load(id);
     } on StateError catch (error) {
-      throw StateError(error.message);
+      return VideoDetailActionResult.failed(error.message);
     }
+    return action(data);
   }
 
   VideoDetailActionResult _disposedResult() {

@@ -86,13 +86,18 @@ final class OnlineRuleTestHarness {
           document: document.document,
         ),
       );
+      final OnlineRuleNormalizationOutcome? normalization =
+          outcome.isSuccess ? runtime.tryNormalize(outcome.result!) : null;
+      final OnlineRuleEvaluationOutcome targetOutcome = normalization != null &&
+              !normalization.isSuccess
+          ? OnlineRuleEvaluationOutcome.failure(failure: normalization.failure!)
+          : outcome;
       targetReports.add(
         OnlineRuleTestTargetReport(
           target: document.target,
           pageUri: document.pageUri,
-          outcome: outcome,
-          normalizedOutput:
-              outcome.isSuccess ? runtime.normalize(outcome.result!) : null,
+          outcome: targetOutcome,
+          normalizedOutput: normalization?.output,
         ),
       );
     }

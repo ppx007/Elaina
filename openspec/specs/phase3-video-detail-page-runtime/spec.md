@@ -18,11 +18,20 @@ The video detail runtime SHALL normalize metadata provider subject and episode v
 - **THEN** the runtime projects those values into Domain detail values while preserving provider implementation isolation
 
 ### Requirement: Video detail runtime SHALL execute detail actions through existing Domain contracts
-The video detail runtime SHALL execute continue playback, episode selection, follow, unfollow, open-binding, and refresh-metadata actions through existing Domain contracts and explicit results instead of direct UI, provider, storage, or native-player shortcuts.
+The video detail runtime SHALL execute continue playback, episode selection,
+follow, unfollow, open-binding, and refresh-metadata actions through existing
+Domain contracts and explicit results instead of direct UI, provider, storage,
+native-player shortcuts, or raw repository load exceptions.
 
 #### Scenario: Continue playback is requested
 - **WHEN** continue playback is requested for a detail with a local media identity and continue-watching state
 - **THEN** the runtime resolves playback through the playback source handoff contract and reports success or a normalized action failure
+
+#### Scenario: Detail action cannot load view data
+- **WHEN** any detail action needs repository data and the repository cannot load
+  the requested detail
+- **THEN** the action returns a typed `VideoDetailActionResult.failed` result and
+  does not leak the repository exception to the caller
 
 ### Requirement: Video detail runtime SHALL publish lifecycle-safe state and invalidation events
 The video detail runtime SHALL expose lifecycle-safe repository/action behavior, reject or normalize operations after disposal, and publish cache invalidation events when detail metadata, binding, follow state, or continue-watching inputs change.

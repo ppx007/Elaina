@@ -175,6 +175,38 @@ void main() {
     expect(disabled.failure?.kind, OnlineRuleFailureKind.manifestDisabled);
   });
 
+  test('deterministic runtime rejects unsafe regex before evaluation',
+      () async {
+    const DeterministicOnlineRuleRuntime runtime =
+        DeterministicOnlineRuleRuntime();
+
+    final OnlineRuleValidationResult nested =
+        await runtime.validateManifest(_unsafeRegexManifest('(.*)+'));
+    final OnlineRuleValidationResult nestedQuantifier =
+        await runtime.validateManifest(_unsafeRegexManifest('(a+)+'));
+    final OnlineRuleValidationResult repeated = await runtime
+        .validateManifest(_unsafeRegexManifest('<h1>(.*)</h1>.*<a>(.*)</a>'));
+    final OnlineRuleEvaluationOutcome evaluated = await runtime.evaluateTyped(
+      OnlineRuleEvaluationRequest(
+        manifest: _unsafeRegexManifest('(.*)+'),
+        target: OnlineRuleTarget.search,
+        pageUri: Uri.parse('https://source.example.test/search'),
+        document: '<h1>Unsafe</h1>',
+      ),
+    );
+
+    expect(nested.isValid, isFalse);
+    expect(nested.issues.single.unsupportedKind,
+        UnsupportedOnlineOperationKind.unboundedRegex);
+    expect(nestedQuantifier.isValid, isFalse);
+    expect(nestedQuantifier.issues.single.unsupportedKind,
+        UnsupportedOnlineOperationKind.unboundedRegex);
+    expect(repeated.isValid, isFalse);
+    expect(repeated.issues.single.unsupportedKind,
+        UnsupportedOnlineOperationKind.unboundedRegex);
+    expect(evaluated.failure?.kind, OnlineRuleFailureKind.manifestInvalid);
+  });
+
   test('deterministic runtime evaluates xpath subset and selector validation',
       () async {
     const DeterministicOnlineRuleRuntime runtime =
@@ -357,6 +389,31 @@ OnlineRuleManifest _unsupportedSelectorManifest() {
             id: 'title',
             kind: OnlineExtractionKind.cssSelector,
             expression: '.result > .title',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _unsafeRegexManifest(String expression) {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('unsafe-regex-source'),
+    displayName: 'Unsafe Regex Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri: Uri.parse('https://rules.example.test/unsafe-regex.json'),
+    checksum: 'sha256:unsafe-regex',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'unsafe-title',
+            kind: OnlineExtractionKind.regex,
+            expression: expression,
             outputKey: 'title',
             required: true,
           ),

@@ -18,7 +18,8 @@ final class OnlineRuleSourceRuntimeFailure {
     required this.kind,
     required this.message,
     this.sourceId,
-  }) : assert(message != '', 'Online rule source runtime failure message must not be empty.');
+  }) : assert(message != '',
+            'Online rule source runtime failure message must not be empty.');
 
   final OnlineRuleSourceRuntimeFailureKind kind;
   final String message;
@@ -40,10 +41,15 @@ final class OnlineRuleSourceRuntimeActionResult<T> {
   });
 
   const OnlineRuleSourceRuntimeActionResult.success([T? value])
-      : this._(kind: OnlineRuleSourceRuntimeActionResultKind.success, value: value);
+      : this._(
+            kind: OnlineRuleSourceRuntimeActionResultKind.success,
+            value: value);
 
-  OnlineRuleSourceRuntimeActionResult.failed(OnlineRuleSourceRuntimeFailure failure)
-      : this._(kind: OnlineRuleSourceRuntimeActionResultKind.failed, failure: failure);
+  OnlineRuleSourceRuntimeActionResult.failed(
+      OnlineRuleSourceRuntimeFailure failure)
+      : this._(
+            kind: OnlineRuleSourceRuntimeActionResultKind.failed,
+            failure: failure);
 
   OnlineRuleSourceRuntimeActionResult.unavailable(String message)
       : this._(
@@ -116,8 +122,12 @@ final class OnlineRuleSourceRuntimeBootstrap {
     required Map<String, DeterministicOnlineRuleRuntime> runtimeByScope,
     required Map<String, OnlineRuleCapabilityMatrix> capabilitiesByScope,
     CacheInvalidationBus? bus,
-  })  : _runtimeByScope = Map<String, DeterministicOnlineRuleRuntime>.unmodifiable(runtimeByScope),
-        _capabilitiesByScope = Map<String, OnlineRuleCapabilityMatrix>.unmodifiable(capabilitiesByScope),
+  })  : _runtimeByScope =
+            Map<String, DeterministicOnlineRuleRuntime>.unmodifiable(
+                runtimeByScope),
+        _capabilitiesByScope =
+            Map<String, OnlineRuleCapabilityMatrix>.unmodifiable(
+                capabilitiesByScope),
         _bus = bus;
 
   final OnlineRuleRuntimeStore store;
@@ -161,8 +171,10 @@ final class OnlineRuleSourceRuntime {
   final String? _unavailableReason;
   bool _disposed = false;
 
-  final Map<String, OnlineRuleEvaluationOutcome> _outcomeByScope = <String, OnlineRuleEvaluationOutcome>{};
-  final Map<String, OnlineRuleNormalizedOutput> _normalizedByScope = <String, OnlineRuleNormalizedOutput>{};
+  final Map<String, OnlineRuleEvaluationOutcome> _outcomeByScope =
+      <String, OnlineRuleEvaluationOutcome>{};
+  final Map<String, OnlineRuleNormalizedOutput> _normalizedByScope =
+      <String, OnlineRuleNormalizedOutput>{};
 
   OnlineRuleRuntimeStore _requireStore() {
     final OnlineRuleRuntimeStore? store = _store;
@@ -170,23 +182,28 @@ final class OnlineRuleSourceRuntime {
     return store;
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> snapshot(String scopeId) async {
-    final OnlineRuleSourceRuntimeActionResult<void>? gate = _gate(scopeId, OnlineRuleCapability.manifestValidation);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      snapshot(String scopeId) async {
+    final OnlineRuleSourceRuntimeActionResult<void>? gate =
+        _gate(scopeId, OnlineRuleCapability.manifestValidation);
     if (gate != null) return _castFail(gate);
     return _projection(scopeId);
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> validate(
-      String scopeId, OnlineRuleManifest manifest) async {
-    final OnlineRuleSourceRuntimeActionResult<void>? gate = _gate(scopeId, OnlineRuleCapability.manifestValidation);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      validate(String scopeId, OnlineRuleManifest manifest) async {
+    final OnlineRuleSourceRuntimeActionResult<void>? gate =
+        _gate(scopeId, OnlineRuleCapability.manifestValidation);
     if (gate != null) return _castFail(gate);
 
     final DeterministicOnlineRuleRuntime runtime = _runtimeByScope[scopeId]!;
-    final OnlineRuleValidationResult result = await runtime.validateManifest(manifest);
+    final OnlineRuleValidationResult result =
+        await runtime.validateManifest(manifest);
 
     final DateTime now = DateTime.now().toUtc();
-    final StoredOnlineRuleValidationState validationState =
-        result.isValid ? StoredOnlineRuleValidationState.valid : StoredOnlineRuleValidationState.invalid;
+    final StoredOnlineRuleValidationState validationState = result.isValid
+        ? StoredOnlineRuleValidationState.valid
+        : StoredOnlineRuleValidationState.invalid;
 
     await _requireStore().storeManifest(StoredOnlineRuleManifestRecord(
       sourceId: manifest.sourceId.value,
@@ -201,7 +218,8 @@ final class OnlineRuleSourceRuntime {
     ));
 
     for (final OnlineRuleValidationIssue issue in result.issues) {
-      await _requireStore().recordValidationIssue(StoredOnlineRuleValidationIssueRecord(
+      await _requireStore()
+          .recordValidationIssue(StoredOnlineRuleValidationIssueRecord(
         id: 'vi-${manifest.sourceId.value}-${issue.operationId ?? "general"}',
         sourceId: manifest.sourceId.value,
         message: issue.message,
@@ -212,7 +230,8 @@ final class OnlineRuleSourceRuntime {
             : null,
       ));
       if (issue.unsupportedKind != null) {
-        await _requireStore().recordUnsupportedOperation(StoredUnsupportedOnlineOperationRecord(
+        await _requireStore()
+            .recordUnsupportedOperation(StoredUnsupportedOnlineOperationRecord(
           id: 'uo-${manifest.sourceId.value}-${issue.operationId ?? "general"}',
           sourceId: manifest.sourceId.value,
           kind: _mapStoredUnsupportedKind(issue.unsupportedKind!),
@@ -269,21 +288,62 @@ final class OnlineRuleSourceRuntime {
     return _projection(scopeId);
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> evaluate(
-      String scopeId, OnlineRuleEvaluationRequest request) async {
-    final OnlineRuleSourceRuntimeActionResult<void>? gate = _gate(scopeId, OnlineRuleCapability.suppliedDocumentEvaluation);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      evaluate(String scopeId, OnlineRuleEvaluationRequest request) async {
+    final OnlineRuleSourceRuntimeActionResult<void>? gate =
+        _gate(scopeId, OnlineRuleCapability.suppliedDocumentEvaluation);
     if (gate != null) return _castFail(gate);
 
     final DeterministicOnlineRuleRuntime runtime = _runtimeByScope[scopeId]!;
-    final OnlineRuleEvaluationOutcome outcome = await runtime.evaluateTyped(request);
+    final OnlineRuleEvaluationOutcome outcome =
+        await runtime.evaluateTyped(request);
     final DateTime now = DateTime.now().toUtc();
 
     if (outcome.isSuccess) {
-      final OnlineRuleNormalizedOutput normalized = runtime.normalize(outcome.result!);
+      final OnlineRuleNormalizationOutcome normalization =
+          runtime.tryNormalize(outcome.result!);
+      if (!normalization.isSuccess) {
+        final OnlineRuleEvaluationOutcome failedOutcome =
+            OnlineRuleEvaluationOutcome.failure(
+                failure: normalization.failure!);
+        _outcomeByScope[scopeId] = failedOutcome;
+        _normalizedByScope.remove(scopeId);
+
+        await _requireStore()
+            .recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
+          id: 'eval-${request.manifest.sourceId.value}-${request.target.name}',
+          sourceId: request.manifest.sourceId.value,
+          target: _mapStoredTarget(request.target),
+          pageUri: request.pageUri,
+          state: StoredOnlineRuleEvaluationState.failed,
+          values: outcome.result!.values,
+          reason: normalization.failure?.message,
+          evaluatedAt: now,
+        ));
+
+        _publishEvent(OnlineRuleTargetEvaluated(
+          occurredAt: now,
+          sourceId: request.manifest.sourceId.value,
+          target: request.target.name,
+          state: 'failed',
+        ));
+
+        return OnlineRuleSourceRuntimeActionResult<
+            OnlineRuleSourceRuntimeProjection>.failed(
+          OnlineRuleSourceRuntimeFailure(
+            kind: _mapFailureKind(normalization.failure!.kind),
+            message: normalization.failure!.message,
+            sourceId: normalization.failure!.sourceId?.value,
+          ),
+        );
+      }
+
+      final OnlineRuleNormalizedOutput normalized = normalization.output!;
       _outcomeByScope[scopeId] = outcome;
       _normalizedByScope[scopeId] = normalized;
 
-      await _requireStore().recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
+      await _requireStore()
+          .recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
         id: 'eval-${request.manifest.sourceId.value}-${request.target.name}',
         sourceId: request.manifest.sourceId.value,
         target: _mapStoredTarget(request.target),
@@ -302,7 +362,8 @@ final class OnlineRuleSourceRuntime {
     } else {
       _outcomeByScope[scopeId] = outcome;
 
-      await _requireStore().recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
+      await _requireStore()
+          .recordEvaluationSnapshot(StoredOnlineRuleEvaluationSnapshotRecord(
         id: 'eval-${request.manifest.sourceId.value}-${request.target.name}',
         sourceId: request.manifest.sourceId.value,
         target: _mapStoredTarget(request.target),
@@ -319,7 +380,8 @@ final class OnlineRuleSourceRuntime {
         state: 'failed',
       ));
 
-      return OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>.failed(
+      return OnlineRuleSourceRuntimeActionResult<
+          OnlineRuleSourceRuntimeProjection>.failed(
         OnlineRuleSourceRuntimeFailure(
           kind: _mapFailureKind(outcome.failure!.kind),
           message: outcome.failure!.message,
@@ -331,13 +393,17 @@ final class OnlineRuleSourceRuntime {
     return _projection(scopeId);
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> disable(String scopeId) async {
-    final OnlineRuleSourceRuntimeActionResult<void>? gate = _gate(scopeId, OnlineRuleCapability.manifestValidation);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      disable(String scopeId) async {
+    final OnlineRuleSourceRuntimeActionResult<void>? gate =
+        _gate(scopeId, OnlineRuleCapability.manifestValidation);
     if (gate != null) return _castFail(gate);
 
-    final StoredOnlineRuleManifestRecord? stored = await _requireStore().manifestBySource(scopeId);
+    final StoredOnlineRuleManifestRecord? stored =
+        await _requireStore().manifestBySource(scopeId);
     if (stored == null) {
-      return OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>.failed(
+      return OnlineRuleSourceRuntimeActionResult<
+          OnlineRuleSourceRuntimeProjection>.failed(
         OnlineRuleSourceRuntimeFailure(
           kind: OnlineRuleSourceRuntimeFailureKind.manifestNotFound,
           message: 'Manifest not found for scope $scopeId.',
@@ -369,13 +435,17 @@ final class OnlineRuleSourceRuntime {
     return _projection(scopeId);
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> reenable(String scopeId) async {
-    final OnlineRuleSourceRuntimeActionResult<void>? gate = _gate(scopeId, OnlineRuleCapability.manifestValidation);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      reenable(String scopeId) async {
+    final OnlineRuleSourceRuntimeActionResult<void>? gate =
+        _gate(scopeId, OnlineRuleCapability.manifestValidation);
     if (gate != null) return _castFail(gate);
 
-    final StoredOnlineRuleManifestRecord? stored = await _requireStore().manifestBySource(scopeId);
+    final StoredOnlineRuleManifestRecord? stored =
+        await _requireStore().manifestBySource(scopeId);
     if (stored == null) {
-      return OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>.failed(
+      return OnlineRuleSourceRuntimeActionResult<
+          OnlineRuleSourceRuntimeProjection>.failed(
         OnlineRuleSourceRuntimeFailure(
           kind: OnlineRuleSourceRuntimeFailureKind.manifestNotFound,
           message: 'Manifest not found for scope $scopeId.',
@@ -385,7 +455,8 @@ final class OnlineRuleSourceRuntime {
     }
 
     if (stored.validationState == StoredOnlineRuleValidationState.invalid) {
-      return OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>.failed(
+      return OnlineRuleSourceRuntimeActionResult<
+          OnlineRuleSourceRuntimeProjection>.failed(
         OnlineRuleSourceRuntimeFailure(
           kind: OnlineRuleSourceRuntimeFailureKind.manifestInvalid,
           message: 'Cannot reenable manifest with invalid validation state.',
@@ -425,14 +496,17 @@ final class OnlineRuleSourceRuntime {
     _disposed = true;
   }
 
-  OnlineRuleSourceRuntimeActionResult<void>? _gate(String scopeId, OnlineRuleCapability capability) {
+  OnlineRuleSourceRuntimeActionResult<void>? _gate(
+      String scopeId, OnlineRuleCapability capability) {
     if (_disposed) {
       return OnlineRuleSourceRuntimeActionResult<void>.disposed();
     }
     if (_unavailableReason != null) {
-      return OnlineRuleSourceRuntimeActionResult<void>.unavailable(_unavailableReason);
+      return OnlineRuleSourceRuntimeActionResult<void>.unavailable(
+          _unavailableReason);
     }
-    final OnlineRuleCapabilityMatrix? capabilities = _capabilitiesByScope[scopeId];
+    final OnlineRuleCapabilityMatrix? capabilities =
+        _capabilitiesByScope[scopeId];
     if (capabilities == null) {
       return OnlineRuleSourceRuntimeActionResult<void>.failed(
         OnlineRuleSourceRuntimeFailure(
@@ -447,7 +521,8 @@ final class OnlineRuleSourceRuntime {
       return OnlineRuleSourceRuntimeActionResult<void>.failed(
         OnlineRuleSourceRuntimeFailure(
           kind: OnlineRuleSourceRuntimeFailureKind.capabilityUnsupported,
-          message: status.reason ?? 'Capability $capability is not supported for scope $scopeId.',
+          message: status.reason ??
+              'Capability $capability is not supported for scope $scopeId.',
           sourceId: scopeId,
         ),
       );
@@ -455,8 +530,10 @@ final class OnlineRuleSourceRuntime {
     return null;
   }
 
-  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>> _projection(String scopeId) async {
-    final StoredOnlineRuleManifestRecord? manifest = await _requireStore().manifestBySource(scopeId);
+  Future<OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>>
+      _projection(String scopeId) async {
+    final StoredOnlineRuleManifestRecord? manifest =
+        await _requireStore().manifestBySource(scopeId);
     final List<StoredOnlineRuleEvaluationSnapshotRecord> evaluations =
         await _requireStore().evaluationsForSource(scopeId);
     final StoredOnlineRuleEvaluationSnapshotRecord? latestEval =
@@ -476,14 +553,17 @@ final class OnlineRuleSourceRuntime {
       failure = null;
     }
 
-    final OnlineRuleSourceRuntimeRestartProjection restart = OnlineRuleSourceRuntimeRestartProjection(
+    final OnlineRuleSourceRuntimeRestartProjection restart =
+        OnlineRuleSourceRuntimeRestartProjection(
       sourceId: scopeId,
-      manifestValidationState: manifest?.validationState ?? StoredOnlineRuleValidationState.valid,
+      manifestValidationState:
+          manifest?.validationState ?? StoredOnlineRuleValidationState.valid,
       latestEvaluationTarget: latestEval?.target,
       latestEvaluationState: latestEval?.state,
     );
 
-    return OnlineRuleSourceRuntimeActionResult<OnlineRuleSourceRuntimeProjection>.success(
+    return OnlineRuleSourceRuntimeActionResult<
+        OnlineRuleSourceRuntimeProjection>.success(
       OnlineRuleSourceRuntimeProjection(
         sourceId: scopeId,
         manifestDisplayName: manifest?.displayName,
@@ -499,17 +579,27 @@ final class OnlineRuleSourceRuntime {
     );
   }
 
-  OnlineRuleSourceRuntimeFailureKind _mapFailureKind(OnlineRuleFailureKind kind) {
+  OnlineRuleSourceRuntimeFailureKind _mapFailureKind(
+      OnlineRuleFailureKind kind) {
     return switch (kind) {
-      OnlineRuleFailureKind.manifestInvalid => OnlineRuleSourceRuntimeFailureKind.manifestInvalid,
-      OnlineRuleFailureKind.manifestDisabled => OnlineRuleSourceRuntimeFailureKind.manifestDisabled,
-      OnlineRuleFailureKind.sourceUnsupported => OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
-      OnlineRuleFailureKind.targetMissing => OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
-      OnlineRuleFailureKind.requiredOutputMissing => OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
-      OnlineRuleFailureKind.unsupportedOperation => OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
-      OnlineRuleFailureKind.evaluationFailed => OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
-      OnlineRuleFailureKind.gatewayUnavailable => OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
-      OnlineRuleFailureKind.networkPolicyBlocked => OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
+      OnlineRuleFailureKind.manifestInvalid =>
+        OnlineRuleSourceRuntimeFailureKind.manifestInvalid,
+      OnlineRuleFailureKind.manifestDisabled =>
+        OnlineRuleSourceRuntimeFailureKind.manifestDisabled,
+      OnlineRuleFailureKind.sourceUnsupported =>
+        OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
+      OnlineRuleFailureKind.targetMissing =>
+        OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
+      OnlineRuleFailureKind.requiredOutputMissing =>
+        OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
+      OnlineRuleFailureKind.unsupportedOperation =>
+        OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
+      OnlineRuleFailureKind.evaluationFailed =>
+        OnlineRuleSourceRuntimeFailureKind.evaluationFailed,
+      OnlineRuleFailureKind.gatewayUnavailable =>
+        OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
+      OnlineRuleFailureKind.networkPolicyBlocked =>
+        OnlineRuleSourceRuntimeFailureKind.sourceUnsupported,
     };
   }
 
@@ -522,22 +612,31 @@ final class OnlineRuleSourceRuntime {
     };
   }
 
-  StoredOnlineExtractionKind _mapStoredExtractionKind(OnlineExtractionKind kind) {
+  StoredOnlineExtractionKind _mapStoredExtractionKind(
+      OnlineExtractionKind kind) {
     return switch (kind) {
-      OnlineExtractionKind.cssSelector => StoredOnlineExtractionKind.cssSelector,
+      OnlineExtractionKind.cssSelector =>
+        StoredOnlineExtractionKind.cssSelector,
       OnlineExtractionKind.xpath1 => StoredOnlineExtractionKind.xpath1,
       OnlineExtractionKind.regex => StoredOnlineExtractionKind.regex,
     };
   }
 
-  StoredUnsupportedOnlineOperationKind _mapStoredUnsupportedKind(UnsupportedOnlineOperationKind kind) {
+  StoredUnsupportedOnlineOperationKind _mapStoredUnsupportedKind(
+      UnsupportedOnlineOperationKind kind) {
     return switch (kind) {
-      UnsupportedOnlineOperationKind.javascript => StoredUnsupportedOnlineOperationKind.javascript,
-      UnsupportedOnlineOperationKind.wasm => StoredUnsupportedOnlineOperationKind.wasm,
-      UnsupportedOnlineOperationKind.scriptlet => StoredUnsupportedOnlineOperationKind.scriptlet,
-      UnsupportedOnlineOperationKind.arbitraryCode => StoredUnsupportedOnlineOperationKind.arbitraryCode,
-      UnsupportedOnlineOperationKind.unsupportedSelector => StoredUnsupportedOnlineOperationKind.unsupportedSelector,
-      UnsupportedOnlineOperationKind.unboundedRegex => StoredUnsupportedOnlineOperationKind.unboundedRegex,
+      UnsupportedOnlineOperationKind.javascript =>
+        StoredUnsupportedOnlineOperationKind.javascript,
+      UnsupportedOnlineOperationKind.wasm =>
+        StoredUnsupportedOnlineOperationKind.wasm,
+      UnsupportedOnlineOperationKind.scriptlet =>
+        StoredUnsupportedOnlineOperationKind.scriptlet,
+      UnsupportedOnlineOperationKind.arbitraryCode =>
+        StoredUnsupportedOnlineOperationKind.arbitraryCode,
+      UnsupportedOnlineOperationKind.unsupportedSelector =>
+        StoredUnsupportedOnlineOperationKind.unsupportedSelector,
+      UnsupportedOnlineOperationKind.unboundedRegex =>
+        StoredUnsupportedOnlineOperationKind.unboundedRegex,
     };
   }
 
@@ -545,7 +644,8 @@ final class OnlineRuleSourceRuntime {
     _bus?.publish(event);
   }
 
-  OnlineRuleSourceRuntimeActionResult<T> _castFail<T>(OnlineRuleSourceRuntimeActionResult<void> fail) {
+  OnlineRuleSourceRuntimeActionResult<T> _castFail<T>(
+      OnlineRuleSourceRuntimeActionResult<void> fail) {
     return OnlineRuleSourceRuntimeActionResult<T>._(
       kind: fail.kind,
       failure: fail.failure,

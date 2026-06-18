@@ -213,6 +213,25 @@ void main() {
     unsupportedRuntime.dispose();
   });
 
+  test('actions return typed failure when detail data cannot load', () async {
+    final VideoDetailRuntime runtime = VideoDetailRuntime(
+      metadataProvider:
+          const _FakeBangumiProvider(subjects: <String, BangumiSubject>{}),
+      bindingStore: DeterministicProviderBindingStore(),
+      historyStore: DeterministicPlaybackHistoryStore(),
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: _RecordingCacheInvalidationBus(),
+    );
+
+    final VideoDetailActionResult result =
+        await runtime.controller.follow(const VideoDetailId('missing-subject'));
+
+    expect(result.kind, VideoDetailActionResultKind.failed);
+    expect(result.failure?.message, 'Missing subject.');
+
+    runtime.dispose();
+  });
+
   test('storage-backed detail runtime replays catalog history and bindings',
       () async {
     final File databaseFile = await _tempDatabaseFile();

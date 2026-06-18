@@ -83,6 +83,31 @@ void main() {
         OnlineRuleFailureKind.requiredOutputMissing);
     expect(report.targetReports.single.normalizedOutput, isNull);
   });
+
+  test('harness converts normalization failures into typed target failures',
+      () async {
+    const OnlineRuleTestHarness harness = OnlineRuleTestHarness();
+
+    final OnlineRuleTestReport report = await harness.run(
+      OnlineRuleTestPlan(
+        manifest: _normalizationFailureManifest(),
+        documents: <OnlineRuleTestDocument>[
+          OnlineRuleTestDocument(
+            target: OnlineRuleTarget.search,
+            pageUri: Uri.parse('https://source.example.test/search'),
+            document:
+                '<article class="result"><h2>Missing Detail URI</h2></article>',
+          ),
+        ],
+      ),
+    );
+
+    expect(report.isSuccess, isFalse);
+    expect(report.validation.isValid, isTrue);
+    expect(report.targetReports.single.outcome.failure?.kind,
+        OnlineRuleFailureKind.requiredOutputMissing);
+    expect(report.targetReports.single.normalizedOutput, isNull);
+  });
 }
 
 OnlineRuleManifest _manifest() {
@@ -154,6 +179,32 @@ OnlineRuleManifest _unsupportedSelectorManifest() {
             id: 'bad-title',
             kind: OnlineExtractionKind.cssSelector,
             expression: '.result > h2',
+            outputKey: 'title',
+            required: true,
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+OnlineRuleManifest _normalizationFailureManifest() {
+  return OnlineRuleManifest(
+    sourceId: const OnlineRuleSourceId('normalization-failure-source'),
+    displayName: 'Normalization Failure Source',
+    version: const OnlineRuleManifestVersion('1.0.0'),
+    updateUri:
+        Uri.parse('https://rules.example.test/normalization-failure.json'),
+    checksum: 'sha256:normalization-failure',
+    updateInterval: const Duration(hours: 12),
+    ruleSets: <OnlineRuleSet>[
+      OnlineRuleSet(
+        target: OnlineRuleTarget.search,
+        operations: const <OnlineExtractionOperation>[
+          OnlineExtractionOperation(
+            id: 'search-title',
+            kind: OnlineExtractionKind.cssSelector,
+            expression: '.result h2',
             outputKey: 'title',
             required: true,
           ),

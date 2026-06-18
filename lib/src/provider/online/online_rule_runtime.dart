@@ -229,6 +229,23 @@ final class OnlineRuleEvaluationOutcome {
   bool get isSuccess => failure == null;
 }
 
+final class OnlineRuleNormalizationOutcome {
+  const OnlineRuleNormalizationOutcome._({this.output, this.failure});
+
+  const OnlineRuleNormalizationOutcome.success(
+      {required OnlineRuleNormalizedOutput output})
+      : this._(output: output);
+
+  const OnlineRuleNormalizationOutcome.failure(
+      {required OnlineRuleFailure failure})
+      : this._(failure: failure);
+
+  final OnlineRuleNormalizedOutput? output;
+  final OnlineRuleFailure? failure;
+
+  bool get isSuccess => failure == null;
+}
+
 enum OnlineRuleCapability {
   manifestValidation,
   suppliedDocumentEvaluation,
@@ -634,6 +651,31 @@ final class DeterministicOnlineRuleRuntime {
     };
   }
 
+  OnlineRuleNormalizationOutcome tryNormalize(
+      OnlineRuleEvaluationResult result) {
+    try {
+      return OnlineRuleNormalizationOutcome.success(output: normalize(result));
+    } on StateError catch (error) {
+      return OnlineRuleNormalizationOutcome.failure(
+        failure: OnlineRuleFailure(
+          kind: OnlineRuleFailureKind.requiredOutputMissing,
+          message: error.message,
+          sourceId: result.sourceId,
+          target: result.target,
+        ),
+      );
+    } on FormatException catch (error) {
+      return OnlineRuleNormalizationOutcome.failure(
+        failure: OnlineRuleFailure(
+          kind: OnlineRuleFailureKind.evaluationFailed,
+          message: 'Normalized online rule URI is invalid: ${error.message}.',
+          sourceId: result.sourceId,
+          target: result.target,
+        ),
+      );
+    }
+  }
+
   OnlineRuleSet? _ruleSetFor(
       OnlineRuleManifest manifest, OnlineRuleTarget target) {
     for (final OnlineRuleSet ruleSet in manifest.ruleSets) {
@@ -670,7 +712,9 @@ final class DeterministicOnlineRuleRuntime {
   }
 
   bool _looksUnboundedRegex(String expression) {
-    return expression.contains('(.*.*') || expression.contains('(.+)+');
+    return _nestedUnboundedRegexPattern.hasMatch(expression) ||
+        _nestedUnboundedQuantifierPattern.hasMatch(expression) ||
+        _broadWildcardTokenCount(expression) > _maximumSafeBroadWildcardTokens;
   }
 
   String? _evaluateOperation(
@@ -717,6 +761,42 @@ const String _scriptletOperationPrefix = 'scriptlet:';
 const String _arbitraryCodeOperationPrefix = 'code:';
 const String _classAttributeName = 'class';
 const String _idAttributeName = 'id';
+const int _maximumSafeBroadWildcardTokens = 1;
+
+final RegExp _nestedUnboundedRegexPattern = RegExp(
+    r'\((?:\?:)?[^)]*(?:\.\*|\.\+|\[[^\]]+\][*+])[^)]*\)\s*(?:[+*]|\{\d+,\})');
+final RegExp _nestedUnboundedQuantifierPattern =
+    RegExp(r'\((?:\?:)?[^)]*(?:[+*]|\{\d+,\})[^)]*\)\s*(?:[+*]|\{\d+,\})');
+
+int _broadWildcardTokenCount(String expression) {
+  var count = 0;
+  var inCharacterClass = false;
+  for (var index = 0; index < expression.length; index += 1) {
+    final String character = expression[index];
+    if (character == r'\') {
+      index += 1;
+      continue;
+    }
+    if (character == '[') {
+      inCharacterClass = true;
+      continue;
+    }
+    if (character == ']') {
+      inCharacterClass = false;
+      continue;
+    }
+    if (inCharacterClass ||
+        character != '.' ||
+        index + 1 >= expression.length) {
+      continue;
+    }
+    final String next = expression[index + 1];
+    if (next == '*' || next == '+') {
+      count += 1;
+    }
+  }
+  return count;
+}
 
 final RegExp _htmlTagPattern = RegExp(
   r'<\s*(/)?\s*([A-Za-z][A-Za-z0-9_-]*)\b([^>]*)>',
