@@ -9,13 +9,15 @@ This phase adds contract scaffolding for Celesteria architecture plan steps 18-2
 - Piece priority scheduler contracts define piece maps, playback windows, seek targets, strategy profiles, and adapter-applied priority plans.
 - Timeline overlay contracts expose read-only progress, buffered ranges, piece states, priority windows, markers, heat layers, and layer visibility/order without owning BT, scheduler, or rendering behavior.
 - Playback receives a `VirtualStreamPlaybackSource` that points to a stream abstraction instead of a concrete torrent engine.
+- Step 55 provides a non-UI smoke gate that verifies BT task -> virtual stream -> byte range -> priority application composition using existing Streaming contracts and checker tooling.
 
 ## Non-Goals Preserved
 
-- No libtorrent binding or native download engine implementation.
-- No concrete HTTP server, file I/O, or platform networking implementation.
+- No UI download page, playback page, video surface, file picker, app shell, or `lib/main.dart` ownership.
+- No concrete HTTP server, socket server, pipe server, or platform networking implementation.
 - No RSS auto-download or online rule-source parsing.
 - No diagnostics center, Anime4K, VLC fallback, DNS policy, or WebView challenge handling.
 - No promise of long-running iOS background BT download support.
 
-The next change should move into Phase 5 only after this change is implemented and archived.
+The current libtorrent Dart surface supports file-priority application; Step 55
+does not claim arbitrary native per-piece priority control.

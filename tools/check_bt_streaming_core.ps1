@@ -17,6 +17,10 @@ $requiredFiles = @(
   'lib/src/playback/virtual_stream_playback_source.dart',
   'test/streaming/libtorrent_download_engine_adapter_test.dart',
   'test/streaming/virtual_media_stream_byte_serving_test.dart',
+  'test/streaming/bt_streaming_smoke_gate_test.dart',
+  'tools/bt_streaming_smoke_gate.dart',
+  'tools/check_bt_streaming_smoke_gate.ps1',
+  'docs/bt-streaming-smoke-gate.md',
   'docs/phase4-bt-streaming-core.md'
 )
 
@@ -73,6 +77,18 @@ if ($libtorrentAdapter -notmatch [regex]::Escape("package:libtorrent_flutter/"))
 foreach ($term in @('LibtorrentPiecePriorityPlanApplier', 'PiecePriorityPlanApplier', 'applyPiecePriorityPlan', 'libtorrentPiecePrioritySchedulerRuntime')) {
   if ($libtorrentAdapter -notmatch [regex]::Escape($term)) {
     throw "Concrete libtorrent adapter missing Step 54 priority application term: $term"
+  }
+}
+
+$smokeGate = Get-Content -LiteralPath (Join-Path $root 'tools/bt_streaming_smoke_gate.dart') -Raw
+foreach ($term in @('runBtStreamingSmokeGate', 'BtStreamingSmokeGateResult', 'libtorrentBtTaskRuntimeComposition', 'VirtualMediaStreamRuntime.withDependencies', 'FileVirtualByteSource', 'libtorrentPiecePrioritySchedulerRuntime')) {
+  if ($smokeGate -notmatch [regex]::Escape($term)) {
+    throw "BT streaming smoke gate missing required Step 55 term: $term"
+  }
+}
+foreach ($term in @('package:flutter', 'lib/src/ui', 'lib/main.dart', 'windows/', 'HttpServer', 'Socket', 'media_kit', 'libmpv', 'WebView', 'TimelineOverlay')) {
+  if ($smokeGate -match [regex]::Escape($term)) {
+    throw "Forbidden Step 55 smoke gate dependency '$term' found in tools/bt_streaming_smoke_gate.dart"
   }
 }
 
