@@ -50,6 +50,12 @@ MAY supply a `PiecePriorityPlanApplier` implementation to the runtime.
 - **THEN** the runtime invokes only the `PiecePriorityPlanApplier` boundary and
   persists the normalized accepted or rejected outcome for restart projection
 
+#### Scenario: Smoke gate applies a BT streaming priority plan
+- **WHEN** Step 55 generates a priority plan for the virtual stream and applies
+  it through the concrete libtorrent Streaming applier
+- **THEN** the scheduler persists an accepted application outcome and the
+  concrete backend receives only the supported file-priority application call
+
 ### Requirement: Phase 4 piece priority scheduler runtime SHALL remain Step 20 scoped
 The system MUST keep timeline overlay composition, UI task screens, concrete
 torrent engines, concrete range servers, filesystem byte reads, native
@@ -64,4 +70,3 @@ of concrete engine imports.
 - **THEN** forbidden downstream, concrete IO, UI, diagnostics, network,
   storage migration, native-player, and concrete torrent-engine dependencies
   fail validation outside the approved concrete Streaming adapter surface
-

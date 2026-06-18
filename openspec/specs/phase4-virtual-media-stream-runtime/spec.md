@@ -24,6 +24,13 @@ torrent engine dependencies.
 - **THEN** the runtime returns a stream of `VirtualByteRangeChunk` values and
   persists the buffered range through existing virtual stream storage records
 
+#### Scenario: Smoke gate serves selected file bytes
+- **WHEN** Step 55 has selected a BT task file and creates a virtual stream for
+  it using the file-backed byte source
+- **THEN** opening a valid byte range returns deterministic
+  `VirtualByteRangeChunk` values and records buffered range state without
+  requiring a UI playback surface or an HTTP/range server
+
 ### Requirement: Phase 4 virtual media stream runtime SHALL expose typed action outcomes
 The system SHALL return typed runtime outcomes for stream creation, lookup, range availability, buffered range recording, close, failure, unavailable dependencies, and disposed runtime state.
 
@@ -58,4 +65,3 @@ remain limited to the approved concrete byte source file and tests.
 - **WHEN** Step 53 virtual stream validation scans project files
 - **THEN** concrete file IO is allowed only in the approved byte source file
   and tests, while runtime and contract code stay adapter-neutral
-

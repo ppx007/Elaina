@@ -27,6 +27,13 @@ engine-neutral projections and outcomes.
 - **THEN** it persists normalized transfer snapshots and events that can be
   replayed after restart without a concrete engine handle
 
+#### Scenario: Runtime participates in BT streaming smoke gate
+- **WHEN** Step 55 creates a task through the concrete libtorrent composition
+  boundary and ensures metadata for a streamable file
+- **THEN** the runtime stores engine-neutral task, metadata, file-selection,
+  lifecycle, and event projections that virtual streams and schedulers can
+  consume without concrete libtorrent objects
+
 ### Requirement: Phase 4 BT task core runtime SHALL persist metadata and file state
 The system SHALL persist adapter-provided metadata, file descriptors, file offsets, piece length, file selection state, and task lifecycle state through BT task storage contracts.
 
@@ -63,4 +70,3 @@ limited to the approved concrete adapter file and tests.
 - **THEN** native/libtorrent package imports are allowed only in the approved
   concrete BT adapter file and tests, while neutral streaming contracts remain
   free of concrete engine dependencies
-
