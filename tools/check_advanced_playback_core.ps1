@@ -6,6 +6,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
   'lib/src/playback/video_enhancement_pipeline.dart',
   'lib/src/playback/media_kit_mpv_binding.dart',
+  'lib/src/playback/vlc_fallback_adapter.dart',
   'lib/src/playback/av_sync_guard.dart',
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/fallback_adapter.dart',
@@ -36,7 +37,8 @@ foreach ($file in $uiFiles) {
 }
 
 $approvedConcretePlaybackFiles = @(
-  'lib/src/playback/media_kit_mpv_binding.dart'
+  'lib/src/playback/media_kit_mpv_binding.dart',
+  'lib/src/playback/vlc_fallback_adapter.dart'
 )
 $playbackFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/playback') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $playbackFiles) {
@@ -176,6 +178,29 @@ $requiredMpvSubtitleTerms = @(
 foreach ($term in $requiredMpvSubtitleTerms) {
   if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
     throw "Concrete MPV subtitle bridge missing required term: $term"
+  }
+}
+
+$vlcFallbackAdapter = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/vlc_fallback_adapter.dart') -Raw
+$requiredVlcFallbackTerms = @(
+  'VlcFallbackAdapter',
+  'VlcFallbackBackend',
+  'vlcFallbackAdapterCandidate',
+  'vlcFallbackLocalFilePlaybackCapabilities',
+  'vlcFallbackBackendUnavailableReason',
+  'PlaybackFailureKind.adapterUnavailable',
+  'PlaybackFailureKind.operationFailed',
+  'PlaybackCapability.fallbackAdapter',
+  'PlaybackCapability.localFilePlayback'
+)
+foreach ($term in $requiredVlcFallbackTerms) {
+  if ($vlcFallbackAdapter -notmatch [regex]::Escape($term)) {
+    throw "Concrete VLC fallback adapter missing required term: $term"
+  }
+}
+foreach ($term in @('package:flutter', 'package:dart_vlc', 'package:flutter_vlc_player', 'dart:ffi', 'platform channel')) {
+  if ($vlcFallbackAdapter -match [regex]::Escape($term)) {
+    throw "Concrete VLC fallback adapter must stay backend-injected and Playback-owned: $term"
   }
 }
 
