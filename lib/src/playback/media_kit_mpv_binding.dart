@@ -7,11 +7,227 @@ import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
 import 'player_runtime_composition.dart';
 import 'track_management.dart';
+import 'video_enhancement_pipeline.dart';
 
 typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
 
 const String windowsLibMpvFileName = 'libmpv-2.dll';
 const String celesteriaLibMpvPathEnvironmentKey = 'CELESTERIA_LIBMPV_PATH';
+const String mpvEnhancementScaleProperty = 'scale';
+const String mpvEnhancementChromaScaleProperty = 'cscale';
+const String mpvEnhancementToneMappingProperty = 'tone-mapping';
+const String mpvEnhancementDebandProperty = 'deband';
+const String mpvEnhancementDebandIterationsProperty = 'deband-iterations';
+const String mpvEnhancementGlslShadersOption = 'glsl-shaders';
+const String mpvEnhancementChangeListCommand = 'change-list';
+const String mpvEnhancementAppendOperation = 'append';
+const String mpvEnhancementClearOperation = 'clr';
+const String mpvEnhancementClearValue = '';
+const String mpvEnhancementEnabledValue = 'yes';
+const String mpvEnhancementDisabledValue = 'no';
+const String mpvEnhancementAutoValue = 'auto';
+const String mpvEnhancementSharpScalerValue = 'ewa_lanczossharp';
+const String mpvEnhancementSmoothScalerValue = 'spline36';
+const String mpvEnhancementToneMapToSdrValue = 'mobius';
+const String mpvEnhancementHdrPassthroughValue = 'clip';
+const String mpvEnhancementDebandLightIterations = '1';
+const String mpvEnhancementDebandMediumIterations = '2';
+const String mpvEnhancementDebandStrongIterations = '3';
+
+abstract interface class MpvEnhancementBinding {
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile);
+
+  Future<EnhancementDisableOutcome> disableEnhancement();
+}
+
+enum MpvEnhancementCommandKind {
+  setProperty,
+  command,
+}
+
+final class MpvEnhancementCommand {
+  const MpvEnhancementCommand.setProperty({
+    required String property,
+    required String value,
+  })  : kind = MpvEnhancementCommandKind.setProperty,
+        property = property,
+        value = value,
+        arguments = const <String>[];
+
+  MpvEnhancementCommand.command(Iterable<String> arguments)
+      : kind = MpvEnhancementCommandKind.command,
+        property = null,
+        value = null,
+        arguments = List<String>.unmodifiable(arguments);
+
+  final MpvEnhancementCommandKind kind;
+  final String? property;
+  final String? value;
+  final List<String> arguments;
+}
+
+final class MpvEnhancementPlan {
+  MpvEnhancementPlan(Iterable<MpvEnhancementCommand> commands)
+      : commands = List<MpvEnhancementCommand>.unmodifiable(commands);
+
+  final List<MpvEnhancementCommand> commands;
+
+  static MpvEnhancementPlan disabled() {
+    return MpvEnhancementPlan(<MpvEnhancementCommand>[
+      const MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementToneMappingProperty,
+        value: mpvEnhancementAutoValue,
+      ),
+      const MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementDebandProperty,
+        value: mpvEnhancementDisabledValue,
+      ),
+      MpvEnhancementCommand.command(<String>[
+        mpvEnhancementChangeListCommand,
+        mpvEnhancementGlslShadersOption,
+        mpvEnhancementClearOperation,
+        mpvEnhancementClearValue,
+      ]),
+    ]);
+  }
+}
+
+final class MpvEnhancementPlanResult {
+  const MpvEnhancementPlanResult._({this.plan, this.failure});
+
+  const MpvEnhancementPlanResult.success({required MpvEnhancementPlan plan})
+      : this._(plan: plan);
+
+  const MpvEnhancementPlanResult.failure({
+    required EnhancementPipelineFailure failure,
+  }) : this._(failure: failure);
+
+  final MpvEnhancementPlan? plan;
+  final EnhancementPipelineFailure? failure;
+
+  bool get isSuccess => failure == null;
+}
+
+final class MpvEnhancementPlanner {
+  MpvEnhancementPlanner({
+    Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
+        const <Anime4kPresetIntent, Uri>{},
+  }) : _anime4kShaderByPreset =
+            Map<Anime4kPresetIntent, Uri>.unmodifiable(anime4kShaderByPreset);
+
+  final Map<Anime4kPresetIntent, Uri> _anime4kShaderByPreset;
+
+  MpvEnhancementPlanResult build(VideoEnhancementProfile profile) {
+    final List<MpvEnhancementCommand> commands = <MpvEnhancementCommand>[
+      ..._scalerCommands(profile.scaler),
+      ..._hdrCommands(profile.hdrHandling),
+      ..._debandCommands(profile.deband),
+    ];
+
+    final MpvEnhancementPlanResult? shaderResult =
+        _appendAnime4kShader(commands, profile.anime4kPreset);
+    if (shaderResult != null) return shaderResult;
+
+    return MpvEnhancementPlanResult.success(
+      plan: MpvEnhancementPlan(commands),
+    );
+  }
+
+  bool get supportsAnime4kPresets => _anime4kShaderByPreset.isNotEmpty;
+
+  List<MpvEnhancementCommand> _scalerCommands(VideoScalerIntent scaler) {
+    final String? value = switch (scaler) {
+      VideoScalerIntent.adapterDefault => null,
+      VideoScalerIntent.sharp => mpvEnhancementSharpScalerValue,
+      VideoScalerIntent.smooth => mpvEnhancementSmoothScalerValue,
+      VideoScalerIntent.animeOptimized => mpvEnhancementSharpScalerValue,
+    };
+    if (value == null) return const <MpvEnhancementCommand>[];
+    return <MpvEnhancementCommand>[
+      MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementScaleProperty,
+        value: value,
+      ),
+      MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementChromaScaleProperty,
+        value: value,
+      ),
+    ];
+  }
+
+  List<MpvEnhancementCommand> _hdrCommands(HdrHandlingIntent intent) {
+    final String? value = switch (intent) {
+      HdrHandlingIntent.adapterDefault => null,
+      HdrHandlingIntent.toneMapToSdr => mpvEnhancementToneMapToSdrValue,
+      HdrHandlingIntent.passthrough => mpvEnhancementHdrPassthroughValue,
+    };
+    if (value == null) return const <MpvEnhancementCommand>[];
+    return <MpvEnhancementCommand>[
+      MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementToneMappingProperty,
+        value: value,
+      ),
+    ];
+  }
+
+  List<MpvEnhancementCommand> _debandCommands(DebandIntent intent) {
+    final String? iterations = switch (intent) {
+      DebandIntent.off => null,
+      DebandIntent.light => mpvEnhancementDebandLightIterations,
+      DebandIntent.medium => mpvEnhancementDebandMediumIterations,
+      DebandIntent.strong => mpvEnhancementDebandStrongIterations,
+    };
+    if (iterations == null) {
+      return const <MpvEnhancementCommand>[
+        MpvEnhancementCommand.setProperty(
+          property: mpvEnhancementDebandProperty,
+          value: mpvEnhancementDisabledValue,
+        ),
+      ];
+    }
+    return <MpvEnhancementCommand>[
+      const MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementDebandProperty,
+        value: mpvEnhancementEnabledValue,
+      ),
+      MpvEnhancementCommand.setProperty(
+        property: mpvEnhancementDebandIterationsProperty,
+        value: iterations,
+      ),
+    ];
+  }
+
+  MpvEnhancementPlanResult? _appendAnime4kShader(
+    List<MpvEnhancementCommand> commands,
+    Anime4kPresetIntent preset,
+  ) {
+    if (preset == Anime4kPresetIntent.off) return null;
+
+    final Uri? shader = _anime4kShaderByPreset[preset];
+    if (shader == null) {
+      return const MpvEnhancementPlanResult.failure(
+        failure: EnhancementPipelineFailure(
+          kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+          message: 'Anime4K-style preset requires an explicit MPV shader path.',
+        ),
+      );
+    }
+
+    commands.add(MpvEnhancementCommand.command(<String>[
+      mpvEnhancementChangeListCommand,
+      mpvEnhancementGlslShadersOption,
+      mpvEnhancementAppendOperation,
+      _shaderPath(shader),
+    ]));
+    return null;
+  }
+
+  static String _shaderPath(Uri shader) {
+    if (shader.scheme == 'file') return shader.toFilePath();
+    return shader.toString();
+  }
+}
 
 abstract interface class MediaKitMpvBackend {
   Future<void> openLocalFile(Uri uri);
@@ -23,6 +239,10 @@ abstract interface class MediaKitMpvBackend {
   Future<void> seek(Duration position);
 
   Future<void> stop();
+
+  Future<void> setProperty(String property, String value);
+
+  Future<void> command(List<String> arguments);
 
   Future<void> dispose();
 }
@@ -64,24 +284,41 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   Future<void> stop() => _player.stop();
 
   @override
+  Future<void> setProperty(String property, String value) async {
+    await (_player.platform as dynamic).setProperty(property, value);
+  }
+
+  @override
+  Future<void> command(List<String> arguments) async {
+    await (_player.platform as dynamic).command(arguments);
+  }
+
+  @override
   Future<void> dispose() => _player.dispose();
 }
 
-final class MediaKitMpvBinding implements MpvAdapterBinding {
+final class MediaKitMpvBinding
+    implements MpvAdapterBinding, MpvEnhancementBinding {
   MediaKitMpvBinding({
     MediaKitMpvBackend? backend,
     MediaKitMpvBackendFactory? backendFactory,
     String? libmpvPath,
+    Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
+        const <Anime4kPresetIntent, Uri>{},
   })  : assert(
           backend == null || backendFactory == null,
           'Provide either a backend instance or a backend factory, not both.',
         ),
         _backend = backend,
         _backendFactory = backendFactory ??
-            (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath));
+            (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath)),
+        _enhancementPlanner = MpvEnhancementPlanner(
+          anime4kShaderByPreset: anime4kShaderByPreset,
+        );
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
+  final MpvEnhancementPlanner _enhancementPlanner;
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
@@ -163,6 +400,43 @@ final class MediaKitMpvBinding implements MpvAdapterBinding {
     );
   }
 
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    final EnhancementPipelineFailure? disposed = _rejectEnhancementIfDisposed();
+    if (disposed != null) {
+      return EnhancementApplyOutcome.rejected(failure: disposed);
+    }
+
+    final MpvEnhancementPlanResult planResult =
+        _enhancementPlanner.build(profile);
+    if (!planResult.isSuccess) {
+      return EnhancementApplyOutcome.rejected(failure: planResult.failure!);
+    }
+
+    final EnhancementPipelineFailure? failure =
+        await _runEnhancementPlan(planResult.plan!);
+    if (failure != null) {
+      return EnhancementApplyOutcome.rejected(failure: failure);
+    }
+    return EnhancementApplyOutcome.applied(profile: profile);
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    final EnhancementPipelineFailure? disposed = _rejectEnhancementIfDisposed();
+    if (disposed != null) {
+      return EnhancementDisableOutcome.rejected(failure: disposed);
+    }
+
+    final EnhancementPipelineFailure? failure =
+        await _runEnhancementPlan(MpvEnhancementPlan.disabled());
+    if (failure != null) {
+      return EnhancementDisableOutcome.rejected(failure: failure);
+    }
+    return const EnhancementDisableOutcome.disabled();
+  }
+
   Future<PlaybackCommandResult> _recordCommand(
     PlaybackOperation operation,
     Future<void> Function(MediaKitMpvBackend backend) command,
@@ -187,6 +461,35 @@ final class MediaKitMpvBinding implements MpvAdapterBinding {
         message: 'Concrete MPV operation failed: $error',
       );
     }
+  }
+
+  Future<EnhancementPipelineFailure?> _runEnhancementPlan(
+      MpvEnhancementPlan plan) async {
+    try {
+      final MediaKitMpvBackend backend = _backend ??= _backendFactory();
+      for (final MpvEnhancementCommand command in plan.commands) {
+        switch (command.kind) {
+          case MpvEnhancementCommandKind.setProperty:
+            await backend.setProperty(command.property!, command.value!);
+          case MpvEnhancementCommandKind.command:
+            await backend.command(command.arguments);
+        }
+      }
+      return null;
+    } catch (error) {
+      return EnhancementPipelineFailure(
+        kind: EnhancementPipelineFailureKind.adapterRejected,
+        message: 'Concrete MPV enhancement operation failed: $error',
+      );
+    }
+  }
+
+  EnhancementPipelineFailure? _rejectEnhancementIfDisposed() {
+    if (!_disposed) return null;
+    return const EnhancementPipelineFailure(
+      kind: EnhancementPipelineFailureKind.adapterRejected,
+      message: 'MediaKit MPV binding has been disposed.',
+    );
   }
 
   PlaybackCommandResult? _rejectIfDisposed(PlaybackOperation operation) {
@@ -303,13 +606,20 @@ final class BundledMpvLibraryResolver {
   }
 }
 
-PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities() {
+PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
+  bool anime4kShadersAvailable = false,
+}) {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
       PlaybackCapability.playPause: CapabilityStatus.supported(),
       PlaybackCapability.seek: CapabilityStatus.supported(),
       PlaybackCapability.stop: CapabilityStatus.supported(),
+      PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
+      PlaybackCapability.hdrToneMapping: CapabilityStatus.supported(),
+      PlaybackCapability.debandFiltering: CapabilityStatus.supported(),
+      if (anime4kShadersAvailable)
+        PlaybackCapability.anime4kPreset: CapabilityStatus.supported(),
     },
   );
 }
@@ -324,13 +634,18 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
   String? libmpvPath,
   MediaKitMpvBackend? backend,
   MediaKitMpvBackendFactory? backendFactory,
+  Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
+      const <Anime4kPresetIntent, Uri>{},
 }) {
   return PlayerRuntimeCompositionContract(
     binding: MediaKitMpvBinding(
       backend: backend,
       backendFactory: backendFactory,
       libmpvPath: libmpvPath,
+      anime4kShaderByPreset: anime4kShaderByPreset,
     ),
-    capabilities: mediaKitLocalFilePlaybackCapabilities(),
+    capabilities: mediaKitLocalFilePlaybackCapabilities(
+      anime4kShadersAvailable: anime4kShaderByPreset.isNotEmpty,
+    ),
   );
 }

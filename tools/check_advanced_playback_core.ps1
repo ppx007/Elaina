@@ -5,6 +5,7 @@ $root = Split-Path -Parent $PSScriptRoot
 
 $requiredFiles = @(
   'lib/src/playback/video_enhancement_pipeline.dart',
+  'lib/src/playback/media_kit_mpv_binding.dart',
   'lib/src/playback/av_sync_guard.dart',
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/fallback_adapter.dart',
@@ -131,6 +132,32 @@ foreach ($capability in $requiredCapabilities) {
   if ($capabilities -notmatch $capability) {
     throw "PlaybackCapability missing advanced capability: $capability"
   }
+}
+
+$mediaKitBinding = Get-Content -LiteralPath (Join-Path $root 'lib/src/playback/media_kit_mpv_binding.dart') -Raw
+$requiredMpvEnhancementTerms = @(
+  'MpvEnhancementBinding',
+  'MpvEnhancementPlanner',
+  'MpvEnhancementPlan',
+  'MpvEnhancementCommand',
+  'setProperty',
+  'command',
+  'mpvEnhancementScaleProperty',
+  'mpvEnhancementToneMappingProperty',
+  'mpvEnhancementDebandProperty',
+  'mpvEnhancementGlslShadersOption',
+  'applyEnhancement',
+  'disableEnhancement',
+  'EnhancementPipelineFailureKind.adapterRejected'
+)
+foreach ($term in $requiredMpvEnhancementTerms) {
+  if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
+    throw "Concrete MPV enhancement binding missing required term: $term"
+  }
+}
+
+if ($mediaKitBinding -notmatch [regex]::Escape('Anime4K-style preset requires an explicit MPV shader path.')) {
+  throw 'Concrete MPV enhancement binding must reject Anime4K intent without an explicit shader path.'
 }
 
 $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
