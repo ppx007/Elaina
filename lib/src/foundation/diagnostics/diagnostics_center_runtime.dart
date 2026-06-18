@@ -345,7 +345,7 @@ final class DiagnosticsCenterRuntime {
     if (!_requireCapabilityMatrix()
         .supports(DiagnosticsCapability.snapshotQuery)) {
       return DiagnosticsCenterRuntimeActionResult<
-              DiagnosticsCenterRuntimeProjection>.failed(
+          DiagnosticsCenterRuntimeProjection>.failed(
         const DiagnosticsCenterRuntimeFailure(
           kind: DiagnosticsCenterRuntimeFailureKind.capabilityUnsupported,
           message: 'Snapshot query capability is not supported.',
@@ -358,11 +358,19 @@ final class DiagnosticsCenterRuntime {
           await _requireCenter().snapshot(query);
 
       final DateTime now = _now();
-      final String snapshotId =
-          'diag-snapshot-${now.millisecondsSinceEpoch}';
+      final String snapshotId = 'diag-snapshot-${now.millisecondsSinceEpoch}';
 
-      final List<String> eventIds = diagnosticsSnapshot.events
-          .map((DiagnosticsEvent e) => e.type.value)
+      final List<String> eventIds = (await _requireStore().queryEvents(
+        category: query.category,
+        minimumSeverity: query.minimumSeverity,
+        startedAt: query.startedAt,
+        endedAt: query.endedAt,
+        correlationId: query.correlationId?.value,
+        sourceModule: query.sourceModule,
+        eventTypes: query.eventTypes.map((DiagnosticsEventType t) => t.value),
+        capabilityAreas: query.capabilityAreas,
+      ))
+          .map((StoredDiagnosticsEventRecord event) => event.id)
           .toList();
 
       await _requireStore().storeSnapshot(StoredDiagnosticsSnapshotRecord(
@@ -387,7 +395,7 @@ final class DiagnosticsCenterRuntime {
       ));
     } catch (e) {
       return DiagnosticsCenterRuntimeActionResult<
-              DiagnosticsCenterRuntimeProjection>.failed(
+          DiagnosticsCenterRuntimeProjection>.failed(
         DiagnosticsCenterRuntimeFailure(
           kind: DiagnosticsCenterRuntimeFailureKind.snapshotFailure,
           message: 'Snapshot query failed: $e',
@@ -425,11 +433,10 @@ final class DiagnosticsCenterRuntime {
       );
     }
 
-    final String retentionId =
-        'diag-retention-${now.millisecondsSinceEpoch}';
+    final String retentionId = 'diag-retention-${now.millisecondsSinceEpoch}';
 
-    await _requireStore().recordRetentionState(
-        StoredDiagnosticsRetentionStateRecord(
+    await _requireStore()
+        .recordRetentionState(StoredDiagnosticsRetentionStateRecord(
       id: retentionId,
       enforcedAt: outcome.enforcedAt,
       maxEvents: _requireCenter().retentionPolicy.maxEvents,
@@ -448,9 +455,8 @@ final class DiagnosticsCenterRuntime {
     return const DiagnosticsCenterRuntimeActionResult<void>.success();
   }
 
-  Future<
-      DiagnosticsCenterRuntimeActionResult<
-          DiagnosticsLocalExportDescriptor>> describeLocalExport({
+  Future<DiagnosticsCenterRuntimeActionResult<DiagnosticsLocalExportDescriptor>>
+      describeLocalExport({
     required DiagnosticsSnapshot snapshot,
     required String format,
   }) async {
@@ -460,7 +466,7 @@ final class DiagnosticsCenterRuntime {
     if (!_requireCapabilityMatrix()
         .supports(DiagnosticsCapability.localExportDescriptor)) {
       return DiagnosticsCenterRuntimeActionResult<
-              DiagnosticsLocalExportDescriptor>.failed(
+          DiagnosticsLocalExportDescriptor>.failed(
         const DiagnosticsCenterRuntimeFailure(
           kind: DiagnosticsCenterRuntimeFailureKind.exportFailure,
           message: 'Local export descriptor capability is not supported.',
@@ -469,11 +475,10 @@ final class DiagnosticsCenterRuntime {
     }
 
     final DateTime now = _now();
-    final String requestId =
-        'diag-export-req-${now.millisecondsSinceEpoch}';
+    final String requestId = 'diag-export-req-${now.millisecondsSinceEpoch}';
 
-    await _requireStore().recordExportRequest(
-        StoredDiagnosticsExportRequestRecord(
+    await _requireStore()
+        .recordExportRequest(StoredDiagnosticsExportRequestRecord(
       id: requestId,
       snapshotId: snapshot.id,
       format: format,
@@ -496,7 +501,7 @@ final class DiagnosticsCenterRuntime {
       );
     } catch (e) {
       return DiagnosticsCenterRuntimeActionResult<
-              DiagnosticsLocalExportDescriptor>.failed(
+          DiagnosticsLocalExportDescriptor>.failed(
         DiagnosticsCenterRuntimeFailure(
           kind: DiagnosticsCenterRuntimeFailureKind.exportFailure,
           message: 'Local export description failed: $e',
@@ -511,8 +516,8 @@ final class DiagnosticsCenterRuntime {
             ? StoredDiagnosticsExportState.described
             : StoredDiagnosticsExportState.unavailable;
 
-    await _requireStore().recordExportOutcome(
-        StoredDiagnosticsExportOutcomeRecord(
+    await _requireStore()
+        .recordExportOutcome(StoredDiagnosticsExportOutcomeRecord(
       id: outcomeId,
       requestId: requestId,
       snapshotId: snapshot.id,
@@ -533,7 +538,7 @@ final class DiagnosticsCenterRuntime {
     ));
 
     return DiagnosticsCenterRuntimeActionResult<
-            DiagnosticsLocalExportDescriptor>.success(descriptor);
+        DiagnosticsLocalExportDescriptor>.success(descriptor);
   }
 
   Future<
@@ -593,8 +598,8 @@ final class DiagnosticsCenterRuntime {
     final StoredDiagnosticsExportOutcomeRecord? latestExportOutcome =
         await _requireStore().latestExportOutcome();
 
-    final StoredDiagnosticsCapabilityRecord? latestCap =
-        await _requireStore().capability(DiagnosticsCapability.schemaRegistration);
+    final StoredDiagnosticsCapabilityRecord? latestCap = await _requireStore()
+        .capability(DiagnosticsCapability.schemaRegistration);
 
     final DiagnosticsCenterRuntimeRestartProjection restart =
         DiagnosticsCenterRuntimeRestartProjection(
@@ -607,7 +612,7 @@ final class DiagnosticsCenterRuntime {
     );
 
     return DiagnosticsCenterRuntimeActionResult<
-            DiagnosticsCenterRuntimeProjection>.success(
+        DiagnosticsCenterRuntimeProjection>.success(
       DiagnosticsCenterRuntimeProjection(
         restart: restart,
         latestSnapshot: latestSnapshot,
@@ -618,14 +623,12 @@ final class DiagnosticsCenterRuntime {
   }
 
   DiagnosticsEvent _applyRedaction(DiagnosticsEvent event) {
-    final DiagnosticsRedactionPolicy policy =
-        _requireCenter().redactionPolicy;
+    final DiagnosticsRedactionPolicy policy = _requireCenter().redactionPolicy;
     final Map<String, Object?> redacted = <String, Object?>{};
     for (final MapEntry<String, Object?> entry in event.payload.entries) {
-      redacted[entry.key] =
-          policy.sensitivePayloadKeys.contains(entry.key)
-              ? '<redacted>'
-              : entry.value;
+      redacted[entry.key] = policy.sensitivePayloadKeys.contains(entry.key)
+          ? '<redacted>'
+          : entry.value;
     }
     return DiagnosticsEvent(
       type: event.type,

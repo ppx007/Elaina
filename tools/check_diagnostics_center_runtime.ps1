@@ -5,10 +5,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $requiredFiles = @(
     'lib/src/foundation/diagnostics/diagnostics_center.dart',
     'lib/src/foundation/diagnostics/diagnostics_center_runtime.dart',
+    'lib/src/foundation/diagnostics/diagnostics_runtime_impl.dart',
     'lib/src/foundation/storage/diagnostics_storage_contracts.dart',
     'lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart',
     'test/foundation/diagnostics_center_contract_test.dart',
     'test/foundation/diagnostics_center_runtime_test.dart',
+    'test/foundation/diagnostics_runtime_impl_test.dart',
     'tools/diagnostics_center_runtime_check.dart'
 )
 
@@ -60,6 +62,38 @@ $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/foundation/diagnostics/diagnostics_center_runtime.dart';")) {
     throw 'Public Dart contract barrel missing diagnostics center runtime export.'
 }
+if ($barrel -notmatch [regex]::Escape("export 'src/foundation/diagnostics/diagnostics_runtime_impl.dart';")) {
+    throw 'Public Dart contract barrel missing diagnostics runtime implementation export.'
+}
+
+$implPath = Join-Path $root 'lib/src/foundation/diagnostics/diagnostics_runtime_impl.dart'
+$impl = Get-Content -LiteralPath $implPath -Raw
+$requiredImplTerms = @(
+    'DiagnosticsInvalidationCollector',
+    'DiagnosticsLocalCollectorOutcome',
+    'DiagnosticsLocalCollectorFailureKind',
+    'DiagnosticsLocalExportBundleBuilder',
+    'DiagnosticsLocalExportBundleOutcome',
+    'DiagnosticsLocalExportBundleFailureKind',
+    'diagnosticsInvalidationEventType',
+    'diagnosticsInvalidationSourceModule',
+    'CacheInvalidationEvent',
+    'DiagnosticsCenterRuntime',
+    'DiagnosticsStore',
+    'jsonLines',
+    'snapshotNotFound',
+    'runtimeRejected'
+)
+foreach ($term in $requiredImplTerms) {
+    if ($impl -notmatch [regex]::Escape($term)) {
+        throw "Diagnostics runtime implementation missing required term: $term"
+    }
+}
+foreach ($term in @('dart:io', 'dart:ffi', 'package:flutter', 'MethodChannel', 'EventChannel', 'remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload', 'supportBundleUpload', 'createTask(', 'setNetworkPolicy', 'WebViewController')) {
+    if ($impl -match [regex]::Escape($term)) {
+        throw "Diagnostics runtime implementation contains forbidden control or remote term: $term"
+    }
+}
 
 $checkerPath = Join-Path $root 'tools/diagnostics_center_runtime_check.dart'
 $checker = Get-Content -LiteralPath $checkerPath -Raw
@@ -100,7 +134,9 @@ if ($LASTEXITCODE -ne 0) {
 
 $filesToScan = @(
     'lib/src/foundation/diagnostics/diagnostics_center_runtime.dart',
+    'lib/src/foundation/diagnostics/diagnostics_runtime_impl.dart',
     'test/foundation/diagnostics_center_runtime_test.dart',
+    'test/foundation/diagnostics_runtime_impl_test.dart',
     'tools/diagnostics_center_runtime_check.dart'
 )
 

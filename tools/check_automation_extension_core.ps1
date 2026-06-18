@@ -16,6 +16,7 @@ $requiredFiles = @(
   'lib/src/network/network_policy.dart',
   'lib/src/foundation/storage/network_policy_storage_contracts.dart',
   'lib/src/foundation/diagnostics/diagnostics_center.dart',
+  'lib/src/foundation/diagnostics/diagnostics_runtime_impl.dart',
   'lib/src/foundation/storage/diagnostics_storage_contracts.dart',
   'docs/phase6-automation-extension-core.md',
   'docs/online-rule-test-harness.md',
@@ -170,6 +171,18 @@ foreach ($term in @('DiagnosticsCapabilityMatrix', 'DiagnosticsCapabilityStatus'
 foreach ($term in @('pause(', 'resume(', 'remove(', 'selectFiles(', 'createTask(', 'setNetworkPolicy', 'remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload', 'supportBundleUpload', 'WebViewController')) {
   if ($diagnostics -match [regex]::Escape($term)) {
     throw "Diagnostics center must remain read-only; forbidden operation found: $term"
+  }
+}
+
+$diagnosticsImpl = Get-Content -LiteralPath (Join-Path $root 'lib/src/foundation/diagnostics/diagnostics_runtime_impl.dart') -Raw
+foreach ($term in @('DiagnosticsInvalidationCollector', 'DiagnosticsLocalExportBundleBuilder', 'CacheInvalidationEvent', 'DiagnosticsStore', 'DiagnosticsCenterRuntime', 'jsonLines')) {
+  if ($diagnosticsImpl -notmatch [regex]::Escape($term)) {
+    throw "Diagnostics runtime implementation missing term: $term"
+  }
+}
+foreach ($term in @('remoteTelemetry', 'CrashReporter', 'AnalyticsClient', 'cloudUpload', 'supportBundleUpload', 'package:flutter', 'WebViewController', 'createTask(', 'setNetworkPolicy', 'dart:io', 'dart:ffi', 'MethodChannel')) {
+  if ($diagnosticsImpl -match [regex]::Escape($term)) {
+    throw "Diagnostics runtime implementation contains forbidden remote/control term: $term"
   }
 }
 
