@@ -11,6 +11,7 @@ $requiredFiles = @(
   'lib/src/playback/capability_matrix.dart',
   'lib/src/playback/advanced_caption_rendering.dart',
   'lib/src/playback/advanced_caption_rendering_runtime.dart',
+  'lib/src/playback/media_kit_mpv_binding.dart',
   'test/playback/advanced_caption_rendering_runtime_test.dart',
   'tools/advanced_caption_rendering_runtime_check.dart'
 )
@@ -252,6 +253,45 @@ $forbiddenImports = @(
 foreach ($import in $forbiddenImports) {
   if ($runtimeImports -match [regex]::Escape($import)) {
     throw "Advanced caption rendering runtime must not import boundary surface: $import"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# 8. Step 57 concrete MPV subtitle bridge stays in approved Playback binding
+# ---------------------------------------------------------------------------
+$mediaKitBindingPath = Join-Path $root 'lib/src/playback/media_kit_mpv_binding.dart'
+$mediaKitBinding = Get-Content -LiteralPath $mediaKitBindingPath -Raw
+$requiredMpvSubtitleTerms = @(
+  'MpvAdvancedSubtitleBinding',
+  'MpvSubtitlePlanner',
+  'MpvSubtitlePlan',
+  'MpvSubtitleCommand',
+  'mpvSubtitleAddCommand',
+  'mpvSubtitlePrimaryProperty',
+  'mpvSubtitleSecondaryProperty',
+  'mpvSubtitleAssProperty',
+  'renderDualSubtitles',
+  'renderAdvancedSubtitle',
+  'disableAdvancedSubtitles',
+  'AdvancedCaptionFailureKind.adapterRejected'
+)
+foreach ($term in $requiredMpvSubtitleTerms) {
+  if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
+    throw "Concrete MPV subtitle bridge missing required term: $term"
+  }
+}
+
+$approvedConcretePlayerImportFiles = @(
+  'lib/src/playback/media_kit_mpv_binding.dart'
+)
+$sourceDartFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
+foreach ($file in $sourceDartFiles) {
+  $relativePath = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+  $content = Get-Content -LiteralPath $file.FullName -Raw
+  if ($content -match [regex]::Escape('package:media_kit/')) {
+    if ($approvedConcretePlayerImportFiles -notcontains $relativePath) {
+      throw "Concrete player package import is only allowed in approved Playback binding files: $($file.FullName)"
+    }
   }
 }
 

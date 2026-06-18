@@ -349,6 +349,201 @@ void main() {
     );
   });
 
+  test('subtitle planner maps ordered embedded dual subtitles', () {
+    final MpvSubtitlePlan plan = const MpvSubtitlePlanner().buildDualSubtitles(
+      DualSubtitleRequest(
+        primary: _embeddedSubtitle('primary', trackId: 'sid-primary'),
+        secondary: _embeddedSubtitle('secondary', trackId: 'sid-secondary'),
+      ),
+    );
+
+    expect(plan.feature, AdvancedCaptionFeature.dualSubtitles);
+    expect(
+      plan.commands.map((MpvSubtitleCommand command) =>
+          <String>[command.property!, command.value!]),
+      <List<String>>[
+        <String>[mpvSubtitlePrimaryProperty, 'sid-primary'],
+        <String>[mpvSubtitleSecondaryProperty, 'sid-secondary'],
+      ],
+    );
+  });
+
+  test('subtitle bridge applies ordered dual subtitles through backend',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final CaptionRenderOutcome result = await binding.renderDualSubtitles(
+      DualSubtitleRequest(
+        primary: _embeddedSubtitle('primary', trackId: 'sid-primary'),
+        secondary: _embeddedSubtitle('secondary', trackId: 'sid-secondary'),
+      ),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.feature, AdvancedCaptionFeature.dualSubtitles);
+    expect(
+      backend.propertyCalls
+          .map((_PropertyCall call) => <String>[call.property, call.value]),
+      <List<String>>[
+        <String>[mpvSubtitlePrimaryProperty, 'sid-primary'],
+        <String>[mpvSubtitleSecondaryProperty, 'sid-secondary'],
+      ],
+    );
+  });
+
+  test('subtitle bridge rejects duplicate dual subtitle selection', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+    final EmbeddedSubtitleSource subtitle =
+        _embeddedSubtitle('same', trackId: 'sid-same');
+
+    final CaptionRenderOutcome result = await binding.renderDualSubtitles(
+      DualSubtitleRequest(primary: subtitle, secondary: subtitle),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isFalse);
+    expect(result.failure?.kind,
+        AdvancedCaptionFailureKind.dualSubtitleOrderRejected);
+    expect(backend.propertyCalls, isEmpty);
+    expect(backend.commandCalls, isEmpty);
+  });
+
+  test('subtitle bridge applies ASS external subtitle intent', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+    final ExternalSubtitleSource source = _externalSubtitle(
+      'ass-ja',
+      uri: Uri.file('D:/media/episode.ja.ass'),
+      format: SubtitleFormat.ass,
+      languageCode: 'ja',
+      title: 'Japanese ASS',
+    );
+
+    final CaptionRenderOutcome result = await binding.renderAdvancedSubtitle(
+      AdvancedSubtitleRequest(
+        source: source,
+        intent: AdvancedSubtitleRenderIntent.assEnhancedLayout,
+      ),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.feature, AdvancedCaptionFeature.assEnhancement);
+    expect(
+      backend.propertyCalls
+          .map((_PropertyCall call) => <String>[call.property, call.value]),
+      <List<String>>[
+        <String>[mpvSubtitleAssProperty, mpvSubtitleEnabledValue],
+        <String>[mpvSubtitlePrimaryProperty, mpvSubtitleAutoValue],
+      ],
+    );
+    expect(
+      backend.commandCalls.single,
+      <String>[
+        mpvSubtitleAddCommand,
+        source.uri.toFilePath(),
+        mpvSubtitleSelectFlag,
+        'Japanese ASS',
+        'ja',
+      ],
+    );
+  });
+
+  test('subtitle bridge applies PGS external subtitle intent', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+    final ExternalSubtitleSource source = _externalSubtitle(
+      'pgs-main',
+      uri: Uri.parse('https://media.example.test/subtitle.sup'),
+      format: SubtitleFormat.srt,
+    );
+
+    final CaptionRenderOutcome result = await binding.renderAdvancedSubtitle(
+      AdvancedSubtitleRequest(
+        source: source,
+        intent: AdvancedSubtitleRenderIntent.pgsImageSubtitle,
+      ),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.feature, AdvancedCaptionFeature.pgsRendering);
+    expect(
+      backend.commandCalls.single,
+      <String>[
+        mpvSubtitleAddCommand,
+        source.uri.toString(),
+        mpvSubtitleSelectFlag,
+        source.id,
+      ],
+    );
+    expect(
+      backend.propertyCalls.single.value,
+      mpvSubtitleAutoValue,
+    );
+  });
+
+  test('subtitle bridge disables subtitle properties and removes active track',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final CaptionDisableOutcome result =
+        await binding.disableAdvancedSubtitles();
+
+    expect(result.isSuccess, isTrue);
+    expect(
+      backend.propertyCalls
+          .map((_PropertyCall call) => <String>[call.property, call.value]),
+      <List<String>>[
+        <String>[mpvSubtitlePrimaryProperty, mpvSubtitleNoValue],
+        <String>[mpvSubtitleSecondaryProperty, mpvSubtitleNoValue],
+        <String>[mpvSubtitleAssProperty, mpvSubtitleDisabledValue],
+      ],
+    );
+    expect(backend.commandCalls.single, <String>[mpvSubtitleRemoveCommand]);
+  });
+
+  test('subtitle bridge normalizes backend failures', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      failOnProperty: mpvSubtitleSecondaryProperty,
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final CaptionRenderOutcome result = await binding.renderDualSubtitles(
+      DualSubtitleRequest(
+        primary: _embeddedSubtitle('primary', trackId: 'sid-primary'),
+        secondary: _embeddedSubtitle('secondary', trackId: 'sid-secondary'),
+      ),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isFalse);
+    expect(result.failure?.kind, AdvancedCaptionFailureKind.adapterRejected);
+  });
+
+  test('subtitle bridge reports Matrix4 danmaku unsupported', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final CaptionRenderOutcome result = await binding.renderMatrixDanmaku(
+      MatrixDanmakuRequest(
+        comments: const <DanmakuComment>[],
+        transform: CaptionTransform4(values: _identityTransform()),
+      ),
+      profile: _captionProfile(),
+    );
+
+    expect(result.isSuccess, isFalse);
+    expect(
+        result.failure?.kind, AdvancedCaptionFailureKind.capabilityUnsupported);
+    expect(backend.propertyCalls, isEmpty);
+    expect(backend.commandCalls, isEmpty);
+  });
+
   test('local file capability matrix declares only verified operations', () {
     final PlaybackCapabilityMatrix matrix =
         mediaKitLocalFilePlaybackCapabilities();
@@ -365,6 +560,10 @@ void main() {
     expect(matrix.supports(PlaybackCapability.hdrToneMapping), isTrue);
     expect(matrix.supports(PlaybackCapability.debandFiltering), isTrue);
     expect(matrix.supports(PlaybackCapability.anime4kPreset), isFalse);
+    expect(matrix.supports(PlaybackCapability.dualSubtitles), isTrue);
+    expect(matrix.supports(PlaybackCapability.pgsSubtitleRendering), isTrue);
+    expect(matrix.supports(PlaybackCapability.assSubtitleEnhancement), isTrue);
+    expect(matrix.supports(PlaybackCapability.matrixDanmaku), isFalse);
     expect(
       mediaKitLocalFilePlaybackCapabilities(anime4kShadersAvailable: true)
           .supports(PlaybackCapability.anime4kPreset),
@@ -484,6 +683,65 @@ VideoEnhancementProfile _enhancementProfile() {
     deband: DebandIntent.medium,
     anime4kPreset: Anime4kPresetIntent.restore,
   );
+}
+
+AdvancedCaptionProfile _captionProfile() {
+  return const AdvancedCaptionProfile(
+    id: AdvancedCaptionProfileId('caption-vivid'),
+    label: 'Caption Vivid',
+    matrixDanmakuEnabled: false,
+    dualSubtitlesEnabled: true,
+    pgsRenderingEnabled: true,
+    assEnhancementEnabled: true,
+  );
+}
+
+EmbeddedSubtitleSource _embeddedSubtitle(
+  String id, {
+  required String trackId,
+}) {
+  return EmbeddedSubtitleSource(
+    id: id,
+    format: SubtitleFormat.srt,
+    trackId: trackId,
+  );
+}
+
+ExternalSubtitleSource _externalSubtitle(
+  String id, {
+  required Uri uri,
+  required SubtitleFormat format,
+  String? languageCode,
+  String? title,
+}) {
+  return ExternalSubtitleSource(
+    id: id,
+    format: format,
+    uri: uri,
+    languageCode: languageCode,
+    title: title,
+  );
+}
+
+List<double> _identityTransform() {
+  return <double>[
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+  ];
 }
 
 final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {

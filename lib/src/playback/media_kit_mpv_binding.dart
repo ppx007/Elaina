@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:media_kit/media_kit.dart';
 
+import 'advanced_caption_rendering.dart';
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
 import 'player_runtime_composition.dart';
+import 'subtitle/subtitle_source.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 
@@ -33,6 +35,173 @@ const String mpvEnhancementHdrPassthroughValue = 'clip';
 const String mpvEnhancementDebandLightIterations = '1';
 const String mpvEnhancementDebandMediumIterations = '2';
 const String mpvEnhancementDebandStrongIterations = '3';
+const String mpvSubtitleAddCommand = 'sub-add';
+const String mpvSubtitleRemoveCommand = 'sub-remove';
+const String mpvSubtitlePrimaryProperty = 'sid';
+const String mpvSubtitleSecondaryProperty = 'secondary-sid';
+const String mpvSubtitleAssProperty = 'sub-ass';
+const String mpvSubtitleSelectFlag = 'select';
+const String mpvSubtitleAutoFlag = 'auto';
+const String mpvSubtitleAutoValue = 'auto';
+const String mpvSubtitleNoValue = 'no';
+const String mpvSubtitleEnabledValue = 'yes';
+const String mpvSubtitleDisabledValue = 'no';
+
+abstract interface class MpvAdvancedSubtitleBinding {
+  Future<CaptionRenderOutcome> renderMatrixDanmaku(
+    MatrixDanmakuRequest request, {
+    required AdvancedCaptionProfile profile,
+  });
+
+  Future<CaptionRenderOutcome> renderDualSubtitles(
+    DualSubtitleRequest request, {
+    required AdvancedCaptionProfile profile,
+  });
+
+  Future<CaptionRenderOutcome> renderAdvancedSubtitle(
+    AdvancedSubtitleRequest request, {
+    required AdvancedCaptionProfile profile,
+  });
+
+  Future<CaptionDisableOutcome> disableAdvancedSubtitles();
+}
+
+enum MpvSubtitleCommandKind {
+  setProperty,
+  command,
+}
+
+final class MpvSubtitleCommand {
+  const MpvSubtitleCommand.setProperty({
+    required String property,
+    required String value,
+  })  : kind = MpvSubtitleCommandKind.setProperty,
+        property = property,
+        value = value,
+        arguments = const <String>[];
+
+  MpvSubtitleCommand.command(Iterable<String> arguments)
+      : kind = MpvSubtitleCommandKind.command,
+        property = null,
+        value = null,
+        arguments = List<String>.unmodifiable(arguments);
+
+  final MpvSubtitleCommandKind kind;
+  final String? property;
+  final String? value;
+  final List<String> arguments;
+}
+
+final class MpvSubtitlePlan {
+  MpvSubtitlePlan({
+    required this.feature,
+    required Iterable<MpvSubtitleCommand> commands,
+  }) : commands = List<MpvSubtitleCommand>.unmodifiable(commands);
+
+  final AdvancedCaptionFeature feature;
+  final List<MpvSubtitleCommand> commands;
+
+  static MpvSubtitlePlan disabled() {
+    return MpvSubtitlePlan(
+      feature: AdvancedCaptionFeature.dualSubtitles,
+      commands: <MpvSubtitleCommand>[
+        const MpvSubtitleCommand.setProperty(
+          property: mpvSubtitlePrimaryProperty,
+          value: mpvSubtitleNoValue,
+        ),
+        const MpvSubtitleCommand.setProperty(
+          property: mpvSubtitleSecondaryProperty,
+          value: mpvSubtitleNoValue,
+        ),
+        const MpvSubtitleCommand.setProperty(
+          property: mpvSubtitleAssProperty,
+          value: mpvSubtitleDisabledValue,
+        ),
+        MpvSubtitleCommand.command(<String>[mpvSubtitleRemoveCommand]),
+      ],
+    );
+  }
+}
+
+final class MpvSubtitlePlanner {
+  const MpvSubtitlePlanner();
+
+  MpvSubtitlePlan buildDualSubtitles(DualSubtitleRequest request) {
+    return MpvSubtitlePlan(
+      feature: AdvancedCaptionFeature.dualSubtitles,
+      commands: <MpvSubtitleCommand>[
+        ..._sourceCommands(
+          request.primary,
+          property: mpvSubtitlePrimaryProperty,
+          externalFlag: mpvSubtitleSelectFlag,
+        ),
+        ..._sourceCommands(
+          request.secondary,
+          property: mpvSubtitleSecondaryProperty,
+          externalFlag: mpvSubtitleAutoFlag,
+        ),
+      ],
+    );
+  }
+
+  MpvSubtitlePlan buildAdvancedSubtitle(AdvancedSubtitleRequest request) {
+    final AdvancedCaptionFeature feature = switch (request.intent) {
+      AdvancedSubtitleRenderIntent.pgsImageSubtitle =>
+        AdvancedCaptionFeature.pgsRendering,
+      AdvancedSubtitleRenderIntent.assEnhancedLayout =>
+        AdvancedCaptionFeature.assEnhancement,
+    };
+    return MpvSubtitlePlan(
+      feature: feature,
+      commands: <MpvSubtitleCommand>[
+        if (request.intent == AdvancedSubtitleRenderIntent.assEnhancedLayout)
+          const MpvSubtitleCommand.setProperty(
+            property: mpvSubtitleAssProperty,
+            value: mpvSubtitleEnabledValue,
+          ),
+        ..._sourceCommands(
+          request.source,
+          property: mpvSubtitlePrimaryProperty,
+          externalFlag: mpvSubtitleSelectFlag,
+        ),
+      ],
+    );
+  }
+
+  List<MpvSubtitleCommand> _sourceCommands(
+    SubtitleSource source, {
+    required String property,
+    required String externalFlag,
+  }) {
+    return switch (source) {
+      EmbeddedSubtitleSource(:final trackId) => <MpvSubtitleCommand>[
+          MpvSubtitleCommand.setProperty(
+            property: property,
+            value: trackId,
+          ),
+        ],
+      ExternalSubtitleSource(:final uri, :final title, :final languageCode) =>
+        <MpvSubtitleCommand>[
+          MpvSubtitleCommand.command(<String>[
+            mpvSubtitleAddCommand,
+            _subtitlePath(uri),
+            externalFlag,
+            title ?? source.id,
+            if (languageCode != null) languageCode,
+          ]),
+          MpvSubtitleCommand.setProperty(
+            property: property,
+            value: mpvSubtitleAutoValue,
+          ),
+        ],
+    };
+  }
+
+  static String _subtitlePath(Uri uri) {
+    if (uri.scheme == 'file') return uri.toFilePath();
+    return uri.toString();
+  }
+}
 
 abstract interface class MpvEnhancementBinding {
   Future<EnhancementApplyOutcome> applyEnhancement(
@@ -298,7 +467,10 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
 }
 
 final class MediaKitMpvBinding
-    implements MpvAdapterBinding, MpvEnhancementBinding {
+    implements
+        MpvAdapterBinding,
+        MpvEnhancementBinding,
+        MpvAdvancedSubtitleBinding {
   MediaKitMpvBinding({
     MediaKitMpvBackend? backend,
     MediaKitMpvBackendFactory? backendFactory,
@@ -314,11 +486,13 @@ final class MediaKitMpvBinding
             (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath)),
         _enhancementPlanner = MpvEnhancementPlanner(
           anime4kShaderByPreset: anime4kShaderByPreset,
-        );
+        ),
+        _subtitlePlanner = const MpvSubtitlePlanner();
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
   final MpvEnhancementPlanner _enhancementPlanner;
+  final MpvSubtitlePlanner _subtitlePlanner;
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
@@ -437,6 +611,65 @@ final class MediaKitMpvBinding
     return const EnhancementDisableOutcome.disabled();
   }
 
+  @override
+  Future<CaptionRenderOutcome> renderMatrixDanmaku(
+    MatrixDanmakuRequest request, {
+    required AdvancedCaptionProfile profile,
+  }) async {
+    return const CaptionRenderOutcome.rejected(
+      failure: AdvancedCaptionFailure(
+        kind: AdvancedCaptionFailureKind.capabilityUnsupported,
+        message:
+            'MediaKit MPV binding does not implement Matrix4 danmaku rendering.',
+      ),
+    );
+  }
+
+  @override
+  Future<CaptionRenderOutcome> renderDualSubtitles(
+    DualSubtitleRequest request, {
+    required AdvancedCaptionProfile profile,
+  }) async {
+    if (request.primary.id == request.secondary.id) {
+      return const CaptionRenderOutcome.rejected(
+        failure: AdvancedCaptionFailure(
+          kind: AdvancedCaptionFailureKind.dualSubtitleOrderRejected,
+          message: 'Primary and secondary subtitles must be distinct.',
+        ),
+      );
+    }
+    return _applySubtitlePlan(
+      _subtitlePlanner.buildDualSubtitles(request),
+      profile: profile,
+    );
+  }
+
+  @override
+  Future<CaptionRenderOutcome> renderAdvancedSubtitle(
+    AdvancedSubtitleRequest request, {
+    required AdvancedCaptionProfile profile,
+  }) async {
+    return _applySubtitlePlan(
+      _subtitlePlanner.buildAdvancedSubtitle(request),
+      profile: profile,
+    );
+  }
+
+  @override
+  Future<CaptionDisableOutcome> disableAdvancedSubtitles() async {
+    final AdvancedCaptionFailure? disposed = _rejectCaptionIfDisposed();
+    if (disposed != null) {
+      return CaptionDisableOutcome.rejected(failure: disposed);
+    }
+
+    final AdvancedCaptionFailure? failure =
+        await _runSubtitlePlan(MpvSubtitlePlan.disabled());
+    if (failure != null) {
+      return CaptionDisableOutcome.rejected(failure: failure);
+    }
+    return const CaptionDisableOutcome.disabled();
+  }
+
   Future<PlaybackCommandResult> _recordCommand(
     PlaybackOperation operation,
     Future<void> Function(MediaKitMpvBackend backend) command,
@@ -488,6 +721,53 @@ final class MediaKitMpvBinding
     if (!_disposed) return null;
     return const EnhancementPipelineFailure(
       kind: EnhancementPipelineFailureKind.adapterRejected,
+      message: 'MediaKit MPV binding has been disposed.',
+    );
+  }
+
+  Future<CaptionRenderOutcome> _applySubtitlePlan(
+    MpvSubtitlePlan plan, {
+    required AdvancedCaptionProfile profile,
+  }) async {
+    final AdvancedCaptionFailure? disposed = _rejectCaptionIfDisposed();
+    if (disposed != null) {
+      return CaptionRenderOutcome.rejected(failure: disposed);
+    }
+
+    final AdvancedCaptionFailure? failure = await _runSubtitlePlan(plan);
+    if (failure != null) {
+      return CaptionRenderOutcome.rejected(failure: failure);
+    }
+    return CaptionRenderOutcome.rendered(
+      profile: profile,
+      feature: plan.feature,
+    );
+  }
+
+  Future<AdvancedCaptionFailure?> _runSubtitlePlan(MpvSubtitlePlan plan) async {
+    try {
+      final MediaKitMpvBackend backend = _backend ??= _backendFactory();
+      for (final MpvSubtitleCommand command in plan.commands) {
+        switch (command.kind) {
+          case MpvSubtitleCommandKind.setProperty:
+            await backend.setProperty(command.property!, command.value!);
+          case MpvSubtitleCommandKind.command:
+            await backend.command(command.arguments);
+        }
+      }
+      return null;
+    } catch (error) {
+      return AdvancedCaptionFailure(
+        kind: AdvancedCaptionFailureKind.adapterRejected,
+        message: 'Concrete MPV subtitle operation failed: $error',
+      );
+    }
+  }
+
+  AdvancedCaptionFailure? _rejectCaptionIfDisposed() {
+    if (!_disposed) return null;
+    return const AdvancedCaptionFailure(
+      kind: AdvancedCaptionFailureKind.adapterRejected,
       message: 'MediaKit MPV binding has been disposed.',
     );
   }
@@ -618,6 +898,9 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
       PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
       PlaybackCapability.hdrToneMapping: CapabilityStatus.supported(),
       PlaybackCapability.debandFiltering: CapabilityStatus.supported(),
+      PlaybackCapability.dualSubtitles: CapabilityStatus.supported(),
+      PlaybackCapability.pgsSubtitleRendering: CapabilityStatus.supported(),
+      PlaybackCapability.assSubtitleEnhancement: CapabilityStatus.supported(),
       if (anime4kShadersAvailable)
         PlaybackCapability.anime4kPreset: CapabilityStatus.supported(),
     },

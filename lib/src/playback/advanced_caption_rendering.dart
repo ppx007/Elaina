@@ -101,6 +101,7 @@ enum AdvancedCaptionFailureKind {
   profileNotFound,
   dualSubtitleOrderRejected,
   staleEvaluation,
+  adapterRejected,
   avSyncDegradation,
 }
 

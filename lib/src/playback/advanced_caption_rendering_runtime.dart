@@ -10,8 +10,12 @@ final class AdvancedCaptionRuntimeBootstrap {
     required Map<String, DeterministicAdvancedCaptionRenderer> rendererByScope,
     required Map<String, PlaybackCapabilityMatrix> capabilitiesByScope,
     this.cacheInvalidationBus,
-  })  : _rendererByScope = Map<String, DeterministicAdvancedCaptionRenderer>.unmodifiable(rendererByScope),
-        _capabilitiesByScope = Map<String, PlaybackCapabilityMatrix>.unmodifiable(capabilitiesByScope);
+  })  : _rendererByScope =
+            Map<String, DeterministicAdvancedCaptionRenderer>.unmodifiable(
+                rendererByScope),
+        _capabilitiesByScope =
+            Map<String, PlaybackCapabilityMatrix>.unmodifiable(
+                capabilitiesByScope);
 
   final AdvancedCaptionStore captionStore;
   final Map<String, DeterministicAdvancedCaptionRenderer> _rendererByScope;
@@ -36,6 +40,7 @@ enum AdvancedCaptionRuntimeFailureKind {
   profileNotFound,
   dualSubtitleOrderRejected,
   staleEvaluation,
+  adapterRejected,
   avSyncDegradation,
 }
 
@@ -135,7 +140,8 @@ final class AdvancedCaptionRuntime {
 
   AdvancedCaptionRuntime.unavailable({required String reason})
       : _captionStore = DeterministicAdvancedCaptionStore(),
-        _rendererByScope = const <String, DeterministicAdvancedCaptionRenderer>{},
+        _rendererByScope =
+            const <String, DeterministicAdvancedCaptionRenderer>{},
         _capabilitiesByScope = const <String, PlaybackCapabilityMatrix>{},
         _unavailableReason = reason;
 
@@ -151,33 +157,36 @@ final class AdvancedCaptionRuntime {
       snapshot(String scopeId) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<
+          AdvancedCaptionRuntimeProjection>.failed(gate);
     }
     final AdvancedCaptionRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>.success(projection);
+    return AdvancedCaptionRuntimeActionResult<
+        AdvancedCaptionRuntimeProjection>.success(projection);
   }
 
-  Future<AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>>
-      evaluate(String scopeId, AdvancedCaptionProfile profile) async {
+  Future<AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>> evaluate(
+      String scopeId, AdvancedCaptionProfile profile) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<
+          CaptionEvaluationOutcome>.failed(gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
-    final CaptionEvaluationOutcome outcome =
-        await renderer.evaluate(profile);
+    final CaptionEvaluationOutcome outcome = await renderer.evaluate(profile);
     _latestReport = outcome.report;
-    return AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>.success(
+        outcome);
   }
 
   Future<AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>>
-      renderMatrixDanmaku(
-          String scopeId, MatrixDanmakuRequest request) async {
+      renderMatrixDanmaku(String scopeId, MatrixDanmakuRequest request) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
+          gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
@@ -189,15 +198,16 @@ final class AdvancedCaptionRuntime {
         message: outcome.failure!.message,
       );
     }
-    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(
+        outcome);
   }
 
   Future<AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>>
-      renderDualSubtitles(
-          String scopeId, DualSubtitleRequest request) async {
+      renderDualSubtitles(String scopeId, DualSubtitleRequest request) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
+          gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
@@ -209,7 +219,8 @@ final class AdvancedCaptionRuntime {
         message: outcome.failure!.message,
       );
     }
-    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(
+        outcome);
   }
 
   Future<AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>>
@@ -217,7 +228,8 @@ final class AdvancedCaptionRuntime {
           String scopeId, AdvancedSubtitleRequest request) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
+          gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
@@ -229,19 +241,22 @@ final class AdvancedCaptionRuntime {
         message: outcome.failure!.message,
       );
     }
-    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.success(
+        outcome);
   }
 
-  Future<AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>>
-      disable(String scopeId) async {
+  Future<AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>> disable(
+      String scopeId) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.failed(
+          gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
     final CaptionDisableOutcome outcome = await renderer.disable();
-    return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.success(
+        outcome);
   }
 
   Future<AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome>>
@@ -252,7 +267,8 @@ final class AdvancedCaptionRuntime {
   }) async {
     final AdvancedCaptionRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome>.failed(gate);
+      return AdvancedCaptionRuntimeActionResult<
+          CaptionDegradationOutcome>.failed(gate);
     }
     final DeterministicAdvancedCaptionRenderer renderer =
         _rendererByScope[scopeId]!;
@@ -264,7 +280,8 @@ final class AdvancedCaptionRuntime {
         message: outcome.failure!.message,
       );
     }
-    return AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome>.success(outcome);
+    return AdvancedCaptionRuntimeActionResult<
+        CaptionDegradationOutcome>.success(outcome);
   }
 
   Future<void> dispose() async {
@@ -356,6 +373,8 @@ final class AdvancedCaptionRuntime {
         AdvancedCaptionRuntimeFailureKind.dualSubtitleOrderRejected,
       AdvancedCaptionFailureKind.staleEvaluation =>
         AdvancedCaptionRuntimeFailureKind.staleEvaluation,
+      AdvancedCaptionFailureKind.adapterRejected =>
+        AdvancedCaptionRuntimeFailureKind.adapterRejected,
       AdvancedCaptionFailureKind.avSyncDegradation =>
         AdvancedCaptionRuntimeFailureKind.avSyncDegradation,
     };

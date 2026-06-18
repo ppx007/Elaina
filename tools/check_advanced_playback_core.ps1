@@ -160,6 +160,25 @@ if ($mediaKitBinding -notmatch [regex]::Escape('Anime4K-style preset requires an
   throw 'Concrete MPV enhancement binding must reject Anime4K intent without an explicit shader path.'
 }
 
+$requiredMpvSubtitleTerms = @(
+  'MpvAdvancedSubtitleBinding',
+  'MpvSubtitlePlanner',
+  'MpvSubtitlePlan',
+  'mpvSubtitleAddCommand',
+  'mpvSubtitlePrimaryProperty',
+  'mpvSubtitleSecondaryProperty',
+  'mpvSubtitleAssProperty',
+  'renderDualSubtitles',
+  'renderAdvancedSubtitle',
+  'disableAdvancedSubtitles',
+  'AdvancedCaptionFailureKind.adapterRejected'
+)
+foreach ($term in $requiredMpvSubtitleTerms) {
+  if ($mediaKitBinding -notmatch [regex]::Escape($term)) {
+    throw "Concrete MPV subtitle bridge missing required term: $term"
+  }
+}
+
 $barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
 foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or $_ -like 'lib/src/**/*.dart' }) {
   $exportPath = $file.Replace('lib/', '')
