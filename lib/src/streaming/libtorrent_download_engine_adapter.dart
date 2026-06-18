@@ -6,6 +6,8 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
 import 'bt_task_core_runtime.dart';
+import 'piece_priority_scheduler.dart';
+import 'piece_priority_scheduler_runtime.dart';
 
 typedef LibtorrentEngineBackendFactory = Future<LibtorrentEngineBackend>
     Function();
@@ -389,6 +391,10 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
     await backend.setFilePriorities(torrentId, priorities);
   }
 
+  Future<void> applyPiecePriorityPlan(PiecePriorityPlan plan) {
+    return selectFiles(plan.taskId, <BtFileIndex>[plan.fileIndex]);
+  }
+
   @override
   Stream<BtTaskEvent> watchEvents(BtTaskId taskId) async* {
     final LibtorrentEngineBackend backend = await _requireBackend();
@@ -433,6 +439,28 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
   }
 }
 
+final class LibtorrentPiecePriorityPlanApplier
+    implements PiecePriorityPlanApplier {
+  const LibtorrentPiecePriorityPlanApplier({required this.adapter});
+
+  final LibtorrentDownloadEngineAdapter adapter;
+
+  @override
+  Future<PiecePriorityApplicationOutcome> apply(PiecePriorityPlan plan) async {
+    try {
+      await adapter.applyPiecePriorityPlan(plan);
+      return const PiecePriorityApplicationOutcome.accepted();
+    } on Object catch (error) {
+      return PiecePriorityApplicationOutcome.rejected(
+        failure: PiecePriorityApplicationFailure(
+          kind: PiecePriorityApplicationFailureKind.adapterRejected,
+          message: error.toString(),
+        ),
+      );
+    }
+  }
+}
+
 BtTaskRuntimeCompositionContract libtorrentBtTaskRuntimeComposition({
   required BtTaskStore store,
   CacheInvalidationBus? cacheInvalidationBus,
@@ -468,6 +496,40 @@ BtTaskRuntimeCompositionContract libtorrentBtTaskRuntimeComposition({
   );
 }
 
+PiecePrioritySchedulerRuntime libtorrentPiecePrioritySchedulerRuntime({
+  required BtTaskStore btTaskStore,
+  required VirtualMediaStreamStore streamStore,
+  required PiecePrioritySchedulerStore schedulerStore,
+  CacheInvalidationBus? cacheInvalidationBus,
+  Iterable<PiecePriorityStrategyProfile> profiles =
+      const <PiecePriorityStrategyProfile>[
+    PiecePrioritySchedulerRuntime.balancedProfile,
+  ],
+  DateTime Function()? clock,
+  LibtorrentDownloadEngineAdapter? adapter,
+  LibtorrentEngineBackend? backend,
+  LibtorrentEngineBackendFactory? backendFactory,
+  bool metadataFetchingSupported = false,
+}) {
+  final LibtorrentDownloadEngineAdapter effectiveAdapter = adapter ??
+      LibtorrentDownloadEngineAdapter(
+        backend: backend,
+        backendFactory: backendFactory,
+        metadataFetchingSupported: metadataFetchingSupported,
+      );
+  return PiecePrioritySchedulerRuntime(
+    btTaskStore: btTaskStore,
+    streamStore: streamStore,
+    schedulerStore: schedulerStore,
+    cacheInvalidationBus: cacheInvalidationBus,
+    profiles: profiles,
+    planApplier: LibtorrentPiecePriorityPlanApplier(
+      adapter: effectiveAdapter,
+    ),
+    clock: clock,
+  );
+}
+
 BtCapabilityMatrix libtorrentDownloadEngineCapabilities({
   required bool metadataFetchingSupported,
 }) {
@@ -483,8 +545,7 @@ BtCapabilityMatrix libtorrentDownloadEngineCapabilities({
           const BtCapabilityStatus.unsupported(
               'Virtual byte serving belongs to Step 53.'),
       BtStreamingCapability.piecePriorityScheduling:
-          const BtCapabilityStatus.unsupported(
-              'Piece priority application belongs to Step 54.'),
+          const BtCapabilityStatus.supported(),
       BtStreamingCapability.timelineOverlay:
           const BtCapabilityStatus.unsupported(
               'Timeline overlay is not owned by the BT engine adapter.'),

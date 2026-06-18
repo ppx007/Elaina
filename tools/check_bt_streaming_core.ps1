@@ -70,6 +70,11 @@ $libtorrentAdapter = Get-Content -LiteralPath (Join-Path $root 'lib/src/streamin
 if ($libtorrentAdapter -notmatch [regex]::Escape("package:libtorrent_flutter/")) {
   throw 'Concrete libtorrent adapter must own the libtorrent Flutter package import.'
 }
+foreach ($term in @('LibtorrentPiecePriorityPlanApplier', 'PiecePriorityPlanApplier', 'applyPiecePriorityPlan', 'libtorrentPiecePrioritySchedulerRuntime')) {
+  if ($libtorrentAdapter -notmatch [regex]::Escape($term)) {
+    throw "Concrete libtorrent adapter missing Step 54 priority application term: $term"
+  }
+}
 
 $libDartFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $libDartFiles) {

@@ -5,9 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 const int _torrentId = 1;
 const String _torrentIdValue = '1';
+const String _virtualStreamIdValue = '1::1';
+const int _selectedFileIndex = 1;
 const String _magnetUri = 'magnet:?xt=urn:btih:abc123';
 const String _infoHash = 'abc123';
 const int _pieceLengthBytes = 1024;
+const int _selectedFileLengthBytes = 2048;
 final Uri _torrentFileUri = Uri.parse('file:///tmp/anime.torrent');
 
 void main() {
@@ -164,7 +167,7 @@ void main() {
     expect(outcome.failure?.kind, BtTaskFailureKind.engineError);
   });
 
-  test('libtorrent adapter declares only Step 51 capabilities', () {
+  test('libtorrent adapter declares concrete BT and priority capabilities', () {
     final LibtorrentDownloadEngineAdapter completeMetadataAdapter =
         LibtorrentDownloadEngineAdapter(
       backend: _FakeLibtorrentBackend(supportsCompleteMetadata: true),
@@ -192,9 +195,14 @@ void main() {
           .supported,
       isFalse,
     );
+    expect(
+      completeMetadataAdapter.capabilities
+          .statusOf(BtStreamingCapability.piecePriorityScheduling)
+          .supported,
+      isTrue,
+    );
     for (final BtStreamingCapability capability in <BtStreamingCapability>[
       BtStreamingCapability.virtualMediaStream,
-      BtStreamingCapability.piecePriorityScheduling,
       BtStreamingCapability.timelineOverlay,
       BtStreamingCapability.longBackgroundDownload,
     ]) {
@@ -203,6 +211,82 @@ void main() {
         isFalse,
       );
     }
+  });
+
+  test('libtorrent applier records accepted scheduler plan application',
+      () async {
+    final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend(
+      supportsCompleteMetadata: true,
+    )..seedMetadata(_torrentId);
+    final _PiecePriorityHarness harness =
+        await _PiecePriorityHarness.create(backend);
+
+    final PiecePriorityPlanOutcome planned = await harness.runtime.plan(
+      const PiecePriorityPlanRequest(
+        taskId: BtTaskId(_torrentIdValue),
+        streamId: VirtualMediaStreamId(_virtualStreamIdValue),
+        profile: PiecePrioritySchedulerRuntime.balancedProfile,
+        playbackWindow: PlaybackWindow(
+          streamId: VirtualMediaStreamId(_virtualStreamIdValue),
+          currentByteOffset: 0,
+          lookaheadBytes: _pieceLengthBytes,
+        ),
+      ),
+    );
+    final PiecePriorityApplicationOutcome applied =
+        await harness.runtime.applyPlan(planId: planned.plan!.id);
+    final StoredPiecePriorityPlanApplicationEventRecord? application =
+        await harness.schedulerStore
+            .latestApplicationEvent(planned.plan!.id.value);
+
+    expect(planned.isSuccess, isTrue);
+    expect(applied.isSuccess, isTrue);
+    expect(application?.outcome,
+        StoredPiecePriorityApplicationOutcomeKind.accepted);
+    expect(
+      backend.filePrioritiesByTorrentId[_torrentId],
+      <int>[
+        libtorrentSkipFilePriority,
+        libtorrentSelectedFilePriority,
+      ],
+    );
+    await harness.close();
+  });
+
+  test('libtorrent applier normalizes backend priority rejection', () async {
+    final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend(
+      supportsCompleteMetadata: true,
+      priorityApplicationError: StateError('priority rejected'),
+    )..seedMetadata(_torrentId);
+    final _PiecePriorityHarness harness =
+        await _PiecePriorityHarness.create(backend);
+
+    final PiecePriorityPlanOutcome planned = await harness.runtime.plan(
+      const PiecePriorityPlanRequest(
+        taskId: BtTaskId(_torrentIdValue),
+        streamId: VirtualMediaStreamId(_virtualStreamIdValue),
+        profile: PiecePrioritySchedulerRuntime.balancedProfile,
+        seekTarget: SeekTarget(
+          streamId: VirtualMediaStreamId(_virtualStreamIdValue),
+          targetByteOffset: _pieceLengthBytes,
+        ),
+      ),
+    );
+    final PiecePriorityApplicationOutcome applied =
+        await harness.runtime.applyPlan(planId: planned.plan!.id);
+    final StoredPiecePriorityPlanApplicationEventRecord? application =
+        await harness.schedulerStore
+            .latestApplicationEvent(planned.plan!.id.value);
+
+    expect(planned.isSuccess, isTrue);
+    expect(applied.isSuccess, isFalse);
+    expect(applied.failure?.kind,
+        PiecePriorityApplicationFailureKind.adapterRejected);
+    expect(application?.outcome,
+        StoredPiecePriorityApplicationOutcomeKind.rejected);
+    expect(application?.failureKind,
+        PiecePriorityApplicationFailureKind.adapterRejected.name);
+    await harness.close();
   });
 
   test('libtorrent runtime composition wires lifecycle metadata and selection',
@@ -328,6 +412,82 @@ void main() {
   });
 }
 
+final class _PiecePriorityHarness {
+  const _PiecePriorityHarness({
+    required this.runtime,
+    required this.schedulerStore,
+    required this.bus,
+  });
+
+  final PiecePrioritySchedulerRuntime runtime;
+  final DeterministicPiecePrioritySchedulerStore schedulerStore;
+  final StreamCacheInvalidationBus bus;
+
+  static Future<_PiecePriorityHarness> create(
+      _FakeLibtorrentBackend backend) async {
+    final DeterministicBtTaskStore btStore = DeterministicBtTaskStore();
+    final DeterministicVirtualMediaStreamStore streamStore =
+        DeterministicVirtualMediaStreamStore();
+    final DeterministicPiecePrioritySchedulerStore schedulerStore =
+        DeterministicPiecePrioritySchedulerStore();
+    final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
+
+    await btStore.storeTask(_storedTask());
+    await btStore.storeMetadata(const StoredBtTaskMetadataRecord(
+      taskId: _torrentIdValue,
+      infoHash: _infoHash,
+      name: 'Episode Pack',
+      totalSizeBytes: _pieceLengthBytes + _selectedFileLengthBytes,
+      pieceLengthBytes: _pieceLengthBytes,
+    ));
+    await btStore.storeFiles(
+      taskId: _torrentIdValue,
+      files: const <StoredBtTaskFileRecord>[
+        StoredBtTaskFileRecord(
+          taskId: _torrentIdValue,
+          index: 0,
+          path: 'Episode 1.mkv',
+          lengthBytes: _pieceLengthBytes,
+          offsetBytes: 0,
+          selectionState: StoredBtFileSelectionState.skipped,
+        ),
+        StoredBtTaskFileRecord(
+          taskId: _torrentIdValue,
+          index: _selectedFileIndex,
+          path: 'Episode 2.mkv',
+          lengthBytes: _selectedFileLengthBytes,
+          offsetBytes: _pieceLengthBytes,
+          selectionState: StoredBtFileSelectionState.streamingTarget,
+        ),
+      ],
+    );
+    await streamStore.storeStream(StoredVirtualMediaStreamRecord(
+      id: _virtualStreamIdValue,
+      taskId: _torrentIdValue,
+      fileIndex: _selectedFileIndex,
+      lengthBytes: _selectedFileLengthBytes,
+      lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
+      createdAt: _now(),
+      updatedAt: _now(),
+    ));
+
+    return _PiecePriorityHarness(
+      runtime: libtorrentPiecePrioritySchedulerRuntime(
+        btTaskStore: btStore,
+        streamStore: streamStore,
+        schedulerStore: schedulerStore,
+        cacheInvalidationBus: bus,
+        backend: backend,
+        clock: _now,
+      ),
+      schedulerStore: schedulerStore,
+      bus: bus,
+    );
+  }
+
+  Future<void> close() => bus.close();
+}
+
 List<LibtorrentFileSnapshot> _fileSnapshots() {
   return const <LibtorrentFileSnapshot>[
     LibtorrentFileSnapshot(
@@ -375,11 +535,27 @@ LibtorrentTorrentSnapshot _snapshot({
 
 DateTime _now() => DateTime.utc(2026, 6, 18, 12);
 
+StoredBtTaskRecord _storedTask() {
+  return StoredBtTaskRecord(
+    id: _torrentIdValue,
+    sourceKind: StoredBtTaskSourceKind.magnet,
+    sourceUri: _magnetUri,
+    lifecycleState: StoredBtTaskLifecycleState.ready,
+    createdAt: _now(),
+    updatedAt: _now(),
+    infoHash: _infoHash,
+  );
+}
+
 final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
-  _FakeLibtorrentBackend({this.supportsCompleteMetadata = false});
+  _FakeLibtorrentBackend({
+    this.supportsCompleteMetadata = false,
+    this.priorityApplicationError,
+  });
 
   @override
   final bool supportsCompleteMetadata;
+  final Object? priorityApplicationError;
 
   final List<String> createdMagnets = <String>[];
   final List<Uri> createdTorrentFiles = <Uri>[];
@@ -446,6 +622,10 @@ final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
 
   @override
   Future<void> setFilePriorities(int torrentId, List<int> priorities) {
+    final Object? error = priorityApplicationError;
+    if (error != null) {
+      throw error;
+    }
     filePrioritiesByTorrentId[torrentId] = <int>[...priorities];
     return Future<void>.value();
   }
