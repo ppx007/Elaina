@@ -30,6 +30,13 @@ dart analyze
 powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
 ```
 
+Run the full non-UI release-readiness gate before treating the current core
+runtime baseline as complete:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1"
+```
+
 On Windows, `openspec.cmd` avoids PowerShell execution-policy blocking of `openspec.ps1`.
 If `dart.bat` hangs in the Flutter shim because Git rejects the Flutter SDK checkout as
 `dubious ownership`, validate with the direct SDK executable until the Flutter checkout is
