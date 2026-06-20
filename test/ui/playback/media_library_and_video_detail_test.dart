@@ -119,6 +119,58 @@ MediaScanCandidate _candidate(
 
 void main() {
   group('MediaLibraryPage Tests', () {
+    testWidgets('starts without fixed media folders',
+        (WidgetTester tester) async {
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime runtime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: const <MediaScanCandidate>[],
+        ),
+        catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+        importer: DeterministicMediaBatchImportContract(
+          repository: DeterministicMediaLibraryCatalogRepository(),
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: MediaLibraryPage(
+              mediaLibraryRuntime: runtime,
+              playbackController: playbackController,
+              settingsRuntime: FakeSettingsRuntime(),
+              onNavigateToDetail: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('暂无文件夹'), findsOneWidget);
+      expect(find.textContaining('D:/media'), findsNothing);
+      final ElevatedButton scanButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, '扫描本地库'),
+      );
+      expect(scanButton.onPressed, isNull);
+
+      runtime.dispose();
+      await invalidationBus.close();
+    });
+
     testWidgets('renders folder stats and executes scan process successfully',
         (WidgetTester tester) async {
       final DateTime now = DateTime.utc(2026, 6, 19, 12);
@@ -131,6 +183,11 @@ void main() {
           DeterministicProviderBindingStore();
       final _RecordingCacheInvalidationBus invalidationBus =
           _RecordingCacheInvalidationBus();
+      final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+      await settingsRuntime.setPreference(
+        key: SettingsPreferenceKeys.mediaLibraryRoots,
+        value: '["file:///D:/media/"]',
+      );
 
       final MediaLibraryRuntime runtime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
@@ -167,19 +224,19 @@ void main() {
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
               playbackController: playbackController,
-              settingsRuntime: FakeSettingsRuntime(),
+              settingsRuntime: settingsRuntime,
               onNavigateToDetail: (_) {},
             ),
           ),
         ),
       );
+      await tester.pump();
 
       // Verify page titles and folders render
       expect(find.text('本地媒体库'), findsWidgets);
       expect(find.text('打开文件'), findsOneWidget);
       expect(find.text('配置的文件夹'), findsOneWidget);
-      expect(find.text('0 个视频'),
-          findsNWidgets(2)); // D:/media and C:/Users/Public/Videos
+      expect(find.text('0 个视频'), findsOneWidget);
 
       // Tap scan button
       await tester.tap(find.text('扫描本地库'));
@@ -251,6 +308,87 @@ void main() {
       await tester.tap(find.text('添加文件夹'));
       await tester.pump();
       expect(find.textContaining('anime'), findsOneWidget);
+      expect(
+        await settingsRuntime
+            .getPreference(SettingsPreferenceKeys.mediaLibraryRoots),
+        contains('anime'),
+      );
+
+      await tester.tap(find.text('扫描本地库'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已索引内容 (1)'), findsOneWidget);
+      expect(find.text('anime-episode-1.mkv'), findsOneWidget);
+
+      runtime.dispose();
+      await invalidationBus.close();
+    });
+
+    testWidgets('allows modifying an existing media library folder path',
+        (WidgetTester tester) async {
+      final DateTime now = DateTime.utc(2026, 6, 19, 12);
+      const String replacementFolderPath = 'D:\\anime';
+      final DeterministicMediaLibraryCatalogRepository catalogRepo =
+          DeterministicMediaLibraryCatalogRepository();
+      final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+      await settingsRuntime.setPreference(
+        key: SettingsPreferenceKeys.mediaLibraryRoots,
+        value: '["file:///D:/media/"]',
+      );
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime runtime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: <MediaScanCandidate>[
+            _candidate(
+              'anime-media-1',
+              'anime-episode-1.mkv',
+              directoryPath: replacementFolderPath,
+            ),
+          ],
+        ),
+        catalogRepository: catalogRepo,
+        importer: DeterministicMediaBatchImportContract(
+          repository: catalogRepo,
+          clock: () => now,
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+        now: () => now,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: MediaLibraryPage(
+              mediaLibraryRuntime: runtime,
+              playbackController: playbackController,
+              settingsRuntime: settingsRuntime,
+              directoryPathPicker: () async => replacementFolderPath,
+              onNavigateToDetail: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.textContaining('D:\\media'), findsOneWidget);
+      await tester.tap(find.byTooltip('修改文件夹'));
+      await tester.pump();
+
+      expect(find.textContaining('anime'), findsOneWidget);
+      expect(find.textContaining('D:\\media'), findsNothing);
       expect(
         await settingsRuntime
             .getPreference(SettingsPreferenceKeys.mediaLibraryRoots),

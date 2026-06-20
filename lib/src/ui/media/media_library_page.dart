@@ -45,9 +45,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   static const String _selectedFileMediaIdPrefix = 'selected-file:';
 
   late MediaLibraryRuntimeSnapshot _snapshot;
-  List<Uri> _configuredFolders = AppConstants.defaultMediaLibraryRoots
-      .map((String p) => Uri.parse(p))
-      .toList();
+  List<Uri> _configuredFolders = <Uri>[];
 
   @override
   void initState() {
@@ -137,6 +135,30 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('选择文件夹出错: $error')),
+      );
+    }
+  }
+
+  Future<void> _pickAndReplaceFolder(Uri existingFolder) async {
+    try {
+      final String? selectedPath = await widget.directoryPathPicker();
+      final Uri? selectedFolder = _directoryUriFromPath(selectedPath);
+      if (selectedFolder == null ||
+          _sameFolder(existingFolder, selectedFolder)) {
+        return;
+      }
+      setState(() {
+        _configuredFolders = _replaceConfiguredFolder(
+          folders: _configuredFolders,
+          existingFolder: existingFolder,
+          replacementFolder: selectedFolder,
+        );
+      });
+      await _persistConfiguredFolders();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('修改文件夹出错: $error')),
       );
     }
   }
@@ -422,6 +444,13 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                             ),
                             const SizedBox(width: 8),
                             IconButton(
+                              onPressed: () => _pickAndReplaceFolder(root),
+                              icon: const Icon(Icons.edit_outlined),
+                              color: theme.primary,
+                              tooltip: '修改文件夹',
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
                               onPressed: () => _removeConfiguredFolder(root),
                               icon: const Icon(Icons.delete_outline),
                               color: theme.onBackground.withValues(alpha: 0.62),
@@ -594,4 +623,32 @@ bool _sameFolder(Uri left, Uri right) {
 
 String _folderKey(Uri uri) {
   return uri.toString().toLowerCase();
+}
+
+List<Uri> _replaceConfiguredFolder({
+  required List<Uri> folders,
+  required Uri existingFolder,
+  required Uri replacementFolder,
+}) {
+  final List<Uri> updatedFolders = <Uri>[];
+  var replaced = false;
+  for (final Uri folder in folders) {
+    if (_sameFolder(folder, existingFolder)) {
+      if (!updatedFolders
+          .any((Uri value) => _sameFolder(value, replacementFolder))) {
+        updatedFolders.add(replacementFolder);
+      }
+      replaced = true;
+      continue;
+    }
+    if (!_sameFolder(folder, replacementFolder)) {
+      updatedFolders.add(folder);
+    }
+  }
+  if (!replaced &&
+      !updatedFolders
+          .any((Uri value) => _sameFolder(value, replacementFolder))) {
+    updatedFolders.add(replacementFolder);
+  }
+  return updatedFolders;
 }

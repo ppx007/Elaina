@@ -17,10 +17,6 @@ class AppConstants {
     'wmv',
     'webm'
   };
-  static const List<String> defaultMediaLibraryRoots = <String>[
-    'file:///D:/media/',
-    'file:///C:/Users/Public/Videos/'
-  ];
 
   // Settings Policy Defaults
   static const String defaultNetworkPolicyId = 'default-policy';
