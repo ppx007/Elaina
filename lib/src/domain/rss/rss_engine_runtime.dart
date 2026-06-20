@@ -3,7 +3,10 @@ import 'dart:async';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/provider_result.dart';
 import '../../provider/rss/feed_contracts.dart';
+import '../../provider/rss/rss_auto_download_policy.dart';
 import 'rss_engine.dart';
+
+export '../../provider/rss/feed_contracts.dart';
 
 enum RssEngineRuntimeStatus {
   idle,
@@ -30,7 +33,8 @@ enum RssEngineRuntimeFailureKind {
 
 final class RssEngineRuntimeFailure {
   const RssEngineRuntimeFailure({required this.kind, required this.message})
-      : assert(message != '', 'RSS engine runtime failure message must not be empty.');
+      : assert(message != '',
+            'RSS engine runtime failure message must not be empty.');
 
   final RssEngineRuntimeFailureKind kind;
   final String message;
@@ -86,7 +90,8 @@ final class RssEngineCursorSnapshot {
 final class RssEngineDedupeSnapshot {
   RssEngineDedupeSnapshot({
     required this.sourceId,
-    Iterable<StoredFeedDedupeKeyRecord> records = const <StoredFeedDedupeKeyRecord>[],
+    Iterable<StoredFeedDedupeKeyRecord> records =
+        const <StoredFeedDedupeKeyRecord>[],
   }) : records = List<StoredFeedDedupeKeyRecord>.unmodifiable(records);
 
   final FeedSourceId sourceId;
@@ -110,16 +115,21 @@ final class RssEngineRuntimeSnapshot {
     Iterable<FeedSource> sources = const <FeedSource>[],
     Iterable<FeedSource> dueSources = const <FeedSource>[],
     Iterable<FeedItem> acceptedItems = const <FeedItem>[],
-    Iterable<RssEngineCursorSnapshot> cursors = const <RssEngineCursorSnapshot>[],
-    Iterable<RssEngineDedupeSnapshot> dedupe = const <RssEngineDedupeSnapshot>[],
-    Map<String, RssRefreshOutcome> latestRefreshes = const <String, RssRefreshOutcome>{},
-    Iterable<RssEngineRuntimeFailure> failures = const <RssEngineRuntimeFailure>[],
+    Iterable<RssEngineCursorSnapshot> cursors =
+        const <RssEngineCursorSnapshot>[],
+    Iterable<RssEngineDedupeSnapshot> dedupe =
+        const <RssEngineDedupeSnapshot>[],
+    Map<String, RssRefreshOutcome> latestRefreshes =
+        const <String, RssRefreshOutcome>{},
+    Iterable<RssEngineRuntimeFailure> failures =
+        const <RssEngineRuntimeFailure>[],
   })  : sources = List<FeedSource>.unmodifiable(sources),
         dueSources = List<FeedSource>.unmodifiable(dueSources),
         acceptedItems = List<FeedItem>.unmodifiable(acceptedItems),
         cursors = List<RssEngineCursorSnapshot>.unmodifiable(cursors),
         dedupe = List<RssEngineDedupeSnapshot>.unmodifiable(dedupe),
-        latestRefreshes = Map<String, RssRefreshOutcome>.unmodifiable(latestRefreshes),
+        latestRefreshes =
+            Map<String, RssRefreshOutcome>.unmodifiable(latestRefreshes),
         failures = List<RssEngineRuntimeFailure>.unmodifiable(failures);
 
   const RssEngineRuntimeSnapshot.idle()
@@ -151,19 +161,25 @@ final class RssEngineRuntime {
     required RssEngineContract engine,
     required RssFeedStore store,
     required FeedScheduler scheduler,
+    RssAutoDownloadPolicyStore? policyStore,
   })  : _engine = engine,
         _store = store,
         _scheduler = scheduler,
+        _policyStore = policyStore,
         _updates = StreamController<FeedItem>.broadcast(sync: true) {
-    _engineUpdates = _engine.updates.listen(_recordAcceptedUpdate, onError: _recordUpdateFailure);
+    _engineUpdates = _engine.updates
+        .listen(_recordAcceptedUpdate, onError: _recordUpdateFailure);
   }
 
   final RssEngineContract _engine;
   final RssFeedStore _store;
   final FeedScheduler _scheduler;
+  final RssAutoDownloadPolicyStore? _policyStore;
   final StreamController<FeedItem> _updates;
-  final List<RssEngineRuntimeObserver> _observers = <RssEngineRuntimeObserver>[];
-  final Map<String, RssRefreshOutcome> _latestRefreshes = <String, RssRefreshOutcome>{};
+  final List<RssEngineRuntimeObserver> _observers =
+      <RssEngineRuntimeObserver>[];
+  final Map<String, RssRefreshOutcome> _latestRefreshes =
+      <String, RssRefreshOutcome>{};
   final List<FeedItem> _acceptedItems = <FeedItem>[];
   late final StreamSubscription<FeedItem> _engineUpdates;
   RssEngineRuntimeSnapshot _snapshot = const RssEngineRuntimeSnapshot.idle();
@@ -175,6 +191,30 @@ final class RssEngineRuntime {
 
   Stream<FeedItem> get updates => _updates.stream;
 
+  Future<bool> isAutoDownloadEnabled(String sourceId) async {
+    if (_policyStore == null) return false;
+    final List<StoredRssAutoDownloadFeedActivationRecord> activations =
+        await _policyStore.activationsForPolicy(defaultRssAutoDownloadPolicyId);
+    for (final StoredRssAutoDownloadFeedActivationRecord act in activations) {
+      if (act.sourceId == sourceId) {
+        return act.enabled;
+      }
+    }
+    return false;
+  }
+
+  Future<void> setAutoDownloadEnabled(String sourceId, bool enabled) async {
+    if (_policyStore == null) return;
+    await _policyStore.storeFeedActivation(
+      StoredRssAutoDownloadFeedActivationRecord(
+        policyId: defaultRssAutoDownloadPolicyId,
+        sourceId: sourceId,
+        enabled: enabled,
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   void addObserver(RssEngineRuntimeObserver observer) {
     if (_disposed) throw StateError('RssEngineRuntime has been disposed.');
     if (!_observers.contains(observer)) _observers.add(observer);
@@ -184,7 +224,8 @@ final class RssEngineRuntime {
     _observers.remove(observer);
   }
 
-  Future<RssEngineActionResult<FeedSource>> registerSource(FeedSource source) async {
+  Future<RssEngineActionResult<FeedSource>> registerSource(
+      FeedSource source) async {
     if (_disposed) return _disposedResult();
     _publish(status: RssEngineRuntimeStatus.registering);
     try {
@@ -192,11 +233,31 @@ final class RssEngineRuntime {
       await _refreshRegistry(status: RssEngineRuntimeStatus.ready);
       return RssEngineActionResult<FeedSource>.success(source);
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<bool>> removeSource(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<FeedSource>> registerSourceParams({
+    required String id,
+    required String displayName,
+    required Uri uri,
+    required FeedFormat format,
+    Duration refreshInterval = const Duration(hours: 1),
+  }) {
+    return registerSource(
+      FeedSource(
+        id: FeedSourceId(id),
+        displayName: displayName,
+        uri: uri,
+        format: format,
+        refreshInterval: refreshInterval,
+      ),
+    );
+  }
+
+  Future<RssEngineActionResult<bool>> removeSource(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     _publish(status: RssEngineRuntimeStatus.removing);
     try {
@@ -206,15 +267,19 @@ final class RssEngineRuntime {
           kind: RssEngineRuntimeFailureKind.ignored,
           message: 'Feed source is not registered.',
         );
-        _publish(status: RssEngineRuntimeStatus.ready, failures: <RssEngineRuntimeFailure>[failure]);
+        _publish(
+            status: RssEngineRuntimeStatus.ready,
+            failures: <RssEngineRuntimeFailure>[failure]);
         return RssEngineActionResult<bool>.ignored(failure);
       }
       _latestRefreshes.remove(sourceId.value);
-      _acceptedItems.removeWhere((FeedItem item) => item.sourceId.value == sourceId.value);
+      _acceptedItems.removeWhere(
+          (FeedItem item) => item.sourceId.value == sourceId.value);
       await _refreshRegistry(status: RssEngineRuntimeStatus.ready);
       return const RssEngineActionResult<bool>.success(true);
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
@@ -225,36 +290,45 @@ final class RssEngineRuntime {
       _publish(status: RssEngineRuntimeStatus.ready, sources: sources);
       return RssEngineActionResult<List<FeedSource>>.success(sources);
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<FeedSource>> sourceById(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<FeedSource>> sourceById(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     try {
-      final StoredFeedSourceRecord? record = await _store.sourceById(sourceId.value);
+      final StoredFeedSourceRecord? record =
+          await _store.sourceById(sourceId.value);
       if (record == null) {
         return _unavailableResult('Feed source is not registered.');
       }
-      return RssEngineActionResult<FeedSource>.success(_feedSourceFromRecord(record));
+      return RssEngineActionResult<FeedSource>.success(
+          _feedSourceFromRecord(record));
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<RssEngineCursorSnapshot?>> cursorSnapshot(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<RssEngineCursorSnapshot?>> cursorSnapshot(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     try {
-      final StoredFeedCursorRecord? cursor = await _store.cursorFor(sourceId.value);
+      final StoredFeedCursorRecord? cursor =
+          await _store.cursorFor(sourceId.value);
       return RssEngineActionResult<RssEngineCursorSnapshot?>.success(
         cursor == null ? null : _cursorSnapshotFromRecord(cursor),
       );
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<RssEngineDedupeSnapshot>> dedupeSnapshot(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<RssEngineDedupeSnapshot>> dedupeSnapshot(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     try {
       return RssEngineActionResult<RssEngineDedupeSnapshot>.success(
@@ -264,20 +338,25 @@ final class RssEngineRuntime {
         ),
       );
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<List<FeedItem>>> acceptedItemsForSource(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<List<FeedItem>>> acceptedItemsForSource(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     try {
       final List<FeedItem> items = <FeedItem>[
-        for (final StoredFeedItemRecord record in await _store.itemsForSource(sourceId.value))
+        for (final StoredFeedItemRecord record
+            in await _store.itemsForSource(sourceId.value))
           feedItemFromStoredRecord(record),
       ];
-      return RssEngineActionResult<List<FeedItem>>.success(List<FeedItem>.unmodifiable(items));
+      return RssEngineActionResult<List<FeedItem>>.success(
+          List<FeedItem>.unmodifiable(items));
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.storageFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.storageFailure, error.toString());
     }
   }
 
@@ -287,52 +366,81 @@ final class RssEngineRuntime {
     try {
       final List<FeedSource> sources = await _loadSources();
       final List<FeedSource> due = <FeedSource>[];
-      await for (final FeedScheduleDecision decision in _scheduler.dueSources(sources)) {
-        if (sources.any((FeedSource source) => source.id.value == decision.source.id.value)) {
+      await for (final FeedScheduleDecision decision
+          in _scheduler.dueSources(sources)) {
+        if (sources.any((FeedSource source) =>
+            source.id.value == decision.source.id.value)) {
           due.add(decision.source);
         }
       }
-      _publish(status: RssEngineRuntimeStatus.ready, sources: sources, dueSources: due);
-      return RssEngineActionResult<List<FeedSource>>.success(List<FeedSource>.unmodifiable(due));
+      _publish(
+          status: RssEngineRuntimeStatus.ready,
+          sources: sources,
+          dueSources: due);
+      return RssEngineActionResult<List<FeedSource>>.success(
+          List<FeedSource>.unmodifiable(due));
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.schedulerFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.schedulerFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<RssEngineRefreshSnapshot>> refreshSource(FeedSourceId sourceId) async {
+  Future<RssEngineActionResult<RssEngineRefreshSnapshot>> refreshSource(
+      FeedSourceId sourceId) async {
     if (_disposed) return _disposedResult();
     _publish(status: RssEngineRuntimeStatus.refreshing);
     try {
-      final StoredFeedSourceRecord? source = await _store.sourceById(sourceId.value);
-      if (source == null) return _unavailableResult('Feed source is not registered.');
-      final RssRefreshOutcome outcome = await _engine.refreshSource(RssRefreshRequest(sourceId: sourceId));
+      final StoredFeedSourceRecord? source =
+          await _store.sourceById(sourceId.value);
+      if (source == null)
+        return _unavailableResult('Feed source is not registered.');
+      final RssRefreshOutcome outcome =
+          await _engine.refreshSource(RssRefreshRequest(sourceId: sourceId));
       _latestRefreshes[sourceId.value] = outcome;
-      await _refreshRegistry(status: outcome.isSuccess ? RssEngineRuntimeStatus.ready : RssEngineRuntimeStatus.failed);
+      await _refreshRegistry(
+          status: outcome.isSuccess
+              ? RssEngineRuntimeStatus.ready
+              : RssEngineRuntimeStatus.failed);
       if (!outcome.isSuccess) {
         final RssRefreshFailure failure = outcome.failure!;
         return RssEngineActionResult<RssEngineRefreshSnapshot>.failed(
-          RssEngineRuntimeFailure(kind: _failureKindFor(failure.kind), message: failure.message),
+          RssEngineRuntimeFailure(
+              kind: _failureKindFor(failure.kind), message: failure.message),
         );
       }
-      return RssEngineActionResult<RssEngineRefreshSnapshot>.success(RssEngineRefreshSnapshot(outcome: outcome));
+      return RssEngineActionResult<RssEngineRefreshSnapshot>.success(
+          RssEngineRefreshSnapshot(outcome: outcome));
     } on Object catch (error) {
-      return _failedResult(RssEngineRuntimeFailureKind.refreshFailure, error.toString());
+      return _failedResult(
+          RssEngineRuntimeFailureKind.refreshFailure, error.toString());
     }
   }
 
-  Future<RssEngineActionResult<List<RssEngineRefreshSnapshot>>> refreshDueSources() async {
+  Future<RssEngineActionResult<RssEngineRefreshSnapshot>> refreshSourceById(
+      String sourceIdValue) {
+    return refreshSource(FeedSourceId(sourceIdValue));
+  }
+
+  Future<RssEngineActionResult<List<RssEngineRefreshSnapshot>>>
+      refreshDueSources() async {
     if (_disposed) return _disposedResult();
     final RssEngineActionResult<List<FeedSource>> due = await dueSources();
     if (!due.isSuccess) {
-      return RssEngineActionResult<List<RssEngineRefreshSnapshot>>.failed(due.failure!);
+      return RssEngineActionResult<List<RssEngineRefreshSnapshot>>.failed(
+          due.failure!);
     }
-    final List<RssEngineRefreshSnapshot> refreshed = <RssEngineRefreshSnapshot>[];
+    final List<RssEngineRefreshSnapshot> refreshed =
+        <RssEngineRefreshSnapshot>[];
     for (final FeedSource source in due.value!) {
-      final RssEngineActionResult<RssEngineRefreshSnapshot> result = await refreshSource(source.id);
-      if (result.isSuccess && result.value != null) refreshed.add(result.value!);
-      if (result.kind == RssEngineActionResultKind.disposed) return _disposedResult();
+      final RssEngineActionResult<RssEngineRefreshSnapshot> result =
+          await refreshSource(source.id);
+      if (result.isSuccess && result.value != null)
+        refreshed.add(result.value!);
+      if (result.kind == RssEngineActionResultKind.disposed)
+        return _disposedResult();
     }
-    return RssEngineActionResult<List<RssEngineRefreshSnapshot>>.success(List<RssEngineRefreshSnapshot>.unmodifiable(refreshed));
+    return RssEngineActionResult<List<RssEngineRefreshSnapshot>>.success(
+        List<RssEngineRefreshSnapshot>.unmodifiable(refreshed));
   }
 
   RssEngineActionResult<Stream<FeedItem>> observeUpdates() {
@@ -344,7 +452,7 @@ final class RssEngineRuntime {
     if (_disposed) return;
     _disposed = true;
     await _engineUpdates.cancel();
-    await _updates.close();
+    unawaited(_updates.close());
     _publish(
       status: RssEngineRuntimeStatus.disposed,
       failures: const <RssEngineRuntimeFailure>[
@@ -359,24 +467,28 @@ final class RssEngineRuntime {
     if (engine is DeterministicRssEngine) await engine.close();
   }
 
-  Future<void> _refreshRegistry({required RssEngineRuntimeStatus status}) async {
+  Future<void> _refreshRegistry(
+      {required RssEngineRuntimeStatus status}) async {
     final List<FeedSource> sources = await _loadSources();
     final List<RssEngineCursorSnapshot> cursors = <RssEngineCursorSnapshot>[];
     final List<RssEngineDedupeSnapshot> dedupe = <RssEngineDedupeSnapshot>[];
     for (final FeedSource source in sources) {
-      final StoredFeedCursorRecord? cursor = await _store.cursorFor(source.id.value);
+      final StoredFeedCursorRecord? cursor =
+          await _store.cursorFor(source.id.value);
       if (cursor != null) cursors.add(_cursorSnapshotFromRecord(cursor));
       dedupe.add(RssEngineDedupeSnapshot(
         sourceId: source.id,
         records: await _store.dedupeKeysForSource(source.id.value),
       ));
     }
-    _publish(status: status, sources: sources, cursors: cursors, dedupe: dedupe);
+    _publish(
+        status: status, sources: sources, cursors: cursors, dedupe: dedupe);
   }
 
   Future<List<FeedSource>> _loadSources() async {
     return <FeedSource>[
-      for (final StoredFeedSourceRecord record in await _store.listSources()) _feedSourceFromRecord(record),
+      for (final StoredFeedSourceRecord record in await _store.listSources())
+        _feedSourceFromRecord(record),
     ];
   }
 
@@ -390,7 +502,9 @@ final class RssEngineRuntime {
     _publish(
       status: RssEngineRuntimeStatus.failed,
       failures: <RssEngineRuntimeFailure>[
-        RssEngineRuntimeFailure(kind: RssEngineRuntimeFailureKind.streamFailure, message: error.toString()),
+        RssEngineRuntimeFailure(
+            kind: RssEngineRuntimeFailureKind.streamFailure,
+            message: error.toString()),
       ],
     );
   }
@@ -413,7 +527,8 @@ final class RssEngineRuntime {
       latestRefreshes: _latestRefreshes,
       failures: failures ?? const <RssEngineRuntimeFailure>[],
     );
-    for (final RssEngineRuntimeObserver observer in List<RssEngineRuntimeObserver>.of(_observers)) {
+    for (final RssEngineRuntimeObserver observer
+        in List<RssEngineRuntimeObserver>.of(_observers)) {
       observer.onRssEngineRuntimeSnapshot(_snapshot);
     }
   }
@@ -432,13 +547,19 @@ final class RssEngineRuntime {
       kind: RssEngineRuntimeFailureKind.unavailable,
       message: message,
     );
-    _publish(status: RssEngineRuntimeStatus.failed, failures: <RssEngineRuntimeFailure>[failure]);
+    _publish(
+        status: RssEngineRuntimeStatus.failed,
+        failures: <RssEngineRuntimeFailure>[failure]);
     return RssEngineActionResult<T>.unavailable(failure);
   }
 
-  RssEngineActionResult<T> _failedResult<T>(RssEngineRuntimeFailureKind kind, String message) {
-    final RssEngineRuntimeFailure failure = RssEngineRuntimeFailure(kind: kind, message: message);
-    _publish(status: RssEngineRuntimeStatus.failed, failures: <RssEngineRuntimeFailure>[failure]);
+  RssEngineActionResult<T> _failedResult<T>(
+      RssEngineRuntimeFailureKind kind, String message) {
+    final RssEngineRuntimeFailure failure =
+        RssEngineRuntimeFailure(kind: kind, message: message);
+    _publish(
+        status: RssEngineRuntimeStatus.failed,
+        failures: <RssEngineRuntimeFailure>[failure]);
     return RssEngineActionResult<T>.failed(failure);
   }
 }
@@ -451,6 +572,7 @@ final class RssEngineBootstrap {
     required FeedScheduler scheduler,
     FeedDeduplicator? deduplicator,
     DateTime Function()? clock,
+    RssAutoDownloadPolicyStore? policyStore,
   }) : runtime = RssEngineRuntime(
           engine: DeterministicRssEngine(
             store: store,
@@ -461,42 +583,56 @@ final class RssEngineBootstrap {
           ),
           store: store,
           scheduler: scheduler,
+          policyStore: policyStore,
         );
 
   const RssEngineBootstrap.fromRuntime({required this.runtime});
 
   final RssEngineRuntime runtime;
 
-  Future<RssEngineActionResult<FeedSource>> registerSource(FeedSource source) => runtime.registerSource(source);
+  Future<RssEngineActionResult<FeedSource>> registerSource(FeedSource source) =>
+      runtime.registerSource(source);
 
-  Future<RssEngineActionResult<bool>> removeSource(FeedSourceId sourceId) => runtime.removeSource(sourceId);
+  Future<RssEngineActionResult<bool>> removeSource(FeedSourceId sourceId) =>
+      runtime.removeSource(sourceId);
 
-  Future<RssEngineActionResult<List<FeedSource>>> listSources() => runtime.listSources();
+  Future<RssEngineActionResult<List<FeedSource>>> listSources() =>
+      runtime.listSources();
 
-  Future<RssEngineActionResult<List<FeedSource>>> dueSources() => runtime.dueSources();
+  Future<RssEngineActionResult<List<FeedSource>>> dueSources() =>
+      runtime.dueSources();
 
-  Future<RssEngineActionResult<RssEngineRefreshSnapshot>> refreshSource(FeedSourceId sourceId) {
+  Future<RssEngineActionResult<RssEngineRefreshSnapshot>> refreshSource(
+      FeedSourceId sourceId) {
     return runtime.refreshSource(sourceId);
   }
 
-  Future<RssEngineActionResult<List<RssEngineRefreshSnapshot>>> refreshDueSources() => runtime.refreshDueSources();
+  Future<RssEngineActionResult<List<RssEngineRefreshSnapshot>>>
+      refreshDueSources() => runtime.refreshDueSources();
 
   Future<void> dispose() => runtime.dispose();
 }
 
 RssEngineRuntimeFailureKind _failureKindFor(AcgProviderFailureKind kind) {
   return switch (kind) {
-    AcgProviderFailureKind.unavailable => RssEngineRuntimeFailureKind.unavailable,
-    AcgProviderFailureKind.unauthenticated => RssEngineRuntimeFailureKind.providerFailure,
+    AcgProviderFailureKind.unavailable =>
+      RssEngineRuntimeFailureKind.unavailable,
+    AcgProviderFailureKind.unauthenticated =>
+      RssEngineRuntimeFailureKind.providerFailure,
     AcgProviderFailureKind.notFound => RssEngineRuntimeFailureKind.unavailable,
-    AcgProviderFailureKind.terminal => RssEngineRuntimeFailureKind.parserFailure,
-    AcgProviderFailureKind.retryable => RssEngineRuntimeFailureKind.providerFailure,
-    AcgProviderFailureKind.throttled => RssEngineRuntimeFailureKind.providerFailure,
-    AcgProviderFailureKind.cachedMiss => RssEngineRuntimeFailureKind.providerFailure,
+    AcgProviderFailureKind.terminal =>
+      RssEngineRuntimeFailureKind.parserFailure,
+    AcgProviderFailureKind.retryable =>
+      RssEngineRuntimeFailureKind.providerFailure,
+    AcgProviderFailureKind.throttled =>
+      RssEngineRuntimeFailureKind.providerFailure,
+    AcgProviderFailureKind.cachedMiss =>
+      RssEngineRuntimeFailureKind.providerFailure,
   };
 }
 
-RssEngineCursorSnapshot _cursorSnapshotFromRecord(StoredFeedCursorRecord record) {
+RssEngineCursorSnapshot _cursorSnapshotFromRecord(
+    StoredFeedCursorRecord record) {
   return RssEngineCursorSnapshot(
     sourceId: FeedSourceId(record.sourceId),
     etag: record.etag,

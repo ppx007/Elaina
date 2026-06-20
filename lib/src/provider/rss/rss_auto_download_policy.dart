@@ -1,5 +1,9 @@
 import 'feed_contracts.dart';
 
+/// Identifier of the built-in RSS auto-download policy that all feed
+/// activations are recorded under.
+const String defaultRssAutoDownloadPolicyId = 'default-policy';
+
 final class RssAutoDownloadPolicyId {
   const RssAutoDownloadPolicyId(this.value)
       : assert(value != '', 'RSS auto-download policy id must not be empty.');
@@ -96,7 +100,8 @@ final class RssAutoDownloadPolicy {
     required this.label,
     Iterable<RssAutoDownloadRule> rules = const <RssAutoDownloadRule>[],
     this.enabled = true,
-  })  : assert(label != '', 'RSS auto-download policy label must not be empty.'),
+  })  : assert(
+            label != '', 'RSS auto-download policy label must not be empty.'),
         rules = List<RssAutoDownloadRule>.unmodifiable(rules);
 
   final RssAutoDownloadPolicyId id;
@@ -208,7 +213,8 @@ final class RssAutomationCapabilityMatrix {
 
 final class RssAutomationFailure {
   const RssAutomationFailure({required this.kind, required this.message})
-      : assert(message != '', 'RSS automation failure message must not be empty.');
+      : assert(
+            message != '', 'RSS automation failure message must not be empty.');
 
   final RssAutomationFailureKind kind;
   final String message;
@@ -278,7 +284,8 @@ final class RssAutomationDisabled extends RssAutomationDecision {
     required super.item,
     required this.policyId,
     required this.reason,
-  }) : assert(reason != '', 'RSS automation disabled reason must not be empty.');
+  }) : assert(
+            reason != '', 'RSS automation disabled reason must not be empty.');
 
   final RssAutoDownloadPolicyId policyId;
   final String reason;
@@ -290,7 +297,8 @@ final class RssAutomationRejected extends RssAutomationDecision {
     required this.kind,
     required this.reason,
     this.ruleId,
-  }) : assert(reason != '', 'RSS automation rejection reason must not be empty.');
+  }) : assert(
+            reason != '', 'RSS automation rejection reason must not be empty.');
 
   final RssAutomationRejectionKind kind;
   final String reason;
@@ -326,8 +334,10 @@ final class RssAutomationBtHandoffReadModel {
     required this.itemDedupeKey,
     required this.candidateDedupeKey,
     required this.source,
-  })  : assert(itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
-        assert(candidateDedupeKey != '', 'RSS candidate dedupe key must not be empty.');
+  })  : assert(
+            itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
+        assert(candidateDedupeKey != '',
+            'RSS candidate dedupe key must not be empty.');
 
   final RssAutoDownloadPolicyId policyId;
   final RssAutoDownloadRuleId ruleId;
@@ -593,9 +603,11 @@ final class DeterministicRssAutoDownloadPolicyEvaluator
     }
     return switch (expression.logic) {
       RssMatcherLogic.all => expression.predicates.every(
-          (RssMatcherPredicate predicate) => _matchesPredicate(predicate, item)),
+          (RssMatcherPredicate predicate) =>
+              _matchesPredicate(predicate, item)),
       RssMatcherLogic.any => expression.predicates.any(
-          (RssMatcherPredicate predicate) => _matchesPredicate(predicate, item)),
+          (RssMatcherPredicate predicate) =>
+              _matchesPredicate(predicate, item)),
     };
   }
 

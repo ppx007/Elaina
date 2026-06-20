@@ -399,6 +399,8 @@ final class MpvEnhancementPlanner {
 }
 
 abstract interface class MediaKitMpvBackend {
+  Player get player;
+
   Future<void> openLocalFile(Uri uri);
 
   Future<void> play();
@@ -436,6 +438,9 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   late final Player _player;
 
   @override
+  Player get player => _player;
+
+  @override
   Future<void> openLocalFile(Uri uri) {
     return _player.open(Media(uri.toString()), play: false);
   }
@@ -454,12 +459,21 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
 
   @override
   Future<void> setProperty(String property, String value) async {
-    await (_player.platform as dynamic).setProperty(property, value);
+    final PlatformPlayer? platform = _player.platform;
+    if (platform is! NativePlayer) {
+      throw StateError(
+          'media_kit platform player does not support setProperty.');
+    }
+    await platform.setProperty(property, value);
   }
 
   @override
   Future<void> command(List<String> arguments) async {
-    await (_player.platform as dynamic).command(arguments);
+    final PlatformPlayer? platform = _player.platform;
+    if (platform is! NativePlayer) {
+      throw StateError('media_kit platform player does not support command.');
+    }
+    await platform.command(arguments);
   }
 
   @override
@@ -496,6 +510,8 @@ final class MediaKitMpvBinding
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
+
+  MediaKitMpvBackend get backend => _backend ??= _backendFactory();
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) async {

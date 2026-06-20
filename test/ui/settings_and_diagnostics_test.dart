@@ -1,0 +1,124 @@
+import 'package:celesteria/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:celesteria/src/domain/settings/settings_domain.dart';
+import 'package:celesteria/src/ui/diagnostics/diagnostics_page.dart';
+import 'package:celesteria/src/ui/settings/settings_page.dart';
+import 'package:celesteria/src/ui/theme/celesteria_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+Widget _testHost({required Widget child}) {
+  return MaterialApp(
+    home: Scaffold(
+      body: CelesteriaTheme(
+        data: CelesteriaThemeData.dark,
+        mode: CelesteriaThemeMode.dark,
+        onModeChanged: (_) {},
+        child: Material(
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
+  @override
+  Future<List<DiagnosticsEventProjection>> queryEvents() async {
+    return <DiagnosticsEventProjection>[
+      DiagnosticsEventProjection(
+        id: '1',
+        eventType: 'play_start',
+        severity: 'INFO',
+        occurredAt: DateTime(2026, 6, 20, 10, 0, 0),
+        sourceModule: 'playback',
+        correlationId: 'corr-1',
+        payloadText: 'Started playing cyber_overload.mp4',
+      ),
+      DiagnosticsEventProjection(
+        id: '2',
+        eventType: 'buffer_warning',
+        severity: 'WARNING',
+        occurredAt: DateTime(2026, 6, 20, 10, 1, 30),
+        sourceModule: 'streaming',
+        correlationId: 'corr-1',
+        payloadText: 'Buffer low, speed: 10KB/s',
+      ),
+    ];
+  }
+
+  @override
+  Map<String, String> getCapabilitiesSupportStatus() {
+    return <String, String>{
+      'schemaRegistration': 'Supported',
+      'snapshotQuery': 'Unsupported',
+    };
+  }
+
+  @override
+  Future<double> getLatestAvSyncDrift() async {
+    return 15.4;
+  }
+
+  @override
+  int getActiveMemoryUsageBytes() {
+    return 200 * 1024 * 1024;
+  }
+}
+
+void main() {
+  testWidgets('SettingsPage allows editing and auto-saves preferences and proxy/dns', (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+
+    await settingsRuntime.setPreference(key: 'hardware_acceleration', value: 'true');
+    await settingsRuntime.setPreference(key: 'layout_preference', value: 'default');
+    await settingsRuntime.setPreference(key: 'cache_size_limit_mb', value: '512');
+    await settingsRuntime.saveProxyUrl('http://127.0.0.1:8888');
+    await settingsRuntime.saveDnsPolicy('https://dns.google/dns-query');
+
+    await tester.pumpWidget(_testHost(
+      child: SettingsPage(settingsRuntime: settingsRuntime),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置中心'), findsOneWidget);
+    expect(find.text('硬件加速'), findsOneWidget);
+
+    final textFields = find.byType(TextField);
+    expect(textFields, findsNWidgets(3)); // cache, proxy, dns
+
+    // Enter text for proxy
+    await tester.enterText(textFields.at(1), 'http://127.0.0.1:1080');
+    await tester.pumpAndSettle();
+    expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
+
+    // Toggle hardware acceleration
+    final switchFinder = find.byType(Switch);
+    expect(switchFinder, findsOneWidget);
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+    expect(await settingsRuntime.getPreference('hardware_acceleration'), 'false');
+  });
+
+  testWidgets('DiagnosticsPage displays capability checklist, memory usage, drift and chronological log table', (WidgetTester tester) async {
+    final diagnosticsRuntime = _MockDiagnosticsRuntime();
+
+    await tester.pumpWidget(_testHost(
+      child: DiagnosticsPage(diagnosticsRuntime: diagnosticsRuntime),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('诊断中心'), findsOneWidget);
+    expect(find.text('200.0 MB'), findsOneWidget);
+    expect(find.text('15.4 ms'), findsOneWidget);
+
+    expect(find.text('schemaRegistration'), findsOneWidget);
+    expect(find.text('snapshotQuery'), findsOneWidget);
+
+    // Switch tab to logs
+    await tester.tap(find.text('时序日志事件'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('play_start'), findsOneWidget);
+    expect(find.text('buffer_warning'), findsOneWidget);
+  });
+}

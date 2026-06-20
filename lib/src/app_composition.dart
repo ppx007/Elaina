@@ -1,0 +1,163 @@
+import 'package:flutter/material.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'domain/detail/video_detail_bootstrap.dart';
+import 'domain/diagnostics/diagnostics_domain.dart';
+import 'domain/media/local_file_media_scanner.dart';
+import 'domain/media/media_library_runtime.dart';
+import 'domain/media/media_library_storage_adapters.dart';
+import 'domain/playback/playback_source_handoff.dart';
+import 'domain/rss/rss_engine_runtime.dart';
+import 'domain/settings/settings_domain.dart';
+import 'foundation/constants.dart';
+import 'foundation/diagnostics/diagnostics_center.dart';
+import 'foundation/diagnostics/diagnostics_center_runtime.dart';
+import 'foundation/foundation_bootstrap.dart';
+import 'playback/media_kit_mpv_binding.dart';
+import 'playback/player_runtime_composition.dart';
+import 'provider/bangumi/bangumi_runtime.dart';
+import 'provider/rss/rss_feed_fetcher_parser.dart';
+import 'streaming/bt_task_core_runtime.dart';
+import 'streaming/libtorrent_download_engine_adapter.dart';
+import 'ui/detail/video_detail_page_contract.dart';
+
+final class PeriodicFeedScheduler implements FeedScheduler {
+  const PeriodicFeedScheduler({this.interval = AppConstants.defaultFeedRefreshInterval});
+
+  final Duration interval;
+
+  @override
+  Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) async* {
+    final DateTime now = DateTime.now();
+    for (final FeedSource source in sources) {
+      yield FeedScheduleDecision(source: source, dueAt: now);
+    }
+  }
+}
+
+class AppComposition {
+  AppComposition() {
+    // 1. Initialize foundation bootstrap
+    foundation = FoundationBootstrap();
+
+    // 2. Playback Composition
+    playbackComposition = mediaKitLocalFilePlayerRuntimeComposition();
+    final MediaKitMpvBinding binding = playbackComposition.binding as MediaKitMpvBinding;
+    videoController = VideoController(binding.backend.player);
+
+    // 3. Media Library Runtime
+    final scanner = LocalFileMediaLibraryScanner();
+    final catalogRepository = StorageMediaLibraryCatalogRepository(foundation.storage.mediaLibrary);
+    final importer = StorageMediaBatchImportContract(repository: catalogRepository);
+    final historyStore = StoragePlaybackHistoryStore(foundation.storage.playbackHistory);
+    final bindingStore = StorageProviderBindingStore(foundation.storage.providerBinding);
+
+    mediaLibraryRuntime = MediaLibraryRuntime(
+      scanner: scanner,
+      catalogRepository: catalogRepository,
+      importer: importer,
+      historyStore: historyStore,
+      bindingStore: bindingStore,
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: foundation.invalidationBus,
+    );
+
+    // 4. Video Detail Runtime
+    final metadataProvider = DeterministicBangumiProvider(
+      gateway: foundation.gateway,
+    );
+
+    videoDetailBootstrap = VideoDetailBootstrap(
+      metadataProvider: metadataProvider,
+      bindingStore: bindingStore,
+      historyStore: historyStore,
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: foundation.invalidationBus,
+    );
+
+    videoDetailPageContract = VideoDetailPageContract(
+      controller: videoDetailBootstrap.controller,
+    );
+
+    // 5. RSS Engine Runtime
+    final transport = HttpFeedHttpTransport();
+    final fetcher = HttpFeedFetcher(
+      gateway: foundation.gateway,
+      transport: transport,
+    );
+    const parser = XmlFeedParser.rss();
+    const scheduler = PeriodicFeedScheduler();
+
+    rssEngineRuntime = RssEngineBootstrap(
+      store: foundation.storage.rssFeed,
+      fetcher: fetcher,
+      parser: parser,
+      scheduler: scheduler,
+      policyStore: foundation.storage.rssAutoDownloadPolicy,
+    ).runtime;
+
+    // 6. BT Task Core Runtime
+    final btTaskComposition = libtorrentBtTaskRuntimeComposition(
+      store: foundation.storage.btTask,
+      cacheInvalidationBus: foundation.invalidationBus,
+    );
+    btTaskCoreRuntime = BtTaskCoreBootstrap.withComposition(
+      composition: btTaskComposition,
+    ).runtime;
+
+    // 7. Settings Runtime
+    settingsRuntime = SettingsRuntimeAdapter(
+      settingsStore: foundation.storage.settings,
+      networkPolicyStore: foundation.storage.networkPolicy,
+    );
+
+    // 8. Diagnostics Runtime
+    final diagnosticsCapabilityMatrix = DiagnosticsCapabilityMatrix(
+      capabilities: <DiagnosticsCapability, DiagnosticsCapabilityStatus>{
+        for (final DiagnosticsCapability cap in DiagnosticsCapability.values)
+          cap: const DiagnosticsCapabilityStatus.supported(),
+      },
+    );
+
+    final diagnosticsCenterRuntime = DiagnosticsCenterRuntimeBootstrap(
+      store: foundation.storage.diagnostics,
+      registry: DeterministicDiagnosticsEventRegistry(),
+      retentionPolicy: const DiagnosticsRetentionPolicy(
+        maxEvents: AppConstants.diagnosticsRetentionMaxEvents,
+        maxAge: AppConstants.diagnosticsRetentionMaxAge,
+      ),
+      redactionPolicy: DiagnosticsRedactionPolicy(),
+      capabilityMatrix: diagnosticsCapabilityMatrix,
+      bus: foundation.invalidationBus,
+    ).createRuntime();
+
+    diagnosticsRuntime = DiagnosticsRuntimeAdapter(
+      centerRuntime: diagnosticsCenterRuntime,
+      store: foundation.storage.diagnostics,
+      capabilityMatrix: diagnosticsCapabilityMatrix,
+      avSyncGuardStore: foundation.storage.avSyncGuard,
+    );
+  }
+
+  late final FoundationBootstrap foundation;
+  late final PlayerRuntimeCompositionContract playbackComposition;
+  late final VideoController videoController;
+  late final MediaLibraryRuntime mediaLibraryRuntime;
+  late final VideoDetailBootstrap videoDetailBootstrap;
+  late final VideoDetailPageContract videoDetailPageContract;
+  late final RssEngineRuntime rssEngineRuntime;
+  late final BtTaskCoreRuntime btTaskCoreRuntime;
+  late final SettingsRuntime settingsRuntime;
+  late final DiagnosticsRuntime diagnosticsRuntime;
+
+  Widget buildVideoSurface(BuildContext context) {
+    return Video(controller: videoController);
+  }
+
+  void dispose() {
+    mediaLibraryRuntime.dispose();
+    videoDetailBootstrap.dispose();
+    rssEngineRuntime.dispose();
+    btTaskCoreRuntime.dispose();
+    foundation.dispose();
+  }
+}
