@@ -813,7 +813,7 @@ class _WelcomeTitle extends StatelessWidget {
   }
 }
 
-class _BangumiProfileAvatar extends StatelessWidget {
+class _BangumiProfileAvatar extends StatefulWidget {
   const _BangumiProfileAvatar({
     required this.profileFuture,
     required this.theme,
@@ -827,23 +827,28 @@ class _BangumiProfileAvatar extends StatelessWidget {
   static const double _avatarDiameter = 40;
 
   @override
+  State<_BangumiProfileAvatar> createState() => _BangumiProfileAvatarState();
+}
+
+class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
+  @override
   Widget build(BuildContext context) {
-    final Future<UserProfileSnapshot?>? future = profileFuture;
+    final Future<UserProfileSnapshot?>? future = widget.profileFuture;
     if (future == null) {
-      return _buildFallbackAvatar(theme);
+      return _buildFallbackAvatar(widget.theme);
     }
     return FutureBuilder<UserProfileSnapshot?>(
-      key: ValueKey<int>(refreshRevision),
+      key: ValueKey<int>(widget.refreshRevision),
       future: future,
       builder:
           (BuildContext context, AsyncSnapshot<UserProfileSnapshot?> snapshot) {
         final Uri? avatarUri = snapshot.data?.avatarUri;
         if (avatarUri == null) {
-          return _buildFallbackAvatar(theme);
+          return _buildFallbackAvatar(widget.theme);
         }
         return ClipOval(
           child: SizedBox.square(
-            dimension: _avatarDiameter,
+            dimension: _BangumiProfileAvatar._avatarDiameter,
             child: Image.network(
               avatarUri.toString(),
               key: ValueKey<String>(avatarUri.toString()),
@@ -851,11 +856,11 @@ class _BangumiProfileAvatar extends StatelessWidget {
               gaplessPlayback: true,
               errorBuilder: (BuildContext context, Object error,
                       StackTrace? stackTrace) =>
-                  _buildFallbackAvatar(theme),
+                  _buildFallbackAvatar(widget.theme),
               loadingBuilder: (BuildContext context, Widget child,
                   ImageChunkEvent? loadingProgress) {
                 if (loadingProgress == null) return child;
-                return _buildFallbackAvatar(theme);
+                return _buildFallbackAvatar(widget.theme);
               },
             ),
           ),
@@ -866,7 +871,7 @@ class _BangumiProfileAvatar extends StatelessWidget {
 
   Widget _buildFallbackAvatar(ElainaThemeData theme) {
     return CircleAvatar(
-      radius: _avatarDiameter / 2,
+      radius: _BangumiProfileAvatar._avatarDiameter / 2,
       backgroundColor: theme.secondary.withValues(alpha: 0.3),
       child: Icon(Icons.person, color: theme.primary),
     );
