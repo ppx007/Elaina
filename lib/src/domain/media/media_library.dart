@@ -766,6 +766,8 @@ enum ProviderBindingAuthority {
   userConfirmed,
 }
 
+const String bangumiProviderBindingProviderId = 'bangumi';
+
 final class ProviderBindingId {
   const ProviderBindingId(this.value)
       : assert(value != '', 'Provider binding id must not be empty.');

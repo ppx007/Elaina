@@ -473,7 +473,7 @@ final class DeterministicBangumiMatchQueue implements BangumiMatchQueue {
     final ProviderBinding binding = ProviderBinding(
       id: ProviderBindingId('auto-${id.value}'),
       localMediaId: mediaId,
-      providerId: 'bangumi',
+      providerId: bangumiProviderBindingProviderId,
       subjectId: candidate.subjectId,
       authority: ProviderBindingAuthority.automatic,
       confidence: candidate.confidence,

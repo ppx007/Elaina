@@ -392,7 +392,7 @@ void main() {
     final StoredProviderBindingRecord binding = StoredProviderBindingRecord(
       id: 'binding-1',
       localMediaId: 'media-1',
-      providerId: 'bangumi',
+      providerId: defaultVideoDetailMetadataProviderId,
       authority: 'user-confirmed',
       confidence: 1.0,
       createdAt: DateTime.utc(2026, 6, 8),
@@ -402,7 +402,8 @@ void main() {
     expect((await store.bindingFor('media-1'))?.providerId, 'bangumi');
     expect(
       (await store.bindingForProvider(
-              localMediaId: 'media-1', providerId: 'bangumi'))
+              localMediaId: 'media-1',
+              providerId: defaultVideoDetailMetadataProviderId))
           ?.id,
       'binding-1',
     );

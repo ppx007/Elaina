@@ -130,7 +130,7 @@ void main() {
       ProviderBinding(
         id: const ProviderBindingId('confirmed-binding'),
         localMediaId: const LocalMediaId('confirmed-media'),
-        providerId: 'bangumi',
+        providerId: defaultVideoDetailMetadataProviderId,
         subjectId: const ProviderSubjectId('confirmed-subject'),
         authority: ProviderBindingAuthority.userConfirmed,
         confidence: 0.2,

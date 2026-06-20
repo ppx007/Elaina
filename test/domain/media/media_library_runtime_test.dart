@@ -233,7 +233,7 @@ ProviderBinding _binding(String id, LocalMediaId mediaId,
   return ProviderBinding(
     id: ProviderBindingId(id),
     localMediaId: mediaId,
-    providerId: 'bangumi',
+    providerId: defaultVideoDetailMetadataProviderId,
     subjectId: const ProviderSubjectId('subject-1'),
     authority: authority,
     confidence: confidence,

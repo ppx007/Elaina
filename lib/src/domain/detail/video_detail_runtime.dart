@@ -5,8 +5,6 @@ import '../media/media_library.dart';
 import '../playback/playback_source_handoff.dart';
 import 'video_detail.dart';
 
-const String defaultVideoDetailMetadataProviderId = 'bangumi';
-
 enum VideoDetailRuntimeStatus {
   idle,
   ready,

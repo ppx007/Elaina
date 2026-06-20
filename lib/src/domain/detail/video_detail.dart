@@ -1,5 +1,9 @@
 import '../media/media_library.dart';
 
+const String bangumiVideoDetailProviderId = bangumiProviderBindingProviderId;
+const String defaultVideoDetailMetadataProviderId =
+    bangumiVideoDetailProviderId;
+
 final class VideoDetailId {
   const VideoDetailId(this.value)
       : assert(value != '', 'Video detail id must not be empty.');

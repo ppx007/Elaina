@@ -215,7 +215,7 @@ StoredProviderBindingRecord _confirmedBinding() {
   return StoredProviderBindingRecord(
     id: 'binding-confirmed',
     localMediaId: 'media-1',
-    providerId: 'bangumi',
+    providerId: defaultVideoDetailMetadataProviderId,
     providerSubjectId: 'subject-1',
     authority: 'user-confirmed',
     confidence: 0.8,
@@ -227,7 +227,7 @@ StoredProviderBindingRecord _automaticBinding() {
   return StoredProviderBindingRecord(
     id: 'binding-auto',
     localMediaId: 'media-1',
-    providerId: 'bangumi',
+    providerId: defaultVideoDetailMetadataProviderId,
     providerSubjectId: 'subject-2',
     authority: 'automatic',
     confidence: 1,
