@@ -7,6 +7,7 @@ import 'src/domain/media/media_library_runtime.dart';
 import 'src/domain/playback/playback_controller.dart';
 import 'src/domain/playback/player_core_bootstrap.dart';
 import 'src/domain/profile/bangumi_login_domain.dart';
+import 'src/domain/profile/bangumi_tracking_domain.dart';
 import 'src/domain/profile/profile_domain.dart';
 import 'src/domain/rss/rss_engine_runtime.dart';
 import 'src/domain/settings/settings_domain.dart';
@@ -34,6 +35,7 @@ class MyApp extends StatefulWidget {
     this.settingsRuntime,
     this.diagnosticsRuntime,
     this.profileProvider,
+    this.bangumiTrackingProvider,
     this.bangumiLoginController,
   });
 
@@ -47,6 +49,7 @@ class MyApp extends StatefulWidget {
   final SettingsRuntime? settingsRuntime;
   final DiagnosticsRuntime? diagnosticsRuntime;
   final UserProfileProvider? profileProvider;
+  final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
 
   @override
@@ -66,6 +69,7 @@ class _MyAppState extends State<MyApp> {
   late final SettingsRuntime _settingsRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
   late final UserProfileProvider? _profileProvider;
+  late final BangumiTrackingProvider? _bangumiTrackingProvider;
   late final BangumiLoginController? _bangumiLoginController;
 
   @override
@@ -88,6 +92,7 @@ class _MyAppState extends State<MyApp> {
       _diagnosticsRuntime =
           widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
       _profileProvider = widget.profileProvider;
+      _bangumiTrackingProvider = widget.bangumiTrackingProvider;
       _bangumiLoginController = widget.bangumiLoginController;
     } else {
       _composition = AppComposition();
@@ -103,6 +108,7 @@ class _MyAppState extends State<MyApp> {
       _settingsRuntime = _composition!.settingsRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
       _profileProvider = _composition!.profileProvider;
+      _bangumiTrackingProvider = _composition!.trackingProvider;
       _bangumiLoginController = _composition!.bangumiLoginController;
     }
     _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
@@ -165,6 +171,7 @@ class _MyAppState extends State<MyApp> {
               settingsRuntime: _settingsRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
               profileProvider: _profileProvider,
+              bangumiTrackingProvider: _bangumiTrackingProvider,
               bangumiLoginController: _bangumiLoginController,
             ),
           );

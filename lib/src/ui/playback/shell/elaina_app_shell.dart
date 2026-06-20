@@ -10,6 +10,7 @@ import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
 import '../../../domain/playback/playback_state.dart';
 import '../../../domain/profile/bangumi_login_domain.dart';
+import '../../../domain/profile/bangumi_tracking_domain.dart';
 import '../../../domain/profile/profile_domain.dart';
 import '../../../domain/rss/rss_engine_runtime.dart';
 import '../../../domain/settings/settings_domain.dart';
@@ -38,6 +39,7 @@ class ElainaAppShell extends StatefulWidget {
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
     this.profileProvider,
+    this.bangumiTrackingProvider,
     this.bangumiLoginController,
     this.carouselAutoScroll = true,
   });
@@ -51,6 +53,7 @@ class ElainaAppShell extends StatefulWidget {
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
   final UserProfileProvider? profileProvider;
+  final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
   final bool carouselAutoScroll;
 
@@ -83,12 +86,14 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   int _bangumiAuthRevision = 0;
   late MediaLibraryRuntimeSnapshot _librarySnapshot;
   Future<UserProfileSnapshot?>? _profileFuture;
+  Future<BangumiTrackingSnapshot>? _trackingFuture;
   _TrackingFilter _trackingFilter = _TrackingFilter.all;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = widget.profileProvider?.currentProfile();
+    _trackingFuture = widget.bangumiTrackingProvider?.currentAnimeCollection();
     _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.playbackController.addPlaybackStateObserver(this);
     widget.mediaLibraryRuntime.addObserver(this);
@@ -107,6 +112,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     }
     if (oldWidget.profileProvider != widget.profileProvider) {
       _profileFuture = widget.profileProvider?.currentProfile();
+    }
+    if (oldWidget.bangumiTrackingProvider != widget.bangumiTrackingProvider) {
+      _trackingFuture =
+          widget.bangumiTrackingProvider?.currentAnimeCollection();
     }
   }
 
@@ -149,6 +158,15 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     setState(() {
       _bangumiAuthRevision++;
       _profileFuture = widget.profileProvider?.currentProfile();
+      _trackingFuture =
+          widget.bangumiTrackingProvider?.currentAnimeCollection();
+    });
+  }
+
+  void _refreshBangumiTracking() {
+    setState(() {
+      _trackingFuture =
+          widget.bangumiTrackingProvider?.currentAnimeCollection();
     });
   }
 
@@ -740,16 +758,38 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   // 2. Bangumi tracking page
   Widget _buildTrackingPage(ElainaThemeData theme) {
-    final List<_TrackedBangumiItem> trackedItems = _trackedBangumiItems();
+    return FutureBuilder<BangumiTrackingSnapshot>(
+      future: _trackingFuture,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<BangumiTrackingSnapshot> snapshot,
+      ) {
+        return _buildTrackingPageContent(
+          theme,
+          snapshot.data,
+          isRefreshing: snapshot.connectionState == ConnectionState.waiting,
+        );
+      },
+    );
+  }
+
+  Widget _buildTrackingPageContent(
+    ElainaThemeData theme,
+    BangumiTrackingSnapshot? remoteSnapshot, {
+    required bool isRefreshing,
+  }) {
+    final List<_TrackedBangumiItem> trackedItems =
+        _trackedBangumiItems(remoteSnapshot);
     final List<_TrackedBangumiItem> visibleItems =
         _trackedBangumiItemsFor(_trackingFilter, trackedItems);
     final int continuingCount = trackedItems
         .where((_TrackedBangumiItem item) =>
-            item.progress > 0 && item.progress < _completedProgressThreshold)
+            item.status == BangumiTrackingStatus.watching ||
+            item.status == BangumiTrackingStatus.onHold)
         .length;
     final int completedCount = trackedItems
         .where((_TrackedBangumiItem item) =>
-            item.progress >= _completedProgressThreshold)
+            item.status == BangumiTrackingStatus.completed)
         .length;
     final int unboundCount = _librarySnapshot.catalogItems
         .where((MediaLibraryCatalogItemState item) => item.binding == null)
@@ -778,10 +818,25 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                   ],
                 ),
               ),
-              _BangumiAccountPill(
-                profileFuture: _profileFuture,
-                theme: theme,
-                onPressed: _startBangumiLogin,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Tooltip(
+                    message: '刷新',
+                    child: IconButton(
+                      mouseCursor: SystemMouseCursors.click,
+                      onPressed: isRefreshing ? null : _refreshBangumiTracking,
+                      icon: const Icon(Icons.refresh),
+                      color: theme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _BangumiAccountPill(
+                    profileFuture: _profileFuture,
+                    theme: theme,
+                    onPressed: _startBangumiLogin,
+                  ),
+                ],
               ),
             ],
           ),
@@ -850,42 +905,50 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: visibleItems.isEmpty
-                          ? _TrackingEmptyState(
-                              filter: _trackingFilter,
-                              hasAnyTrackedItem: trackedItems.isNotEmpty,
-                              theme: theme,
-                              onOpenLibrary: () {
-                                setState(() {
-                                  _currentIndex = _localLibraryNavIndex;
-                                });
-                              },
-                              onLogin: _startBangumiLogin,
-                            )
-                          : GridView.builder(
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: _trackingGridMaxExtent,
-                                mainAxisSpacing: 16,
-                                crossAxisSpacing: 16,
-                                childAspectRatio: _trackingGridAspectRatio,
+                      child: isRefreshing && trackedItems.isEmpty
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: theme.primary,
                               ),
-                              itemCount: visibleItems.length,
-                              itemBuilder: (BuildContext context, int index) {
-                                final _TrackedBangumiItem item =
-                                    visibleItems[index];
-                                return _TrackingItemCard(
-                                  item: item,
+                            )
+                          : visibleItems.isEmpty
+                              ? _TrackingEmptyState(
+                                  filter: _trackingFilter,
+                                  hasAnyTrackedItem: trackedItems.isNotEmpty,
+                                  remoteSnapshot: remoteSnapshot,
                                   theme: theme,
-                                  onOpenDetail: () {
+                                  onOpenLibrary: () {
                                     setState(() {
-                                      _activeDetailId =
-                                          VideoDetailId(item.subjectId);
+                                      _currentIndex = _localLibraryNavIndex;
                                     });
                                   },
-                                );
-                              },
-                            ),
+                                  onLogin: _startBangumiLogin,
+                                )
+                              : GridView.builder(
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: _trackingGridMaxExtent,
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 16,
+                                    childAspectRatio: _trackingGridAspectRatio,
+                                  ),
+                                  itemCount: visibleItems.length,
+                                  itemBuilder:
+                                      (BuildContext context, int index) {
+                                    final _TrackedBangumiItem item =
+                                        visibleItems[index];
+                                    return _TrackingItemCard(
+                                      item: item,
+                                      theme: theme,
+                                      onOpenDetail: () {
+                                        setState(() {
+                                          _activeDetailId =
+                                              VideoDetailId(item.subjectId);
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
                     ),
                   ],
                 ),
@@ -897,7 +960,38 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  List<_TrackedBangumiItem> _trackedBangumiItems() {
+  List<_TrackedBangumiItem> _trackedBangumiItems(
+    BangumiTrackingSnapshot? remoteSnapshot,
+  ) {
+    if (remoteSnapshot?.status == BangumiTrackingLoadStatus.loaded) {
+      return _remoteTrackedBangumiItems(remoteSnapshot!.items);
+    }
+    return _localTrackedBangumiItems();
+  }
+
+  List<_TrackedBangumiItem> _remoteTrackedBangumiItems(
+    Iterable<BangumiTrackingItem> remoteItems,
+  ) {
+    final Map<String, _LocalTrackingProgress> localProgress =
+        _localTrackingProgressBySubjectId();
+    final List<_TrackedBangumiItem> items = <_TrackedBangumiItem>[
+      for (final BangumiTrackingItem item in remoteItems)
+        _TrackedBangumiItem(
+          subjectId: item.subjectId,
+          title: item.title,
+          status: item.status,
+          progress: _progressForRemoteItem(item, localProgress[item.subjectId]),
+          watchedEpisodes: item.watchedEpisodes,
+          totalEpisodes: item.totalEpisodes,
+          coverUri: item.coverUri,
+          updatedAt: item.updatedAt ?? localProgress[item.subjectId]?.updatedAt,
+        ),
+    ];
+    items.sort(_compareTrackedBangumiItems);
+    return items;
+  }
+
+  List<_TrackedBangumiItem> _localTrackedBangumiItems() {
     final List<_TrackedBangumiItem> items = <_TrackedBangumiItem>[];
     for (final MediaLibraryCatalogItemState itemState
         in _librarySnapshot.catalogItems) {
@@ -913,24 +1007,75 @@ class _ElainaAppShellState extends State<ElainaAppShell>
         _TrackedBangumiItem(
           subjectId: subjectId,
           title: itemState.item.identity.basename,
+          status: _statusForLocalProgress(
+            itemState.continueWatching?.progress ?? 0,
+          ),
           progress: itemState.continueWatching?.progress ?? 0,
+          watchedEpisodes: 0,
+          totalEpisodes: 0,
           updatedAt: itemState.continueWatching?.updatedAt,
         ),
       );
     }
-    items.sort(
-      (_TrackedBangumiItem left, _TrackedBangumiItem right) {
-        final DateTime? leftUpdated = left.updatedAt;
-        final DateTime? rightUpdated = right.updatedAt;
-        if (leftUpdated == null && rightUpdated == null) {
-          return left.title.compareTo(right.title);
-        }
-        if (leftUpdated == null) return 1;
-        if (rightUpdated == null) return -1;
-        return rightUpdated.compareTo(leftUpdated);
-      },
-    );
+    items.sort(_compareTrackedBangumiItems);
     return items;
+  }
+
+  Map<String, _LocalTrackingProgress> _localTrackingProgressBySubjectId() {
+    return <String, _LocalTrackingProgress>{
+      for (final MediaLibraryCatalogItemState itemState
+          in _librarySnapshot.catalogItems)
+        if (_confirmedBangumiSubjectId(itemState) != null)
+          _confirmedBangumiSubjectId(itemState)!: _LocalTrackingProgress(
+            progress: itemState.continueWatching?.progress ?? 0,
+            updatedAt: itemState.continueWatching?.updatedAt,
+          ),
+    };
+  }
+
+  String? _confirmedBangumiSubjectId(MediaLibraryCatalogItemState itemState) {
+    final ProviderBinding? binding = itemState.binding;
+    final String? subjectId = binding?.subjectId?.value;
+    if (binding == null ||
+        subjectId == null ||
+        binding.providerId != defaultVideoDetailMetadataProviderId ||
+        binding.authority != ProviderBindingAuthority.userConfirmed) {
+      return null;
+    }
+    return subjectId;
+  }
+
+  double _progressForRemoteItem(
+    BangumiTrackingItem item,
+    _LocalTrackingProgress? localProgress,
+  ) {
+    if (item.status == BangumiTrackingStatus.completed) return 1;
+    if (item.totalEpisodes > 0) {
+      return (item.watchedEpisodes / item.totalEpisodes).clamp(0, 1).toDouble();
+    }
+    return localProgress?.progress ?? 0;
+  }
+
+  BangumiTrackingStatus _statusForLocalProgress(double progress) {
+    if (progress >= _completedProgressThreshold) {
+      return BangumiTrackingStatus.completed;
+    }
+    if (progress > 0) return BangumiTrackingStatus.watching;
+    return BangumiTrackingStatus.planned;
+  }
+
+  int _compareTrackedBangumiItems(
+    _TrackedBangumiItem left,
+    _TrackedBangumiItem right,
+  ) {
+    final DateTime? leftUpdated = left.updatedAt;
+    final DateTime? rightUpdated = right.updatedAt;
+    if (leftUpdated == null && rightUpdated == null) {
+      return left.title.compareTo(right.title);
+    }
+    if (leftUpdated == null) return 1;
+    if (rightUpdated == null) return -1;
+    return rightUpdated.compareTo(leftUpdated);
   }
 
   Map<_TrackingFilter, int> _trackingFilterCounts(
@@ -958,12 +1103,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   ) {
     return switch (filter) {
       _TrackingFilter.all => true,
-      _TrackingFilter.watching =>
-        item.progress > 0 && item.progress < _completedProgressThreshold,
-      _TrackingFilter.planned => item.progress == 0,
-      _TrackingFilter.completed => item.progress >= _completedProgressThreshold,
-      _TrackingFilter.onHold => false,
-      _TrackingFilter.dropped => false,
+      _TrackingFilter.watching => item.status == BangumiTrackingStatus.watching,
+      _TrackingFilter.planned => item.status == BangumiTrackingStatus.planned,
+      _TrackingFilter.completed =>
+        item.status == BangumiTrackingStatus.completed,
+      _TrackingFilter.onHold => item.status == BangumiTrackingStatus.onHold,
+      _TrackingFilter.dropped => item.status == BangumiTrackingStatus.dropped,
     };
   }
 
@@ -1044,22 +1189,51 @@ final class _TrackedBangumiItem {
   const _TrackedBangumiItem({
     required this.subjectId,
     required this.title,
+    required this.status,
     required this.progress,
+    required this.watchedEpisodes,
+    required this.totalEpisodes,
+    this.coverUri,
     this.updatedAt,
   });
 
   final String subjectId;
   final String title;
+  final BangumiTrackingStatus status;
   final double progress;
+  final int watchedEpisodes;
+  final int totalEpisodes;
+  final Uri? coverUri;
   final DateTime? updatedAt;
 
   bool get hasProgress => progress > 0;
 
   String get progressLabel {
-    if (!hasProgress) return '未开始';
+    if (totalEpisodes > 0) return '$watchedEpisodes / $totalEpisodes';
+    if (!hasProgress) return _statusLabel;
     final int percent = (progress * 100).round().clamp(1, 100);
     return '已观看 $percent%';
   }
+
+  String get _statusLabel {
+    return switch (status) {
+      BangumiTrackingStatus.planned => '想看',
+      BangumiTrackingStatus.completed => '已看',
+      BangumiTrackingStatus.watching => '在追',
+      BangumiTrackingStatus.onHold => '搁置',
+      BangumiTrackingStatus.dropped => '抛弃',
+    };
+  }
+}
+
+final class _LocalTrackingProgress {
+  const _LocalTrackingProgress({
+    required this.progress,
+    this.updatedAt,
+  });
+
+  final double progress;
+  final DateTime? updatedAt;
 }
 
 class _BangumiAccountPill extends StatelessWidget {
@@ -1252,6 +1426,7 @@ class _TrackingEmptyState extends StatelessWidget {
   const _TrackingEmptyState({
     required this.filter,
     required this.hasAnyTrackedItem,
+    required this.remoteSnapshot,
     required this.theme,
     required this.onOpenLibrary,
     required this.onLogin,
@@ -1259,11 +1434,19 @@ class _TrackingEmptyState extends StatelessWidget {
 
   final _TrackingFilter filter;
   final bool hasAnyTrackedItem;
+  final BangumiTrackingSnapshot? remoteSnapshot;
   final ElainaThemeData theme;
   final VoidCallback onOpenLibrary;
   final VoidCallback onLogin;
 
   String get _title {
+    final BangumiTrackingSnapshot? snapshot = remoteSnapshot;
+    if (snapshot?.status == BangumiTrackingLoadStatus.unauthenticated) {
+      return '登录后同步 Bangumi 追番';
+    }
+    if (snapshot?.status == BangumiTrackingLoadStatus.failed) {
+      return snapshot?.message ?? 'Bangumi 追番刷新失败';
+    }
     if (!hasAnyTrackedItem) {
       return '还没有 Bangumi 追番条目';
     }
@@ -1385,11 +1568,28 @@ class _TrackingItemCard extends StatelessWidget {
                           color: theme.primary.withValues(alpha: 0.22),
                         ),
                       ),
-                      child: Icon(
-                        Icons.movie_filter_outlined,
-                        color: theme.primary,
-                        size: 22,
-                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: item.coverUri == null
+                          ? Icon(
+                              Icons.movie_filter_outlined,
+                              color: theme.primary,
+                              size: 22,
+                            )
+                          : Image.network(
+                              item.coverUri.toString(),
+                              fit: BoxFit.cover,
+                              errorBuilder: (
+                                BuildContext context,
+                                Object error,
+                                StackTrace? stackTrace,
+                              ) {
+                                return Icon(
+                                  Icons.movie_filter_outlined,
+                                  color: theme.primary,
+                                  size: 22,
+                                );
+                              },
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

@@ -17,11 +17,17 @@ final class BangumiEpisodeId {
 }
 
 final class BangumiSubject {
-  const BangumiSubject({required this.id, required this.title, this.summary});
+  const BangumiSubject({
+    required this.id,
+    required this.title,
+    this.summary,
+    this.coverUri,
+  });
 
   final BangumiSubjectId id;
   final String title;
   final String? summary;
+  final Uri? coverUri;
 }
 
 final class BangumiEpisode {
@@ -46,4 +52,8 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query);
 
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id);
+
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  );
 }

@@ -326,6 +326,24 @@ final class _FakeBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderSuccess<List<BangumiEpisode>>(
+        <BangumiEpisode>[
+          BangumiEpisode(
+            id: const BangumiEpisodeId('episode-1'),
+            subjectId: subjectId,
+            index: 1,
+            title: 'Episode 1',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
     return Future<AcgProviderResult<BangumiSubject>>.value(
         AcgProviderSuccess<BangumiSubject>(subjects.first));

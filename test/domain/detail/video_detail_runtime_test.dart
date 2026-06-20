@@ -88,6 +88,56 @@ void main() {
     runtime.dispose();
   });
 
+  test('runtime loads remote Bangumi detail and episodes without local seed',
+      () async {
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-remote'),
+      title: 'Remote Subject',
+      summary: 'Remote summary',
+      coverUri: Uri.parse('https://metadata.example/remote-cover.jpg'),
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      episodesBySubjectId: <String, List<BangumiEpisode>>{
+        'subject-remote': <BangumiEpisode>[
+          const BangumiEpisode(
+            id: BangumiEpisodeId('remote-episode-2'),
+            subjectId: BangumiSubjectId('subject-remote'),
+            index: 2,
+            title: 'Remote Episode 2',
+          ),
+          const BangumiEpisode(
+            id: BangumiEpisodeId('remote-episode-1'),
+            subjectId: BangumiSubjectId('subject-remote'),
+            index: 1,
+            title: 'Remote Episode 1',
+          ),
+        ],
+      },
+    );
+
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-remote'));
+
+    expect(detail.title, 'Remote Subject');
+    expect(detail.summary, 'Remote summary');
+    expect(
+      detail.coverUri,
+      Uri.parse('https://metadata.example/remote-cover.jpg'),
+    );
+    expect(
+      detail.episodes.map((VideoDetailEpisode episode) => episode.title),
+      <String>['Remote Episode 1', 'Remote Episode 2'],
+    );
+    expect(detail.followState, VideoFollowState.notFollowed);
+    expect(
+      detail.actions.primary.single.kind,
+      VideoDetailActionKind.selectEpisode,
+    );
+
+    runtime.dispose();
+  });
+
   test('actions route playback through handoff and publish invalidation events',
       () async {
     final DateTime now = DateTime.utc(2026, 1, 2, 12);
@@ -324,6 +374,8 @@ void main() {
 VideoDetailRuntime _runtime({
   BangumiSubject? subject,
   BangumiVideoDetailSeed? seed,
+  Map<String, List<BangumiEpisode>> episodesBySubjectId =
+      const <String, List<BangumiEpisode>>{},
   ProviderBindingStore? bindingStore,
   PlaybackHistoryStore? historyStore,
   CacheInvalidationBus? invalidationBus,
@@ -333,7 +385,9 @@ VideoDetailRuntime _runtime({
   final BangumiSubject value = subject ?? _subject();
   return VideoDetailRuntime(
     metadataProvider: _FakeBangumiProvider(
-        subjects: <String, BangumiSubject>{value.id.value: value}),
+      subjects: <String, BangumiSubject>{value.id.value: value},
+      episodesBySubjectId: episodesBySubjectId,
+    ),
     bindingStore: bindingStore ?? DeterministicProviderBindingStore(),
     historyStore: historyStore ?? DeterministicPlaybackHistoryStore(),
     playbackSourceHandoff: handoff ?? const LocalPlaybackSourceHandoff(),
@@ -449,10 +503,15 @@ final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
 }
 
 final class _FakeBangumiProvider implements BangumiProvider {
-  const _FakeBangumiProvider({required Map<String, BangumiSubject> subjects})
-      : _subjects = subjects;
+  const _FakeBangumiProvider({
+    required Map<String, BangumiSubject> subjects,
+    Map<String, List<BangumiEpisode>> episodesBySubjectId =
+        const <String, List<BangumiEpisode>>{},
+  })  : _subjects = subjects,
+        _episodesBySubjectId = episodesBySubjectId;
 
   final Map<String, BangumiSubject> _subjects;
+  final Map<String, List<BangumiEpisode>> _episodesBySubjectId;
 
   @override
   String get id => defaultVideoDetailMetadataProviderId;
@@ -491,6 +550,17 @@ final class _FakeBangumiProvider implements BangumiProvider {
         const AcgProviderFailure<BangumiEpisode>(
             kind: AcgProviderFailureKind.terminal,
             message: 'Episode lookup is not part of this test.'));
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderSuccess<List<BangumiEpisode>>(
+        _episodesBySubjectId[subjectId.value] ?? const <BangumiEpisode>[],
+      ),
+    );
   }
 
   @override

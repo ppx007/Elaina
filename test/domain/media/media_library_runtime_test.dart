@@ -399,6 +399,18 @@ final class _FakeBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderFailure<List<BangumiEpisode>>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Episode list lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
     return Future<AcgProviderResult<BangumiSubject>>.value(
       AcgProviderFailure<BangumiSubject>(

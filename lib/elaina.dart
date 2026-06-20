@@ -23,6 +23,7 @@ export 'src/domain/playback/playback_state.dart';
 export 'src/domain/playback/player_core_bootstrap.dart';
 export 'src/domain/playback/player_core_runtime.dart';
 export 'src/domain/profile/bangumi_login_domain.dart';
+export 'src/domain/profile/bangumi_tracking_domain.dart';
 export 'src/domain/profile/profile_domain.dart';
 export 'src/domain/rss/rss_engine.dart';
 export 'src/domain/rss/rss_engine_runtime.dart';

@@ -19,13 +19,17 @@ immediate signed-in state.
 - Validate manually entered access tokens by saving them, requesting the
   current Bangumi session through the existing auth provider, and refreshing
   the shared profile projection only after the auth state changes.
+- Load the authenticated user's Bangumi anime collection through the provider
+  runtime and refresh the tracking page after auth state changes.
+- Open remote Bangumi tracking entries into a real detail page by loading
+  subject metadata, cover art, and episode lists through the provider runtime.
 - Keep App Secret, user access tokens, and refresh tokens out of source.
 
 ## Impact
 
 - Affects app composition, Bangumi provider URI helpers, settings UI, app shell
-  login actions, profile/login domain contracts, and focused widget/provider
-  tests.
+  login/tracking actions, profile/login/tracking domain contracts, and focused
+  widget/provider tests.
 - Does not make Bangumi login a prerequisite for playback, local media
   library, RSS, downloads, or provider matching.
 - Does not add browser automation, cookie scraping, or Bangumi component-script

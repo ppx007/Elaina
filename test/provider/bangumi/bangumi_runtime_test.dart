@@ -44,6 +44,13 @@ void main() {
     expect((episodeResult as AcgProviderSuccess<BangumiEpisode>).value.title,
         'Bootstrap');
     expect(gateway.lastCacheKey, 'episode:episode-1');
+
+    final AcgProviderResult<List<BangumiEpisode>> episodeListResult =
+        await runtime.listEpisodes(subject.id);
+    final List<BangumiEpisode> episodes =
+        (episodeListResult as AcgProviderSuccess<List<BangumiEpisode>>).value;
+    expect(episodes.single.id.value, 'episode-1');
+    expect(gateway.lastCacheKey, 'episodes:subject-1017');
   });
 
   test(
@@ -55,6 +62,9 @@ void main() {
         bangumiSubjectSearchRequestKey('  ELaina  ');
     final ProviderRequestKey episodeKey =
         bangumiEpisodeRequestKey(const BangumiEpisodeId('7'));
+    final ProviderRequestKey episodeListKey =
+        bangumiEpisodeListRequestKey(const BangumiSubjectId('42'));
+    final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
     final ProviderGatewayRequest<String> request =
         bangumiGatewayRequest<String>(
       key: subjectKey,
@@ -65,6 +75,8 @@ void main() {
     expect(subjectKey.cacheKey, 'subject:42');
     expect(searchKey.cacheKey, 'subject-search:elaina');
     expect(episodeKey.cacheKey, 'episode:7');
+    expect(episodeListKey.cacheKey, 'episodes:42');
+    expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(request.cachePolicy, ProviderCachePolicy.networkFirst);
     expect(request.deduplicationWindow, bangumiRuntimeDeduplicationWindow);
   });
@@ -94,6 +106,15 @@ void main() {
         expiresAt: now.add(const Duration(days: 1)),
         avatarUri: Uri.parse('https://img.test/avatar.png'),
       ),
+      animeCollection: const <BangumiAnimeCollectionItem>[
+        BangumiAnimeCollectionItem(
+          subjectId: BangumiSubjectId('subject-1017'),
+          title: 'Elaina',
+          status: BangumiSubjectCollectionStatus.watching,
+          watchedEpisodes: 5,
+          totalEpisodes: 12,
+        ),
+      ],
       now: () => now,
     );
 
@@ -113,6 +134,14 @@ void main() {
     );
     expect(syncResult, isA<AcgProviderSuccess<void>>());
 
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>> collectionResult =
+        await authenticated.currentAnimeCollection();
+    final List<BangumiAnimeCollectionItem> collection = (collectionResult
+            as AcgProviderSuccess<List<BangumiAnimeCollectionItem>>)
+        .value;
+    expect(collection.single.title, 'Elaina');
+    expect(collection.single.status, BangumiSubjectCollectionStatus.watching);
+
     final BangumiProviderRuntime unauthenticated = BangumiProviderRuntime(
       gateway: _RecordingGateway(),
       now: () => now,
@@ -130,6 +159,13 @@ void main() {
       ),
     );
     expect((missingSync as AcgProviderFailure<void>).kind,
+        AcgProviderFailureKind.unauthenticated);
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>>
+        missingCollection = await unauthenticated.currentAnimeCollection();
+    expect(
+        (missingCollection
+                as AcgProviderFailure<List<BangumiAnimeCollectionItem>>)
+            .kind,
         AcgProviderFailureKind.unauthenticated);
 
     authenticated.dispose();
@@ -222,6 +258,12 @@ void main() {
           body:
               '{"id":7,"subject_id":42,"ep":1,"name":"Episode Fallback","name_cn":"Episode Title"}',
         ),
+        'GET /v0/episodes?subject_id=42&limit=200&offset=0':
+            const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"total":2,"limit":200,"offset":0,"data":[{"id":8,"subject_id":42,"ep":2,"name":"Episode Two","name_cn":""},{"id":7,"subject_id":42,"ep":1,"name":"Episode One","name_cn":"第一话"}]}',
+        ),
       },
     );
     final BangumiApiProvider provider = BangumiApiProvider(
@@ -286,6 +328,21 @@ void main() {
     expect(mapped.title, 'Episode Title');
     expect(gateway.lastNetworkPolicyUri,
         Uri.parse('https://api.test/v0/episodes/7'));
+
+    final AcgProviderResult<List<BangumiEpisode>> listed =
+        await runtime.listEpisodes(const BangumiSubjectId('42'));
+    final List<BangumiEpisode> listedEpisodes =
+        (listed as AcgProviderSuccess<List<BangumiEpisode>>).value;
+    expect(gateway.lastCacheKey, 'episodes:42');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse(
+          'https://api.test/v0/episodes?subject_id=42&limit=200&offset=0'),
+    );
+    expect(
+      listedEpisodes.map((BangumiEpisode episode) => episode.title),
+      <String>['第一话', 'Episode Two'],
+    );
   });
 
   test('concrete API client exposes Bangumi token acquisition URI', () {
@@ -317,6 +374,12 @@ void main() {
             const BangumiApiResponse(statusCode: 204, body: ''),
         'PUT /v0/users/-/collections/-/episodes/8':
             const BangumiApiResponse(statusCode: 204, body: ''),
+        'GET /v0/users/alice/collections?subject_type=2&limit=50&offset=0':
+            const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"total":1,"limit":50,"offset":0,"data":[{"subject_id":42,"subject_type":2,"type":3,"ep_status":5,"updated_at":"2026-06-20T12:00:00+08:00","subject":{"id":42,"type":2,"name":"Fallback","name_cn":"Tracking Title","eps":12,"images":{"large":"https://img.test/cover.jpg"}}}]}',
+        ),
       },
     );
     final BangumiApiProvider provider = BangumiApiProvider(
@@ -377,6 +440,30 @@ void main() {
         jsonDecode(transport.requests.last.body!) as Map<String, Object?>;
     expect(onHoldBody['type'], bangumiEpisodeCollectionWish);
     expect(onHoldBody['type'], isNot(bangumiEpisodeCollectionDropped));
+
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>> collection =
+        await provider.currentAnimeCollection();
+    final BangumiAnimeCollectionItem item =
+        (collection as AcgProviderSuccess<List<BangumiAnimeCollectionItem>>)
+            .value
+            .single;
+    expect(gateway.lastCacheKey, 'anime-collection:current');
+    expect(gateway.lastCachePolicy, ProviderCachePolicy.networkOnly);
+    expect(gateway.lastDeduplicationWindow, Duration.zero);
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse(
+          'https://api.test/v0/users/-/collections?subject_type=2&limit=50&offset=0'),
+    );
+    expect(transport.requests.last.method, 'GET');
+    expect(transport.requests.last.uri.path, '/v0/users/alice/collections');
+    expect(transport.requests.last.headers['authorization'], 'Bearer token-1');
+    expect(item.subjectId.value, '42');
+    expect(item.title, 'Tracking Title');
+    expect(item.status, BangumiSubjectCollectionStatus.watching);
+    expect(item.watchedEpisodes, 5);
+    expect(item.totalEpisodes, 12);
+    expect(item.coverUri, Uri.parse('https://img.test/cover.jpg'));
   });
 
   test('runtime registers concrete provider before auth requests', () async {
@@ -390,6 +477,11 @@ void main() {
         'GET /v0/me': const BangumiApiResponse(
           statusCode: 200,
           body: '{"username":"alice","nickname":"Alice"}',
+        ),
+        'GET /v0/users/alice/collections?subject_type=2&limit=50&offset=0':
+            const BangumiApiResponse(
+          statusCode: 200,
+          body: '{"total":0,"limit":50,"offset":0,"data":[]}',
         ),
       },
     );
@@ -410,11 +502,19 @@ void main() {
         await provider.currentSession();
     expect((direct as AcgProviderFailure<BangumiAuthSession>).message,
         contains('Provider bangumi is not registered'));
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>> directCollection =
+        await provider.currentAnimeCollection();
+    expect(
+      (directCollection as AcgProviderFailure<List<BangumiAnimeCollectionItem>>)
+          .message,
+      contains('Provider bangumi is not registered'),
+    );
 
     final BangumiProviderRuntime runtime = BangumiProviderRuntime(
       gateway: gateway,
       metadataProvider: provider,
       authProvider: provider,
+      collectionProvider: provider,
     );
     final AcgProviderResult<BangumiAuthSession> viaRuntime =
         await runtime.currentSession();
@@ -422,6 +522,15 @@ void main() {
     final BangumiAuthSession session =
         (viaRuntime as AcgProviderSuccess<BangumiAuthSession>).value;
     expect(session.userId, 'alice');
+
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>>
+        viaRuntimeCollection = await runtime.currentAnimeCollection();
+    expect(
+      (viaRuntimeCollection
+              as AcgProviderSuccess<List<BangumiAnimeCollectionItem>>)
+          .value,
+      isEmpty,
+    );
   });
 
   test('concrete API provider normalizes auth and API failures', () async {
@@ -455,6 +564,13 @@ void main() {
       ),
     );
     expect((noTokenProgress as AcgProviderFailure<void>).kind,
+        AcgProviderFailureKind.unauthenticated);
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>>
+        noTokenCollection = await unauthenticated.currentAnimeCollection();
+    expect(
+        (noTokenCollection
+                as AcgProviderFailure<List<BangumiAnimeCollectionItem>>)
+            .kind,
         AcgProviderFailureKind.unauthenticated);
     expect(transport.requests, isEmpty);
 

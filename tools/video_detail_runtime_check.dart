@@ -247,6 +247,24 @@ final class _CheckBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderSuccess<List<BangumiEpisode>>(
+        <BangumiEpisode>[
+          BangumiEpisode(
+            id: const BangumiEpisodeId('check-episode'),
+            subjectId: subjectId,
+            index: 1,
+            title: 'Episode 1',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
     if (id.value != subject.id.value) {
       return Future<AcgProviderResult<BangumiSubject>>.value(

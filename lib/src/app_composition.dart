@@ -10,6 +10,7 @@ import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
 import 'domain/playback/playback_source_handoff.dart';
 import 'domain/profile/bangumi_login_domain.dart';
+import 'domain/profile/bangumi_tracking_domain.dart';
 import 'domain/profile/profile_domain.dart';
 import 'domain/rss/rss_engine_runtime.dart';
 import 'domain/settings/settings_domain.dart';
@@ -91,9 +92,13 @@ class AppComposition {
       gateway: providerGateway,
       metadataProvider: bangumiApiProvider,
       authProvider: bangumiApiProvider,
+      collectionProvider: bangumiApiProvider,
     );
     bangumiAuthProvider = bangumiProviderRuntime;
     profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
+    trackingProvider = _BangumiTrackingCollectionProvider(
+      bangumiProviderRuntime,
+    );
 
     mediaLibraryRuntime = MediaLibraryRuntime(
       scanner: scanner,
@@ -201,6 +206,7 @@ class AppComposition {
   late final BangumiAuthProvider bangumiAuthProvider;
   late final BangumiLoginController bangumiLoginController;
   late final UserProfileProvider profileProvider;
+  late final BangumiTrackingProvider trackingProvider;
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
@@ -333,4 +339,55 @@ final class _BangumiUserProfileProvider implements UserProfileProvider {
       avatarUri: session.avatarUri,
     );
   }
+}
+
+final class _BangumiTrackingCollectionProvider
+    implements BangumiTrackingProvider {
+  const _BangumiTrackingCollectionProvider(this._collectionProvider);
+
+  final BangumiCollectionProvider _collectionProvider;
+
+  @override
+  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>> result =
+        await _collectionProvider.currentAnimeCollection();
+    if (result is AcgProviderSuccess<List<BangumiAnimeCollectionItem>>) {
+      return BangumiTrackingSnapshot.loaded(
+        result.value.map(_trackingItemFromCollection),
+      );
+    }
+    if (result is AcgProviderFailure<List<BangumiAnimeCollectionItem>>) {
+      if (result.kind == AcgProviderFailureKind.unauthenticated) {
+        return BangumiTrackingSnapshot.unauthenticated(result.message);
+      }
+      return BangumiTrackingSnapshot.failed(result.message);
+    }
+    return const BangumiTrackingSnapshot.failed('Bangumi 追番状态未知。');
+  }
+}
+
+BangumiTrackingItem _trackingItemFromCollection(
+  BangumiAnimeCollectionItem item,
+) {
+  return BangumiTrackingItem(
+    subjectId: item.subjectId.value,
+    title: item.title,
+    status: _trackingStatusFromCollection(item.status),
+    watchedEpisodes: item.watchedEpisodes,
+    totalEpisodes: item.totalEpisodes,
+    coverUri: item.coverUri,
+    updatedAt: item.updatedAt,
+  );
+}
+
+BangumiTrackingStatus _trackingStatusFromCollection(
+  BangumiSubjectCollectionStatus status,
+) {
+  return switch (status) {
+    BangumiSubjectCollectionStatus.planned => BangumiTrackingStatus.planned,
+    BangumiSubjectCollectionStatus.completed => BangumiTrackingStatus.completed,
+    BangumiSubjectCollectionStatus.watching => BangumiTrackingStatus.watching,
+    BangumiSubjectCollectionStatus.onHold => BangumiTrackingStatus.onHold,
+    BangumiSubjectCollectionStatus.dropped => BangumiTrackingStatus.dropped,
+  };
 }

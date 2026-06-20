@@ -3493,6 +3493,24 @@ final class _RuntimeBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderSuccess<List<BangumiEpisode>>(
+        <BangumiEpisode>[
+          BangumiEpisode(
+            id: const BangumiEpisodeId('runtime-episode'),
+            subjectId: subjectId,
+            index: 1,
+            title: 'Runtime Episode',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
     return Future<AcgProviderResult<BangumiSubject>>.value(
       AcgProviderSuccess<BangumiSubject>(

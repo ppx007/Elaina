@@ -169,10 +169,8 @@ final class DeterministicVideoDetailRepository
     final BangumiSubject subject =
         (result as AcgProviderSuccess<BangumiSubject>).value;
     final BangumiVideoDetailSeed? seed = _seedsBySubjectId[subject.id.value];
-    final List<BangumiEpisode> episodes = <BangumiEpisode>[
-      ...(seed?.episodes ?? const <BangumiEpisode>[])
-    ]..sort((BangumiEpisode left, BangumiEpisode right) =>
-        left.index.compareTo(right.index));
+    final List<BangumiEpisode> episodes =
+        await _episodesForSubject(subject.id, seed);
     final ProviderBinding? binding = await _strongestBindingFor(seed);
     final List<VideoDetailEpisode> detailEpisodes = <VideoDetailEpisode>[];
     ContinueWatchingState? latestContinue;
@@ -194,7 +192,7 @@ final class DeterministicVideoDetailRepository
     final VideoDetailViewData partial = VideoDetailViewData(
       id: VideoDetailId(subject.id.value),
       title: subject.title,
-      coverUri: seed?.coverUri,
+      coverUri: seed?.coverUri ?? subject.coverUri,
       summary: subject.summary,
       episodes: List<VideoDetailEpisode>.unmodifiable(detailEpisodes),
       continueWatching: latestContinue,
@@ -218,6 +216,30 @@ final class DeterministicVideoDetailRepository
   @override
   Stream<VideoDetailViewData> watch(VideoDetailId id) async* {
     yield await load(id);
+  }
+
+  Future<List<BangumiEpisode>> _episodesForSubject(
+    BangumiSubjectId subjectId,
+    BangumiVideoDetailSeed? seed,
+  ) async {
+    final List<BangumiEpisode> seededEpisodes = <BangumiEpisode>[
+      ...(seed?.episodes ?? const <BangumiEpisode>[])
+    ];
+    if (seededEpisodes.isNotEmpty) {
+      seededEpisodes.sort((BangumiEpisode left, BangumiEpisode right) =>
+          left.index.compareTo(right.index));
+      return List<BangumiEpisode>.unmodifiable(seededEpisodes);
+    }
+    final AcgProviderResult<List<BangumiEpisode>> result =
+        await _metadataProvider.listEpisodes(subjectId);
+    if (result is AcgProviderFailure<List<BangumiEpisode>>) {
+      return const <BangumiEpisode>[];
+    }
+    final List<BangumiEpisode> episodes = <BangumiEpisode>[
+      ...(result as AcgProviderSuccess<List<BangumiEpisode>>).value
+    ]..sort((BangumiEpisode left, BangumiEpisode right) =>
+        left.index.compareTo(right.index));
+    return List<BangumiEpisode>.unmodifiable(episodes);
   }
 
   LocalMediaId? _firstLocalMediaId(BangumiVideoDetailSeed? seed) {

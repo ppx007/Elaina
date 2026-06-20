@@ -19,10 +19,15 @@
   profile state immediately after token submission.
 - [x] 3.3 Surface auth start/save failures without blocking non-Bangumi
   features.
+- [x] 3.4 Load the authenticated Bangumi anime collection through the provider
+  runtime and refresh the tracking page after token login or manual refresh.
+- [x] 3.5 Open remote tracking entries into a Bangumi-backed detail page with
+  subject metadata, cover art, and episode list data.
 
 ## 4. Validation
 
 - [x] 4.1 Add focused tests for token-page URI construction, login dispatch,
-  and manual token profile refresh.
+  manual token profile refresh, authenticated tracking refresh, and remote
+  tracking detail navigation.
 - [x] 4.2 Run format, focused tests, Dart analysis, OpenSpec validation, and a
   credential leak scan.

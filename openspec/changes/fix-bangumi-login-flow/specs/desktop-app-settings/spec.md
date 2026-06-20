@@ -8,5 +8,6 @@ profile projection is refreshed.
 #### Scenario: Token is accepted
 - **WHEN** the user enters a valid Bangumi access token
 - **THEN** the settings UI invokes the Bangumi login boundary
-- **AND** the app shell refreshes the Bangumi profile so account labels and
-  avatars can update without restarting the app
+- **AND** the app shell refreshes the Bangumi profile and tracking collection
+  so account labels, avatars, and "My Tracking" entries can update without
+  restarting the app

@@ -166,6 +166,18 @@ final class _FakeBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
+      AcgProviderFailure<List<BangumiEpisode>>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Episode list lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
     return Future<AcgProviderResult<BangumiSubject>>.value(
       AcgProviderFailure<BangumiSubject>(
@@ -929,6 +941,135 @@ void main() {
       await invalidationBus.close();
     });
 
+    testWidgets('Bangumi token login refreshes remote tracking collection',
+        (WidgetTester tester) async {
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: const <MediaScanCandidate>[],
+        ),
+        catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+        importer: DeterministicMediaBatchImportContract(
+          repository: DeterministicMediaLibraryCatalogRepository(),
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+      final VideoDetailPageContract videoDetailContract =
+          VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(
+            initialData: const VideoDetailViewData(
+              id: VideoDetailId('42'),
+              title: 'Remote Anime',
+              summary: 'Remote detail summary',
+              episodes: <VideoDetailEpisode>[],
+              followState: VideoFollowState.followed,
+              actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+            ),
+          ),
+          actions: FakeVideoDetailActionHandler(),
+        ),
+      );
+      final DeterministicRssAutoDownloadPolicyStore policyStore =
+          DeterministicRssAutoDownloadPolicyStore();
+      final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
+        engine: _FakeRssEngine(),
+        store: DeterministicRssFeedStore(),
+        scheduler: _FakeFeedScheduler(),
+        policyStore: policyStore,
+      );
+      final BtTaskCoreRuntime btTaskCoreRuntime =
+          BtTaskCoreRuntime.unavailable(reason: 'testing');
+      final _MutableBangumiTrackingProvider trackingProvider =
+          _MutableBangumiTrackingProvider(
+        const BangumiTrackingSnapshot.unauthenticated('missing token'),
+      );
+      final _RecordingBangumiLoginController bangumiLoginController =
+          _RecordingBangumiLoginController(
+        onSignIn: (_) {
+          trackingProvider.snapshot = BangumiTrackingSnapshot.loaded(
+            const <BangumiTrackingItem>[
+              BangumiTrackingItem(
+                subjectId: '42',
+                title: 'Remote Anime',
+                status: BangumiTrackingStatus.watching,
+                watchedEpisodes: 5,
+                totalEpisodes: 12,
+              ),
+            ],
+          );
+        },
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: ElainaAppShell(
+            playbackController: playbackController,
+            videoSurface: const SizedBox(),
+            mediaLibraryRuntime: libraryRuntime,
+            videoDetailPageContract: videoDetailContract,
+            rssEngineRuntime: rssEngineRuntime,
+            downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            settingsRuntime: FakeSettingsRuntime(),
+            diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            bangumiTrackingProvider: trackingProvider,
+            bangumiLoginController: bangumiLoginController,
+            carouselAutoScroll: false,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('设置'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('settings-bangumi-access-token')),
+        ' token-1 ',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('settings-bangumi-login')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.text('我的追番'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(trackingProvider.calls, greaterThanOrEqualTo(2));
+      expect(bangumiLoginController.submittedToken, 'token-1');
+      expect(find.text('Remote Anime'), findsOneWidget);
+      expect(find.text('Bangumi ID: 42'), findsOneWidget);
+      expect(find.text('5 / 12'), findsOneWidget);
+
+      await tester.tap(find.text('Remote Anime'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Remote detail summary'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+
+      await tester.tap(find.text('在追 1'));
+      await tester.pump();
+      expect(find.text('Remote Anime'), findsOneWidget);
+
+      libraryRuntime.dispose();
+      await invalidationBus.close();
+    });
+
     testWidgets('Bangumi tracking filters update visible list and empty state',
         (WidgetTester tester) async {
       final DateTime now = DateTime.utc(2026, 6, 19, 12);
@@ -1064,6 +1205,9 @@ void main() {
 }
 
 final class _RecordingBangumiLoginController implements BangumiLoginController {
+  _RecordingBangumiLoginController({this.onSignIn});
+
+  final void Function(String token)? onSignIn;
   int startLoginCalls = 0;
   Uri? openedUri;
   String? submittedToken;
@@ -1080,9 +1224,23 @@ final class _RecordingBangumiLoginController implements BangumiLoginController {
     String accessToken,
   ) async {
     submittedToken = accessToken;
+    onSignIn?.call(submittedToken!);
     return const BangumiTokenSignInResult.signedIn(
       UserProfileSnapshot(displayName: 'Alice'),
     );
+  }
+}
+
+final class _MutableBangumiTrackingProvider implements BangumiTrackingProvider {
+  _MutableBangumiTrackingProvider(this.snapshot);
+
+  BangumiTrackingSnapshot snapshot;
+  int calls = 0;
+
+  @override
+  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
+    calls++;
+    return snapshot;
   }
 }
 

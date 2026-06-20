@@ -16,7 +16,16 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
+const int bangumiApiEpisodePageLimit = 200;
+const int bangumiApiEpisodeInitialOffset = 0;
+const int bangumiApiCollectionPageLimit = 50;
+const int bangumiApiCollectionInitialOffset = 0;
 const int bangumiAnimeSubjectType = 2;
+const int bangumiSubjectCollectionWish = 1;
+const int bangumiSubjectCollectionDone = 2;
+const int bangumiSubjectCollectionDoing = 3;
+const int bangumiSubjectCollectionOnHold = 4;
+const int bangumiSubjectCollectionDropped = 5;
 const int bangumiEpisodeCollectionWish = 1;
 const int bangumiEpisodeCollectionDone = 2;
 const int bangumiEpisodeCollectionDropped = 3;
@@ -166,8 +175,38 @@ final class BangumiApiClient {
     return _uri('/v0/episodes/${Uri.encodeComponent(id.value)}');
   }
 
+  Uri listEpisodesRequestUri({
+    required BangumiSubjectId subjectId,
+    int limit = bangumiApiEpisodePageLimit,
+    int offset = bangumiApiEpisodeInitialOffset,
+  }) {
+    return _uri(
+      '/v0/episodes',
+      <String, String>{
+        'subject_id': subjectId.value,
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
   Uri currentSessionRequestUri() {
     return _uri('/v0/me');
+  }
+
+  Uri currentAnimeCollectionRequestUri({
+    required String username,
+    int limit = bangumiApiCollectionPageLimit,
+    int offset = bangumiApiCollectionInitialOffset,
+  }) {
+    return _uri(
+      '/v0/users/${Uri.encodeComponent(username)}/collections',
+      <String, String>{
+        'subject_type': '$bangumiAnimeSubjectType',
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
   }
 
   Uri accessTokenPageUri({Uri? tokenPageUri}) {
@@ -241,6 +280,65 @@ final class BangumiApiClient {
     return _episodeFromJson(_jsonObject(json, 'Bangumi episode'));
   }
 
+  Future<List<BangumiEpisode>> listEpisodes(
+    BangumiSubjectId subjectId, {
+    String? proxyUrl,
+  }) async {
+    final List<BangumiEpisode> episodes = <BangumiEpisode>[];
+    int offset = bangumiApiEpisodeInitialOffset;
+    int? total;
+    while (total == null || offset < total) {
+      final _BangumiEpisodePage page = await _episodePage(
+        subjectId: subjectId,
+        offset: offset,
+        proxyUrl: proxyUrl,
+      );
+      total = page.total;
+      episodes.addAll(page.episodes);
+      if (page.episodes.length < page.limit) break;
+      offset += page.limit;
+    }
+    episodes.sort(
+      (BangumiEpisode left, BangumiEpisode right) =>
+          left.index.compareTo(right.index),
+    );
+    return List<BangumiEpisode>.unmodifiable(episodes);
+  }
+
+  Future<_BangumiEpisodePage> _episodePage({
+    required BangumiSubjectId subjectId,
+    required int offset,
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      listEpisodesRequestUri(subjectId: subjectId, offset: offset),
+      proxyUrl: proxyUrl,
+    );
+    final Map<String, Object?> object =
+        _jsonObject(json, 'Bangumi episode page');
+    final Object? data = object['data'];
+    if (data is! List<Object?>) {
+      throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Bangumi episode list response missing data list.',
+      );
+    }
+    return _BangumiEpisodePage(
+      total: _optionalNonNegativeInt(object['total'], fallback: data.length),
+      limit: _optionalPositiveInt(
+        object['limit'],
+        fallback: bangumiApiEpisodePageLimit,
+      ),
+      episodes: data
+          .map(
+            (Object? value) =>
+                _episodeFromJson(_jsonObject(value, 'Bangumi episode')),
+          )
+          .toList(growable: false),
+    );
+  }
+
   Future<BangumiAuthSession> currentSession({
     required BangumiApiAccessToken token,
     required DateTime now,
@@ -273,6 +371,72 @@ final class BangumiApiClient {
         object['id'],
       ]),
       avatarUri: _avatarUriFromJson(object['avatar']),
+    );
+  }
+
+  Future<List<BangumiAnimeCollectionItem>> currentAnimeCollection({
+    required BangumiApiAccessToken token,
+    required DateTime now,
+    String? proxyUrl,
+  }) async {
+    final BangumiAuthSession session = await currentSession(
+      token: token,
+      now: now,
+      proxyUrl: proxyUrl,
+    );
+    final List<BangumiAnimeCollectionItem> items =
+        <BangumiAnimeCollectionItem>[];
+    int offset = bangumiApiCollectionInitialOffset;
+    int? total;
+    while (total == null || offset < total) {
+      final _BangumiCollectionPage page = await _animeCollectionPage(
+        username: session.userId,
+        token: token,
+        offset: offset,
+        proxyUrl: proxyUrl,
+      );
+      total = page.total;
+      items.addAll(page.items);
+      if (page.items.length < page.limit) break;
+      offset += page.limit;
+    }
+    return List<BangumiAnimeCollectionItem>.unmodifiable(items);
+  }
+
+  Future<_BangumiCollectionPage> _animeCollectionPage({
+    required String username,
+    required BangumiApiAccessToken token,
+    required int offset,
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      currentAnimeCollectionRequestUri(username: username, offset: offset),
+      token: token,
+      proxyUrl: proxyUrl,
+    );
+    final Map<String, Object?> object =
+        _jsonObject(json, 'Bangumi collection page');
+    final Object? data = object['data'];
+    if (data is! List<Object?>) {
+      throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Bangumi collection response missing data list.',
+      );
+    }
+    return _BangumiCollectionPage(
+      total: _optionalNonNegativeInt(object['total'], fallback: data.length),
+      limit: _optionalPositiveInt(
+        object['limit'],
+        fallback: bangumiApiCollectionPageLimit,
+      ),
+      items: data
+          .map(
+            (Object? value) => _collectionItemFromJson(
+              _jsonObject(value, 'Bangumi collection item'),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 
@@ -363,7 +527,11 @@ String _joinedPath(String basePath, String path) {
 }
 
 final class BangumiApiProvider
-    implements BangumiProvider, BangumiAuthProvider, GatewayBoundProvider {
+    implements
+        BangumiProvider,
+        BangumiAuthProvider,
+        BangumiCollectionProvider,
+        GatewayBoundProvider {
   BangumiApiProvider({
     required this.gateway,
     required BangumiApiClient client,
@@ -455,6 +623,19 @@ final class BangumiApiProvider
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute<List<BangumiEpisode>>(
+      key: bangumiEpisodeListRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.listEpisodesRequestUri(subjectId: subjectId),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.listEpisodes(subjectId, proxyUrl: context.proxyUrl),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiAuthSession>> currentSession() async {
     final BangumiApiAccessToken? token = await _activeToken();
     if (token == null) return _unauthenticated<BangumiAuthSession>();
@@ -464,6 +645,27 @@ final class BangumiApiProvider
       deduplicationWindow: Duration.zero,
       networkPolicyUri: _client.currentSessionRequestUri(),
       load: (ProviderGatewayRequestContext context) => _client.currentSession(
+        token: token,
+        now: (_now ?? DateTime.now)(),
+        proxyUrl: context.proxyUrl,
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiAnimeCollectionItem>>>
+      currentAnimeCollection() async {
+    final BangumiApiAccessToken? token = await _activeToken();
+    if (token == null) {
+      return _unauthenticated<List<BangumiAnimeCollectionItem>>();
+    }
+    return _execute<List<BangumiAnimeCollectionItem>>(
+      key: bangumiAnimeCollectionRequestKey(),
+      cachePolicy: ProviderCachePolicy.networkOnly,
+      deduplicationWindow: Duration.zero,
+      networkPolicyUri: _client.currentAnimeCollectionRequestUri(username: '-'),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.currentAnimeCollection(
         token: token,
         now: (_now ?? DateTime.now)(),
         proxyUrl: context.proxyUrl,
@@ -565,6 +767,7 @@ BangumiSubject _subjectFromJson(Map<String, Object?> json) {
     id: BangumiSubjectId(id),
     title: title,
     summary: _optionalString(json['summary']),
+    coverUri: _avatarUriFromJson(json['images']),
   );
 }
 
@@ -588,6 +791,32 @@ BangumiEpisode _episodeFromJson(Map<String, Object?> json) {
   );
 }
 
+BangumiAnimeCollectionItem _collectionItemFromJson(
+  Map<String, Object?> json,
+) {
+  final String id =
+      _requiredIdString(json['subject_id'], 'Bangumi collection subject id');
+  final Map<String, Object?>? subject = _optionalJsonObject(json['subject']);
+  final String title = _firstNonEmptyString(<Object?>[
+    subject?['name_cn'],
+    subject?['name'],
+    json['subject_name_cn'],
+    json['subject_name'],
+    id,
+  ]);
+  return BangumiAnimeCollectionItem(
+    subjectId: BangumiSubjectId(id),
+    title: title,
+    status: _subjectCollectionStatus(json['type']),
+    watchedEpisodes: _optionalNonNegativeInt(json['ep_status']),
+    totalEpisodes: _optionalNonNegativeInt(
+      subject?['eps'] ?? subject?['total_episodes'],
+    ),
+    coverUri: _avatarUriFromJson(subject?['images']),
+    updatedAt: _optionalDateTime(json['updated_at']),
+  );
+}
+
 String _requiredIdString(Object? value, String label) {
   final String id = _stringValue(value);
   if (id.isEmpty) {
@@ -602,6 +831,11 @@ String _requiredIdString(Object? value, String label) {
 String? _optionalString(Object? value) {
   final String text = _stringValue(value);
   return text.isEmpty ? null : text;
+}
+
+Map<String, Object?>? _optionalJsonObject(Object? value) {
+  if (value == null) return null;
+  return _jsonObject(value, 'Bangumi nested object');
 }
 
 Uri? _avatarUriFromJson(Object? value) {
@@ -661,6 +895,42 @@ int _firstInt(Iterable<Object?> values) {
   );
 }
 
+int _optionalNonNegativeInt(Object? value, {int fallback = 0}) {
+  final int? parsed = switch (value) {
+    final int number => number,
+    final double number => number.round(),
+    final String text => int.tryParse(text),
+    _ => null,
+  };
+  if (parsed == null || parsed < 0) return fallback;
+  return parsed;
+}
+
+int _optionalPositiveInt(Object? value, {required int fallback}) {
+  final int parsed = _optionalNonNegativeInt(value, fallback: fallback);
+  return parsed > 0 ? parsed : fallback;
+}
+
+DateTime? _optionalDateTime(Object? value) {
+  final String text = _stringValue(value);
+  if (text.isEmpty) return null;
+  return DateTime.tryParse(text);
+}
+
+BangumiSubjectCollectionStatus _subjectCollectionStatus(Object? value) {
+  return switch (_optionalNonNegativeInt(value)) {
+    bangumiSubjectCollectionWish => BangumiSubjectCollectionStatus.planned,
+    bangumiSubjectCollectionDone => BangumiSubjectCollectionStatus.completed,
+    bangumiSubjectCollectionDoing => BangumiSubjectCollectionStatus.watching,
+    bangumiSubjectCollectionOnHold => BangumiSubjectCollectionStatus.onHold,
+    bangumiSubjectCollectionDropped => BangumiSubjectCollectionStatus.dropped,
+    _ => throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Bangumi collection item has unknown collection type.',
+      ),
+  };
+}
+
 int _episodeCollectionType(BangumiProgressState state) {
   return switch (state) {
     BangumiProgressState.planned => bangumiEpisodeCollectionWish,
@@ -704,4 +974,28 @@ final class _BangumiApiUnauthenticated implements Exception {
   const _BangumiApiUnauthenticated(this.message);
 
   final String message;
+}
+
+final class _BangumiCollectionPage {
+  const _BangumiCollectionPage({
+    required this.total,
+    required this.limit,
+    required this.items,
+  });
+
+  final int total;
+  final int limit;
+  final List<BangumiAnimeCollectionItem> items;
+}
+
+final class _BangumiEpisodePage {
+  const _BangumiEpisodePage({
+    required this.total,
+    required this.limit,
+    required this.episodes,
+  });
+
+  final int total;
+  final int limit;
+  final List<BangumiEpisode> episodes;
 }

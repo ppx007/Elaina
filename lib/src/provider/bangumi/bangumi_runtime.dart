@@ -29,10 +29,24 @@ ProviderRequestKey bangumiEpisodeRequestKey(BangumiEpisodeId id) {
   );
 }
 
+ProviderRequestKey bangumiEpisodeListRequestKey(BangumiSubjectId subjectId) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'episodes:${subjectId.value}',
+  );
+}
+
 ProviderRequestKey bangumiSessionRequestKey() {
   return const ProviderRequestKey(
     providerId: bangumiProviderId,
     cacheKey: 'auth-session:current',
+  );
+}
+
+ProviderRequestKey bangumiAnimeCollectionRequestKey() {
+  return const ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'anime-collection:current',
   );
 }
 
@@ -171,6 +185,26 @@ final class DeterministicBangumiProvider implements BangumiProvider {
     );
   }
 
+  @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute(
+      key: bangumiEpisodeListRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async {
+        final List<BangumiEpisode> episodes = <BangumiEpisode>[
+          for (final BangumiEpisode episode in _episodes.values)
+            if (episode.subjectId.value == subjectId.value) episode,
+        ]..sort(
+            (BangumiEpisode left, BangumiEpisode right) =>
+                left.index.compareTo(right.index),
+          );
+        return List<BangumiEpisode>.unmodifiable(episodes);
+      },
+    );
+  }
+
   Future<AcgProviderResult<T>> _execute<T>({
     required ProviderRequestKey key,
     required Future<T> Function() load,
@@ -192,17 +226,24 @@ final class DeterministicBangumiProvider implements BangumiProvider {
 }
 
 final class DeterministicBangumiAuthProvider
-    implements BangumiAuthProvider, GatewayBoundProvider {
+    implements
+        BangumiAuthProvider,
+        BangumiCollectionProvider,
+        GatewayBoundProvider {
   const DeterministicBangumiAuthProvider({
     required this.gateway,
     BangumiAuthSession? session,
+    Iterable<BangumiAnimeCollectionItem> animeCollection =
+        const <BangumiAnimeCollectionItem>[],
     bool progressSyncAvailable = true,
     DateTime Function()? now,
   })  : _session = session,
+        _animeCollection = animeCollection,
         _progressSyncAvailable = progressSyncAvailable,
         _now = now;
 
   final BangumiAuthSession? _session;
+  final Iterable<BangumiAnimeCollectionItem> _animeCollection;
   final bool _progressSyncAvailable;
   final DateTime Function()? _now;
 
@@ -316,19 +357,56 @@ final class DeterministicBangumiAuthProvider
       );
     }
   }
+
+  @override
+  Future<AcgProviderResult<List<BangumiAnimeCollectionItem>>>
+      currentAnimeCollection() async {
+    final BangumiAuthSession? session = _session;
+    if (session == null || session.isExpiredAt((_now ?? DateTime.now)())) {
+      return const AcgProviderFailure<List<BangumiAnimeCollectionItem>>(
+        kind: AcgProviderFailureKind.unauthenticated,
+        message: 'Bangumi collection requires an active session.',
+      );
+    }
+    try {
+      final ProviderGatewayResponse<List<BangumiAnimeCollectionItem>> response =
+          await gateway.execute<List<BangumiAnimeCollectionItem>>(
+        bangumiGatewayRequest<List<BangumiAnimeCollectionItem>>(
+          key: bangumiAnimeCollectionRequestKey(),
+          cachePolicy: ProviderCachePolicy.networkOnly,
+          load: () async {
+            return List<BangumiAnimeCollectionItem>.unmodifiable(
+              _animeCollection,
+            );
+          },
+        ),
+      );
+      return AcgProviderSuccess<List<BangumiAnimeCollectionItem>>(
+        response.value,
+      );
+    } on ProviderFailure catch (failure) {
+      return AcgProviderFailure<List<BangumiAnimeCollectionItem>>(
+        kind: acgFailureKindFromGateway(failure.kind),
+        message: failure.message,
+      );
+    }
+  }
 }
 
 final class BangumiProviderRuntime
-    implements BangumiProvider, BangumiAuthProvider {
+    implements BangumiProvider, BangumiAuthProvider, BangumiCollectionProvider {
   BangumiProviderRuntime({
     required ProviderGateway gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
     Iterable<BangumiEpisode> episodes = const <BangumiEpisode>[],
+    Iterable<BangumiAnimeCollectionItem> animeCollection =
+        const <BangumiAnimeCollectionItem>[],
     BangumiAuthSession? session,
     bool progressSyncAvailable = true,
     DateTime Function()? now,
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
+    BangumiCollectionProvider? collectionProvider,
   })  : _gateway = gateway,
         _metadataProvider = metadataProvider ??
             DeterministicBangumiProvider(
@@ -340,6 +418,16 @@ final class BangumiProviderRuntime
             DeterministicBangumiAuthProvider(
               gateway: gateway,
               session: session,
+              animeCollection: animeCollection,
+              progressSyncAvailable: progressSyncAvailable,
+              now: now,
+            ),
+        _collectionProvider = collectionProvider ??
+            _bangumiCollectionProviderFrom(authProvider) ??
+            DeterministicBangumiAuthProvider(
+              gateway: gateway,
+              session: session,
+              animeCollection: animeCollection,
               progressSyncAvailable: progressSyncAvailable,
               now: now,
             );
@@ -347,12 +435,15 @@ final class BangumiProviderRuntime
   final ProviderGateway _gateway;
   final BangumiProvider _metadataProvider;
   final BangumiAuthProvider _authProvider;
+  final BangumiCollectionProvider _collectionProvider;
   bool _registered = false;
   bool _disposed = false;
 
   BangumiProvider get metadataProvider => _metadataProvider;
 
   BangumiAuthProvider get authProvider => _authProvider;
+
+  BangumiCollectionProvider get collectionProvider => _collectionProvider;
 
   bool get isDisposed => _disposed;
 
@@ -428,6 +519,15 @@ final class BangumiProviderRuntime
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) async {
+    if (_disposed) return _disposedFailure<List<BangumiEpisode>>();
+    await _ensureRegistered();
+    return _metadataProvider.listEpisodes(subjectId);
+  }
+
+  @override
   Future<AcgProviderResult<BangumiAuthSession>> currentSession() async {
     if (_disposed) return _disposedFailure<BangumiAuthSession>();
     await _ensureRegistered();
@@ -440,6 +540,14 @@ final class BangumiProviderRuntime
     if (_disposed) return _disposedFailure<void>();
     await _ensureRegistered();
     return _authProvider.syncProgress(update);
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiAnimeCollectionItem>>>
+      currentAnimeCollection() async {
+    if (_disposed) return _disposedFailure<List<BangumiAnimeCollectionItem>>();
+    await _ensureRegistered();
+    return _collectionProvider.currentAnimeCollection();
   }
 
   Future<void> _ensureRegistered() async {
@@ -461,20 +569,25 @@ final class BangumiProviderBootstrap {
     required ProviderGateway gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
     Iterable<BangumiEpisode> episodes = const <BangumiEpisode>[],
+    Iterable<BangumiAnimeCollectionItem> animeCollection =
+        const <BangumiAnimeCollectionItem>[],
     BangumiAuthSession? session,
     bool progressSyncAvailable = true,
     DateTime Function()? now,
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
+    BangumiCollectionProvider? collectionProvider,
   }) : runtime = BangumiProviderRuntime(
           gateway: gateway,
           subjects: subjects,
           episodes: episodes,
+          animeCollection: animeCollection,
           session: session,
           progressSyncAvailable: progressSyncAvailable,
           now: now,
           metadataProvider: metadataProvider,
           authProvider: authProvider,
+          collectionProvider: collectionProvider,
         );
 
   final BangumiProviderRuntime runtime;
@@ -483,9 +596,19 @@ final class BangumiProviderBootstrap {
 
   BangumiAuthProvider get authProvider => runtime;
 
+  BangumiCollectionProvider get collectionProvider => runtime;
+
   Future<void> initialize() => runtime.initialize();
 
   void dispose() => runtime.dispose();
 }
 
 String _normalizeQuery(String query) => query.trim().toLowerCase();
+
+BangumiCollectionProvider? _bangumiCollectionProviderFrom(
+  BangumiAuthProvider? provider,
+) {
+  return provider is BangumiCollectionProvider
+      ? provider as BangumiCollectionProvider
+      : null;
+}

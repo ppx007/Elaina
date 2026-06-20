@@ -127,6 +127,17 @@ final class UnavailableBangumiProvider implements BangumiProvider {
           'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
     );
   }
+
+  @override
+  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  ) async {
+    return const AcgProviderFailure<List<BangumiEpisode>>(
+      kind: AcgProviderFailureKind.unavailable,
+      message:
+          'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
+    );
+  }
 }
 
 final class UnavailableBangumiAuthProvider implements BangumiAuthProvider {
