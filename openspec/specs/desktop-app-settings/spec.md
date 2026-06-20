@@ -16,5 +16,5 @@ The settings page SHALL provide input fields for configuring custom HTTP proxies
 
 #### Scenario: Save custom network proxy
 - **WHEN** the user inputs a valid proxy host URL and saves it
-- **THEN** the UI updates the proxy values in [NetworkPolicy](file:///D:/CodeWork/pkpk/lib/src/network/network_policy.dart)
+- **THEN** the UI updates the proxy values in [NetworkPolicy](file:///D:/CodeWork/elaina/lib/src/network/network_policy.dart)
 

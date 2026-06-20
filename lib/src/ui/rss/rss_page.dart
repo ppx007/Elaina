@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/rss/rss_engine_runtime.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class RssPage extends StatefulWidget {
   const RssPage({
@@ -86,7 +86,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   }
 
   Future<void> _addNewFeed() async {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
     await showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -101,7 +101,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
     final bool isBusy = _snapshot.status == RssEngineRuntimeStatus.refreshing ||
         _isRefreshingRegistry;
 
@@ -428,7 +428,7 @@ class _AddFeedDialog extends StatefulWidget {
     required this.refreshRegistry,
   });
 
-  final CelesteriaThemeData theme;
+  final ElainaThemeData theme;
   final RssEngineRuntime rssEngineRuntime;
   final Future<void> Function() refreshRegistry;
 

@@ -25,6 +25,6 @@ Phase 5 Step 22 now exposes video enhancement render-budget pressure and degrada
 
 ## Impact
 
-- Affected code: `lib/src/playback/av_sync_guard.dart`, `lib/src/playback/video_enhancement_pipeline.dart` if handoff types need refinement, `lib/src/playback/capability_matrix.dart`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, `lib/celesteria.dart`, focused tests, runtime checks, and `tools/check_advanced_playback_core.ps1`.
+- Affected code: `lib/src/playback/av_sync_guard.dart`, `lib/src/playback/video_enhancement_pipeline.dart` if handoff types need refinement, `lib/src/playback/capability_matrix.dart`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, `lib/elaina.dart`, focused tests, runtime checks, and `tools/check_advanced_playback_core.ps1`.
 - Affected specs: new `av-sync-guard-contract` plus deltas for `av-sync-guard`, `video-enhancement-pipeline`, `local-storage-foundation`, `cache-invalidation-bus`, and `playback-capability-matrix`.
 - Dependencies: existing Playback contracts, VideoEnhancementPipeline budget-pressure read models, Storage, and CacheInvalidationBus only; no concrete MPV/VLC/libmpv/media-kit timing integration, no FFI/native plugin, no Flutter widget/rendering code, no diagnostics center, and no Phase 6 provider/network automation.

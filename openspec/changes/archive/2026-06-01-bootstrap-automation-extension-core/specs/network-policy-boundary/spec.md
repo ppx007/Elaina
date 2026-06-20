@@ -33,4 +33,4 @@ The system MUST model policy enforcement as app-level provider traffic governanc
 
 #### Scenario: User configures provider policy
 - **WHEN** a provider policy is configured
-- **THEN** the policy applies only to Celesteria-managed provider traffic and not to unrelated system traffic
+- **THEN** the policy applies only to Elaina-managed provider traffic and not to unrelated system traffic

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/diagnostics/diagnostics_domain.dart';
 import '../../foundation/constants.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class DiagnosticsPage extends StatefulWidget {
   const DiagnosticsPage({
@@ -16,7 +16,8 @@ class DiagnosticsPage extends StatefulWidget {
   State<DiagnosticsPage> createState() => _DiagnosticsPageState();
 }
 
-class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProviderStateMixin {
+class _DiagnosticsPageState extends State<DiagnosticsPage>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
   List<DiagnosticsEventProjection> _events = <DiagnosticsEventProjection>[];
@@ -44,13 +45,18 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
     });
 
     try {
-      final List<DiagnosticsEventProjection> allEvents = await widget.diagnosticsRuntime.queryEvents();
-      final List<DiagnosticsEventProjection> cappedEvents = allEvents.length > AppConstants.diagnosticsPageMaxDisplayEvents
-          ? allEvents.sublist(allEvents.length - AppConstants.diagnosticsPageMaxDisplayEvents)
+      final List<DiagnosticsEventProjection> allEvents =
+          await widget.diagnosticsRuntime.queryEvents();
+      final List<DiagnosticsEventProjection> cappedEvents = allEvents.length >
+              AppConstants.diagnosticsPageMaxDisplayEvents
+          ? allEvents.sublist(
+              allEvents.length - AppConstants.diagnosticsPageMaxDisplayEvents)
           : allEvents;
 
-      final Map<String, String> caps = widget.diagnosticsRuntime.getCapabilitiesSupportStatus();
-      final double drift = await widget.diagnosticsRuntime.getLatestAvSyncDrift();
+      final Map<String, String> caps =
+          widget.diagnosticsRuntime.getCapabilitiesSupportStatus();
+      final double drift =
+          await widget.diagnosticsRuntime.getLatestAvSyncDrift();
       final int memory = widget.diagnosticsRuntime.getActiveMemoryUsageBytes();
 
       if (mounted) {
@@ -76,7 +82,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -108,7 +114,8 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
                   ),
                 ),
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('刷新诊断数据', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('刷新诊断数据',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: _refreshData,
               ),
             ],
@@ -121,7 +128,8 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
             indicatorColor: theme.primary,
             labelColor: theme.primary,
             unselectedLabelColor: theme.onBackground.withValues(alpha: 0.6),
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             tabs: const <Tab>[
               Tab(text: '系统状态与功能矩阵'),
               Tab(text: '时序日志事件'),
@@ -142,7 +150,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
     );
   }
 
-  Widget _buildSystemOverview(CelesteriaThemeData theme) {
+  Widget _buildSystemOverview(ElainaThemeData theme) {
     final double driftAbs = _avSyncDrift.abs();
     final String syncStatus = driftAbs < 40.0
         ? '优秀 (<40ms)'
@@ -163,7 +171,8 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
             Expanded(
               child: _buildTelemetryCard(
                 title: '当前内存占用',
-                value: '${(_memoryUsageBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                value:
+                    '${(_memoryUsageBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
                 icon: Icons.memory,
                 color: theme.primary,
                 theme: theme,
@@ -207,11 +216,14 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
               Wrap(
                 spacing: 16,
                 runSpacing: 16,
-                children: _capabilities.entries.map((MapEntry<String, String> entry) {
-                  final bool isSupported = entry.value.toLowerCase() == 'supported';
+                children:
+                    _capabilities.entries.map((MapEntry<String, String> entry) {
+                  final bool isSupported =
+                      entry.value.toLowerCase() == 'supported';
                   return Container(
                     width: 240,
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 12.0),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(12.0),
@@ -225,8 +237,11 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
                     child: Row(
                       children: <Widget>[
                         Icon(
-                          isSupported ? Icons.check_circle_outline : Icons.highlight_off,
-                          color: isSupported ? theme.primary : theme.accentMagenta,
+                          isSupported
+                              ? Icons.check_circle_outline
+                              : Icons.highlight_off,
+                          color:
+                              isSupported ? theme.primary : theme.accentMagenta,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -246,7 +261,9 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
                               Text(
                                 entry.value,
                                 style: TextStyle(
-                                  color: isSupported ? theme.primary : theme.accentMagenta,
+                                  color: isSupported
+                                      ? theme.primary
+                                      : theme.accentMagenta,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -271,7 +288,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
     required String value,
     required IconData icon,
     required Color color,
-    required CelesteriaThemeData theme,
+    required ElainaThemeData theme,
     String? subtitle,
   }) {
     return Container(
@@ -332,7 +349,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
     );
   }
 
-  Widget _buildTimelineTable(CelesteriaThemeData theme) {
+  Widget _buildTimelineTable(ElainaThemeData theme) {
     if (_events.isEmpty) {
       return Center(
         child: Text(
@@ -356,17 +373,29 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
         child: SingleChildScrollView(
           scrollDirection: Axis.vertical,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.03)),
+            headingRowColor:
+                WidgetStateProperty.all(Colors.white.withValues(alpha: 0.03)),
             dataRowMaxHeight: 64,
             columns: const <DataColumn>[
-              DataColumn(label: Text('时间', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('模块', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('级别', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('事件类型', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('详细信息', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(
+                  label: Text('时间',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(
+                  label: Text('模块',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(
+                  label: Text('级别',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(
+                  label: Text('事件类型',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(
+                  label: Text('详细信息',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
             ],
             rows: _events.map((DiagnosticsEventProjection event) {
-              final String timeStr = '${event.occurredAt.hour.toString().padLeft(2, '0')}:'
+              final String timeStr =
+                  '${event.occurredAt.hour.toString().padLeft(2, '0')}:'
                   '${event.occurredAt.minute.toString().padLeft(2, '0')}:'
                   '${event.occurredAt.second.toString().padLeft(2, '0')}';
 
@@ -382,21 +411,28 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
               return DataRow(
                 cells: <DataCell>[
                   DataCell(Text(timeStr, style: const TextStyle(fontSize: 13))),
-                  DataCell(Text(event.sourceModule, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                  DataCell(Text(event.sourceModule,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.bold))),
                   DataCell(
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0, vertical: 4.0),
                       decoration: BoxDecoration(
                         color: severityColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4.0),
                       ),
                       child: Text(
                         event.severity,
-                        style: TextStyle(color: severityColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: severityColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
-                  DataCell(Text(event.eventType, style: const TextStyle(fontSize: 13))),
+                  DataCell(Text(event.eventType,
+                      style: const TextStyle(fontSize: 13))),
                   DataCell(
                     Container(
                       constraints: const BoxConstraints(maxWidth: 320),
@@ -404,7 +440,9 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> with SingleTickerProv
                         event.payloadText,
                         overflow: TextOverflow.ellipsis,
                         maxLines: 2,
-                        style: TextStyle(color: theme.onBackground.withValues(alpha: 0.7), fontSize: 12),
+                        style: TextStyle(
+                            color: theme.onBackground.withValues(alpha: 0.7),
+                            fontSize: 12),
                       ),
                     ),
                   ),

@@ -27,4 +27,4 @@ None.
 
 - Affects OpenSpec planning artifacts and future baseline staging guidance only.
 - Does not mutate the git index, create commits, delete files, configure remotes, push, or publish.
-- Does not change Celesteria runtime contracts except for the delta spec that records the refreshed staging-plan requirement.
+- Does not change Elaina runtime contracts except for the delta spec that records the refreshed staging-plan requirement.

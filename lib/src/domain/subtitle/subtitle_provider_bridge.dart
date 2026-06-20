@@ -10,7 +10,8 @@ SubtitleFormat subtitleFormatFromProvider(ProviderSubtitleFormat format) {
   };
 }
 
-ExternalSubtitleSource subtitleSourceFromProviderCandidate(SubtitleProviderCandidate candidate, Uri uri) {
+ExternalSubtitleSource subtitleSourceFromProviderCandidate(
+    SubtitleProviderCandidate candidate, Uri uri) {
   return ExternalSubtitleSource(
     id: candidate.id,
     format: subtitleFormatFromProvider(candidate.format),
@@ -20,7 +21,8 @@ ExternalSubtitleSource subtitleSourceFromProviderCandidate(SubtitleProviderCandi
   );
 }
 
-SubtitleParseRequest subtitleParseRequestFromProviderFile(RetrievedSubtitleFile file, Uri uri) {
+SubtitleParseRequest subtitleParseRequestFromProviderFile(
+    RetrievedSubtitleFile file, Uri uri) {
   return SubtitleParseRequest(
     source: subtitleSourceFromProviderCandidate(file.candidate, uri),
     content: file.content,

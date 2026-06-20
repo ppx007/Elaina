@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   final store = DeterministicWebViewSessionBackfillStore();
@@ -31,9 +31,13 @@ Future<void> main() async {
   _expect(snapshot.isSuccess, 'Initial snapshot must succeed.');
   _expect(snapshot.value!.restart.providerScope == 'provider-a',
       'Restart projection must show provider-a.');
-  _expect(snapshot.value!.restart.challengeState == StoredManualChallengeState.required,
+  _expect(
+      snapshot.value!.restart.challengeState ==
+          StoredManualChallengeState.required,
       'Restart projection must show required challenge state.');
-  _expect(snapshot.value!.restart.capabilityState == StoredWebViewSessionCapabilityState.supported,
+  _expect(
+      snapshot.value!.restart.capabilityState ==
+          StoredWebViewSessionCapabilityState.supported,
       'Restart projection must show supported capability.');
 
   // --- Manual completion ---
@@ -49,7 +53,9 @@ Future<void> main() async {
     ),
   );
   _expect(completeResult.isSuccess, 'Manual completion must succeed.');
-  _expect(completeResult.value!.restart.challengeState == StoredManualChallengeState.completed,
+  _expect(
+      completeResult.value!.restart.challengeState ==
+          StoredManualChallengeState.completed,
       'After completion, challenge state must be completed.');
 
   // --- Same-origin retry preparation ---
@@ -83,7 +89,9 @@ Future<void> main() async {
     requestUri: Uri.parse('https://provider.example.test/resource'),
   );
   _expect(retryResult.isSuccess, 'Same-origin retry must succeed.');
-  _expect(retryResult.value!.restart.latestBackfillState == StoredWebViewSessionBackfillState.pending,
+  _expect(
+      retryResult.value!.restart.latestBackfillState ==
+          StoredWebViewSessionBackfillState.pending,
       'Retry must record pending backfill state.');
 
   // --- Cross-origin retry rejection ---
@@ -92,7 +100,9 @@ Future<void> main() async {
     requestUri: Uri.parse('https://evil.example.test/resource'),
   );
   _expect(!crossResult.isSuccess, 'Cross-origin retry must fail.');
-  _expect(crossResult.failure!.kind == WebViewSessionBackfillRuntimeFailureKind.rejectedOrigin,
+  _expect(
+      crossResult.failure!.kind ==
+          WebViewSessionBackfillRuntimeFailureKind.rejectedOrigin,
       'Cross-origin retry must report rejectedOrigin.');
 
   // --- Capability recording ---
@@ -111,19 +121,22 @@ Future<void> main() async {
   _expect(revokeResult.isSuccess, 'Artifact revocation must succeed.');
 
   // --- Unavailable gate ---
-  final unavailable = WebViewSessionBackfillRuntime.unavailable(reason: 'Not supported.');
+  final unavailable =
+      WebViewSessionBackfillRuntime.unavailable(reason: 'Not supported.');
   _expect(!(await unavailable.snapshot('provider-a')).isSuccess,
       'Unavailable snapshot must fail.');
-  _expect((await unavailable.snapshot('provider-a')).failure!.kind ==
-      WebViewSessionBackfillRuntimeFailureKind.unavailable,
+  _expect(
+      (await unavailable.snapshot('provider-a')).failure!.kind ==
+          WebViewSessionBackfillRuntimeFailureKind.unavailable,
       'Unavailable must report unavailable kind.');
 
   // --- Disposed gate ---
   runtime.dispose();
   _expect(!(await runtime.snapshot('provider-a')).isSuccess,
       'Disposed snapshot must fail.');
-  _expect((await runtime.snapshot('provider-a')).failure!.kind ==
-      WebViewSessionBackfillRuntimeFailureKind.disposed,
+  _expect(
+      (await runtime.snapshot('provider-a')).failure!.kind ==
+          WebViewSessionBackfillRuntimeFailureKind.disposed,
       'Disposed must report disposed kind.');
 
   await bus.close();
@@ -140,10 +153,14 @@ WebViewSessionBackfillRuntime _buildRuntime({
     },
     capabilitiesByScope: <String, WebViewSessionCapabilityMatrix>{
       'provider-a': WebViewSessionCapabilityMatrix(
-        capabilities: <WebViewSessionCapability, WebViewSessionCapabilityStatus>{
-          WebViewSessionCapability.isolatedWebView: WebViewSessionCapabilityStatus.supported(),
-          WebViewSessionCapability.cookieCapture: WebViewSessionCapabilityStatus.supported(),
-          WebViewSessionCapability.providerTokenBackfill: WebViewSessionCapabilityStatus.supported(),
+        capabilities: <WebViewSessionCapability,
+            WebViewSessionCapabilityStatus>{
+          WebViewSessionCapability.isolatedWebView:
+              WebViewSessionCapabilityStatus.supported(),
+          WebViewSessionCapability.cookieCapture:
+              WebViewSessionCapabilityStatus.supported(),
+          WebViewSessionCapability.providerTokenBackfill:
+              WebViewSessionCapabilityStatus.supported(),
         },
       ),
     },
@@ -157,16 +174,22 @@ void _expect(bool condition, String message) {
 
 final class _CheckBackfill implements WebViewSessionBackfill {
   @override
-  WebViewSessionCapabilityMatrix get capabilities => WebViewSessionCapabilityMatrix(
-    capabilities: <WebViewSessionCapability, WebViewSessionCapabilityStatus>{
-      WebViewSessionCapability.isolatedWebView: WebViewSessionCapabilityStatus.supported(),
-      WebViewSessionCapability.cookieCapture: WebViewSessionCapabilityStatus.supported(),
-      WebViewSessionCapability.providerTokenBackfill: WebViewSessionCapabilityStatus.supported(),
-    },
-  );
+  WebViewSessionCapabilityMatrix get capabilities =>
+      WebViewSessionCapabilityMatrix(
+        capabilities: <WebViewSessionCapability,
+            WebViewSessionCapabilityStatus>{
+          WebViewSessionCapability.isolatedWebView:
+              WebViewSessionCapabilityStatus.supported(),
+          WebViewSessionCapability.cookieCapture:
+              WebViewSessionCapabilityStatus.supported(),
+          WebViewSessionCapability.providerTokenBackfill:
+              WebViewSessionCapabilityStatus.supported(),
+        },
+      );
 
   @override
-  Future<SessionBackfillOutcome> completeManually(ManualChallengeRequest request) async {
+  Future<SessionBackfillOutcome> completeManually(
+      ManualChallengeRequest request) async {
     return SessionBackfillOutcome(
       kind: SessionBackfillOutcomeKind.captured,
       message: 'captured',

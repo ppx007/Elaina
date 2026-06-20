@@ -94,7 +94,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/domain/rss/rss_engine.dart',
   'src/domain/rss/rss_engine_runtime.dart',

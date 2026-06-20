@@ -24,5 +24,5 @@ None.
 ## Impact
 
 - Affects user-level OpenCode/OMO configuration under `C:\Users\q1354\.config\opencode\`.
-- Does not modify Celesteria Dart contracts, app architecture, OpenSpec synced product specs, git history, or repository source code behavior.
+- Does not modify Elaina Dart contracts, app architecture, OpenSpec synced product specs, git history, or repository source code behavior.
 - Verification will cover JSON validity and Markdown LSP diagnostics where the running OpenCode session can load the updated configuration.

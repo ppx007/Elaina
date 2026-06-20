@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,7 +11,7 @@ void main() {
     const DandanplayMatchCandidate candidate = DandanplayMatchCandidate(
       animeId: DandanplayAnimeId('anime-1017'),
       episodeId: DandanplayEpisodeId('episode-1'),
-      title: 'Celesteria Episode 1',
+      title: 'Elaina Episode 1',
       confidence: 0.98,
     );
     const DandanplayComment comment = DandanplayComment(
@@ -22,7 +22,7 @@ void main() {
     final DandanplayProviderRuntime runtime = DandanplayProviderRuntime(
       gateway: gateway,
       matchCandidatesByFilename: <String, List<DandanplayMatchCandidate>>{
-        'Celesteria - 01.mkv': <DandanplayMatchCandidate>[candidate],
+        'Elaina - 01.mkv': <DandanplayMatchCandidate>[candidate],
       },
       searchCandidates: const <DandanplayMatchCandidate>[candidate],
       commentsByEpisodeId: const <String, List<DandanplayComment>>{
@@ -31,17 +31,17 @@ void main() {
     );
 
     final AcgProviderResult<List<DandanplayMatchCandidate>> match =
-        await runtime.matchLocalMedia('  CELESTERIA - 01.mkv  ');
+        await runtime.matchLocalMedia('  ELAINA - 01.mkv  ');
     expect(match, isA<AcgProviderSuccess<List<DandanplayMatchCandidate>>>());
     expect(gateway.registeredProviderId, dandanplayProviderId.value);
-    expect(gateway.lastCacheKey, 'match:celesteria - 01.mkv');
+    expect(gateway.lastCacheKey, 'match:elaina - 01.mkv');
     expect(gateway.lastCachePolicy, ProviderCachePolicy.networkFirst);
 
     final AcgProviderResult<List<DandanplayMatchCandidate>> search =
         await runtime.search('episode');
     final List<DandanplayMatchCandidate> searchMatches =
         (search as AcgProviderSuccess<List<DandanplayMatchCandidate>>).value;
-    expect(searchMatches.single.title, 'Celesteria Episode 1');
+    expect(searchMatches.single.title, 'Elaina Episode 1');
     expect(gateway.lastCacheKey, 'search:episode');
 
     final AcgProviderResult<List<DandanplayComment>> comments =

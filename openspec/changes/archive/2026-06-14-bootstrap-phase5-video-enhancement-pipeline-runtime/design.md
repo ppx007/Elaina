@@ -56,7 +56,7 @@ Alternative considered: rely only on Dart analyzer and unit tests. Rejected beca
 ## Migration Plan
 
 1. Add RED runtime tests for bootstrap projection, supported/unsupported actions, restart replay, invalidation ordering, unavailable/disposed behavior, and boundary regressions.
-2. Implement the minimal runtime/bootstrap surface and export it from `lib/celesteria.dart`.
+2. Implement the minimal runtime/bootstrap surface and export it from `lib/elaina.dart`.
 3. Add Dart smoke checker and PowerShell boundary checker.
 4. Run focused playback tests, smoke checker, boundary checker, `dart analyze`, and OpenSpec validation.
 5. Mark tasks complete only after evidence exists.

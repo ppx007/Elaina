@@ -1,13 +1,13 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-enum CelesteriaThemeMode {
+enum ElainaThemeMode {
   light,
   dark,
   auto,
 }
 
-class CelesteriaThemeData {
+class ElainaThemeData {
   final Brightness brightness;
   final Color background;
   final Color surface;
@@ -21,7 +21,7 @@ class CelesteriaThemeData {
   final double blurSigma;
   final List<Color> splatterColors;
 
-  const CelesteriaThemeData({
+  const ElainaThemeData({
     required this.brightness,
     required this.background,
     required this.surface,
@@ -36,7 +36,7 @@ class CelesteriaThemeData {
     required this.splatterColors,
   });
 
-  static CelesteriaThemeData get dark => const CelesteriaThemeData(
+  static ElainaThemeData get dark => const ElainaThemeData(
         brightness: Brightness.dark,
         background: Color(0xFF0E0E10),
         surface: Color(0x99131315), // Semi-transparent glass
@@ -55,7 +55,7 @@ class CelesteriaThemeData {
         ],
       );
 
-  static CelesteriaThemeData get light => const CelesteriaThemeData(
+  static ElainaThemeData get light => const ElainaThemeData(
         brightness: Brightness.light,
         background: Color(0xFFF2F4F6),
         surface: Color(0xB3FFFFFF), // Translucent white glass
@@ -75,12 +75,12 @@ class CelesteriaThemeData {
       );
 }
 
-class CelesteriaTheme extends InheritedWidget {
-  final CelesteriaThemeData data;
-  final CelesteriaThemeMode mode;
-  final ValueChanged<CelesteriaThemeMode> onModeChanged;
+class ElainaTheme extends InheritedWidget {
+  final ElainaThemeData data;
+  final ElainaThemeMode mode;
+  final ValueChanged<ElainaThemeMode> onModeChanged;
 
-  const CelesteriaTheme({
+  const ElainaTheme({
     super.key,
     required this.data,
     required this.mode,
@@ -88,48 +88,47 @@ class CelesteriaTheme extends InheritedWidget {
     required super.child,
   });
 
-  static CelesteriaThemeData of(BuildContext context) {
-    final CelesteriaTheme? inherited =
-        context.dependOnInheritedWidgetOfExactType<CelesteriaTheme>();
+  static ElainaThemeData of(BuildContext context) {
+    final ElainaTheme? inherited =
+        context.dependOnInheritedWidgetOfExactType<ElainaTheme>();
     if (inherited == null) {
-      return CelesteriaThemeData.dark;
+      return ElainaThemeData.dark;
     }
     return inherited.data;
   }
 
-  static CelesteriaTheme controllerOf(BuildContext context) {
-    final CelesteriaTheme? inherited =
-        context.dependOnInheritedWidgetOfExactType<CelesteriaTheme>();
+  static ElainaTheme controllerOf(BuildContext context) {
+    final ElainaTheme? inherited =
+        context.dependOnInheritedWidgetOfExactType<ElainaTheme>();
     if (inherited == null) {
-      throw StateError('No CelesteriaTheme found in context');
+      throw StateError('No ElainaTheme found in context');
     }
     return inherited;
   }
 
   @override
-  bool updateShouldNotify(CelesteriaTheme oldWidget) {
+  bool updateShouldNotify(ElainaTheme oldWidget) {
     return data != oldWidget.data || mode != oldWidget.mode;
   }
 }
 
-class CelesteriaThemeProvider extends StatefulWidget {
+class ElainaThemeProvider extends StatefulWidget {
   final Widget child;
-  final CelesteriaThemeMode initialMode;
+  final ElainaThemeMode initialMode;
 
-  const CelesteriaThemeProvider({
+  const ElainaThemeProvider({
     super.key,
     required this.child,
-    this.initialMode = CelesteriaThemeMode.auto,
+    this.initialMode = ElainaThemeMode.auto,
   });
 
   @override
-  State<CelesteriaThemeProvider> createState() =>
-      _CelesteriaThemeProviderState();
+  State<ElainaThemeProvider> createState() => _ElainaThemeProviderState();
 }
 
-class _CelesteriaThemeProviderState extends State<CelesteriaThemeProvider>
+class _ElainaThemeProviderState extends State<ElainaThemeProvider>
     with WidgetsBindingObserver {
-  late CelesteriaThemeMode _mode;
+  late ElainaThemeMode _mode;
 
   @override
   void initState() {
@@ -146,12 +145,12 @@ class _CelesteriaThemeProviderState extends State<CelesteriaThemeProvider>
 
   @override
   void didChangePlatformBrightness() {
-    if (_mode == CelesteriaThemeMode.auto) {
+    if (_mode == ElainaThemeMode.auto) {
       setState(() {});
     }
   }
 
-  void _changeMode(CelesteriaThemeMode newMode) {
+  void _changeMode(ElainaThemeMode newMode) {
     if (_mode != newMode) {
       setState(() {
         _mode = newMode;
@@ -163,23 +162,23 @@ class _CelesteriaThemeProviderState extends State<CelesteriaThemeProvider>
   Widget build(BuildContext context) {
     final Brightness systemBrightness =
         MediaQuery.platformBrightnessOf(context);
-    final CelesteriaThemeData currentData;
+    final ElainaThemeData currentData;
 
     switch (_mode) {
-      case CelesteriaThemeMode.light:
-        currentData = CelesteriaThemeData.light;
+      case ElainaThemeMode.light:
+        currentData = ElainaThemeData.light;
         break;
-      case CelesteriaThemeMode.dark:
-        currentData = CelesteriaThemeData.dark;
+      case ElainaThemeMode.dark:
+        currentData = ElainaThemeData.dark;
         break;
-      case CelesteriaThemeMode.auto:
+      case ElainaThemeMode.auto:
         currentData = systemBrightness == Brightness.dark
-            ? CelesteriaThemeData.dark
-            : CelesteriaThemeData.light;
+            ? ElainaThemeData.dark
+            : ElainaThemeData.light;
         break;
     }
 
-    return CelesteriaTheme(
+    return ElainaTheme(
       data: currentData,
       mode: _mode,
       onModeChanged: _changeMode,

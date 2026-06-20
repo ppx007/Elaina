@@ -1,6 +1,6 @@
 ## Context
 
-Celesteria now has an OpenSpec-first repository baseline, a root `.git/` on `main`, and archived Phase 0-6 contract changes. Direct checks showed the latest commit is `9e5d657 Initial Celesteria architecture plan`, while `git status --short` is dirty with many deleted Trellis OpenCode files, new OpenSpec/Dart/library/tooling files, modified docs, and `.trellis/` remnants.
+Elaina now has an OpenSpec-first repository baseline, a root `.git/` on `main`, and archived Phase 0-6 contract changes. Direct checks showed the latest commit is `9e5d657 Initial Elaina architecture plan`, while `git status --short` is dirty with many deleted Trellis OpenCode files, new OpenSpec/Dart/library/tooling files, modified docs, and `.trellis/` remnants.
 
 The current request is to review `git status`, not to clean it. Therefore the design must preserve the dirty tree, avoid staging, and turn the status into a durable review artifact that can guide a later `/opsx-apply` or explicit commit request.
 
@@ -51,11 +51,11 @@ The output may recommend atomic future commit groups, but it must stop before st
 Use PowerShell-safe commands and keep `GIT_MASTER=1` for git operations:
 
 ```powershell
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --porcelain=v1 -uall
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --name-status
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' ls-files --others --exclude-standard
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --porcelain=v1 -uall
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --name-status
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' ls-files --others --exclude-standard
 ```
 
 ## Classification Buckets

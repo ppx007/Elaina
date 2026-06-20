@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -40,9 +40,9 @@ void main() {
       final String? resolved =
           BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
         environment: const <String, String>{
-          celesteriaLibMpvPathEnvironmentKey: envDll,
+          elainaLibMpvPathEnvironmentKey: envDll,
         },
-        executablePath: r'C:\release\Celesteria.exe',
+        executablePath: r'C:\release\Elaina.exe',
         isWindows: true,
         fileExists: (String path) => path == envDll || path == exeDll,
         directoryExists: (_) => false,
@@ -57,7 +57,7 @@ void main() {
       final String? resolved =
           BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
         environment: const <String, String>{},
-        executablePath: r'C:\release\Celesteria.exe',
+        executablePath: r'C:\release\Elaina.exe',
         isWindows: true,
         fileExists: (String path) => path == exeDll,
         directoryExists: (_) => false,
@@ -80,7 +80,7 @@ void main() {
         BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
           explicitLibMpvPath: r'C:\missing\libmpv-2.dll',
           environment: const <String, String>{},
-          executablePath: r'C:\release\Celesteria.exe',
+          executablePath: r'C:\release\Elaina.exe',
           isWindows: true,
           fileExists: (_) => false,
           directoryExists: (_) => false,
@@ -749,7 +749,8 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   _FakeMediaKitMpvBackend({this.failOn, this.failOnProperty});
 
   @override
-  Player get player => throw UnimplementedError('Fake backend does not implement player getter');
+  Player get player =>
+      throw UnimplementedError('Fake backend does not implement player getter');
 
   final PlaybackOperation? failOn;
   final String? failOnProperty;

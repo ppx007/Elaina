@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 
 Future<void> main(List<String> args) async {
   final _SmokeArguments? parsed = _SmokeArguments.parse(args);

@@ -58,7 +58,7 @@ foreach ($term in $requiredRuntimeTerms) {
     }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/foundation/diagnostics/diagnostics_center_runtime.dart';")) {
     throw 'Public Dart contract barrel missing diagnostics center runtime export.'
 }
@@ -98,7 +98,7 @@ foreach ($term in @('dart:io', 'dart:ffi', 'package:flutter', 'MethodChannel', '
 $checkerPath = Join-Path $root 'tools/diagnostics_center_runtime_check.dart'
 $checker = Get-Content -LiteralPath $checkerPath -Raw
 $requiredCheckerTerms = @(
-    "import '../lib/celesteria.dart';",
+    "import '../lib/elaina.dart';",
     'DiagnosticsCenterRuntimeBootstrap',
     'DiagnosticsCenterRuntimeFailureKind.capabilityUnsupported',
     'DiagnosticsCenterRuntimeFailureKind.disposed',

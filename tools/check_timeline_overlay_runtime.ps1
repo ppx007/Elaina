@@ -62,7 +62,7 @@ foreach ($term in $requiredRuntimeTerms) {
 # ---------------------------------------------------------------------------
 # 4. Barrel export check
 # ---------------------------------------------------------------------------
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   "export 'src/streaming/timeline_overlay.dart';",
   "export 'src/streaming/timeline_overlay_runtime.dart';"
@@ -79,7 +79,7 @@ $checkerPath = Join-Path $root 'tools/timeline_overlay_runtime_check.dart'
 $checker = Get-Content -LiteralPath $checkerPath -Raw
 
 foreach ($term in @(
-  "import '../lib/celesteria.dart';",
+  "import '../lib/elaina.dart';",
   'DeterministicTimelineOverlayStore',
   'StreamCacheInvalidationBus',
   'DeterministicTimelineOverlayComposer',

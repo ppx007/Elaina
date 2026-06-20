@@ -4,7 +4,7 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
 
-const String virtualMediaStreamUriScheme = 'celesteria-virtual-stream';
+const String virtualMediaStreamUriScheme = 'elaina-virtual-stream';
 
 final class VirtualMediaStreamId {
   const VirtualMediaStreamId(this.value)

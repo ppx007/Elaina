@@ -1,6 +1,6 @@
 # Phase 2 ACG Data Experience Contracts
 
-This document records the implementation boundary for `bootstrap-acg-data-experience`, covering Phase 2 / Step 9-12 from `docs/celesteria-architecture-plan.md`.
+This document records the implementation boundary for `bootstrap-acg-data-experience`, covering Phase 2 / Step 9-12 from `docs/elaina-architecture-plan.md`.
 
 ## Scope
 

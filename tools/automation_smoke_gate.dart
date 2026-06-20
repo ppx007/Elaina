@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 const FeedSourceId _feedSourceId = FeedSourceId('automation-smoke-feed');
 const SeasonalFeedSourceId _seasonalSourceId =

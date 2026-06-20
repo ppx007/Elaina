@@ -8,8 +8,12 @@ final class FallbackAdapterBootstrap {
     required this.store,
     required Map<String, DeterministicPlaybackFallbackStrategy> strategyByScope,
     required Map<String, PlaybackCapabilityMatrix> capabilitiesByScope,
-  })  : _strategyByScope = Map<String, DeterministicPlaybackFallbackStrategy>.unmodifiable(strategyByScope),
-        _capabilitiesByScope = Map<String, PlaybackCapabilityMatrix>.unmodifiable(capabilitiesByScope);
+  })  : _strategyByScope =
+            Map<String, DeterministicPlaybackFallbackStrategy>.unmodifiable(
+                strategyByScope),
+        _capabilitiesByScope =
+            Map<String, PlaybackCapabilityMatrix>.unmodifiable(
+                capabilitiesByScope);
 
   final FallbackAdapterStore store;
   final Map<String, DeterministicPlaybackFallbackStrategy> _strategyByScope;
@@ -129,7 +133,8 @@ final class FallbackAdapterRuntime {
 
   FallbackAdapterRuntime.unavailable({required String reason})
       : _store = DeterministicFallbackAdapterStore(),
-        _strategyByScope = const <String, DeterministicPlaybackFallbackStrategy>{},
+        _strategyByScope =
+            const <String, DeterministicPlaybackFallbackStrategy>{},
         _capabilitiesByScope = const <String, PlaybackCapabilityMatrix>{},
         _unavailableReason = reason;
 
@@ -147,18 +152,22 @@ final class FallbackAdapterRuntime {
       snapshot(String scopeId) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>
-      registerCandidate(String scopeId, FallbackAdapterCandidate candidate) async {
+      registerCandidate(
+          String scopeId, FallbackAdapterCandidate candidate) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final DeterministicPlaybackFallbackStrategy strategy =
         _strategyByScope[scopeId]!;
@@ -170,18 +179,21 @@ final class FallbackAdapterRuntime {
         kind: _mapRegistrationFailureKind(outcome.failure!.kind),
         message: outcome.failure!.message,
       );
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
     }
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>
       deregisterCandidate(String scopeId, FallbackAdapterId candidateId) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final DeterministicPlaybackFallbackStrategy strategy =
         _strategyByScope[scopeId]!;
@@ -191,11 +203,13 @@ final class FallbackAdapterRuntime {
         kind: FallbackAdapterRuntimeFailureKind.candidateNotFound,
         message: 'Fallback adapter candidate not found for deregistration.',
       );
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
     }
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>
@@ -206,7 +220,8 @@ final class FallbackAdapterRuntime {
   }) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final DeterministicPlaybackFallbackStrategy strategy =
         _strategyByScope[scopeId]!;
@@ -217,19 +232,22 @@ final class FallbackAdapterRuntime {
         kind: _mapEvaluationFailureKind(outcome.failure!.kind),
         message: outcome.failure!.message,
       );
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
     }
     _latestSelectionCandidateId = outcome.selection!.candidate.id.value;
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>
       disable(String scopeId) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final DeterministicPlaybackFallbackStrategy strategy =
         _strategyByScope[scopeId]!;
@@ -239,11 +257,13 @@ final class FallbackAdapterRuntime {
         kind: _mapDisableFailureKind(outcome.failure!.kind),
         message: outcome.failure!.message,
       );
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
     }
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>
@@ -253,7 +273,8 @@ final class FallbackAdapterRuntime {
   }) async {
     final FallbackAdapterRuntimeFailure? gate = _gate(scopeId);
     if (gate != null) {
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(gate);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(gate);
     }
     final DeterministicPlaybackFallbackStrategy strategy =
         _strategyByScope[scopeId]!;
@@ -264,12 +285,14 @@ final class FallbackAdapterRuntime {
         kind: _mapCapabilityFailureKind(outcome.failure!.kind),
         message: outcome.failure!.message,
       );
-      return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
+      return FallbackAdapterRuntimeActionResult<
+          FallbackAdapterRuntimeProjection>.failed(_latestFailure!);
     }
     _latestCapabilityReadModel = outcome.readModel;
     final FallbackAdapterRuntimeProjection projection =
         await _buildProjection(scopeId);
-    return FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>.success(projection);
+    return FallbackAdapterRuntimeActionResult<
+        FallbackAdapterRuntimeProjection>.success(projection);
   }
 
   Future<void> dispose() async {
@@ -298,7 +321,9 @@ final class FallbackAdapterRuntime {
     final PlaybackCapabilityMatrix? capabilities =
         _capabilitiesByScope[scopeId];
     if (capabilities == null ||
-        !capabilities.statusOf(PlaybackCapability.fallbackAdapter).isSupported) {
+        !capabilities
+            .statusOf(PlaybackCapability.fallbackAdapter)
+            .isSupported) {
       return FallbackAdapterRuntimeFailure(
         kind: FallbackAdapterRuntimeFailureKind.capabilityUnsupported,
         message: 'Fallback adapter capability unsupported for scope $scopeId.',

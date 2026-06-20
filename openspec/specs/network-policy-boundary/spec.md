@@ -36,7 +36,7 @@ The system MUST model policy enforcement as app-level provider traffic governanc
 
 #### Scenario: User configures provider policy
 - **WHEN** a provider policy is configured
-- **THEN** the policy applies only to Celesteria-managed provider traffic and not to unrelated system traffic
+- **THEN** the policy applies only to Elaina-managed provider traffic and not to unrelated system traffic
 
 ### Requirement: Network policy boundary SHALL cover online rule source traffic
 The network policy boundary SHALL treat online rule manifest updates and page retrieval as provider-scoped traffic subject to SSRF protections, configured routing intent, platform capability reporting, and normalized security failures.
@@ -57,7 +57,7 @@ The network policy boundary SHALL treat manual WebView challenge navigation and 
 - **THEN** network policy rejects the retry descriptor and reports a normalized security failure without exposing the artifact to transport code
 
 ### Requirement: Network policy boundary SHALL cover provider-scoped DNS and proxy intent
-The network policy boundary SHALL treat per-domain DNS, DoH, DoT, direct routing, proxy tag, block, fallback, and audit behavior as provider-scoped declarative intent for Celesteria-managed provider traffic.
+The network policy boundary SHALL treat per-domain DNS, DoH, DoT, direct routing, proxy tag, block, fallback, and audit behavior as provider-scoped declarative intent for Elaina-managed provider traffic.
 
 #### Scenario: Provider request matches resolver policy
 - **WHEN** a provider-facing request matches a provider-scoped DNS, DoH, DoT, direct, proxy, or block rule

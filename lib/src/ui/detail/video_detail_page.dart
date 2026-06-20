@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../domain/detail/video_detail.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_source_handoff.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 import 'video_detail_page_contract.dart';
 
 class VideoDetailPage extends StatefulWidget {
@@ -74,14 +74,16 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     return StreamBuilder<VideoDetailViewData>(
       stream: widget.videoDetailPageContract.watch(widget.id),
-      builder: (BuildContext context, AsyncSnapshot<VideoDetailViewData> snapshot) {
+      builder:
+          (BuildContext context, AsyncSnapshot<VideoDetailViewData> snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Text('加载详情失败: ${snapshot.error}', style: TextStyle(color: theme.onSurface)),
+            child: Text('加载详情失败: ${snapshot.error}',
+                style: TextStyle(color: theme.onSurface)),
           );
         }
         if (!snapshot.hasData) {
@@ -149,7 +151,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                   aspectRatio: 0.7,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.05),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.05),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(color: theme.border),
                                       image: data.coverUri != null
@@ -158,7 +161,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                                 data.coverUri!.toString(),
                                               ),
                                               fit: BoxFit.cover,
-                                              onError: (exception, stackTrace) {},
+                                              onError:
+                                                  (exception, stackTrace) {},
                                             )
                                           : null,
                                     ),
@@ -166,7 +170,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                         ? Center(
                                             child: Icon(
                                               Icons.movie_filter_outlined,
-                                              color: theme.primary.withValues(alpha: 0.5),
+                                              color: theme.primary
+                                                  .withValues(alpha: 0.5),
                                               size: 48,
                                             ),
                                           )
@@ -179,17 +184,22 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                 ElevatedButton.icon(
                                   onPressed: () => _toggleFollow(data),
                                   icon: Icon(
-                                    isFollowed ? Icons.favorite : Icons.favorite_border,
+                                    isFollowed
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
                                     size: 16,
                                   ),
                                   label: Text(isFollowed ? '已在追番' : '加入追番'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: isFollowed ? theme.secondary : theme.primary,
+                                    backgroundColor: isFollowed
+                                        ? theme.secondary
+                                        : theme.primary,
                                     foregroundColor: theme.background,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                   ),
                                 ),
                               ],
@@ -204,7 +214,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                               children: <Widget>[
                                 // Title and continue play button
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: <Widget>[
                                     Expanded(
                                       child: Text(
@@ -218,14 +229,17 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                     ),
                                     if (hasContinueWatching)
                                       ElevatedButton.icon(
-                                        onPressed: () => _continuePlayback(data),
-                                        icon: const Icon(Icons.play_circle_fill, size: 18),
+                                        onPressed: () =>
+                                            _continuePlayback(data),
+                                        icon: const Icon(Icons.play_circle_fill,
+                                            size: 18),
                                         label: const Text('继续观看'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: theme.primary,
                                           foregroundColor: theme.background,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -241,7 +255,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                 Text(
                                   data.summary ?? '暂无内容介绍。',
                                   style: TextStyle(
-                                    color: theme.onBackground.withValues(alpha: 0.8),
+                                    color: theme.onBackground
+                                        .withValues(alpha: 0.8),
                                     fontSize: 14,
                                     height: 1.5,
                                   ),
@@ -269,23 +284,34 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                     childAspectRatio: 2.2,
                                   ),
                                   itemCount: data.episodes.length,
-                                  itemBuilder: (BuildContext context, int index) {
-                                    final VideoDetailEpisode episode = data.episodes[index];
-                                    final bool hasLocalMedia = episode.localMedia != null;
+                                  itemBuilder:
+                                      (BuildContext context, int index) {
+                                    final VideoDetailEpisode episode =
+                                        data.episodes[index];
+                                    final bool hasLocalMedia =
+                                        episode.localMedia != null;
 
                                     return InkWell(
-                                      onTap: hasLocalMedia ? () => _selectEpisode(episode) : null,
+                                      mouseCursor: hasLocalMedia
+                                          ? SystemMouseCursors.click
+                                          : SystemMouseCursors.basic,
+                                      onTap: hasLocalMedia
+                                          ? () => _selectEpisode(episode)
+                                          : null,
                                       borderRadius: BorderRadius.circular(8),
                                       child: Container(
                                         decoration: BoxDecoration(
                                           color: hasLocalMedia
                                               ? theme.surface
-                                              : theme.surface.withValues(alpha: 0.3),
-                                          borderRadius: BorderRadius.circular(8.0),
+                                              : theme.surface
+                                                  .withValues(alpha: 0.3),
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
                                           border: Border.all(
                                             color: hasLocalMedia
                                                 ? theme.border
-                                                : theme.border.withValues(alpha: 0.3),
+                                                : theme.border
+                                                    .withValues(alpha: 0.3),
                                             width: 1.0,
                                           ),
                                         ),
@@ -294,8 +320,10 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                           vertical: 8,
                                         ),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: <Widget>[
                                             Text(
                                               '第 ${episode.index} 话',
@@ -316,7 +344,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                               style: TextStyle(
                                                 color: hasLocalMedia
                                                     ? theme.onSurface
-                                                    : theme.onSurface.withValues(alpha: 0.4),
+                                                    : theme.onSurface
+                                                        .withValues(alpha: 0.4),
                                                 fontSize: 11,
                                               ),
                                             ),

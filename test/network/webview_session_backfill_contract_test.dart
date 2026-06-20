@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -80,7 +80,8 @@ void main() {
         isEmpty);
   });
 
-  test('retry descriptors enforce same-origin active artifacts and gateway shape',
+  test(
+      'retry descriptors enforce same-origin active artifacts and gateway shape',
       () {
     const WebViewSessionBackfillDescriptorFactory factory =
         WebViewSessionBackfillDescriptorFactory();
@@ -113,7 +114,7 @@ void main() {
           capturedAt: observedAt,
         ),
       ],
-      userAgent: 'Celesteria Manual Challenge',
+      userAgent: 'Elaina Manual Challenge',
     );
 
     final WebViewSessionBackfillRetryOutcome ready = factory.retryDescriptor(
@@ -124,8 +125,8 @@ void main() {
       cacheKey: 'provider-a::resource',
       artifacts: artifacts,
       now: observedAt,
-      ratePolicy:
-          const ProviderRatePolicy(maxRequests: 2, window: Duration(minutes: 1)),
+      ratePolicy: const ProviderRatePolicy(
+          maxRequests: 2, window: Duration(minutes: 1)),
       retryPolicy: const ProviderRetryPolicy(
           maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
     );
@@ -145,8 +146,8 @@ void main() {
       cacheKey: 'provider-a::evil',
       artifacts: artifacts,
       now: observedAt,
-      ratePolicy:
-          const ProviderRatePolicy(maxRequests: 2, window: Duration(minutes: 1)),
+      ratePolicy: const ProviderRatePolicy(
+          maxRequests: 2, window: Duration(minutes: 1)),
       retryPolicy: const ProviderRetryPolicy(
           maxAttempts: 2, initialBackoff: Duration(seconds: 1)),
     );
@@ -172,7 +173,8 @@ void main() {
     );
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
     final DateTime observedAt = DateTime.utc(2026, 6, 9, 12);
-    final Future<List<CacheInvalidationEvent>> events = bus.events.take(5).toList();
+    final Future<List<CacheInvalidationEvent>> events =
+        bus.events.take(5).toList();
 
     bus.publish(WebViewSessionChallengeChanged(
       occurredAt: observedAt,
@@ -219,7 +221,8 @@ void main() {
         WebViewSessionBackfillFailureKind.networkPolicyBlocked);
     expect(delivered.whereType<WebViewSessionChallengeChanged>().length, 1);
     expect(delivered.whereType<WebViewSessionArtifactCaptured>().length, 1);
-    expect(delivered.whereType<WebViewSessionBackfillOutcomeRecorded>().length, 1);
+    expect(
+        delivered.whereType<WebViewSessionBackfillOutcomeRecorded>().length, 1);
     expect(delivered.whereType<WebViewSessionArtifactStateChanged>().length, 1);
     expect(delivered.whereType<WebViewSessionCapabilityChanged>().length, 1);
   });

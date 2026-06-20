@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   await verifyVirtualMediaStreamRuntimeContract();

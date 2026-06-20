@@ -2,7 +2,7 @@
 
 Phase 5 Step 22 deepened `VideoEnhancementPipeline` with budget-pressure snapshots and degradation targets, but it intentionally left deterministic drift policy to AVSyncGuard. The existing `av_sync_guard.dart` bootstrap defines `AVSyncSample`, `AVSyncPolicy`, `AVSyncDecision`, and an abstract `AVSyncGuard`, but it has no durable policy/state records, no sample history window, no typed evaluation/degradation outcomes, and no invalidation events.
 
-This change deepens Phase 5 Step 23 without binding Celesteria to MPV/libmpv timing APIs or native renderer callbacks. The contract must normalize adapter-provided drift/frame timing data, decide health transitions from declared policy thresholds, and emit deterministic degradation decisions that later concrete adapters can execute.
+This change deepens Phase 5 Step 23 without binding Elaina to MPV/libmpv timing APIs or native renderer callbacks. The contract must normalize adapter-provided drift/frame timing data, decide health transitions from declared policy thresholds, and emit deterministic degradation decisions that later concrete adapters can execute.
 
 ## Goals / Non-Goals
 

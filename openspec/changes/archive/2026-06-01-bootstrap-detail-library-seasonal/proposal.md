@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria now has playback, subtitle, danmaku, and provider boundary contracts, so the next slice can connect those foundations into user-facing ACG organization without jumping ahead to BT, advanced playback, or online rule sources. Phase 3 defines the detail page, media library, SubtitleProvider, RSS engine, and seasonal indexing contracts that make local media and seasonal subscriptions coherent.
+Elaina now has playback, subtitle, danmaku, and provider boundary contracts, so the next slice can connect those foundations into user-facing ACG organization without jumping ahead to BT, advanced playback, or online rule sources. Phase 3 defines the detail page, media library, SubtitleProvider, RSS engine, and seasonal indexing contracts that make local media and seasonal subscriptions coherent.
 
 ## What Changes
 

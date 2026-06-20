@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -103,12 +103,13 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(result.value, isA<NetworkPolicyAllowed>());
-      expect(
-          events.whereType<NetworkPolicyEvaluationOutcomeRecorded>(), isNotEmpty);
+      expect(events.whereType<NetworkPolicyEvaluationOutcomeRecorded>(),
+          isNotEmpty);
       await subscription.cancel();
     });
 
-    test('SSRF block evaluation stores snapshot block outcome and publishes events',
+    test(
+        'SSRF block evaluation stores snapshot block outcome and publishes events',
         () async {
       final runtime = _runtime(providerScope: 'provider-a');
 
@@ -214,8 +215,7 @@ void main() {
       final runtime =
           NetworkPolicyRuntime.unavailable(reason: 'Platform unsupported.');
 
-      expect(
-          (await runtime.snapshot('provider-a')).failure?.kind,
+      expect((await runtime.snapshot('provider-a')).failure?.kind,
           NetworkPolicyRuntimeFailureKind.unavailable);
       expect(
           (await runtime.evaluate(
@@ -224,20 +224,26 @@ void main() {
               providerScope: 'provider-a',
               uri: Uri.parse('https://example.test/page'),
             ),
-          )).failure?.kind,
+          ))
+              .failure
+              ?.kind,
           NetworkPolicyRuntimeFailureKind.unavailable);
       expect(
           (await runtime.assignProvider(
             providerScope: 'provider-a',
             policyId: const NetworkPolicyId('policy-a'),
-          )).failure?.kind,
+          ))
+              .failure
+              ?.kind,
           NetworkPolicyRuntimeFailureKind.unavailable);
       expect(
           (await runtime.recordCapability(
             providerScope: 'provider-a',
             capability: NetworkPolicyCapability.ssrfGuard,
             supported: true,
-          )).failure?.kind,
+          ))
+              .failure
+              ?.kind,
           NetworkPolicyRuntimeFailureKind.unavailable);
     });
 
@@ -249,8 +255,7 @@ void main() {
       final result = await runtime.snapshot('provider-a');
 
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind,
-          NetworkPolicyRuntimeFailureKind.disposed);
+      expect(result.failure?.kind, NetworkPolicyRuntimeFailureKind.disposed);
     });
 
     test('invalidation events published on evaluate and capability', () async {
@@ -285,7 +290,8 @@ void main() {
       await subscription.cancel();
     });
 
-    test('restart projection replays stored evaluation block and capability state',
+    test(
+        'restart projection replays stored evaluation block and capability state',
         () async {
       final runtime = _runtime(providerScope: 'provider-a');
 
@@ -324,8 +330,8 @@ void main() {
       );
 
       expect(result.isSuccess, isFalse);
-      expect(result.failure?.kind,
-          NetworkPolicyRuntimeFailureKind.policyNotFound);
+      expect(
+          result.failure?.kind, NetworkPolicyRuntimeFailureKind.policyNotFound);
     });
 
     test('invalidAssignment when policy profile missing from store', () async {
@@ -411,7 +417,8 @@ void main() {
       expect(result.isSuccess, isTrue);
     });
 
-    test('provider-scoped operations do not mutate unrelated provider', () async {
+    test('provider-scoped operations do not mutate unrelated provider',
+        () async {
       final runtime = NetworkPolicyRuntimeBootstrap(
         store: store,
         policiesByScope: <String, NetworkPolicy>{
@@ -459,7 +466,6 @@ NetworkPolicy _testPolicy(String providerScope) {
     rules: const <NetworkPolicyRule>[],
   );
 }
-
 
 final class _ThrowingEvaluator implements NetworkPolicyEvaluator {
   @override

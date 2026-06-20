@@ -25,4 +25,4 @@ Network policy contracts, storage records, evaluator scaffolding, and invalidati
 
 ## Impact
 
-Affected code will include a new `lib/src/network/network_policy_runtime.dart` runtime, its barrel export in `lib/celesteria.dart`, a focused runtime test, a Dart smoke checker, a PowerShell boundary checker, and archived OpenSpec change artifacts after completion.
+Affected code will include a new `lib/src/network/network_policy_runtime.dart` runtime, its barrel export in `lib/elaina.dart`, a focused runtime test, a Dart smoke checker, a PowerShell boundary checker, and archived OpenSpec change artifacts after completion.

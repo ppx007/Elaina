@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,23 +9,23 @@ void main() {
       final _RuntimeHarness h = await _harness();
 
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          initial = await h.runtime.snapshot('adapter-1');
+              VideoEnhancementPipelineRuntimeProjection> initial =
+          await h.runtime.snapshot('adapter-1');
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          evaluated = await h.runtime.evaluate(
+              VideoEnhancementPipelineRuntimeProjection> evaluated =
+          await h.runtime.evaluate(
         scopeId: 'adapter-1',
         profile: _profile(),
       );
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          applied = await h.runtime.apply(
+              VideoEnhancementPipelineRuntimeProjection> applied =
+          await h.runtime.apply(
         scopeId: 'adapter-1',
         profileId: 'anime-vivid',
       );
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          degraded = await h.runtime.requestDegradation(
+              VideoEnhancementPipelineRuntimeProjection> degraded =
+          await h.runtime.requestDegradation(
         scopeId: 'adapter-1',
         request: EnhancementRuntimeDegradationRequest(
           profileId: 'anime-vivid',
@@ -47,7 +47,9 @@ void main() {
       expect(initial.value?.restart.latestPipelineState?.state,
           StoredEnhancementPipelineStateKind.applied);
       expect(initial.value?.restart.latestPipelineState?.budgetPressure, 1.5);
-      expect(initial.value?.restart.latestPipelineState?.degradationTargetProfileId,
+      expect(
+          initial
+              .value?.restart.latestPipelineState?.degradationTargetProfileId,
           'anime-light');
 
       expect(evaluated.isSuccess, isTrue, reason: evaluated.failure?.message);
@@ -70,27 +72,28 @@ void main() {
     });
   });
 
-  group('Task 1.2 - typed unsupported missing rejected unavailable disposed outcomes',
+  group(
+      'Task 1.2 - typed unsupported missing rejected unavailable disposed outcomes',
       () {
     test('returns typed failures without mutating storage or native behavior',
         () async {
       final _RuntimeHarness h = await _harness();
 
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          unsupported = await h.runtime.evaluate(
+              VideoEnhancementPipelineRuntimeProjection> unsupported =
+          await h.runtime.evaluate(
         scopeId: 'adapter-unsupported',
         profile: _profile(),
       );
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          missingProfile = await h.runtime.apply(
+              VideoEnhancementPipelineRuntimeProjection> missingProfile =
+          await h.runtime.apply(
         scopeId: 'adapter-1',
         profileId: 'missing-profile',
       );
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          rejectedProfile = await h.runtime.apply(
+              VideoEnhancementPipelineRuntimeProjection> rejectedProfile =
+          await h.runtime.apply(
         scopeId: 'adapter-unsupported',
         profileId: 'anime-vivid',
       );
@@ -98,15 +101,15 @@ void main() {
       await h.runtime.dispose();
 
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          disposed = await h.runtime.snapshot('adapter-1');
+              VideoEnhancementPipelineRuntimeProjection> disposed =
+          await h.runtime.snapshot('adapter-1');
       final VideoEnhancementPipelineRuntime unavailable =
           VideoEnhancementPipelineRuntime.unavailable(
         reason: 'Runtime dependencies are unavailable.',
       );
       final VideoEnhancementPipelineRuntimeActionResult<
-              VideoEnhancementPipelineRuntimeProjection>
-          unavailableResult = await unavailable.snapshot('adapter-1');
+              VideoEnhancementPipelineRuntimeProjection> unavailableResult =
+          await unavailable.snapshot('adapter-1');
 
       expect(unsupported.failure?.kind,
           VideoEnhancementPipelineRuntimeFailureKind.unsupportedCapabilities);
@@ -114,7 +117,8 @@ void main() {
 
       expect(missingProfile.failure?.kind,
           VideoEnhancementPipelineRuntimeFailureKind.missingProfile);
-      expect((await h.store.activeProfile('adapter-1'))?.profileId, 'anime-vivid');
+      expect(
+          (await h.store.activeProfile('adapter-1'))?.profileId, 'anime-vivid');
 
       expect(rejectedProfile.failure?.kind,
           VideoEnhancementPipelineRuntimeFailureKind.rejectedProfile);
@@ -131,25 +135,25 @@ void main() {
   });
 
   group('Task 1.3 - invalidations after storage-visible state', () {
-    test('publishes capability profile and pipeline invalidations after storage',
+    test(
+        'publishes capability profile and pipeline invalidations after storage',
         () async {
       final _RuntimeHarness h = await _harness();
 
-      final Future<bool?> capabilityVisible = _eventsOfType<
-              EnhancementCapabilityReevaluated>(h.bus.events)
-          .first
-          .then((EnhancementCapabilityReevaluated _) async =>
-              (await h.store.latestPipelineState('adapter-1'))?.supported);
-      final Future<String?> activeProfileVisible = _eventsOfType<
-              EnhancementProfileChanged>(h.bus.events)
-          .first
-          .then((EnhancementProfileChanged _) async =>
-              (await h.store.activeProfile('adapter-1'))?.profileId);
+      final Future<bool?> capabilityVisible =
+          _eventsOfType<EnhancementCapabilityReevaluated>(h.bus.events)
+              .first
+              .then((EnhancementCapabilityReevaluated _) async =>
+                  (await h.store.latestPipelineState('adapter-1'))?.supported);
+      final Future<String?> activeProfileVisible =
+          _eventsOfType<EnhancementProfileChanged>(h.bus.events).first.then(
+              (EnhancementProfileChanged _) async =>
+                  (await h.store.activeProfile('adapter-1'))?.profileId);
       final Future<StoredEnhancementPipelineStateKind?> pipelineVisible =
           _eventsOfType<EnhancementPipelineStateChanged>(h.bus.events)
-          .first
-          .then((EnhancementPipelineStateChanged _) async =>
-              (await h.store.latestPipelineState('adapter-1'))?.state);
+              .first
+              .then((EnhancementPipelineStateChanged _) async =>
+                  (await h.store.latestPipelineState('adapter-1'))?.state);
 
       await h.runtime.evaluate(
         scopeId: 'adapter-1',

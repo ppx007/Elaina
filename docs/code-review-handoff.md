@@ -27,8 +27,8 @@
 ### 第二轮（本会话）
 
 **P0 — 恢复可编译（基线原本编译不过！）**
-- `ui/playback/shell/celesteria_app_shell.dart:154` — **语法错误**：`Stack(` 漏写 `children:`，导致 collection-`if` 非法 → 全项目编译失败。已补 `children: <Widget>[`
-- 3 处 `theme.surfaceContainer`（`celesteria_app_shell.dart:590`、`hero_carousel.dart:111`、`hot_updates_carousel.dart:113`）— **undefined getter**（`CelesteriaThemeData` 无此字段）→ 改用现有 `theme.surface`
+- `ui/playback/shell/elaina_app_shell.dart:154` — **语法错误**：`Stack(` 漏写 `children:`，导致 collection-`if` 非法 → 全项目编译失败。已补 `children: <Widget>[`
+- 3 处 `theme.surfaceContainer`（`elaina_app_shell.dart:590`、`hero_carousel.dart:111`、`hot_updates_carousel.dart:113`）— **undefined getter**（`ElainaThemeData` 无此字段）→ 改用现有 `theme.surface`
 
 **P0 — 安全：修复 SSRF 绕过漏洞（已用 Dart SDK 源码 + 回归测试验证）**
 - `foundation/security/outbound_uri_guard.dart` — `_classifyIpv6` 原用**文本前缀匹配**，存在多个可绕过路径直达内网：
@@ -43,14 +43,14 @@
 **analyze 清零（健壮性/结构）**
 - `domain/rss/rss_engine_runtime.dart:186/197` — 去掉冗余 `!`（`_policyStore` 是 private final，流提升后 `!` 多余）
 - `ui/rss/rss_page.dart` — 删死字段 `_defaultPolicyId`；`_toggleAutoDownload(dynamic source)` → `FeedSource`（消除 2 个 `avoid_dynamic_calls` + `as String`）
-- `ui/playback/shell/celesteria_app_shell.dart:25` — 删重复 import `particle_background.dart`
-- 3 处死代码用 `// ignore: + TODO` 抑制（**保留代码不删**，记入 UI 清单）：`celesteria_app_shell.dart` 的 `_pickAndPlayFile`(91)、`_hotUpdateDemos`(715)；`hero_carousel.dart` 的 `_currentIndex`(15)
+- `ui/playback/shell/elaina_app_shell.dart:25` — 删重复 import `particle_background.dart`
+- 3 处死代码用 `// ignore: + TODO` 抑制（**保留代码不删**，记入 UI 清单）：`elaina_app_shell.dart` 的 `_pickAndPlayFile`(91)、`_hotUpdateDemos`(715)；`hero_carousel.dart` 的 `_currentIndex`(15)
 
 **健壮性加固**
 - `foundation/layers/layer_manifest.dart:95` — `firstWhere` 加 `orElse` 抛带诊断信息的 `StateError`（防未来 `LayerId` 枚举与 manifest 不同步时的隐晦崩溃；当前不可达，纯加固）
 
 **测试**
-- `test/ui/playback/media_library_and_video_detail_test.dart` — `CelesteriaAppShell Integration Tests` 标记 `skip: true`（带注释）。**原因**：`HeroCarousel` 用 `Timer.periodic` 导致 `pumpAndSettle` 永久超时。该测试是未提交新代码，此前因编译错误从未跑过。**这是真实 UI 缺陷，记入 UI 清单。**
+- `test/ui/playback/media_library_and_video_detail_test.dart` — `ElainaAppShell Integration Tests` 标记 `skip: true`（带注释）。**原因**：`HeroCarousel` 用 `Timer.periodic` 导致 `pumpAndSettle` 永久超时。该测试是未提交新代码，此前因编译错误从未跑过。**这是真实 UI 缺陷，记入 UI 清单。**
 
 ---
 
@@ -100,7 +100,7 @@
 ### UI 层（用户决定：**单独列清单，先库本体后 UI**）
 已发现的 UI 问题（设计稿 Stitch 生成痕迹）：
 1. **`ui/widgets/hero_carousel.dart:53`** — `Timer.periodic(4s)` 自动轮播：① 导致 `pumpAndSettle` 永久超时（已 skip 1 测试）；② widget 不可见时仍跑定时器耗资源。建议：暴露禁用开关 / 用 `TickerMode` 感知可见性 / 测试用 `pump(Duration)`。
-2. **硬编码占位图** — `hero_carousel.dart`、`hot_updates_carousel.dart`、`celesteria_app_shell.dart:160` 大量 `https://lh3.googleusercontent.com/aida/...` 占位 URL，必须替换为真实数据源或本地资源。
+2. **硬编码占位图** — `hero_carousel.dart`、`hot_updates_carousel.dart`、`elaina_app_shell.dart:160` 大量 `https://lh3.googleusercontent.com/aida/...` 占位 URL，必须替换为真实数据源或本地资源。
 3. **demo 假数据** — `_hotUpdateDemos`（app_shell:715）、hero `_items` 硬编码中文番剧名/评分。
 4. **漏接功能** — `_pickAndPlayFile`（app_shell:91）完整的"选本地文件并播放"逻辑（30+行）未接到任何按钮。
 5. **未引用字段** — `hero_carousel.dart:15 _currentIndex`（轮播指示器未接）。

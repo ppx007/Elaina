@@ -1,9 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../domain/settings/settings_domain.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -111,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -186,6 +186,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle:
                           'Used to load the current Bangumi profile and sync progress.',
                       controller: _bangumiTokenController,
+                      fieldKey: const ValueKey<String>(
+                          'settings-bangumi-access-token'),
                       obscureText: true,
                       onChanged: (String val) {
                         _saveBangumiToken(val);
@@ -203,6 +205,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       title: '最大缓存限制 (MB)',
                       subtitle: '限制本地番剧分片与元数据缓存的占用空间',
                       controller: _cacheController,
+                      fieldKey:
+                          const ValueKey<String>('settings-cache-size-limit'),
                       keyboardType: TextInputType.number,
                       onChanged: (String val) {
                         _savePreference('cache_size_limit_mb', val.trim());
@@ -221,6 +225,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle:
                           '配置拉取番剧源和订阅时的 HTTP 代理 (例如: http://127.0.0.1:7890)',
                       controller: _proxyController,
+                      fieldKey: const ValueKey<String>('settings-http-proxy'),
                       onChanged: (String _) => _saveProxy(),
                       theme: theme,
                     ),
@@ -230,6 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle:
                           '设置安全 DNS 或解析通道 (例如: https://dns.google/dns-query 或 direct)',
                       controller: _dnsController,
+                      fieldKey: const ValueKey<String>('settings-dns-policy'),
                       onChanged: (String _) => _saveDns(),
                       theme: theme,
                     ),
@@ -246,7 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildCardSection({
     required String title,
     required List<Widget> children,
-    required CelesteriaThemeData theme,
+    required ElainaThemeData theme,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -278,7 +284,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
-    required CelesteriaThemeData theme,
+    required ElainaThemeData theme,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -322,7 +328,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required String value,
     required List<DropdownMenuItem<String>> options,
     required ValueChanged<String?> onChanged,
-    required CelesteriaThemeData theme,
+    required ElainaThemeData theme,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -379,9 +385,10 @@ class _SettingsPageState extends State<SettingsPage> {
     required String subtitle,
     required TextEditingController controller,
     required ValueChanged<String> onChanged,
-    required CelesteriaThemeData theme,
+    required ElainaThemeData theme,
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
+    Key? fieldKey,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,6 +421,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Expanded(
           flex: 1,
           child: TextField(
+            key: fieldKey,
             controller: controller,
             keyboardType: keyboardType,
             obscureText: obscureText,

@@ -6,15 +6,15 @@ Mode: read-only review only
 
 ## Commands Run
 
-All git commands were run with `GIT_MASTER=1` and a per-command `safe.directory` override for `D:/CodeWork/pkpk`.
+All git commands were run with `GIT_MASTER=1` and a per-command `safe.directory` override for `D:/CodeWork/elaina`.
 
 ```powershell
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --name-status
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' ls-files --others --exclude-standard
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --porcelain=v1 -uall
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --name-status
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' ls-files --others --exclude-standard
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --porcelain=v1 -uall
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached --stat
 ```
 
 `git diff --cached --stat` returned no output, so no staged snapshot was present during this review.
@@ -100,7 +100,7 @@ Rationale: these deletions align with the repository decision that OpenSpec is n
 These entries should not be blindly staged as baseline without preservation policy review:
 
 - Modified tracked files under `.trellis/tasks/06-01-save-elaina-player-architecture-plan/`
-- New `.trellis/tasks/06-01-bootstrap-celesteria-implementation/`
+- New `.trellis/tasks/06-01-bootstrap-elaina-implementation/`
 - New `.trellis/tasks/06-01-opencode-trellis-omo-routing/`
 
 Rationale: `.trellis/` is retained as legacy context, and task/workspace material may be session history rather than durable project source. These entries are candidates for a separate preservation/ignore decision.
@@ -109,7 +109,7 @@ Rationale: `.trellis/` is retained as legacy context, and task/workspace materia
 
 These entries require explicit review before staging because they are tracked edits outside a purely generated baseline path:
 
-- `docs/celesteria-architecture-plan.md`
+- `docs/elaina-architecture-plan.md`
 - `AGENTS.md`
 - `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md`
 - `.trellis/tasks/06-01-save-elaina-player-architecture-plan/task.json`
@@ -145,11 +145,11 @@ This is advisory only. It is not permission to stage or commit.
    - Rationale: removes obsolete active Trellis routing from OpenCode after OpenSpec became authority.
 
 4. **Trellis legacy preservation decision**
-   - Files: `.trellis/tasks/06-01-save-elaina-player-architecture-plan/`, `.trellis/tasks/06-01-bootstrap-celesteria-implementation/`, `.trellis/tasks/06-01-opencode-trellis-omo-routing/`.
+   - Files: `.trellis/tasks/06-01-save-elaina-player-architecture-plan/`, `.trellis/tasks/06-01-bootstrap-elaina-implementation/`, `.trellis/tasks/06-01-opencode-trellis-omo-routing/`.
    - Rationale: should be split until user decides whether task/session history belongs in the repository.
 
 5. **Architecture/user-review edits**
-   - Files: `docs/celesteria-architecture-plan.md` and any remaining tracked edits whose purpose is not proven by baseline work.
+   - Files: `docs/elaina-architecture-plan.md` and any remaining tracked edits whose purpose is not proven by baseline work.
    - Rationale: keeps intentional architecture changes reviewable apart from workflow migration.
 
 ## Residual Risks

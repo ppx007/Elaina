@@ -18,7 +18,7 @@
 
 ## 3. Source Neutrality, Exports, and Boundaries
 
-- [x] 3.1 Export only safe Step 18 BT task core runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete torrent engines, FFI, range servers, scheduler runtimes, timeline rendering, diagnostics, network implementations, storage migrations, UI pages, or native-player bindings.
+- [x] 3.1 Export only safe Step 18 BT task core runtime and contract surfaces through `lib/elaina.dart` without exporting concrete torrent engines, FFI, range servers, scheduler runtimes, timeline rendering, diagnostics, network implementations, storage migrations, UI pages, or native-player bindings.
 - [x] 3.2 Keep virtual media stream, piece priority scheduler, and timeline overlay behavior limited to durable handoff state and explicit non-goals; do not implement range serving, piece prioritization, or timeline rendering in this change.
 - [x] 3.3 Keep RSS auto-download, online-rule runtime, concrete ProviderGateway changes, diagnostics center, platform background services, and iOS long-background guarantees outside the Step 18 runtime.
 - [x] 3.4 Preserve existing Phase 0-3 runtime checker behavior while adding Step 18 BT task core runtime validation.

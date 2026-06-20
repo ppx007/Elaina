@@ -103,7 +103,8 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
   }
 
   TrackSwitchResult disposedTrackResult() {
-    return const TrackSwitchResult.unsupported('PlayerCoreRuntime has been disposed.');
+    return const TrackSwitchResult.unsupported(
+        'PlayerCoreRuntime has been disposed.');
   }
 
   void _checkNotDisposed() {
@@ -118,7 +119,8 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
 
   final PlayerCoreRuntime _runtime;
   final List<PlaybackStateObserver> _observers = <PlaybackStateObserver>[];
-  PlaybackStateSnapshot _currentState = const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle);
+  PlaybackStateSnapshot _currentState =
+      const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle);
   bool _closed = false;
 
   @override
@@ -151,7 +153,8 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   @override
   Future<PlaybackCommandResult> open(PlaybackSource source) async {
     if (_closed) return _runtime.disposedCommandResult(PlaybackOperation.load);
-    _publish(_snapshotWith(status: PlaybackLifecycleStatus.opening, sourceUri: source.uri));
+    _publish(_snapshotWith(
+        status: PlaybackLifecycleStatus.opening, sourceUri: source.uri));
     final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
       source: source,
       capabilityMatrix: matrix,
@@ -160,9 +163,11 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
       _publishFailure(sourceSupport);
       return sourceSupport;
     }
-    final PlaybackCommandResult result = await _runtime._activeAdapter.load(source);
+    final PlaybackCommandResult result =
+        await _runtime._activeAdapter.load(source);
     if (result.isSuccess) {
-      _publish(_snapshotWith(status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
+      _publish(_snapshotWith(
+          status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
     } else {
       _publishFailure(result);
     }
@@ -197,7 +202,8 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
       capability: PlaybackCapability.seek,
     );
     if (!support.isSuccess) return support;
-    final PlaybackCommandResult result = await _runtime._activeAdapter.seek(position);
+    final PlaybackCommandResult result =
+        await _runtime._activeAdapter.seek(position);
     if (result.isSuccess) {
       await _runtime._clock.seek(position);
       _publish(
@@ -228,23 +234,27 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   @override
   Future<TrackDiscoveryResult> discoverTracks() async {
     _ensureOpen();
-    final bool supportsDiscovery = matrix.supports(PlaybackCapability.audioTrackDiscovery) ||
-        matrix.supports(PlaybackCapability.subtitleTrackDiscovery);
+    final bool supportsDiscovery =
+        matrix.supports(PlaybackCapability.audioTrackDiscovery) ||
+            matrix.supports(PlaybackCapability.subtitleTrackDiscovery);
     if (!supportsDiscovery) {
-      return TrackDiscoveryResult.unsupported(reason: 'Track discovery is unsupported by the active adapter.');
+      return TrackDiscoveryResult.unsupported(
+          reason: 'Track discovery is unsupported by the active adapter.');
     }
     return _runtime._activeAdapter.discoverTracks();
   }
 
   @override
-  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId, {DomainMediaTrackType? trackType}) async {
+  Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
+      {DomainMediaTrackType? trackType}) async {
     if (_closed) return _runtime.disposedTrackResult();
     final TrackSwitchResult support = playbackTrackSwitchSupportResult(
       capabilityMatrix: matrix,
       trackType: trackType,
     );
     if (!support.isSuccess) return support;
-    final TrackSwitchResult result = await _runtime._activeAdapter.switchTrack(MediaTrackId(trackId.value));
+    final TrackSwitchResult result =
+        await _runtime._activeAdapter.switchTrack(MediaTrackId(trackId.value));
     if (result.isSuccess && trackType != null) {
       _publish(
         _snapshotWith(
@@ -329,7 +339,8 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
 
   void _publish(PlaybackStateSnapshot snapshot) {
     _currentState = snapshot;
-    for (final PlaybackStateObserver observer in List<PlaybackStateObserver>.of(_observers)) {
+    for (final PlaybackStateObserver observer
+        in List<PlaybackStateObserver>.of(_observers)) {
       observer.onPlaybackState(snapshot);
     }
   }

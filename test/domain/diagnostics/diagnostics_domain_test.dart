@@ -1,5 +1,5 @@
-import 'package:celesteria/celesteria.dart';
-import 'package:celesteria/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/elaina.dart';
+import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

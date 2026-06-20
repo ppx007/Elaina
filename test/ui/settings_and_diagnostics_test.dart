@@ -1,17 +1,17 @@
-import 'package:celesteria/src/domain/diagnostics/diagnostics_domain.dart';
-import 'package:celesteria/src/domain/settings/settings_domain.dart';
-import 'package:celesteria/src/ui/diagnostics/diagnostics_page.dart';
-import 'package:celesteria/src/ui/settings/settings_page.dart';
-import 'package:celesteria/src/ui/theme/celesteria_theme.dart';
+import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/domain/settings/settings_domain.dart';
+import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
+import 'package:elaina/src/ui/settings/settings_page.dart';
+import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _testHost({required Widget child}) {
   return MaterialApp(
     home: Scaffold(
-      body: CelesteriaTheme(
-        data: CelesteriaThemeData.dark,
-        mode: CelesteriaThemeMode.dark,
+      body: ElainaTheme(
+        data: ElainaThemeData.dark,
+        mode: ElainaThemeMode.dark,
         onModeChanged: (_) {},
         child: Material(
           child: child,
@@ -66,12 +66,17 @@ class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
 }
 
 void main() {
-  testWidgets('SettingsPage allows editing and auto-saves preferences and proxy/dns', (WidgetTester tester) async {
+  testWidgets(
+      'SettingsPage allows editing and auto-saves preferences and proxy/dns',
+      (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
 
-    await settingsRuntime.setPreference(key: 'hardware_acceleration', value: 'true');
-    await settingsRuntime.setPreference(key: 'layout_preference', value: 'default');
-    await settingsRuntime.setPreference(key: 'cache_size_limit_mb', value: '512');
+    await settingsRuntime.setPreference(
+        key: 'hardware_acceleration', value: 'true');
+    await settingsRuntime.setPreference(
+        key: 'layout_preference', value: 'default');
+    await settingsRuntime.setPreference(
+        key: 'cache_size_limit_mb', value: '512');
     await settingsRuntime.saveProxyUrl('http://127.0.0.1:8888');
     await settingsRuntime.saveDnsPolicy('https://dns.google/dns-query');
 
@@ -83,23 +88,27 @@ void main() {
     expect(find.text('设置中心'), findsOneWidget);
     expect(find.text('硬件加速'), findsOneWidget);
 
-    final textFields = find.byType(TextField);
-    expect(textFields, findsNWidgets(3)); // cache, proxy, dns
-
-    // Enter text for proxy
-    await tester.enterText(textFields.at(1), 'http://127.0.0.1:1080');
-    await tester.pumpAndSettle();
-    expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
-
     // Toggle hardware acceleration
     final switchFinder = find.byType(Switch);
     expect(switchFinder, findsOneWidget);
     await tester.tap(switchFinder);
     await tester.pumpAndSettle();
-    expect(await settingsRuntime.getPreference('hardware_acceleration'), 'false');
+    expect(
+        await settingsRuntime.getPreference('hardware_acceleration'), 'false');
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-http-proxy')).last,
+      'http://127.0.0.1:1080',
+    );
+    await tester.pumpAndSettle();
+    expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
   });
 
-  testWidgets('DiagnosticsPage displays capability checklist, memory usage, drift and chronological log table', (WidgetTester tester) async {
+  testWidgets(
+      'DiagnosticsPage displays capability checklist, memory usage, drift and chronological log table',
+      (WidgetTester tester) async {
     final diagnosticsRuntime = _MockDiagnosticsRuntime();
 
     await tester.pumpWidget(_testHost(

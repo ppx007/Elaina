@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -13,7 +13,8 @@ void main() {
     ));
     final BtTaskCoreRuntimeActionResult<BtTaskProjection> torrent =
         await harness.runtime.createTask(BtTaskCreateRequest(
-      source: TorrentDataBtTaskSource(uri: Uri.parse('file:///tmp/anime.torrent')),
+      source:
+          TorrentDataBtTaskSource(uri: Uri.parse('file:///tmp/anime.torrent')),
     ));
 
     expect(magnet.isSuccess, isTrue);
@@ -50,17 +51,21 @@ void main() {
     expect(metadata.isSuccess, isTrue);
     expect(selected.isSuccess, isTrue);
     expect(listed.value?.single.metadata?.name, 'Episode Pack');
-    expect(listed.value?.single.files.map((BtTaskFileProjection file) => file.selectionState),
+    expect(
+        listed.value?.single.files
+            .map((BtTaskFileProjection file) => file.selectionState),
         <BtFileSelectionState>[
           BtFileSelectionState.skipped,
           BtFileSelectionState.selected,
         ]);
-    expect(() => listed.value!.add(listed.value!.single), throwsUnsupportedError);
+    expect(
+        () => listed.value!.add(listed.value!.single), throwsUnsupportedError);
     expect(harness.adapter.selectedFiles.single.single.value, 1);
     await harness.close();
   });
 
-  test('BT task core runtime gates unsupported and disposed behavior', () async {
+  test('BT task core runtime gates unsupported and disposed behavior',
+      () async {
     final _RuntimeHarness unsupported = _RuntimeHarness(
       capabilities: BtCapabilityMatrix.unsupported(reason: 'BT disabled.'),
     );
@@ -80,7 +85,8 @@ void main() {
         await unavailable.createTask(const BtTaskCreateRequest(
       source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:abc'),
     ));
-    expect(unavailableResult.kind, BtTaskCoreRuntimeActionResultKind.unavailable);
+    expect(
+        unavailableResult.kind, BtTaskCoreRuntimeActionResultKind.unavailable);
 
     final _RuntimeHarness harness = _RuntimeHarness();
     await harness.runtime.dispose();
@@ -126,20 +132,23 @@ void main() {
       source: MagnetBtTaskSource(uri: 'magnet:?xt=urn:btih:abc'),
     ));
 
-    final BtTaskCoreRuntimeActionResult<
-            BtTaskRuntimeObservation<BtTaskStatus>> statusObservation =
+    final BtTaskCoreRuntimeActionResult<BtTaskRuntimeObservation<BtTaskStatus>>
+        statusObservation =
         harness.runtime.observeStatus(const BtTaskId('task-1'));
     final Future<BtTaskStatus> statusFuture =
         statusObservation.value!.values.first;
     await Future<void>.delayed(Duration.zero);
-    harness.adapter.emitStatus(_status(state: BtTaskLifecycleState.downloading));
+    harness.adapter
+        .emitStatus(_status(state: BtTaskLifecycleState.downloading));
     final BtTaskStatus status = await statusFuture;
     expect(status.progress, 0.25);
-    expect((await harness.store.latestTransferSnapshot('task-1'))?.connectedPeers,
+    expect(
+        (await harness.store.latestTransferSnapshot('task-1'))?.connectedPeers,
         2);
 
     final BtTaskCoreRuntimeActionResult<BtTaskRuntimeObservation<BtTaskEvent>>
-        eventObservation = harness.runtime.observeEvents(const BtTaskId('task-1'));
+        eventObservation =
+        harness.runtime.observeEvents(const BtTaskId('task-1'));
     final Future<List<BtTaskEvent>> taskEvents =
         eventObservation.value!.values.take(2).toList();
     await Future<void>.delayed(Duration.zero);
@@ -158,7 +167,8 @@ void main() {
     final BtTaskCoreRuntimeActionResult<BtTaskProjection?> projection =
         await harness.runtime.taskById(const BtTaskId('task-1'));
     expect(projection.value?.latestTransferSnapshot?.progress, 0.25);
-    expect(projection.value?.latestEvent?.eventKind, StoredBtTaskEventKind.failed);
+    expect(
+        projection.value?.latestEvent?.eventKind, StoredBtTaskEventKind.failed);
     await harness.close();
   });
 

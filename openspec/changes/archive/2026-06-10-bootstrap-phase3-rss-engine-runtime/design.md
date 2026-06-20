@@ -57,7 +57,7 @@ Current code already has RSS primitives in `lib/src/domain/rss/rss_engine.dart`,
 1. Add RSS engine runtime values, snapshot/result/failure types, source registry projection, schedule decisions, action results, and lifecycle state under `lib/src/domain/rss/`.
 2. Implement `RssEngineRuntime` or `RssEngineBootstrap` that composes existing `RssEngineContract`, `FeedScheduler`, `RssFeedStore`, and feed update streams.
 3. Add deterministic source registration/listing/removal, due-source projection, refresh one source, refresh due sources, update observation, and disposed/unavailable outcomes.
-4. Export safe RSS runtime surfaces through `lib/celesteria.dart` without exporting concrete UI, transport, storage implementation, seasonal runtime, or auto-download execution code.
+4. Export safe RSS runtime surfaces through `lib/elaina.dart` without exporting concrete UI, transport, storage implementation, seasonal runtime, or auto-download execution code.
 5. Add focused tests, a Dart smoke checker, and a PowerShell boundary checker that chains `check_subtitle_provider_runtime.ps1`.
 6. Run `openspec validate "bootstrap-phase3-rss-engine-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused RSS runtime tests, RSS checker scripts, and existing subtitle-provider, media-library, video-detail, subtitle, Bangumi, Dandanplay, and danmaku smoke checks.
 

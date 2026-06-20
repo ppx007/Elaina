@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 import 'subtitle_provider_runtime_check.dart';
 
 Future<void> main() async {
@@ -19,26 +19,42 @@ Future<void> verifyRssEngineRuntimeContract() async {
   );
 
   final FeedSource source = _source();
-  _expect((await bootstrap.registerSource(source)).isSuccess, 'RSS runtime must register sources.');
-  _expect((await bootstrap.dueSources()).value?.single.id.value == source.id.value, 'RSS runtime must project due sources.');
-  final Future<List<FeedItem>> updates = bootstrap.runtime.updates.take(1).toList();
-  final RssEngineActionResult<RssEngineRefreshSnapshot> first = await bootstrap.refreshSource(source.id);
-  final RssEngineActionResult<RssEngineRefreshSnapshot> second = await bootstrap.refreshSource(source.id);
-  _expect(first.value?.acceptedItems.single.id.value == 'check-feed-item', 'RSS runtime must accept parsed feed items.');
-  _expect(first.value?.warnings.single == 'check parser warning', 'RSS runtime must preserve parser warnings.');
-  _expect(second.value?.acceptedItems.isEmpty == true, 'RSS runtime must suppress duplicate feed items.');
-  _expect((await updates).single.id.value == 'check-feed-item', 'RSS runtime must emit accepted updates.');
-  _expect((await bootstrap.runtime.cursorSnapshot(source.id)).value?.etag == 'etag-v2', 'RSS runtime must preserve cursor metadata.');
+  _expect((await bootstrap.registerSource(source)).isSuccess,
+      'RSS runtime must register sources.');
+  _expect(
+      (await bootstrap.dueSources()).value?.single.id.value == source.id.value,
+      'RSS runtime must project due sources.');
+  final Future<List<FeedItem>> updates =
+      bootstrap.runtime.updates.take(1).toList();
+  final RssEngineActionResult<RssEngineRefreshSnapshot> first =
+      await bootstrap.refreshSource(source.id);
+  final RssEngineActionResult<RssEngineRefreshSnapshot> second =
+      await bootstrap.refreshSource(source.id);
+  _expect(first.value?.acceptedItems.single.id.value == 'check-feed-item',
+      'RSS runtime must accept parsed feed items.');
+  _expect(first.value?.warnings.single == 'check parser warning',
+      'RSS runtime must preserve parser warnings.');
+  _expect(second.value?.acceptedItems.isEmpty == true,
+      'RSS runtime must suppress duplicate feed items.');
+  _expect((await updates).single.id.value == 'check-feed-item',
+      'RSS runtime must emit accepted updates.');
+  _expect(
+      (await bootstrap.runtime.cursorSnapshot(source.id)).value?.etag ==
+          'etag-v2',
+      'RSS runtime must preserve cursor metadata.');
 
   final RssEngineBootstrap failed = RssEngineBootstrap(
-    store: DeterministicRssFeedStore(seedSources: <StoredFeedSourceRecord>[_storedSource(source)]),
+    store: DeterministicRssFeedStore(
+        seedSources: <StoredFeedSourceRecord>[_storedSource(source)]),
     fetcher: _FailingFeedFetcher(),
     parser: parser,
     scheduler: _CheckFeedScheduler(),
     clock: () => now,
   );
-  final RssEngineActionResult<RssEngineRefreshSnapshot> failure = await failed.refreshSource(source.id);
-  _expect(failure.failure?.kind == RssEngineRuntimeFailureKind.providerFailure, 'RSS runtime must normalize provider failures.');
+  final RssEngineActionResult<RssEngineRefreshSnapshot> failure =
+      await failed.refreshSource(source.id);
+  _expect(failure.failure?.kind == RssEngineRuntimeFailureKind.providerFailure,
+      'RSS runtime must normalize provider failures.');
 
   await bootstrap.dispose();
   await failed.dispose();
@@ -74,7 +90,8 @@ final class _CheckFeedScheduler implements FeedScheduler {
   @override
   Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) async* {
     for (final FeedSource source in sources) {
-      yield FeedScheduleDecision(source: source, dueAt: DateTime.utc(2026, 6, 11, 12));
+      yield FeedScheduleDecision(
+          source: source, dueAt: DateTime.utc(2026, 6, 11, 12));
     }
   }
 }
@@ -111,7 +128,8 @@ final class _CheckFeedFetcher implements FeedFetcher {
   String get displayName => 'Check Feed Fetcher';
 
   @override
-  ProviderGateway get gateway => throw UnsupportedError('Smoke checker does not expose a provider gateway.');
+  ProviderGateway get gateway => throw UnsupportedError(
+      'Smoke checker does not expose a provider gateway.');
 
   @override
   String get id => 'check-feed-fetcher';
@@ -120,17 +138,23 @@ final class _CheckFeedFetcher implements FeedFetcher {
   ProviderKind get kind => ProviderKind.rss;
 
   @override
-  ProviderRegistration get registration => rssProviderRegistration(sourceId: const FeedSourceId('check-feed-fetcher'));
+  ProviderRegistration get registration => rssProviderRegistration(
+      sourceId: const FeedSourceId('check-feed-fetcher'));
 
   @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({required String cacheKey, required Future<T> Function() load, ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly}) {
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>(
+      {required String cacheKey,
+      required Future<T> Function() load,
+      ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly}) {
     throw UnsupportedError('Smoke checker does not execute gateway requests.');
   }
 
   @override
-  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(FeedFetchRequest request) {
+  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(
+      FeedFetchRequest request) {
     count += 1;
-    return Future<AcgProviderResult<FeedFetchResponse>>.value(AcgProviderSuccess<FeedFetchResponse>(FeedFetchResponse(
+    return Future<AcgProviderResult<FeedFetchResponse>>.value(
+        AcgProviderSuccess<FeedFetchResponse>(FeedFetchResponse(
       sourceId: request.source.id,
       body: '<rss />',
       etag: 'etag-v$count',
@@ -139,7 +163,8 @@ final class _CheckFeedFetcher implements FeedFetcher {
   }
 
   @override
-  ProviderRequestKey requestKey(String cacheKey) => ProviderRequestKey(providerId: const ProviderId('check-feed-fetcher'), cacheKey: cacheKey);
+  ProviderRequestKey requestKey(String cacheKey) => ProviderRequestKey(
+      providerId: const ProviderId('check-feed-fetcher'), cacheKey: cacheKey);
 }
 
 final class _FailingFeedFetcher implements FeedFetcher {
@@ -147,7 +172,8 @@ final class _FailingFeedFetcher implements FeedFetcher {
   String get displayName => 'Failing Feed Fetcher';
 
   @override
-  ProviderGateway get gateway => throw UnsupportedError('Smoke checker does not expose a provider gateway.');
+  ProviderGateway get gateway => throw UnsupportedError(
+      'Smoke checker does not expose a provider gateway.');
 
   @override
   String get id => 'failing-feed-fetcher';
@@ -156,21 +182,28 @@ final class _FailingFeedFetcher implements FeedFetcher {
   ProviderKind get kind => ProviderKind.rss;
 
   @override
-  ProviderRegistration get registration => rssProviderRegistration(sourceId: const FeedSourceId('failing-feed-fetcher'));
+  ProviderRegistration get registration => rssProviderRegistration(
+      sourceId: const FeedSourceId('failing-feed-fetcher'));
 
   @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({required String cacheKey, required Future<T> Function() load, ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly}) {
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>(
+      {required String cacheKey,
+      required Future<T> Function() load,
+      ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly}) {
     throw UnsupportedError('Smoke checker does not execute gateway requests.');
   }
 
   @override
-  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(FeedFetchRequest request) {
-    return Future<AcgProviderResult<FeedFetchResponse>>.value(const AcgProviderFailure<FeedFetchResponse>(
+  Future<AcgProviderResult<FeedFetchResponse>> fetchFeed(
+      FeedFetchRequest request) {
+    return Future<AcgProviderResult<FeedFetchResponse>>.value(
+        const AcgProviderFailure<FeedFetchResponse>(
       kind: AcgProviderFailureKind.retryable,
       message: 'check provider failure',
     ));
   }
 
   @override
-  ProviderRequestKey requestKey(String cacheKey) => ProviderRequestKey(providerId: const ProviderId('failing-feed-fetcher'), cacheKey: cacheKey);
+  ProviderRequestKey requestKey(String cacheKey) => ProviderRequestKey(
+      providerId: const ProviderId('failing-feed-fetcher'), cacheKey: cacheKey);
 }

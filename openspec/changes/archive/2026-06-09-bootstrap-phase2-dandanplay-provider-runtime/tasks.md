@@ -9,7 +9,7 @@
 
 - [x] 2.1 Add or update Domain-facing ACG/Dandanplay runtime helper that exposes an `AcgDataController` backed by deterministic Dandanplay runtime providers.
 - [x] 2.2 Ensure Dandanplay unavailable, unmatched, post-failed, throttled, retryable, or disposed results remain optional enrichment and do not require playback, subtitle runtime, Bangumi, RSS, BT, online-rule, native player, or UI dependencies.
-- [x] 2.3 Export only contract-safe Dandanplay runtime/bootstrap surfaces through `lib/celesteria.dart` without exposing concrete HTTP, account login, token storage, network, Playback danmaku renderer, or UI details.
+- [x] 2.3 Export only contract-safe Dandanplay runtime/bootstrap surfaces through `lib/elaina.dart` without exposing concrete HTTP, account login, token storage, network, Playback danmaku renderer, or UI details.
 
 ## 3. Tests and Validation
 

@@ -69,7 +69,7 @@ foreach ($term in $requiredRuntimeTerms) {
 # ---------------------------------------------------------------------------
 # 4. Barrel export check
 # ---------------------------------------------------------------------------
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   "export 'src/streaming/piece_priority_scheduler.dart';",
   "export 'src/streaming/piece_priority_scheduler_runtime.dart';"

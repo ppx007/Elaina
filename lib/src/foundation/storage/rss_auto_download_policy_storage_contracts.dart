@@ -69,7 +69,8 @@ final class StoredRssAutoDownloadPolicyRecord {
     required this.updatedAt,
     Map<String, String> metadata = const <String, String>{},
   })  : assert(id != '', 'RSS auto-download policy id must not be empty.'),
-        assert(label != '', 'RSS auto-download policy label must not be empty.'),
+        assert(
+            label != '', 'RSS auto-download policy label must not be empty.'),
         metadata = Map<String, String>.unmodifiable(metadata);
 
   final String id;
@@ -86,7 +87,8 @@ final class StoredRssAutoDownloadFeedActivationRecord {
     required this.sourceId,
     required this.enabled,
     required this.updatedAt,
-  })  : assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+  })  : assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(sourceId != '', 'RSS feed source id must not be empty.');
 
   final String policyId;
@@ -140,7 +142,8 @@ final class StoredRssAutoDownloadRuleRecord {
     this.excludeMatcher,
     Iterable<String> scopedSourceIds = const <String>[],
   })  : assert(id != '', 'RSS auto-download rule id must not be empty.'),
-        assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(label != '', 'RSS auto-download rule label must not be empty.'),
         scopedSourceIds = List<String>.unmodifiable(scopedSourceIds);
 
@@ -167,10 +170,12 @@ final class StoredRssAutoDownloadEvaluationRecord {
     this.candidateId,
     this.reason,
   })  : assert(id != '', 'RSS auto-download evaluation id must not be empty.'),
-        assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(itemId != '', 'RSS feed item id must not be empty.'),
         assert(sourceId != '', 'RSS feed source id must not be empty.'),
-        assert(itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.');
+        assert(
+            itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.');
 
   final String id;
   final String policyId;
@@ -198,12 +203,15 @@ final class StoredRssAutoDownloadAcceptedCandidateRecord {
     required this.acceptedAt,
     Map<String, String> metadata = const <String, String>{},
   })  : assert(id != '', 'RSS auto-download candidate id must not be empty.'),
-        assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(ruleId != '', 'RSS auto-download rule id must not be empty.'),
         assert(itemId != '', 'RSS feed item id must not be empty.'),
         assert(sourceId != '', 'RSS feed source id must not be empty.'),
-        assert(itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
-        assert(candidateDedupeKey != '', 'RSS candidate dedupe key must not be empty.'),
+        assert(
+            itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
+        assert(candidateDedupeKey != '',
+            'RSS candidate dedupe key must not be empty.'),
         assert(sourceUri != '', 'RSS candidate source URI must not be empty.'),
         metadata = Map<String, String>.unmodifiable(metadata);
 
@@ -232,11 +240,14 @@ final class StoredRssAutoDownloadRejectedCandidateRecord {
     required this.rejectedAt,
     this.ruleId,
   })  : assert(id != '', 'RSS auto-download rejection id must not be empty.'),
-        assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(itemId != '', 'RSS feed item id must not be empty.'),
         assert(sourceId != '', 'RSS feed source id must not be empty.'),
-        assert(itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
-        assert(reason != '', 'RSS auto-download rejection reason must not be empty.');
+        assert(
+            itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
+        assert(reason != '',
+            'RSS auto-download rejection reason must not be empty.');
 
   final String id;
   final String policyId;
@@ -256,10 +267,14 @@ final class StoredRssAutoDownloadDedupeRecord {
     required this.itemDedupeKey,
     required this.candidateId,
     required this.recordedAt,
-  })  : assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
-        assert(candidateDedupeKey != '', 'RSS candidate dedupe key must not be empty.'),
-        assert(itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
-        assert(candidateId != '', 'RSS auto-download candidate id must not be empty.');
+  })  : assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(candidateDedupeKey != '',
+            'RSS candidate dedupe key must not be empty.'),
+        assert(
+            itemDedupeKey != '', 'RSS feed item dedupe key must not be empty.'),
+        assert(candidateId != '',
+            'RSS auto-download candidate id must not be empty.');
 
   final String policyId;
   final String candidateDedupeKey;
@@ -278,8 +293,10 @@ final class StoredRssAutoDownloadEnqueueOutcomeRecord {
     required this.recordedAt,
     this.taskId,
   })  : assert(id != '', 'RSS enqueue outcome id must not be empty.'),
-        assert(candidateId != '', 'RSS auto-download candidate id must not be empty.'),
-        assert(policyId != '', 'RSS auto-download policy id must not be empty.'),
+        assert(candidateId != '',
+            'RSS auto-download candidate id must not be empty.'),
+        assert(
+            policyId != '', 'RSS auto-download policy id must not be empty.'),
         assert(message != '', 'RSS enqueue outcome message must not be empty.');
 
   final String id;
@@ -317,8 +334,7 @@ abstract interface class RssAutoDownloadPolicyStore {
     required Iterable<StoredRssAutoDownloadRuleRecord> rules,
   });
 
-  Future<List<StoredRssAutoDownloadRuleRecord>> rulesForPolicy(
-      String policyId);
+  Future<List<StoredRssAutoDownloadRuleRecord>> rulesForPolicy(String policyId);
 
   Future<void> recordEvaluation(StoredRssAutoDownloadEvaluationRecord record);
 
@@ -487,8 +503,8 @@ final class DeterministicRssAutoDownloadPolicyStore
 
   @override
   Future<void> recordDedupeKey(StoredRssAutoDownloadDedupeRecord record) {
-    _dedupeByPolicyAndKey[
-        _key(record.policyId, record.candidateDedupeKey)] = record;
+    _dedupeByPolicyAndKey[_key(record.policyId, record.candidateDedupeKey)] =
+        record;
     return Future<void>.value();
   }
 
@@ -512,9 +528,8 @@ final class DeterministicRssAutoDownloadPolicyStore
         (String key, StoredRssAutoDownloadFeedActivationRecord activation) =>
             activation.policyId == policyId);
     _rulesByPolicyId.remove(policyId);
-    _evaluations.removeWhere(
-        (StoredRssAutoDownloadEvaluationRecord record) =>
-            record.policyId == policyId);
+    _evaluations.removeWhere((StoredRssAutoDownloadEvaluationRecord record) =>
+        record.policyId == policyId);
     _acceptedCandidatesById.removeWhere(
         (String key, StoredRssAutoDownloadAcceptedCandidateRecord candidate) =>
             candidate.policyId == policyId);

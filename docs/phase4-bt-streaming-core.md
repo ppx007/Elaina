@@ -1,6 +1,6 @@
 # Phase 4: BT Streaming Core
 
-This phase adds contract scaffolding for Celesteria architecture plan steps 18-21.
+This phase adds contract scaffolding for Elaina architecture plan steps 18-21.
 
 ## Implemented Boundary
 

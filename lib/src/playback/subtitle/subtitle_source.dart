@@ -5,7 +5,8 @@ enum SubtitleFormat {
 }
 
 sealed class SubtitleSource {
-  const SubtitleSource({required this.id, required this.format, this.languageCode});
+  const SubtitleSource(
+      {required this.id, required this.format, this.languageCode});
 
   final String id;
   final SubtitleFormat format;

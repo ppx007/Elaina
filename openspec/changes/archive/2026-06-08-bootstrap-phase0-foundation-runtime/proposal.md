@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has completed the Step 1-30 contract bootstrap, including the Phase 6 diagnostics freeze, but the repository still needs a formal Phase 0 runtime foundation slice that turns Step 1-4 contracts into executable, reusable bootstrap scaffolding. This change starts implementation in the architecture-prescribed order: layer manifest first, then storage foundation, ProviderGateway, and CacheInvalidationBus.
+Elaina has completed the Step 1-30 contract bootstrap, including the Phase 6 diagnostics freeze, but the repository still needs a formal Phase 0 runtime foundation slice that turns Step 1-4 contracts into executable, reusable bootstrap scaffolding. This change starts implementation in the architecture-prescribed order: layer manifest first, then storage foundation, ProviderGateway, and CacheInvalidationBus.
 
 ## What Changes
 
@@ -26,6 +26,6 @@ Celesteria has completed the Step 1-30 contract bootstrap, including the Phase 6
 
 ## Impact
 
-- Affected code: `lib/src/foundation/`, `lib/celesteria.dart`, runtime checker scripts, focused tests, and OpenSpec specs for Step 1-4 foundation capabilities.
+- Affected code: `lib/src/foundation/`, `lib/elaina.dart`, runtime checker scripts, focused tests, and OpenSpec specs for Step 1-4 foundation capabilities.
 - No Flutter UI, concrete MPV/VLC/libtorrent/HTTP/DNS/database adapters, online rule execution, WebView automation, or platform services are introduced.
 - This change should provide the implementation base that later Phase 1 playback core work can depend on without reopening Phase 6 extension contracts.

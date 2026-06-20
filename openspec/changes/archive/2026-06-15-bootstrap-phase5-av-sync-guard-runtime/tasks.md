@@ -14,7 +14,7 @@
 ## 2. GREEN: Runtime implementation
 
 - [x] 2.1 Add `lib/src/playback/av_sync_guard_runtime.dart` with `AVSyncGuardBootstrap`, `AVSyncGuardRuntime`, `AVSyncGuardRuntimeFailureKind`, `AVSyncGuardRuntimeFailure`, `AVSyncGuardRuntimeActionResultKind`, `AVSyncGuardRuntimeActionResult<T>`, `AVSyncGuardRuntimeProjection`, `AVSyncGuardRuntimeRestartProjection` — Playback layer
-- [x] 2.2 Add `export 'src/playback/av_sync_guard_runtime.dart';` to `lib/celesteria.dart` — Playback/UI layer
+- [x] 2.2 Add `export 'src/playback/av_sync_guard_runtime.dart';` to `lib/elaina.dart` — Playback/UI layer
 - [x] 2.3 Run focused tests — expect all pass (GREEN)
 
 ## 3. Contract validation

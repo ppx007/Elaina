@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -183,7 +183,7 @@ void main() {
   test('sqlite-backed recorder persists continue watching after reopen',
       () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'celesteria-playback-history-',
+      'elaina-playback-history-',
     );
     addTearDown(() async {
       if (root.existsSync()) await root.delete(recursive: true);

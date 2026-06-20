@@ -16,7 +16,7 @@
 ### 2. GREEN — Implementation
 - [x] 2.1 Add `DeterministicRssAutomationHistoryStore` to `lib/src/foundation/storage/rss_auto_download_policy_storage_contracts.dart`
 - [x] 2.2 Create `lib/src/provider/rss/rss_auto_download_runtime.dart` with full runtime/bootstrap/projection/ActionResult implementation
-- [x] 2.3 Add barrel export `export 'src/provider/rss/rss_auto_download_runtime.dart';` in `lib/celesteria.dart`
+- [x] 2.3 Add barrel export `export 'src/provider/rss/rss_auto_download_runtime.dart';` in `lib/elaina.dart`
 
 ### 3. Contract Verification
 - [x] 3.1 Run focused Flutter tests — expect all pass

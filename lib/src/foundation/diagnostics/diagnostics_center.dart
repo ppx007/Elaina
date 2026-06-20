@@ -124,7 +124,8 @@ final class DiagnosticsEventSchema {
     required this.defaultSeverity,
     Iterable<String> requiredPayloadKeys = const <String>[],
     this.capabilityArea,
-  })  : assert(version > 0, 'Diagnostics event schema version must be positive.'),
+  })  : assert(
+            version > 0, 'Diagnostics event schema version must be positive.'),
         requiredPayloadKeys = List<String>.unmodifiable(requiredPayloadKeys);
 
   final DiagnosticsEventType type;
@@ -146,8 +147,10 @@ final class DiagnosticsEvent {
     required this.correlationId,
     Map<String, Object?> payload = const <String, Object?>{},
     this.capabilityArea,
-  })  : assert(schemaVersion > 0, 'Diagnostics event schema version must be positive.'),
-        assert(sourceModule != '', 'Diagnostics event source module must not be empty.'),
+  })  : assert(schemaVersion > 0,
+            'Diagnostics event schema version must be positive.'),
+        assert(sourceModule != '',
+            'Diagnostics event source module must not be empty.'),
         payload = Map<String, Object?>.unmodifiable(payload);
 
   final DiagnosticsEventType type;
@@ -201,8 +204,10 @@ final class DiagnosticsSnapshot {
 }
 
 final class DiagnosticsRetentionPolicy {
-  const DiagnosticsRetentionPolicy({required this.maxEvents, required this.maxAge})
-      : assert(maxEvents > 0, 'Diagnostics retention maxEvents must be positive.');
+  const DiagnosticsRetentionPolicy(
+      {required this.maxEvents, required this.maxAge})
+      : assert(
+            maxEvents > 0, 'Diagnostics retention maxEvents must be positive.');
 
   final int maxEvents;
   final Duration maxAge;
@@ -213,8 +218,10 @@ final class DiagnosticsRetentionOutcome {
     required this.enforcedAt,
     required this.removedEventCount,
     required this.remainingEventCount,
-  })  : assert(removedEventCount >= 0, 'removedEventCount must not be negative.'),
-        assert(remainingEventCount >= 0, 'remainingEventCount must not be negative.');
+  })  : assert(
+            removedEventCount >= 0, 'removedEventCount must not be negative.'),
+        assert(remainingEventCount >= 0,
+            'remainingEventCount must not be negative.');
 
   final DateTime enforcedAt;
   final int removedEventCount;
@@ -222,7 +229,8 @@ final class DiagnosticsRetentionOutcome {
 }
 
 final class DiagnosticsRedactionPolicy {
-  DiagnosticsRedactionPolicy({Iterable<String> sensitivePayloadKeys = const <String>[]})
+  DiagnosticsRedactionPolicy(
+      {Iterable<String> sensitivePayloadKeys = const <String>[]})
       : sensitivePayloadKeys = Set<String>.unmodifiable(sensitivePayloadKeys);
 
   final Set<String> sensitivePayloadKeys;
@@ -244,7 +252,8 @@ final class DiagnosticsLocalExportDescriptor {
     this.uri,
     this.reason,
   })  : assert(id != '', 'Diagnostics export id must not be empty.'),
-        assert(snapshotId != '', 'Diagnostics export snapshot id must not be empty.'),
+        assert(snapshotId != '',
+            'Diagnostics export snapshot id must not be empty.'),
         assert(format != '', 'Diagnostics export format must not be empty.');
 
   final String id;
@@ -329,7 +338,8 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
 
   @override
   Future<DiagnosticsOperationOutcome> record(DiagnosticsEvent event) {
-    if (!capabilityMatrix.supports(DiagnosticsCapability.redactedEventRecording)) {
+    if (!capabilityMatrix
+        .supports(DiagnosticsCapability.redactedEventRecording)) {
       return Future<DiagnosticsOperationOutcome>.value(
         const DiagnosticsOperationOutcome.failure(DiagnosticsFailure(
           kind: DiagnosticsFailureKind.capabilityUnsupported,
@@ -380,13 +390,15 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
   Future<DiagnosticsRetentionOutcome> enforceRetention(DateTime now) {
     final int before = _events.length;
     final DateTime oldestAllowed = now.subtract(retentionPolicy.maxAge);
-    _events.removeWhere((DiagnosticsEvent event) => event.occurredAt.isBefore(oldestAllowed));
+    _events.removeWhere(
+        (DiagnosticsEvent event) => event.occurredAt.isBefore(oldestAllowed));
     if (_events.length > retentionPolicy.maxEvents) {
       _events.sort((DiagnosticsEvent left, DiagnosticsEvent right) =>
           left.occurredAt.compareTo(right.occurredAt));
       _events.removeRange(0, _events.length - retentionPolicy.maxEvents);
     }
-    return Future<DiagnosticsRetentionOutcome>.value(DiagnosticsRetentionOutcome(
+    return Future<DiagnosticsRetentionOutcome>.value(
+        DiagnosticsRetentionOutcome(
       enforcedAt: now,
       removedEventCount: before - _events.length,
       remainingEventCount: _events.length,
@@ -399,7 +411,8 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
     required String format,
     required DateTime now,
   }) {
-    if (!capabilityMatrix.supports(DiagnosticsCapability.localExportDescriptor)) {
+    if (!capabilityMatrix
+        .supports(DiagnosticsCapability.localExportDescriptor)) {
       return Future<DiagnosticsLocalExportDescriptor>.value(
         DiagnosticsLocalExportDescriptor(
           id: 'diagnostics-export-${now.microsecondsSinceEpoch}',
@@ -428,9 +441,10 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
   DiagnosticsEvent _redact(DiagnosticsEvent event) {
     final Map<String, Object?> redacted = <String, Object?>{};
     for (final MapEntry<String, Object?> entry in event.payload.entries) {
-      redacted[entry.key] = redactionPolicy.sensitivePayloadKeys.contains(entry.key)
-          ? '<redacted>'
-          : entry.value;
+      redacted[entry.key] =
+          redactionPolicy.sensitivePayloadKeys.contains(entry.key)
+              ? '<redacted>'
+              : entry.value;
     }
     return DiagnosticsEvent(
       type: event.type,
@@ -463,7 +477,8 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
         event.severity.index < query.minimumSeverity!.index) {
       return false;
     }
-    if (query.startedAt != null && event.occurredAt.isBefore(query.startedAt!)) {
+    if (query.startedAt != null &&
+        event.occurredAt.isBefore(query.startedAt!)) {
       return false;
     }
     if (query.endedAt != null && event.occurredAt.isAfter(query.endedAt!)) {
@@ -473,11 +488,13 @@ final class DeterministicDiagnosticsCenter implements DiagnosticsCenter {
         event.correlationId.value != query.correlationId!.value) {
       return false;
     }
-    if (query.sourceModule != null && event.sourceModule != query.sourceModule) {
+    if (query.sourceModule != null &&
+        event.sourceModule != query.sourceModule) {
       return false;
     }
     if (query.eventTypes.isNotEmpty &&
-        !query.eventTypes.any((DiagnosticsEventType type) => type.value == event.type.value)) {
+        !query.eventTypes.any(
+            (DiagnosticsEventType type) => type.value == event.type.value)) {
       return false;
     }
     if (query.capabilityAreas.isNotEmpty &&

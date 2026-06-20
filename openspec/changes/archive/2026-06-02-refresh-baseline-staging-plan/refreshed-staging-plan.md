@@ -21,14 +21,14 @@ Commands run during this apply step:
 
 ```powershell
 openspec list --json
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --porcelain=v1 -uall
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --name-status
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' ls-files --others --exclude-standard
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' branch --show-current
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' log --oneline -10
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --porcelain=v1 -uall
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --name-status
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' ls-files --others --exclude-standard
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' branch --show-current
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' log --oneline -10
 ```
 
 Observed state:
@@ -37,7 +37,7 @@ Observed state:
 - Branch: `main`
 - Staged diff: none (`git diff --cached --stat` returned no output)
 - Tracked unstaged diff: 48 files, 136 insertions, 5,187 deletions
-- Recent history available for style detection: `9e5d657 Initial Celesteria architecture plan`
+- Recent history available for style detection: `9e5d657 Initial Elaina architecture plan`
 - Read-only-only confirmation: no staging, deletion, commit, reset, checkout, remote configuration, push, or publish command was run.
 
 ## Drift From Archived Plans
@@ -89,11 +89,11 @@ Forbidden for the large dirty tree:
 Required loop for each future group:
 
 ```powershell
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --porcelain=v1 -uall
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' add -n <explicit-pathspecs-for-one-group>
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' add <explicit-pathspecs-for-one-group>
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached -- <explicit-pathspecs-for-one-group>
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --porcelain=v1 -uall
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' add -n <explicit-pathspecs-for-one-group>
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' add <explicit-pathspecs-for-one-group>
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached -- <explicit-pathspecs-for-one-group>
 ```
 
 Commit creation remains outside this change and still requires explicit user approval.
@@ -129,9 +129,9 @@ Validation gates:
 - Confirm `openspec list --json` returns no active changes before staging this group.
 - Confirm no active `openspec/changes/<name>/` directory is included.
 
-### Commit 2: Add Celesteria Dart contract baseline
+### Commit 2: Add Elaina Dart contract baseline
 
-Proposed message: `Add Celesteria Dart contract baseline`
+Proposed message: `Add Elaina Dart contract baseline`
 
 Future staging scope:
 
@@ -154,9 +154,9 @@ Validation gates:
 - `powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"`
 - Optional: run earlier phase checker scripts independently for a narrower audit.
 
-### Commit 3: Add Celesteria phase documentation baseline
+### Commit 3: Add Elaina phase documentation baseline
 
-Proposed message: `Add Celesteria phase documentation baseline`
+Proposed message: `Add Elaina phase documentation baseline`
 
 Future staging scope:
 
@@ -262,7 +262,7 @@ Proposed message: `Preserve Trellis task history`
 Future staging scope requiring human decision:
 
 - `.trellis/tasks/06-01-save-elaina-player-architecture-plan/`
-- `.trellis/tasks/06-01-bootstrap-celesteria-implementation/`
+- `.trellis/tasks/06-01-bootstrap-elaina-implementation/`
 - `.trellis/tasks/06-01-opencode-trellis-omo-routing/`
 
 Justification: these files contain task/session history and some useful decisions, but durable material has already been extracted into docs; raw task files require an explicit preserve/local/remove decision.
@@ -278,13 +278,13 @@ Validation gates:
 - Review for personal/session-only details before any commit.
 - Do not include `.trellis/workspace/` unless separately approved.
 
-### Commit 9: Update Celesteria architecture plan
+### Commit 9: Update Elaina architecture plan
 
-Proposed message: `Update Celesteria architecture plan`
+Proposed message: `Update Elaina architecture plan`
 
 Future staging scope:
 
-- `docs/celesteria-architecture-plan.md`
+- `docs/elaina-architecture-plan.md`
 
 Justification: the architecture plan is the durable product roadmap and should remain independently reviewable from workflow migration, source contracts, and Trellis task history.
 

@@ -124,7 +124,7 @@ foreach ($term in @('DandanplayApiClient', 'HttpDandanplayApiTransport', 'dart:i
 $uiFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/ui') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $uiFiles) {
   $content = Get-Content -LiteralPath $file.FullName -Raw
-  foreach ($term in @('DandanplayApiClient', 'DandanplayApiProvider', 'HttpDandanplayApiTransport', 'package:celesteria/src/provider/dandanplay')) {
+  foreach ($term in @('DandanplayApiClient', 'DandanplayApiProvider', 'HttpDandanplayApiTransport', 'package:elaina/src/provider/dandanplay')) {
     if ($content -match [regex]::Escape($term)) {
       throw "Dandanplay concrete API dependency '$term' leaked into UI file: $($file.FullName)"
     }
@@ -149,7 +149,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/provider/dandanplay/dandanplay_api_client.dart',
   'src/provider/dandanplay/dandanplay_runtime.dart',

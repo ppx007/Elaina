@@ -1,6 +1,6 @@
 ## Context
 
-Celesteria routes external capabilities through ProviderGateway, and recent Phase 6 slices added online rule runtime and manual WebView challenge backfill. These flows share the same risk boundary: provider-scoped traffic can target unsafe schemes, private or loopback networks, provider-prohibited hosts, or domains that require declarative DNS/proxy intent. The architecture plan requires per-domain DNS, DoH/DoT, SSRF protection, and proxy support, but also states that DNS policy is provider/domain configured and defaults to system DNS.
+Elaina routes external capabilities through ProviderGateway, and recent Phase 6 slices added online rule runtime and manual WebView challenge backfill. These flows share the same risk boundary: provider-scoped traffic can target unsafe schemes, private or loopback networks, provider-prohibited hosts, or domains that require declarative DNS/proxy intent. The architecture plan requires per-domain DNS, DoH/DoT, SSRF protection, and proxy support, but also states that DNS policy is provider/domain configured and defaults to system DNS.
 
 This design deepens the contracts without implementing a resolver, proxy, VPN, TUN, kernel filter, DPI system, or platform network plugin.
 
@@ -18,7 +18,7 @@ This design deepens the contracts without implementing a resolver, proxy, VPN, T
 **Non-Goals:**
 
 - No concrete DNS lookup, DoH/DoT HTTP client, resolver cache, proxy server, PAC file parser, VPN service, TUN interface, kernel filter, DPI, packet capture, or zero-leak routing guarantee.
-- No system-wide routing control; policy applies only to Celesteria-managed provider traffic.
+- No system-wide routing control; policy applies only to Elaina-managed provider traffic.
 - No UI, settings screen, diagnostics UI, or platform plugin implementation.
 - No bypass of ProviderGateway, online-rule runtime, RSS engine, or WebView session boundaries.
 

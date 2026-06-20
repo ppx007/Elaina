@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has frozen local playback, ACG data, BT streaming, and advanced playback contracts, so the next roadmap slice can define online automation without weakening the offline-first playback loop. Phase 6 establishes policy-governed RSS automation, declarative online rules, manual session backfill, network policy boundaries, and local diagnostics before any concrete source implementation is introduced.
+Elaina has frozen local playback, ACG data, BT streaming, and advanced playback contracts, so the next roadmap slice can define online automation without weakening the offline-first playback loop. Phase 6 establishes policy-governed RSS automation, declarative online rules, manual session backfill, network policy boundaries, and local diagnostics before any concrete source implementation is introduced.
 
 ## What Changes
 

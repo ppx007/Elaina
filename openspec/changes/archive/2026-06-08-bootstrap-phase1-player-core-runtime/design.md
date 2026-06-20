@@ -61,7 +61,7 @@ Alternative considered: let playback UI resolve adapters directly for faster wir
 ## Migration Plan
 
 1. Add player-core runtime/bootstrap files under `lib/src/domain/playback/` and deterministic binding scaffolding under `lib/src/playback/`.
-2. Export the new contract-safe player-core runtime surfaces through `lib/celesteria.dart`.
+2. Export the new contract-safe player-core runtime surfaces through `lib/elaina.dart`.
 3. Add focused tests under `test/playback/`.
 4. Extend or add checker scripts for Phase 1 runtime boundary validation.
 5. Run OpenSpec validation, analyzer, focused tests, player-core runtime check, and boundary checker scripts.

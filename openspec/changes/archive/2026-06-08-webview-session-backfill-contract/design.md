@@ -1,6 +1,6 @@
 ## Context
 
-Celesteria already models online rule source retrieval and provider traffic through ProviderGateway and network-policy boundaries. Phase 6 Step 28 adds the missing manual recovery path for providers that present a challenge, where a user completes the challenge in an isolated WebView and same-origin session artifacts are normalized back into provider session contracts.
+Elaina already models online rule source retrieval and provider traffic through ProviderGateway and network-policy boundaries. Phase 6 Step 28 adds the missing manual recovery path for providers that present a challenge, where a user completes the challenge in an isolated WebView and same-origin session artifacts are normalized back into provider session contracts.
 
 The architecture plan is explicit that captcha automation is forbidden: only manual completion followed by same-origin session backfill is allowed. This change therefore deepens contracts without adding a concrete WebView UI, platform browser adapter, captcha solver, crawler, or global cookie bridge.
 

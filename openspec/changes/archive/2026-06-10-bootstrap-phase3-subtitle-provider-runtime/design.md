@@ -56,7 +56,7 @@ Current code already has many primitives: `SubtitleProvider` search/retrieval co
 1. Add subtitle-provider runtime values, snapshot/result/failure types, query/action values, and a `SubtitleProviderRuntime`/bootstrap composition entry point under `lib/src/domain/subtitle/`.
 2. Compose existing `SubtitleProvider`, `SubtitleDiscoveryContract`, subtitle cache contracts, and parser handoff behind the runtime.
 3. Add deterministic search/retrieve/prepare actions and observer snapshots.
-4. Export safe subtitle-provider runtime surfaces through `lib/celesteria.dart`.
+4. Export safe subtitle-provider runtime surfaces through `lib/elaina.dart`.
 5. Add focused tests, a Dart smoke checker, and a PowerShell boundary checker that chains existing subtitle runtime checks.
 6. Run `openspec validate "bootstrap-phase3-subtitle-provider-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused subtitle provider runtime tests, subtitle provider checker scripts, and existing media-library, video detail, subtitle, Bangumi, Dandanplay, and danmaku smoke checks.
 

@@ -3,13 +3,15 @@ import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
 final class BangumiSubjectId {
-  const BangumiSubjectId(this.value) : assert(value != '', 'Bangumi subject id must not be empty.');
+  const BangumiSubjectId(this.value)
+      : assert(value != '', 'Bangumi subject id must not be empty.');
 
   final String value;
 }
 
 final class BangumiEpisodeId {
-  const BangumiEpisodeId(this.value) : assert(value != '', 'Bangumi episode id must not be empty.');
+  const BangumiEpisodeId(this.value)
+      : assert(value != '', 'Bangumi episode id must not be empty.');
 
   final String value;
 }
@@ -23,7 +25,11 @@ final class BangumiSubject {
 }
 
 final class BangumiEpisode {
-  const BangumiEpisode({required this.id, required this.subjectId, required this.index, required this.title});
+  const BangumiEpisode(
+      {required this.id,
+      required this.subjectId,
+      required this.index,
+      required this.title});
 
   final BangumiEpisodeId id;
   final BangumiSubjectId subjectId;

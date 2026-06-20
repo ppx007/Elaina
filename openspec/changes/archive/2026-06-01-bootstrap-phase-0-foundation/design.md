@@ -1,6 +1,6 @@
 ## Context
 
-Celesteria is a new cross-platform ACG player with a saved master rollout plan in `docs/celesteria-architecture-plan.md`. That plan explicitly recommends **Phase 0 / Step 1-4** as the first implementation slice: layered project boundaries, local storage foundation, `ProviderGateway`, and `CacheInvalidationBus`. There is no source tree yet, which means this change is not retrofitting an existing codebase; it is defining the first set of contracts that all future modules will inherit.
+Elaina is a new cross-platform ACG player with a saved master rollout plan in `docs/elaina-architecture-plan.md`. That plan explicitly recommends **Phase 0 / Step 1-4** as the first implementation slice: layered project boundaries, local storage foundation, `ProviderGateway`, and `CacheInvalidationBus`. There is no source tree yet, which means this change is not retrofitting an existing codebase; it is defining the first set of contracts that all future modules will inherit.
 
 The main constraint is architectural, not feature-complete delivery. UI must not directly depend on MPV, VLC, Bangumi, Dandanplay, libtorrent, or yuc.wiki. External integrations must enter through Provider and Adapter boundaries. Future playback, RSS, provider auth, diagnostics, and cache coherence all depend on the foundation defined here.
 

@@ -6,7 +6,7 @@ This change creates a read-only git status review contract before any staging, d
 
 ## What Changes
 
-- Define a read-only `git status` review flow for the post-bootstrap Celesteria workspace.
+- Define a read-only `git status` review flow for the post-bootstrap Elaina workspace.
 - Require stable, parseable status and diff commands before any staging decisions.
 - Classify dirty entries into OpenSpec/repository baseline, Dart/lib/tooling baseline, OpenCode/OpenSpec migration, Trellis legacy remnants, and possible user/preexisting edits.
 - Produce an explicit do-not-stage list for credentials, generated files, personal state, local caches, unrelated experiments, and unresolved Trellis remnants.

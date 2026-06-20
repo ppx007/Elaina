@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has frozen the BT playback boundary through Step 21, so the next roadmap slice can define advanced playback capabilities without coupling UI to a specific renderer or fallback engine. Phase 5 establishes the contracts for enhancement profiles, A/V sync protection, advanced caption/danmaku rendering, and VLC fallback capability hiding.
+Elaina has frozen the BT playback boundary through Step 21, so the next roadmap slice can define advanced playback capabilities without coupling UI to a specific renderer or fallback engine. Phase 5 establishes the contracts for enhancement profiles, A/V sync protection, advanced caption/danmaku rendering, and VLC fallback capability hiding.
 
 ## What Changes
 

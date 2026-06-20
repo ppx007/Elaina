@@ -31,7 +31,8 @@ final class FallbackAdapterCandidate {
     required this.adapter,
     required this.capabilities,
     this.priority = 0,
-  }) : assert(priority >= 0, 'Fallback candidate priority must not be negative.');
+  }) : assert(
+            priority >= 0, 'Fallback candidate priority must not be negative.');
 
   final FallbackAdapterId id;
   final PlayerAdapter adapter;
@@ -95,7 +96,8 @@ enum FallbackCapabilityFailureKind {
 }
 
 final class FallbackRegistrationFailure implements Exception {
-  const FallbackRegistrationFailure({required this.kind, required this.message});
+  const FallbackRegistrationFailure(
+      {required this.kind, required this.message});
 
   final FallbackRegistrationFailureKind kind;
   final String message;
@@ -159,7 +161,8 @@ final class FallbackEvaluationOutcome {
 final class FallbackSelectionOutcome {
   const FallbackSelectionOutcome._({this.selection, this.failure});
 
-  const FallbackSelectionOutcome.selected({required FallbackSelection selection})
+  const FallbackSelectionOutcome.selected(
+      {required FallbackSelection selection})
       : this._(selection: selection);
 
   const FallbackSelectionOutcome.rejected(
@@ -306,10 +309,9 @@ final class DeterministicPlaybackFallbackStrategy
       );
     }
     final List<FallbackAdapterCandidate> candidates =
-        <FallbackAdapterCandidate>[..._candidates.values]
-          ..sort((FallbackAdapterCandidate left,
-                  FallbackAdapterCandidate right) =>
-              left.priority.compareTo(right.priority));
+        <FallbackAdapterCandidate>[..._candidates.values]..sort(
+            (FallbackAdapterCandidate left, FallbackAdapterCandidate right) =>
+                left.priority.compareTo(right.priority));
     for (final FallbackAdapterCandidate candidate in candidates) {
       final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
         source: source,
@@ -326,8 +328,8 @@ final class DeterministicPlaybackFallbackStrategy
         reason: 'Selected fallback adapter after ${failure.kind.name}.',
       );
       final DateTime now = _clock();
-      await store.setActiveConfiguration(
-          StoredActiveFallbackConfigurationRecord(
+      await store
+          .setActiveConfiguration(StoredActiveFallbackConfigurationRecord(
         scopeId: scopeId,
         enabled: true,
         selectedCandidateId: candidate.id.value,
@@ -466,10 +468,11 @@ final class DeterministicPlaybackFallbackStrategy
       priority: candidate.priority,
       declaredCapabilities: <String, String>{
         for (final PlaybackCapability capability in PlaybackCapability.values)
-          capability.name: candidate.capabilities.statusOf(capability).isSupported
-              ? 'supported'
-              : candidate.capabilities.statusOf(capability).reason ??
-                  'unsupported',
+          capability.name:
+              candidate.capabilities.statusOf(capability).isSupported
+                  ? 'supported'
+                  : candidate.capabilities.statusOf(capability).reason ??
+                      'unsupported',
       },
       registeredAt: _clock(),
     );
@@ -489,7 +492,8 @@ final class DeterministicPlaybackFallbackStrategy
       FallbackFailureKind.loadFailure ||
       FallbackFailureKind.unsupportedCodec ||
       FallbackFailureKind.unsupportedContainer ||
-      FallbackFailureKind.adapterCrashed => true,
+      FallbackFailureKind.adapterCrashed =>
+        true,
       FallbackFailureKind.incompatibleFailure => false,
     };
   }

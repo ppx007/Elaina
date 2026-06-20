@@ -30,9 +30,9 @@
 - Locations:
   - `lib/src/ui/widgets/hero_carousel.dart:20`
   - `lib/src/ui/widgets/hot_updates_carousel.dart:19`
-  - `lib/src/ui/playback/shell/celesteria_app_shell.dart:161`
-  - `lib/src/ui/playback/shell/celesteria_app_shell.dart:562`
-  - `lib/src/ui/playback/shell/celesteria_app_shell.dart:716`
+  - `lib/src/ui/playback/shell/elaina_app_shell.dart:161`
+  - `lib/src/ui/playback/shell/elaina_app_shell.dart:562`
+  - `lib/src/ui/playback/shell/elaina_app_shell.dart:716`
 - Evidence: Multiple first-viewport and recommendation surfaces still use `lh3.googleusercontent.com/aida...` assets plus hard-coded titles/ratings. `_hotUpdateDemos` is suppressed with an unused-element TODO.
 - Impact: Product polish and data ownership risk. This is not a runtime correctness bug, but it means the desktop UI is still a prototype/demo surface in these areas.
 - Recommended fix: Replace placeholder URLs and demo arrays with local assets, runtime projections, or a declared mock-data boundary that is explicitly disabled in production composition.

@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Celesteria (1017) is an end-side-first cross-platform ACG player.
+  Elaina (1017) is an end-side-first cross-platform ACG player.
   The repository contains a Flutter/Dart contract scaffold under lib/, tests under test/, validation scripts under tools/, and active OpenSpec specs under openspec/specs/.
   8-layer architecture: UI / Domain / Playback / Provider / Gateway / Storage / Streaming / Network.
   All external capabilities enter through Adapter, Provider, FeedSource, Profile, Gateway, or other declared extension points.

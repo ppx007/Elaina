@@ -204,7 +204,7 @@ foreach ($term in @('package:flutter', 'package:dart_vlc', 'package:flutter_vlc_
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or $_ -like 'lib/src/**/*.dart' }) {
   $exportPath = $file.Replace('lib/', '')
   if ($barrel -notmatch [regex]::Escape("export '$exportPath';")) {

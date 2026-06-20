@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   await verifyPiecePrioritySchedulerRuntimeContract();
@@ -157,8 +157,7 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
       'Buffered piece 1 must be excluded from the generated plan.');
 
   // 4. Typed planning failure (metadata unavailable)
-  final DeterministicBtTaskStore emptyBtTaskStore =
-      DeterministicBtTaskStore();
+  final DeterministicBtTaskStore emptyBtTaskStore = DeterministicBtTaskStore();
   final DeterministicVirtualMediaStreamStore emptyStreamStore =
       DeterministicVirtualMediaStreamStore();
   await emptyStreamStore.storeStream(StoredVirtualMediaStreamRecord(
@@ -211,8 +210,7 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
       acceptedStored?.outcome ==
           StoredPiecePriorityApplicationOutcomeKind.accepted,
       'Scheduler store must persist accepted outcome.');
-  final List<CacheInvalidationEvent> acceptedDelivered =
-      await acceptedEvents;
+  final List<CacheInvalidationEvent> acceptedDelivered = await acceptedEvents;
   _expect(acceptedDelivered.whereType<PiecePriorityPlanApplied>().length == 1,
       'Accepted application must publish a plan-applied invalidation.');
 
@@ -221,8 +219,7 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
     planId: planOutcome.plan!.id,
     applier: const _RejectingApplier(),
   );
-  _expect(!rejectedOutcome.isSuccess,
-      'Rejected application must not succeed.');
+  _expect(!rejectedOutcome.isSuccess, 'Rejected application must not succeed.');
   final StoredPiecePriorityPlanApplicationEventRecord? rejectedStored =
       await schedulerStore.latestApplicationEvent(planOutcome.plan!.id.value);
   _expect(
@@ -234,10 +231,11 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
       await recorder.applyAndRecord(
     planId: planOutcome.plan!.id,
   );
-  _expect(!unavailableOutcome.isSuccess,
-      'Unavailable applier must not succeed.');
-  _expect(unavailableOutcome.failure!.kind ==
-      PiecePriorityApplicationFailureKind.applierUnavailable,
+  _expect(
+      !unavailableOutcome.isSuccess, 'Unavailable applier must not succeed.');
+  _expect(
+      unavailableOutcome.failure!.kind ==
+          PiecePriorityApplicationFailureKind.applierUnavailable,
       'Unavailable applier must surface applierUnavailable failure kind.');
 
   // 6. Restart projection via snapshot
@@ -258,8 +256,7 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
       'Snapshot must be restart-visible after plan generation.');
 
   // 7. Invalidation ordering: profile-changed before plan-generated
-  final StreamCacheInvalidationBus orderingBus =
-      StreamCacheInvalidationBus();
+  final StreamCacheInvalidationBus orderingBus = StreamCacheInvalidationBus();
   final PiecePrioritySchedulerRuntime orderingRuntime =
       PiecePrioritySchedulerRuntime(
     btTaskStore: btTaskStore,
@@ -278,8 +275,7 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
     streamId: const VirtualMediaStreamId('c-task-1::1'),
     profile: PiecePrioritySchedulerRuntime.balancedProfile,
   ));
-  final List<CacheInvalidationEvent> orderingDelivered =
-      await orderingEvents;
+  final List<CacheInvalidationEvent> orderingDelivered = await orderingEvents;
   _expect(orderingDelivered.length == 2,
       'Plan must publish exactly two invalidation events.');
   _expect(orderingDelivered[0] is PiecePriorityProfileChanged,
@@ -297,26 +293,27 @@ Future<void> verifyPiecePrioritySchedulerRuntimeContract() async {
   );
   _expect(!disposedProfile.isSuccess,
       'Disposed runtime must reject profile selection.');
-  _expect(disposedProfile.failure!.kind ==
-      PiecePriorityRuntimeFailureKind.disposed,
+  _expect(
+      disposedProfile.failure!.kind == PiecePriorityRuntimeFailureKind.disposed,
       'Disposed runtime must surface disposed failure kind.');
 
   final PiecePriorityPlanLookupOutcome disposedLookup =
       await runtime.lookupPlan(planOutcome.plan!.id);
-  _expect(!disposedLookup.isSuccess,
-      'Disposed runtime must reject plan lookup.');
-  _expect(disposedLookup.failure!.kind ==
-      PiecePriorityRuntimeFailureKind.disposed,
+  _expect(
+      !disposedLookup.isSuccess, 'Disposed runtime must reject plan lookup.');
+  _expect(
+      disposedLookup.failure!.kind == PiecePriorityRuntimeFailureKind.disposed,
       'Disposed runtime must surface disposed failure kind on lookup.');
 
   final PiecePrioritySnapshotOutcome disposedSnapshot = await runtime.snapshot(
     taskId: const BtTaskId('c-task-1'),
     streamId: const VirtualMediaStreamId('c-task-1::1'),
   );
-  _expect(!disposedSnapshot.isSuccess,
-      'Disposed runtime must reject snapshot.');
-  _expect(disposedSnapshot.failure!.kind ==
-      PiecePriorityRuntimeFailureKind.disposed,
+  _expect(
+      !disposedSnapshot.isSuccess, 'Disposed runtime must reject snapshot.');
+  _expect(
+      disposedSnapshot.failure!.kind ==
+          PiecePriorityRuntimeFailureKind.disposed,
       'Disposed runtime must surface disposed failure kind on snapshot.');
 
   await cacheInvalidationBus.close();

@@ -1,12 +1,12 @@
 ## 1. Setup and Theme Scaffolding
 
 - [x] 1.1 Run `flutter create --platforms=windows .` to scaffold the Windows desktop runner [UI Layer]
-- [x] 1.2 Create `lib/src/ui/theme/celesteria_theme.dart` with color (dark glassmorphic), spacing, and font constants, ensuring no magic values [UI Layer]
+- [x] 1.2 Create `lib/src/ui/theme/elaina_theme.dart` with color (dark glassmorphic), spacing, and font constants, ensuring no magic values [UI Layer]
 - [x] 1.3 Create `lib/main.dart` app entry point with single-owner composition root for player runtime lifecycle management [UI Layer]
 
 ## 2. Navigation Shell and Page Routing
 
-- [x] 2.1 Implement `CelesteriaAppShell` widget rendering a responsive sidebar navigation rail for all core pages [UI Layer]
+- [x] 2.1 Implement `ElainaAppShell` widget rendering a responsive sidebar navigation rail for all core pages [UI Layer]
 - [x] 2.2 Implement placeholder screen widgets for Home, Media Library, Downloads, RSS, Settings, and Diagnostics [UI Layer]
 
 ## 3. Playback Screen and Local File Handoff

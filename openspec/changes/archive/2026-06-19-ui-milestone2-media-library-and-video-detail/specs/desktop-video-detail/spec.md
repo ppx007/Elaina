@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Video Detail UI SHALL render from detail view data
-The video detail page SHALL render anime descriptions, cover graphics, tags, and episode lists purely using [VideoDetailViewData](file:///D:/CodeWork/pkpk/lib/src/domain/detail/video_detail.dart#L42) provided by the controller.
+The video detail page SHALL render anime descriptions, cover graphics, tags, and episode lists purely using [VideoDetailViewData](file:///D:/CodeWork/elaina/lib/src/domain/detail/video_detail.dart#L42) provided by the controller.
 
 #### Scenario: Render episode list and descriptions
 - **WHEN** the video detail page is opened for a specific anime series
@@ -13,5 +13,5 @@ The video detail page SHALL provide a primary action button to resume watching f
 
 #### Scenario: Trigger continue playback
 - **WHEN** the user activates the continue playback button in the detail view
-- **THEN** the UI dispatches the command to [VideoDetailPageContract.continuePlayback](file:///D:/CodeWork/pkpk/lib/src/ui/detail/video_detail_page_contract.dart#L13)
+- **THEN** the UI dispatches the command to [VideoDetailPageContract.continuePlayback](file:///D:/CodeWork/elaina/lib/src/ui/detail/video_detail_page_contract.dart#L13)
 - **AND** navigates the app layout shell to the playback page on success

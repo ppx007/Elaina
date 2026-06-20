@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -65,7 +65,7 @@ void main() {
 
   test('prepares virtual stream source value into playback source', () {
     const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
-    final Uri uri = Uri.parse('celesteria-virtual-stream://task-1%3A%3A1');
+    final Uri uri = Uri.parse('elaina-virtual-stream://task-1%3A%3A1');
 
     final PlaybackSourceHandoffResult result = handoff.prepare(
       PlaybackSourceHandoffInput.virtualStreamSource(
@@ -87,7 +87,7 @@ void main() {
 
   test('prepares virtual stream descriptor into playback source', () {
     const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
-    final Uri uri = Uri.parse('celesteria-virtual-stream://task-2%3A%3A0');
+    final Uri uri = Uri.parse('elaina-virtual-stream://task-2%3A%3A0');
 
     final PlaybackSourceHandoffResult result = handoff.prepare(
       PlaybackSourceHandoffInput.virtualStreamDescriptor(
@@ -132,8 +132,8 @@ void main() {
 
     expect(result.isSuccess, isTrue);
     expect(result.source, isA<VirtualStreamPlaybackSource>());
-    expect(result.source?.uri,
-        Uri.parse('celesteria-virtual-stream://task-3%3A%3A0'));
+    expect(
+        result.source?.uri, Uri.parse('elaina-virtual-stream://task-3%3A%3A0'));
   });
 
   test('converts virtual stream descriptors in playback source layer', () {
@@ -144,7 +144,7 @@ void main() {
     );
 
     expect(source, isA<VirtualStreamPlaybackSource>());
-    expect(source.uri, Uri.parse('celesteria-virtual-stream://task-1%3A%3A1'));
+    expect(source.uri, Uri.parse('elaina-virtual-stream://task-1%3A%3A1'));
     expect((source as VirtualStreamPlaybackSource).streamId.value, 'task-1::1');
   });
 

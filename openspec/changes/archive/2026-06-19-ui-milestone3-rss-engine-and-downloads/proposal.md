@@ -5,9 +5,9 @@ Users need a visual interface to manage RSS subscription feeds (including yuc.wi
 ## What Changes
 
 - **RSS Engine UI**: Create the `RssPage` widget to manage feed catalog lists, subscription filters, auto-download rules, and manually trigger feed schedules.
-- **RSS Controller Integration**: Connect the page to [RssEngineRuntime](file:///D:/CodeWork/pkpk/lib/src/domain/rss/rss_engine_runtime.dart) to display feed updates.
+- **RSS Controller Integration**: Connect the page to [RssEngineRuntime](file:///D:/CodeWork/elaina/lib/src/domain/rss/rss_engine_runtime.dart) to display feed updates.
 - **Downloads Tracker UI**: Create the `DownloadsPage` widget to list ongoing BT streams, download speeds, peer counts, and active torrent task maps.
-- **BT Controller Integration**: Wire the screen to [BtTaskCoreRuntime](file:///D:/CodeWork/pkpk/lib/src/streaming/bt_task_core_runtime.dart) to pause/resume tasks.
+- **BT Controller Integration**: Wire the screen to [BtTaskCoreRuntime](file:///D:/CodeWork/elaina/lib/src/streaming/bt_task_core_runtime.dart) to pause/resume tasks.
 
 ## Capabilities
 

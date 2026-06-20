@@ -1,6 +1,6 @@
-# Celesteria
+# Elaina
 
-Celesteria (code name 1017) is an end-side-first cross-platform ACG player planned around Flutter/Dart frontend contracts and native playback/download adapters.
+Elaina (code name 1017) is an end-side-first cross-platform ACG player planned around Flutter/Dart frontend contracts and native playback/download adapters.
 
 ## Current Baseline
 

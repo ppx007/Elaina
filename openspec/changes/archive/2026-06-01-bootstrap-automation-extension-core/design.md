@@ -44,7 +44,7 @@ Challenge handling will surface a manual completion requirement, open an isolate
 
 Network policy will describe ordered rules for provider traffic, including domain matching, DNS/proxy/direct/block intent, fallback behavior, and SSRF protections. Enforcement remains app-level and platform-capability-scoped.
 
-**Alternative considered:** promise system-wide DNS/proxy enforcement. Rejected because platform limits differ substantially and Celesteria should not claim VPN/TUN behavior in a provider policy contract.
+**Alternative considered:** promise system-wide DNS/proxy enforcement. Rejected because platform limits differ substantially and Elaina should not claim VPN/TUN behavior in a provider policy contract.
 
 ### 5. Diagnostics center is read-only local observability
 

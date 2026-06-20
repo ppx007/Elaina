@@ -4,7 +4,7 @@ import '../../domain/media/media_library_runtime.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_source_handoff.dart';
 import '../../foundation/constants.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class MediaLibraryPage extends StatefulWidget {
   const MediaLibraryPage({
@@ -65,7 +65,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
         await widget.mediaLibraryRuntime.scan(scope);
     if (result.isSuccess && mounted) {
       // Auto import newly discovered candidates for demonstration
-      final List<MediaScanCandidate> candidates = result.value!.candidates.toList();
+      final List<MediaScanCandidate> candidates =
+          result.value!.candidates.toList();
       if (candidates.isNotEmpty) {
         await widget.mediaLibraryRuntime.importCandidates(candidates);
       } else {
@@ -88,8 +89,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
-    final bool isScanning = _snapshot.status == MediaLibraryRuntimeStatus.scanning;
+    final ElainaThemeData theme = ElainaTheme.of(context);
+    final bool isScanning =
+        _snapshot.status == MediaLibraryRuntimeStatus.scanning;
 
     // Get scanned count from progress changed events
     int progressCount = 0;
@@ -137,7 +139,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
               ),
             ],
@@ -167,8 +170,11 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                 ..._configuredFolders.map((Uri root) {
                   final String displayPath = root.toFilePath();
                   // Count matches starting with this root
-                  final int itemsCount = _snapshot.catalogItems.where((itemState) {
-                    return itemState.item.identity.uri.toString().startsWith(root.toString());
+                  final int itemsCount =
+                      _snapshot.catalogItems.where((itemState) {
+                    return itemState.item.identity.uri
+                        .toString()
+                        .startsWith(root.toString());
                   }).length;
 
                   return Padding(
@@ -194,7 +200,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                                 style: TextStyle(
                                   color: isScanning
                                       ? theme.primary
-                                      : theme.onBackground.withValues(alpha: 0.6),
+                                      : theme.onBackground
+                                          .withValues(alpha: 0.6),
                                   fontSize: 12,
                                 ),
                               ),
@@ -202,7 +209,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: theme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -249,7 +257,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                     ),
                   )
                 : GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: 300,
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 16,
@@ -292,7 +301,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: theme.secondary.withValues(alpha: 0.1),
+                                        color: theme.secondary
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(

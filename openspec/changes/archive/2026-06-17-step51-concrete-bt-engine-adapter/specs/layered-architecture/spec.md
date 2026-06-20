@@ -4,7 +4,7 @@
 Concrete BT engine packages SHALL be imported only by approved Streaming-layer
 adapter implementation files and tests. UI, Domain, Playback, Provider,
 Gateway, Storage, Network, diagnostics, and neutral Streaming contracts SHALL
-consume BT behavior only through declared Celesteria contracts.
+consume BT behavior only through declared Elaina contracts.
 
 #### Scenario: Concrete BT package import is scanned
 - **WHEN** boundary validation scans Dart source files

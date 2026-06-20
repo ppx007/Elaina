@@ -56,7 +56,7 @@ The output may contain future commands for review, dry-run, and selective stagin
 ## Commit Planning Rules
 
 - Detect commit style from recent history before writing final messages.
-- Current known history is sparse; if only `9e5d657 Initial Celesteria architecture plan` is available, use plain English sentence-case messages unless new evidence appears.
+- Current known history is sparse; if only `9e5d657 Initial Elaina architecture plan` is available, use plain English sentence-case messages unless new evidence appears.
 - Use at least one group per independent concern and split large groups until each commit can be reviewed independently.
 - Pair validation scripts and the contracts they validate when they are inseparable; otherwise split by layer or module.
 - Keep `.trellis/tasks/` and `.trellis/workspace/` separate until preservation policy is explicit.

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class HotUpdatesCarousel extends StatefulWidget {
   const HotUpdatesCarousel({
@@ -85,7 +85,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = CelesteriaTheme.of(context);
+    final theme = ElainaTheme.of(context);
 
     return Stack(
       alignment: Alignment.center,
@@ -234,7 +234,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
   }
 
   Widget _buildNavButton(
-      IconData icon, VoidCallback onPressed, CelesteriaThemeData theme) {
+      IconData icon, VoidCallback onPressed, ElainaThemeData theme) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -264,7 +264,7 @@ class _HotUpdatePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
     final List<List<Color>> palettes = <List<Color>>[
       <Color>[const Color(0xFFFF2A5F), theme.primary],
       <Color>[theme.secondary, const Color(0xFF7C3AED)],

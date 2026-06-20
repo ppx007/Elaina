@@ -1,4 +1,4 @@
-library celesteria;
+library elaina;
 
 export 'src/domain/acg/acg_data_controller.dart';
 export 'src/domain/acg/acg_experience_runtime.dart';

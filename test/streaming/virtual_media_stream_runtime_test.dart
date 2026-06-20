@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -7,7 +7,8 @@ void main() {
     final _RuntimeHarness harness = _RuntimeHarness();
     await _seedTask(harness.taskStore);
 
-    final Future<CacheInvalidationEvent> createdEvent = harness.bus.events.first;
+    final Future<CacheInvalidationEvent> createdEvent =
+        harness.bus.events.first;
     final VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
         created = await harness.runtime.createStream(
       const VirtualMediaStreamCreateRequest(
@@ -27,16 +28,18 @@ void main() {
         VirtualStreamRestartDisposition.active);
     expect((await createdEvent) is VirtualStreamCreated, isTrue);
 
-    final VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>
-        listed = await harness.runtime.listStreams();
+    final VirtualMediaStreamRuntimeActionResult<
+            List<VirtualMediaStreamSnapshot>> listed =
+        await harness.runtime.listStreams();
     expect(listed.value?.single.descriptor.id.value, 'task-1::1');
-    expect(() => listed.value!.add(listed.value!.single),
-        throwsUnsupportedError);
+    expect(
+        () => listed.value!.add(listed.value!.single), throwsUnsupportedError);
     expect(created.value!.bufferedRanges, isEmpty);
     await harness.close();
   });
 
-  test('runtime normalizes missing skipped closed failed range and lifecycle failures',
+  test(
+      'runtime normalizes missing skipped closed failed range and lifecycle failures',
       () async {
     final DeterministicVirtualMediaStreamStore streamStore =
         DeterministicVirtualMediaStreamStore();
@@ -113,7 +116,8 @@ void main() {
 
     final _RuntimeHarness failedHarness = _RuntimeHarness();
     await _seedTask(failedHarness.taskStore);
-    await failedHarness.runtime.createStream(const VirtualMediaStreamCreateRequest(
+    await failedHarness.runtime
+        .createStream(const VirtualMediaStreamCreateRequest(
       taskId: BtTaskId('task-1'),
       fileIndex: BtFileIndex(1),
     ));
@@ -133,7 +137,8 @@ void main() {
 
     final _RuntimeHarness rangeHarness = _RuntimeHarness();
     await _seedTask(rangeHarness.taskStore);
-    await rangeHarness.runtime.createStream(const VirtualMediaStreamCreateRequest(
+    await rangeHarness.runtime
+        .createStream(const VirtualMediaStreamCreateRequest(
       taskId: BtTaskId('task-1'),
       fileIndex: BtFileIndex(1),
     ));
@@ -148,11 +153,12 @@ void main() {
         VirtualMediaStreamRuntimeFailureKind.rangeUnavailable);
 
     await rangeHarness.runtime.dispose();
-    final VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>
-        disposed = await rangeHarness.runtime.listStreams();
+    final VirtualMediaStreamRuntimeActionResult<
+            List<VirtualMediaStreamSnapshot>> disposed =
+        await rangeHarness.runtime.listStreams();
     expect(disposed.kind, VirtualMediaStreamRuntimeActionResultKind.disposed);
-    expect(disposed.failure?.kind,
-        VirtualMediaStreamRuntimeFailureKind.disposed);
+    expect(
+        disposed.failure?.kind, VirtualMediaStreamRuntimeFailureKind.disposed);
 
     final VirtualMediaStreamRuntime unavailable =
         VirtualMediaStreamRuntime.unavailable(reason: 'No range adapter.');
@@ -285,7 +291,8 @@ void main() {
             StoredVirtualMediaStreamLifecycleState.active, now),
       ],
     );
-    await streamStore.recordBufferedRange(StoredVirtualStreamBufferedRangeRecord(
+    await streamStore
+        .recordBufferedRange(StoredVirtualStreamBufferedRangeRecord(
       streamId: 'active-task::0',
       startByte: 0,
       endByte: 511,
@@ -315,25 +322,27 @@ void main() {
       clock: _now,
     );
 
-    final VirtualMediaStreamRuntimeActionResult<List<VirtualMediaStreamSnapshot>>
-        listed = await runtime.listStreams(limit: 10);
     final VirtualMediaStreamRuntimeActionResult<
-        List<VirtualStreamRestartProjection>> restart =
+            List<VirtualMediaStreamSnapshot>> listed =
+        await runtime.listStreams(limit: 10);
+    final VirtualMediaStreamRuntimeActionResult<
+            List<VirtualStreamRestartProjection>> restart =
         await runtime.restartReconciliation();
     final Map<String, VirtualStreamRestartDisposition> dispositions =
         <String, VirtualStreamRestartDisposition>{
       for (final VirtualStreamRestartProjection projection in restart.value!)
         projection.streamId.value: projection.disposition,
     };
-    final VirtualMediaStreamSnapshot active = listed.value!
-        .firstWhere((VirtualMediaStreamSnapshot s) => s.descriptor.id.value == 'active-task::0');
+    final VirtualMediaStreamSnapshot active = listed.value!.firstWhere(
+        (VirtualMediaStreamSnapshot s) =>
+            s.descriptor.id.value == 'active-task::0');
 
-    expect(dispositions['active-task::0'],
-        VirtualStreamRestartDisposition.active);
-    expect(dispositions['closed-task::0'],
-        VirtualStreamRestartDisposition.closed);
-    expect(dispositions['failed-task::0'],
-        VirtualStreamRestartDisposition.failed);
+    expect(
+        dispositions['active-task::0'], VirtualStreamRestartDisposition.active);
+    expect(
+        dispositions['closed-task::0'], VirtualStreamRestartDisposition.closed);
+    expect(
+        dispositions['failed-task::0'], VirtualStreamRestartDisposition.failed);
     expect(dispositions['missing-task::0'],
         VirtualStreamRestartDisposition.missingTask);
     expect(dispositions['incomplete-task::0'],
@@ -378,7 +387,10 @@ void main() {
     final List<CacheInvalidationEvent> delivered = await events;
 
     expect(buffered.isSuccess, isTrue);
-    expect((await harness.streamStore.bufferedRangesFor('task-1::1')).single.endByte,
+    expect(
+        (await harness.streamStore.bufferedRangesFor('task-1::1'))
+            .single
+            .endByte,
         255);
     expect(rangeFailed.failure?.kind,
         VirtualMediaStreamRuntimeFailureKind.rangeUnavailable);

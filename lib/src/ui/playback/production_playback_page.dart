@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 import 'playback_page_contract.dart';
 
 class ProductionPlaybackPage extends StatefulWidget {
@@ -52,13 +52,15 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
   @override
   Widget build(BuildContext context) {
     final PlaybackStateSnapshot snapshot = widget.controller.currentState;
-    final PlaybackPageSurfaceDescriptor surface = _pageContract.resolveSurface();
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final PlaybackPageSurfaceDescriptor surface =
+        _pageContract.resolveSurface();
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     final Duration position = snapshot.timeline.position;
     final Duration duration = snapshot.timeline.duration ?? Duration.zero;
     final double sliderValue = position.inMilliseconds.toDouble();
-    final double sliderMax = duration.inMilliseconds.toDouble().clamp(1.0, double.infinity);
+    final double sliderMax =
+        duration.inMilliseconds.toDouble().clamp(1.0, double.infinity);
 
     final String title = snapshot.sourceUri != null
         ? Uri.decodeComponent(snapshot.sourceUri!.pathSegments.last)
@@ -83,13 +85,16 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
 
             // Gesture detector to toggle controls visibility
             Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () {
-                  setState(() {
-                    _areControlsVisible = !_areControlsVisible;
-                  });
-                },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    setState(() {
+                      _areControlsVisible = !_areControlsVisible;
+                    });
+                  },
+                ),
               ),
             ),
 
@@ -114,7 +119,8 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () async {
-                        await _pageContract.dispatch(const PlaybackPageIntent.stop());
+                        await _pageContract
+                            .dispatch(const PlaybackPageIntent.stop());
                       },
                     ),
                     const SizedBox(width: 10),
@@ -143,7 +149,8 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                   opacity: _areControlsVisible ? 1.0 : 0.0,
                   child: snapshot.buffering.isBuffering
                       ? CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(theme.primary),
                         )
                       : Container(
                           decoration: BoxDecoration(
@@ -160,10 +167,13 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                               color: Colors.white,
                             ),
                             onPressed: () async {
-                              if (snapshot.status == PlaybackLifecycleStatus.playing) {
-                                await _pageContract.dispatch(const PlaybackPageIntent.pause());
+                              if (snapshot.status ==
+                                  PlaybackLifecycleStatus.playing) {
+                                await _pageContract
+                                    .dispatch(const PlaybackPageIntent.pause());
                               } else {
-                                await _pageContract.dispatch(const PlaybackPageIntent.play());
+                                await _pageContract
+                                    .dispatch(const PlaybackPageIntent.play());
                               }
                             },
                           ),
@@ -190,13 +200,15 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     // Progress Slider
-                    if (surface.hasActiveControl(PlaybackPageControlId.progress) ||
+                    if (surface
+                            .hasActiveControl(PlaybackPageControlId.progress) ||
                         surface.hasActiveControl(PlaybackPageControlId.seek))
                       Row(
                         children: <Widget>[
                           Text(
                             _formatDuration(position),
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12),
                           ),
                           Expanded(
                             child: Slider(
@@ -204,7 +216,8 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                               max: sliderMax,
                               activeColor: theme.primary,
                               inactiveColor: Colors.white24,
-                              onChanged: surface.hasActiveControl(PlaybackPageControlId.seek)
+                              onChanged: surface.hasActiveControl(
+                                      PlaybackPageControlId.seek)
                                   ? (double value) {
                                       _pageContract.dispatch(
                                         PlaybackPageIntent.seek(
@@ -217,7 +230,8 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                           ),
                           Text(
                             _formatDuration(duration),
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
@@ -230,27 +244,35 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                       children: <Widget>[
                         Row(
                           children: <Widget>[
-                            if (surface.hasActiveControl(PlaybackPageControlId.playPause))
+                            if (surface.hasActiveControl(
+                                PlaybackPageControlId.playPause))
                               IconButton(
                                 icon: Icon(
-                                  snapshot.status == PlaybackLifecycleStatus.playing
+                                  snapshot.status ==
+                                          PlaybackLifecycleStatus.playing
                                       ? Icons.pause
                                       : Icons.play_arrow,
                                   color: Colors.white,
                                 ),
                                 onPressed: () async {
-                                  if (snapshot.status == PlaybackLifecycleStatus.playing) {
-                                    await _pageContract.dispatch(const PlaybackPageIntent.pause());
+                                  if (snapshot.status ==
+                                      PlaybackLifecycleStatus.playing) {
+                                    await _pageContract.dispatch(
+                                        const PlaybackPageIntent.pause());
                                   } else {
-                                    await _pageContract.dispatch(const PlaybackPageIntent.play());
+                                    await _pageContract.dispatch(
+                                        const PlaybackPageIntent.play());
                                   }
                                 },
                               ),
-                            if (surface.hasActiveControl(PlaybackPageControlId.stop))
+                            if (surface
+                                .hasActiveControl(PlaybackPageControlId.stop))
                               IconButton(
-                                icon: const Icon(Icons.stop, color: Colors.white),
+                                icon:
+                                    const Icon(Icons.stop, color: Colors.white),
                                 onPressed: () async {
-                                  await _pageContract.dispatch(const PlaybackPageIntent.stop());
+                                  await _pageContract.dispatch(
+                                      const PlaybackPageIntent.stop());
                                 },
                               ),
                           ],
@@ -259,16 +281,20 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage>
                         // Track Selection Indicator placeholders if supported
                         Row(
                           children: <Widget>[
-                            if (surface.hasActiveControl(PlaybackPageControlId.audioTracks))
+                            if (surface.hasActiveControl(
+                                PlaybackPageControlId.audioTracks))
                               IconButton(
-                                icon: const Icon(Icons.audiotrack, color: Colors.white),
+                                icon: const Icon(Icons.audiotrack,
+                                    color: Colors.white),
                                 onPressed: () {
                                   // Open audio track switcher if available
                                 },
                               ),
-                            if (surface.hasActiveControl(PlaybackPageControlId.subtitleTracks))
+                            if (surface.hasActiveControl(
+                                PlaybackPageControlId.subtitleTracks))
                               IconButton(
-                                icon: const Icon(Icons.subtitles, color: Colors.white),
+                                icon: const Icon(Icons.subtitles,
+                                    color: Colors.white),
                                 onPressed: () {
                                   // Open subtitle track switcher if available
                                 },

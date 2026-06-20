@@ -29,7 +29,7 @@ The DeterministicOnlineRuleRuntime already validates manifests and evaluates XPa
 ## Impact
 
 - New file: `lib/src/provider/online/online_rule_source_runtime.dart`
-- Modified barrel: `lib/celesteria.dart` (add export)
+- Modified barrel: `lib/elaina.dart` (add export)
 - New test: `test/provider/online/online_rule_source_runtime_test.dart`
 - New tools: `tools/online_rule_source_runtime_check.dart`, `tools/check_online_rule_source_runtime.ps1`
 - No changes to existing `online_rule_runtime.dart`, gateway types, or storage contracts

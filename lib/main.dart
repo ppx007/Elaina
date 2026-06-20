@@ -6,14 +6,14 @@ import 'src/domain/download/download_domain.dart';
 import 'src/domain/media/media_library_runtime.dart';
 import 'src/domain/playback/playback_controller.dart';
 import 'src/domain/playback/player_core_bootstrap.dart';
+import 'src/domain/profile/profile_domain.dart';
 import 'src/domain/rss/rss_engine_runtime.dart';
 import 'src/domain/settings/settings_domain.dart';
 import 'src/foundation/storage/rss_auto_download_policy_storage_contracts.dart';
-import 'src/provider/bangumi/bangumi_auth.dart';
 import 'src/streaming/bt_task_core_runtime.dart';
 import 'src/ui/detail/video_detail_page_contract.dart';
-import 'src/ui/playback/shell/celesteria_app_shell.dart';
-import 'src/ui/theme/celesteria_theme.dart';
+import 'src/ui/playback/shell/elaina_app_shell.dart';
+import 'src/ui/theme/elaina_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +32,7 @@ class MyApp extends StatefulWidget {
     this.policyStore,
     this.settingsRuntime,
     this.diagnosticsRuntime,
-    this.bangumiAuthProvider,
+    this.profileProvider,
   });
 
   final PlaybackControllerContract? playbackController;
@@ -44,7 +44,7 @@ class MyApp extends StatefulWidget {
   final RssAutoDownloadPolicyStore? policyStore;
   final SettingsRuntime? settingsRuntime;
   final DiagnosticsRuntime? diagnosticsRuntime;
-  final BangumiAuthProvider? bangumiAuthProvider;
+  final UserProfileProvider? profileProvider;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -62,7 +62,7 @@ class _MyAppState extends State<MyApp> {
   late final DownloadRuntime _downloadRuntime;
   late final SettingsRuntime _settingsRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
-  late final BangumiAuthProvider? _bangumiAuthProvider;
+  late final UserProfileProvider? _profileProvider;
 
   @override
   void initState() {
@@ -83,7 +83,7 @@ class _MyAppState extends State<MyApp> {
       _settingsRuntime = widget.settingsRuntime ?? FakeSettingsRuntime();
       _diagnosticsRuntime =
           widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
-      _bangumiAuthProvider = widget.bangumiAuthProvider;
+      _profileProvider = widget.profileProvider;
     } else {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
@@ -97,7 +97,7 @@ class _MyAppState extends State<MyApp> {
       _btTaskCoreRuntime = _composition!.btTaskCoreRuntime;
       _settingsRuntime = _composition!.settingsRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
-      _bangumiAuthProvider = _composition!.bangumiAuthProvider;
+      _profileProvider = _composition!.profileProvider;
     }
     _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
   }
@@ -112,13 +112,15 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return CelesteriaThemeProvider(
-      initialMode: CelesteriaThemeMode.auto,
+    return ElainaThemeProvider(
+      initialMode: ElainaThemeMode.auto,
       child: Builder(
         builder: (BuildContext context) {
-          final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+          final ElainaThemeData theme = ElainaTheme.of(context);
+          const WidgetStateMouseCursor clickCursor =
+              WidgetStateMouseCursor.clickable;
           return MaterialApp(
-            title: 'Celesteria ACG Player',
+            title: 'Elaina ACG Player',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               brightness: theme.brightness,
@@ -128,8 +130,26 @@ class _MyAppState extends State<MyApp> {
                 brightness: theme.brightness,
               ),
               useMaterial3: true,
+              iconButtonTheme: IconButtonThemeData(
+                style: ButtonStyle(mouseCursor: clickCursor),
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: ButtonStyle(mouseCursor: clickCursor),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ButtonStyle(mouseCursor: clickCursor),
+              ),
+              outlinedButtonTheme: OutlinedButtonThemeData(
+                style: ButtonStyle(mouseCursor: clickCursor),
+              ),
+              filledButtonTheme: FilledButtonThemeData(
+                style: ButtonStyle(mouseCursor: clickCursor),
+              ),
+              switchTheme: SwitchThemeData(mouseCursor: clickCursor),
+              checkboxTheme: CheckboxThemeData(mouseCursor: clickCursor),
+              radioTheme: RadioThemeData(mouseCursor: clickCursor),
             ),
-            home: CelesteriaAppShell(
+            home: ElainaAppShell(
               playbackController: _playbackController,
               videoSurface: _videoSurface,
               mediaLibraryRuntime: _mediaLibraryRuntime,
@@ -138,7 +158,7 @@ class _MyAppState extends State<MyApp> {
               downloadRuntime: _downloadRuntime,
               settingsRuntime: _settingsRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
-              bangumiAuthProvider: _bangumiAuthProvider,
+              profileProvider: _profileProvider,
             ),
           );
         },

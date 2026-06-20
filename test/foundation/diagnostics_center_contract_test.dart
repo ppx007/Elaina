@@ -1,8 +1,9 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('registry center redaction filtering retention and local export are deterministic',
+  test(
+      'registry center redaction filtering retention and local export are deterministic',
       () async {
     final DateTime base = DateTime.utc(2026, 6, 11, 12);
     final DeterministicDiagnosticsEventRegistry registry =
@@ -15,15 +16,17 @@ void main() {
       requiredPayloadKeys: const <String>['message', 'token'],
       capabilityArea: DiagnosticsCapability.providerGatewayCorrelation,
     ));
-    final DeterministicDiagnosticsCenter center = DeterministicDiagnosticsCenter(
+    final DeterministicDiagnosticsCenter center =
+        DeterministicDiagnosticsCenter(
       registry: registry,
-      retentionPolicy:
-          const DiagnosticsRetentionPolicy(maxEvents: 1, maxAge: Duration(days: 1)),
-      redactionPolicy:
-          DiagnosticsRedactionPolicy(sensitivePayloadKeys: const <String>['token']),
+      retentionPolicy: const DiagnosticsRetentionPolicy(
+          maxEvents: 1, maxAge: Duration(days: 1)),
+      redactionPolicy: DiagnosticsRedactionPolicy(
+          sensitivePayloadKeys: const <String>['token']),
       capabilityMatrix: DiagnosticsCapabilityMatrix(
         capabilities: <DiagnosticsCapability, DiagnosticsCapabilityStatus>{
-          for (final DiagnosticsCapability capability in DiagnosticsCapability.values)
+          for (final DiagnosticsCapability capability
+              in DiagnosticsCapability.values)
             capability: const DiagnosticsCapabilityStatus.supported(),
         },
       ),
@@ -95,7 +98,8 @@ void main() {
     expect(descriptor.redacted, isTrue);
   });
 
-  test('storage persists redacted records snapshots exports retention and capabilities',
+  test(
+      'storage persists redacted records snapshots exports retention and capabilities',
       () async {
     final DateTime observedAt = DateTime.utc(2026, 6, 11, 12);
     final DeterministicDiagnosticsStore store = DeterministicDiagnosticsStore();
@@ -166,16 +170,22 @@ void main() {
     ));
 
     expect((await store.schemaByEventType('network.blocked'))?.version, 1);
-    expect((await store.queryEvents(correlationId: 'corr-network')).single.redacted,
+    expect(
+        (await store.queryEvents(correlationId: 'corr-network'))
+            .single
+            .redacted,
         isTrue);
-    expect((await store.snapshotById('snapshot-a'))?.eventIds.single, 'event-a');
-    expect((await store.exportOutcomeById('export-outcome-a'))?.redacted, isTrue);
+    expect(
+        (await store.snapshotById('snapshot-a'))?.eventIds.single, 'event-a');
+    expect(
+        (await store.exportOutcomeById('export-outcome-a'))?.redacted, isTrue);
     expect((await store.latestRetentionState())?.removedEventCount, 2);
     expect((await store.capability(DiagnosticsCapability.snapshotQuery))?.state,
         StoredDiagnosticsCapabilityState.supported);
   });
 
-  test('invalidation events capability fallback and gateway correlation are read only',
+  test(
+      'invalidation events capability fallback and gateway correlation are read only',
       () async {
     final DateTime observedAt = DateTime.utc(2026, 6, 11, 12);
     final DeterministicDiagnosticsEventRegistry registry =
@@ -183,8 +193,8 @@ void main() {
     final DeterministicDiagnosticsCenter disabledCenter =
         DeterministicDiagnosticsCenter(
       registry: registry,
-      retentionPolicy:
-          const DiagnosticsRetentionPolicy(maxEvents: 10, maxAge: Duration(days: 1)),
+      retentionPolicy: const DiagnosticsRetentionPolicy(
+          maxEvents: 10, maxAge: Duration(days: 1)),
       redactionPolicy: DiagnosticsRedactionPolicy(),
       capabilityMatrix: DiagnosticsCapabilityMatrix(),
     );
@@ -215,7 +225,8 @@ void main() {
       networkPolicyEvaluationId: 'evaluation-a',
     );
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-    final Future<List<CacheInvalidationEvent>> events = bus.events.take(7).toList();
+    final Future<List<CacheInvalidationEvent>> events =
+        bus.events.take(7).toList();
     bus.publish(DiagnosticsSchemaRegistered(
       occurredAt: observedAt,
       eventType: 'provider.failure',

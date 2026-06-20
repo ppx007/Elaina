@@ -59,7 +59,7 @@ foreach ($file in $subtitleRuntimeFiles) {
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/playback/subtitle/subtitle_runtime_state.dart',
   'src/domain/subtitle/basic_subtitle_state.dart'

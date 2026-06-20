@@ -17,14 +17,16 @@ final class WebViewSessionArtifactId {
 
 final class WebViewSessionBackfillAttemptId {
   const WebViewSessionBackfillAttemptId(this.value)
-      : assert(value != '', 'WebView session backfill attempt id must not be empty.');
+      : assert(value != '',
+            'WebView session backfill attempt id must not be empty.');
 
   final String value;
 }
 
 final class WebViewSessionProviderTokenId {
   const WebViewSessionProviderTokenId(this.value)
-      : assert(value != '', 'WebView session provider token id must not be empty.');
+      : assert(value != '',
+            'WebView session provider token id must not be empty.');
 
   final String value;
 }
@@ -106,7 +108,8 @@ final class ManualChallengeRequest {
     this.state = ManualChallengeState.required,
     this.reason,
     this.requestedAt,
-  }) : assert(providerScope != '', 'Manual challenge provider scope must not be empty.');
+  }) : assert(providerScope != '',
+            'Manual challenge provider scope must not be empty.');
 
   final ManualChallengeRequestId id;
   final String providerScope;
@@ -134,9 +137,11 @@ final class SessionCookieArtifact {
     this.sameSite = WebViewSessionSameSite.unspecified,
     this.approvalState = WebViewSessionArtifactApprovalState.approved,
     this.revokedAt,
-  })  : assert(providerScope != '', 'Session cookie provider scope must not be empty.'),
+  })  : assert(providerScope != '',
+            'Session cookie provider scope must not be empty.'),
         assert(name != '', 'Session cookie name must not be empty.'),
-        assert(valueReference != '', 'Session cookie value reference must not be empty.'),
+        assert(valueReference != '',
+            'Session cookie value reference must not be empty.'),
         assert(domain != '', 'Session cookie domain must not be empty.'),
         assert(path != '', 'Session cookie path must not be empty.');
 
@@ -181,9 +186,11 @@ final class ProviderSessionTokenArtifact {
     this.approvalState = WebViewSessionArtifactApprovalState.approved,
     this.revokedAt,
     Map<String, String> metadata = const <String, String>{},
-  })  : assert(providerScope != '', 'Provider token provider scope must not be empty.'),
+  })  : assert(providerScope != '',
+            'Provider token provider scope must not be empty.'),
         assert(name != '', 'Provider token name must not be empty.'),
-        assert(valueReference != '', 'Provider token value reference must not be empty.'),
+        assert(valueReference != '',
+            'Provider token value reference must not be empty.'),
         metadata = Map<String, String>.unmodifiable(metadata);
 
   final WebViewSessionProviderTokenId id;
@@ -219,9 +226,11 @@ final class SessionArtifactBundle {
     Map<String, String> localStorage = const <String, String>{},
     Map<String, String> sessionStorage = const <String, String>{},
     this.userAgent,
-  })  : assert(providerScope != '', 'Session artifact provider scope must not be empty.'),
+  })  : assert(providerScope != '',
+            'Session artifact provider scope must not be empty.'),
         cookies = List<SessionCookieArtifact>.unmodifiable(cookies),
-        providerTokens = List<ProviderSessionTokenArtifact>.unmodifiable(providerTokens),
+        providerTokens =
+            List<ProviderSessionTokenArtifact>.unmodifiable(providerTokens),
         localStorage = Map<String, String>.unmodifiable(localStorage),
         sessionStorage = Map<String, String>.unmodifiable(sessionStorage);
 
@@ -275,9 +284,8 @@ final class WebViewSessionCapabilityMatrix {
   WebViewSessionCapabilityMatrix({
     required Map<WebViewSessionCapability, WebViewSessionCapabilityStatus>
         capabilities,
-  }) : _capabilities =
-            Map<WebViewSessionCapability, WebViewSessionCapabilityStatus>
-                .unmodifiable(capabilities);
+  }) : _capabilities = Map<WebViewSessionCapability,
+            WebViewSessionCapabilityStatus>.unmodifiable(capabilities);
 
   factory WebViewSessionCapabilityMatrix.unsupported({required String reason}) {
     return WebViewSessionCapabilityMatrix(
@@ -317,7 +325,8 @@ final class SessionBackfillOutcome {
     this.artifacts,
     this.failureKind,
     this.unsupportedOperationKind,
-  }) : assert(message != '', 'Session backfill outcome message must not be empty.');
+  }) : assert(message != '',
+            'Session backfill outcome message must not be empty.');
 
   final SessionBackfillOutcomeKind kind;
   final String message;
@@ -340,7 +349,8 @@ final class WebViewSessionBackfillRetryDescriptor {
     required this.retryPolicy,
     this.negativeCachePolicy,
     this.userAgent,
-  })  : assert(providerScope != '', 'Backfill provider scope must not be empty.'),
+  })  : assert(
+            providerScope != '', 'Backfill provider scope must not be empty.'),
         assert(cacheKey != '', 'Backfill cache key must not be empty.'),
         cookies = List<SessionCookieArtifact>.unmodifiable(cookies),
         providerTokens =
@@ -398,8 +408,10 @@ final class WebViewSessionNetworkPolicyHandoff {
     this.redirectedFrom,
     this.failureKind,
     this.reason,
-  })  : assert(providerScope != '', 'WebView session provider scope must not be empty.'),
-        assert(purpose != '', 'WebView session network purpose must not be empty.');
+  })  : assert(providerScope != '',
+            'WebView session provider scope must not be empty.'),
+        assert(purpose != '',
+            'WebView session network purpose must not be empty.');
 
   final String providerScope;
   final Uri uri;

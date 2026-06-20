@@ -1,11 +1,11 @@
 ## 1. Particle Background Animation (UI Layer)
 
 - [x] 1.1 Implement `ParticleBackground` using `CustomPainter` and `SingleTickerProviderStateMixin` for efficient animation.
-- [x] 1.2 Integrate the background behind the `CelesteriaAppShell` content using a `Stack` and `RepaintBoundary`.
+- [x] 1.2 Integrate the background behind the `ElainaAppShell` content using a `Stack` and `RepaintBoundary`.
 
 ## 2. Shell Navigation and Header (UI Layer)
 
-- [x] 2.1 Update `_buildSidebar` in `CelesteriaAppShell` to match the glassmorphic style, hover effects, and rounded active states.
+- [x] 2.1 Update `_buildSidebar` in `ElainaAppShell` to match the glassmorphic style, hover effects, and rounded active states.
 - [x] 2.2 Update the top header in `_buildHomePage` with the dynamic Theme Toggle slider and layout.
 
 ## 3. Home Page Content Carousels (UI Layer)

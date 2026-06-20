@@ -1,6 +1,6 @@
 ## Context
 
-The repository now contains archived contract scaffolding for Celesteria architecture steps 1-30, including the Phase 6 extension freeze. The architecture plan explicitly states that formal implementation should begin with Phase 0 / Step 1-4: layered architecture, local storage, ProviderGateway, and CacheInvalidationBus. Those contracts exist today, but there is not yet a single executable foundation runtime bootstrap that composes them in the prescribed order.
+The repository now contains archived contract scaffolding for Elaina architecture steps 1-30, including the Phase 6 extension freeze. The architecture plan explicitly states that formal implementation should begin with Phase 0 / Step 1-4: layered architecture, local storage, ProviderGateway, and CacheInvalidationBus. Those contracts exist today, but there is not yet a single executable foundation runtime bootstrap that composes them in the prescribed order.
 
 This change converts the first implementation slice from scattered deterministic contracts into a deliberate foundation runtime composition. The implementation must remain contract-first and local-first: it can wire deterministic stores, provider registrations, request descriptors, and invalidation bus lifecycle, but it must not introduce concrete platform adapters, Flutter UI, network clients, database drivers, MPV/VLC/libtorrent integrations, online source execution, WebView automation, or background schedulers.
 

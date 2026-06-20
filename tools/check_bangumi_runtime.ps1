@@ -117,14 +117,14 @@ foreach ($term in @('BangumiApiClient', 'HttpBangumiApiTransport', 'dart:io', 'h
 $uiFiles = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src/ui') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $uiFiles) {
   $content = Get-Content -LiteralPath $file.FullName -Raw
-  foreach ($term in @('BangumiApiClient', 'BangumiApiProvider', 'HttpBangumiApiTransport', 'package:celesteria/src/provider/bangumi')) {
+  foreach ($term in @('BangumiApiClient', 'BangumiApiProvider', 'HttpBangumiApiTransport', 'package:elaina/src/provider/bangumi')) {
     if ($content -match [regex]::Escape($term)) {
       throw "Bangumi concrete API dependency '$term' leaked into UI file: $($file.FullName)"
     }
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/provider/bangumi/bangumi_api_client.dart',
   'src/provider/bangumi/bangumi_runtime.dart',

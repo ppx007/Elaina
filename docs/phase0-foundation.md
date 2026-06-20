@@ -1,6 +1,6 @@
 # Phase 0 Foundation Contracts
 
-This document records the first implementation slice for Celesteria: Phase 0 / Step 1-4 from `docs/celesteria-architecture-plan.md`.
+This document records the first implementation slice for Elaina: Phase 0 / Step 1-4 from `docs/elaina-architecture-plan.md`.
 
 ## Layer Boundaries
 

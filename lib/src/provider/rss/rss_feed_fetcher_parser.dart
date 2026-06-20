@@ -10,7 +10,7 @@ import '../provider_result.dart';
 import 'feed_contracts.dart';
 
 const String defaultHttpFeedFetcherProviderId = 'rss-feed-fetcher';
-const String defaultHttpFeedFetcherUserAgent = 'Celesteria/0.1';
+const String defaultHttpFeedFetcherUserAgent = 'Elaina/0.1';
 const String defaultFeedAcceptHeader =
     'application/rss+xml, application/atom+xml, application/xml, text/xml, */*';
 const Duration httpFeedFetcherDeduplicationWindow = Duration(seconds: 30);

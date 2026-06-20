@@ -60,7 +60,7 @@ directory and run:
 powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
   -ReleaseDirectory "<build-windows-release-dir>" `
   -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "<artifact-dir>\celesteria-windows.zip"
+  -OutputZip "<artifact-dir>\elaina-windows.zip"
 ```
 
 The generated zip must contain the app executable and `libmpv-2.dll` in the

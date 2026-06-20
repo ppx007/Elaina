@@ -11,7 +11,7 @@
 
 - [x] 2.1 Reuse existing `FeedSource`, `FeedItem`, `RssEngineRuntime` or `RssEngineContract`, `SeasonalAnimeConsumer`, `SeasonalCatalogEntry`, `SeasonalCatalogStore`, `BangumiMatchQueueStore`, `ProviderBindingStore`, and Bangumi provider result contracts instead of introducing parallel RSS, seasonal, catalog, queue, binding, or provider models.
 - [x] 2.2 Keep yuc.wiki modeled only as normal RSS feed source data and ensure seasonal runtime does not implement yuc.wiki-specific scraping, crawler logic, concrete feed transport, concrete RSS parser packages, RSS auto-download filtering, torrent task creation, online-rule parsing, diagnostics, UI behavior, or native-player behavior.
-- [x] 2.3 Export only safe seasonal runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter seasonal pages, HTTP clients, concrete storage implementations, RSS auto-download execution, BT runtime, online-rule runtime, diagnostics, or native-player bindings.
+- [x] 2.3 Export only safe seasonal runtime and contract surfaces through `lib/elaina.dart` without exporting concrete Flutter seasonal pages, HTTP clients, concrete storage implementations, RSS auto-download execution, BT runtime, online-rule runtime, diagnostics, or native-player bindings.
 - [x] 2.4 Preserve existing RSS engine, subtitle-provider, media-library, video-detail, subtitle, Bangumi, Dandanplay, and danmaku runtime checker behavior while extending validation for the Step 17 seasonal indexer runtime slice.
 
 ## 3. Tests and Validation

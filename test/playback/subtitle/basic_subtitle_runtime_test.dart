@@ -1,9 +1,11 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('deterministic scanner discovers media-adjacent subtitle candidates', () async {
-    final DeterministicLocalExternalSubtitleScanner scanner = DeterministicLocalExternalSubtitleScanner(
+  test('deterministic scanner discovers media-adjacent subtitle candidates',
+      () async {
+    final DeterministicLocalExternalSubtitleScanner scanner =
+        DeterministicLocalExternalSubtitleScanner(
       candidates: <DeterministicSubtitleFileCandidate>[
         DeterministicSubtitleFileCandidate(
           uri: Uri.file('D:/media/example.ja.srt'),
@@ -18,7 +20,9 @@ void main() {
     );
 
     final List<ExternalSubtitleCandidate> candidates = await scanner.scan(
-      SubtitleScanRequest(media: LocalMediaReference(uri: Uri.file('D:/media/example.mkv'), basename: 'example.mkv')),
+      SubtitleScanRequest(
+          media: LocalMediaReference(
+              uri: Uri.file('D:/media/example.mkv'), basename: 'example.mkv')),
     );
 
     expect(candidates, hasLength(1));
@@ -28,7 +32,8 @@ void main() {
 
   test('runtime loads selects offsets and projects active cues', () async {
     final BasicSubtitleRuntime runtime = BasicSubtitleRuntime(
-      scanner: const DeterministicLocalExternalSubtitleScanner(candidates: <DeterministicSubtitleFileCandidate>[]),
+      scanner: const DeterministicLocalExternalSubtitleScanner(
+          candidates: <DeterministicSubtitleFileCandidate>[]),
     );
     final _SubtitleObserver observer = _SubtitleObserver();
     runtime.addObserver(observer);
@@ -50,16 +55,21 @@ void main() {
     expect(runtime.select(source).isSuccess, isTrue);
     runtime.setOffset(const SubtitleOffset(Duration(seconds: 1)));
     final BasicSubtitleRuntimeSnapshot snapshot = runtime.resolveActiveCues(
-      const PlayerClockSnapshot(position: Duration(seconds: 1), isPlaying: true, playbackSpeed: 1),
+      const PlayerClockSnapshot(
+          position: Duration(seconds: 1), isPlaying: true, playbackSpeed: 1),
     );
 
     expect(snapshot.activeCues.single.text, 'こんにちは');
     expect(observer.snapshots, isNotEmpty);
 
-    final PlaybackSubtitleStateSnapshot domainState = playbackSubtitleStateFromRuntimeSnapshot(snapshot);
-    final PlaybackPageSurfaceDescriptor surface = PlaybackPageSurfaceDescriptor.fromState(
+    final PlaybackSubtitleStateSnapshot domainState =
+        playbackSubtitleStateFromRuntimeSnapshot(snapshot);
+    final PlaybackPageSurfaceDescriptor surface =
+        PlaybackPageSurfaceDescriptor.fromState(
       const PlaybackSurfaceState(
-        visibleControls: <PlaybackSurfaceControl>{PlaybackSurfaceControl.subtitleTracks},
+        visibleControls: <PlaybackSurfaceControl>{
+          PlaybackSurfaceControl.subtitleTracks
+        },
         availablePanels: <PlaybackSurfacePanel>{PlaybackSurfacePanel.tracks},
       ),
       subtitles: domainState,
@@ -69,7 +79,8 @@ void main() {
     runtime.dispose();
   });
 
-  test('runtime snapshots are defensive and disposed operations normalize', () async {
+  test('runtime snapshots are defensive and disposed operations normalize',
+      () async {
     final BasicSubtitleRuntime runtime = BasicSubtitleRuntime();
     final ExternalSubtitleSource source = ExternalSubtitleSource(
       id: 'subtitle-en',
@@ -84,16 +95,21 @@ void main() {
       ),
     );
     final BasicSubtitleRuntimeSnapshot retained = runtime.currentSnapshot;
-    expect(() => retained.loadedTracks.add(SubtitleTrack(source: source, cues: const <SubtitleCue>[])), throwsUnsupportedError);
+    expect(
+        () => retained.loadedTracks
+            .add(SubtitleTrack(source: source, cues: const <SubtitleCue>[])),
+        throwsUnsupportedError);
 
     runtime.dispose();
-    final BasicSubtitleLoadResult disposed = await runtime.load(SubtitleParseRequest(source: source, content: ''));
+    final BasicSubtitleLoadResult disposed =
+        await runtime.load(SubtitleParseRequest(source: source, content: ''));
     expect(disposed.failure?.kind, BasicSubtitleRuntimeFailureKind.disposed);
   });
 }
 
 final class _SubtitleObserver implements BasicSubtitleRuntimeObserver {
-  final List<BasicSubtitleRuntimeSnapshot> snapshots = <BasicSubtitleRuntimeSnapshot>[];
+  final List<BasicSubtitleRuntimeSnapshot> snapshots =
+      <BasicSubtitleRuntimeSnapshot>[];
 
   @override
   void onSubtitleRuntimeSnapshot(BasicSubtitleRuntimeSnapshot snapshot) {

@@ -29,7 +29,7 @@ The AVSyncGuard deterministic implementation already evaluates drift, records he
 ## Impact
 
 - New file: `lib/src/playback/av_sync_guard_runtime.dart`
-- Modified barrel: `lib/celesteria.dart` (add export)
+- Modified barrel: `lib/elaina.dart` (add export)
 - New test: `test/playback/av_sync_guard_runtime_test.dart`
 - New tools: `tools/av_sync_guard_runtime_check.dart`, `tools/check_av_sync_guard_runtime.ps1`
 - No changes to existing `av_sync_guard.dart` or `av_sync_guard_storage_contracts.dart`

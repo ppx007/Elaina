@@ -30,7 +30,7 @@ final class VirtualStreamPlaybackSource extends PlaybackSource {
       streamId: descriptor.id,
       uri: descriptor.contentUri ??
           Uri.parse(
-              'celesteria-virtual-stream://${Uri.encodeComponent(descriptor.id.value)}'),
+              'elaina-virtual-stream://${Uri.encodeComponent(descriptor.id.value)}'),
     );
   }
 
@@ -42,8 +42,7 @@ final class VirtualStreamPlaybackSource extends PlaybackSource {
     return VirtualStreamPlaybackSource(
       streamId: VirtualPlaybackStreamId(streamId),
       uri: contentUri ??
-          Uri.parse(
-              'celesteria-virtual-stream://${Uri.encodeComponent(streamId)}'),
+          Uri.parse('elaina-virtual-stream://${Uri.encodeComponent(streamId)}'),
       headers: headers,
     );
   }

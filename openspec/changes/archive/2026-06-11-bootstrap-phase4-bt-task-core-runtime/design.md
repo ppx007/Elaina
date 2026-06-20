@@ -70,7 +70,7 @@ Current code already has the important contracts in `lib/src/streaming/bt_task_c
 3. Implement `BtTaskCoreRuntime` or `BtTaskCoreBootstrap` that composes existing `BtTaskCoreContract` or `DeterministicBtTaskCore`, `DownloadEngineAdapter`, `BtTaskStore`, optional `CacheInvalidationBus`, and update streams.
 4. Add deterministic runtime actions for task creation, metadata fetch, task listing/projection, file projection, file selection, pause, resume, remove, status watch, event watch, latest transfer snapshot, and disposal.
 5. Publish correlated cache invalidation events for persisted task list, task detail, runtime snapshot, capability/status, and repository-derived selector changes without direct UI refresh or cross-module cache mutation.
-6. Export safe Step 18 runtime surfaces through `lib/celesteria.dart` without exporting concrete torrent engines, UI pages, range servers, scheduler runtimes, timeline rendering, diagnostics, network implementations, storage migrations, or native-player bindings.
+6. Export safe Step 18 runtime surfaces through `lib/elaina.dart` without exporting concrete torrent engines, UI pages, range servers, scheduler runtimes, timeline rendering, diagnostics, network implementations, storage migrations, or native-player bindings.
 7. Add focused tests, a Dart smoke checker, and a PowerShell boundary checker that chains existing BT streaming core validation.
 8. Run `openspec validate "bootstrap-phase4-bt-task-core-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused BT task runtime tests, and BT runtime checker scripts.
 

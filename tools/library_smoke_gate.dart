@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 const String _smokeDatabaseName = 'library-smoke.sqlite';
 const String _smokeFirstFileName = 'Library Smoke 01.mkv';
@@ -48,7 +48,7 @@ final class LibrarySmokeGateResult {
 
 Future<LibrarySmokeGateResult> runLibrarySmokeGate() async {
   final Directory root = await Directory.systemTemp.createTemp(
-    'celesteria-library-smoke-',
+    'elaina-library-smoke-',
   );
   final String databasePath = _join(root.path, _smokeDatabaseName);
   final DateTime now = _smokeNow();

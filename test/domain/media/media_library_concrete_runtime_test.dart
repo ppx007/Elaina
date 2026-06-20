@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('local file scanner scans supported files and emits events', () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'celesteria-media-scan-',
+      'elaina-media-scan-',
     );
     addTearDown(() async {
       if (root.existsSync()) await root.delete(recursive: true);
@@ -53,7 +53,7 @@ void main() {
   test('storage-backed media library runtime replays state after reopen',
       () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'celesteria-media-runtime-',
+      'elaina-media-runtime-',
     );
     addTearDown(() async {
       if (root.existsSync()) await root.delete(recursive: true);

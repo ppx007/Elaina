@@ -165,10 +165,8 @@ final class OutboundUriGuard {
       }
     }
     // Exclude :: (all zero) and ::1 so they fall through to the loopback check.
-    final bool lastFourZeroOrOne = bytes[12] == 0 &&
-        bytes[13] == 0 &&
-        bytes[14] == 0 &&
-        bytes[15] <= 1;
+    final bool lastFourZeroOrOne =
+        bytes[12] == 0 && bytes[13] == 0 && bytes[14] == 0 && bytes[15] <= 1;
     return !lastFourZeroOrOne;
   }
 

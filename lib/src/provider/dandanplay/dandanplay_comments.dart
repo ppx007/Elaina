@@ -32,7 +32,8 @@ final class DandanplayCommentPost {
 }
 
 abstract interface class DandanplayCommentProvider {
-  Future<AcgProviderResult<List<DandanplayComment>>> commentsForEpisode(DandanplayEpisodeId episodeId);
+  Future<AcgProviderResult<List<DandanplayComment>>> commentsForEpisode(
+      DandanplayEpisodeId episodeId);
 
   Future<AcgProviderResult<void>> postComment(DandanplayCommentPost post);
 }

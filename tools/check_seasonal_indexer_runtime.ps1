@@ -112,7 +112,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/domain/seasonal/seasonal_anime.dart',
   'src/domain/seasonal/seasonal_indexer_runtime.dart',

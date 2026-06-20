@@ -57,7 +57,7 @@ Current code already has seasonal domain primitives in `lib/src/domain/seasonal/
 1. Add seasonal runtime result, failure, snapshot, catalog, match queue, worker, source registration, and lifecycle values under `lib/src/domain/seasonal/`.
 2. Implement `SeasonalIndexerRuntime` or `SeasonalIndexerBootstrap` that composes existing RSS runtime/contract updates, seasonal consumers, catalog store, match queue store, binding store, and cache invalidation bus.
 3. Add deterministic actions for registering the YucWiki `FeedSource`, processing explicit feed items, starting/stopping update consumption, listing catalog entries, projecting pending match queue state, processing queued Bangumi match work, and disposal.
-4. Export safe seasonal runtime surfaces through `lib/celesteria.dart` without exporting concrete UI, transport, storage implementation, RSS auto-download execution, BT, online-rule, diagnostics, or native-player code.
+4. Export safe seasonal runtime surfaces through `lib/elaina.dart` without exporting concrete UI, transport, storage implementation, RSS auto-download execution, BT, online-rule, diagnostics, or native-player code.
 5. Add focused tests, a Dart smoke checker, and a PowerShell boundary checker that chains `check_rss_engine_runtime.ps1`.
 6. Run `openspec validate "bootstrap-phase3-seasonal-indexer-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused seasonal runtime tests, seasonal checker scripts, and existing RSS/subtitle-provider/media-library/video-detail/subtitle/Bangumi/Dandanplay/danmaku smoke checks.
 

@@ -248,7 +248,7 @@ foreach ($file in $providerFiles) {
 }
 
 $allDart = Get-ChildItem -LiteralPath (Join-Path $root 'lib/src') -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($file in $requiredFiles | Where-Object { $_ -like 'lib/src/*.dart' -or $_ -like 'lib/src/**/*.dart' }) {
   $exportPath = $file.Replace('lib/', '')
   if ($barrel -notmatch [regex]::Escape("export '$exportPath';")) {

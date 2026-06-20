@@ -6,7 +6,7 @@
 ## 2. GREEN Implementation
 
 - [x] 2.1 Create lib/src/provider/online/online_rule_source_runtime.dart with OnlineRuleSourceRuntimeBootstrap, OnlineRuleSourceRuntimeFailureKind (8 values), OnlineRuleSourceRuntimeFailure, OnlineRuleSourceRuntimeActionResultKind, generic OnlineRuleSourceRuntimeActionResult<T>, OnlineRuleSourceRuntimeRestartProjection, OnlineRuleSourceRuntimeProjection, OnlineRuleSourceRuntime (5 methods + dispose, _gate, _projection, _mapFailureKind, _mapStoredTarget, _mapStoredExtractionKind, _mapStoredUnsupportedKind, _publishEvent)
-- [x] 2.2 Add barrel export in lib/celesteria.dart
+- [x] 2.2 Add barrel export in lib/elaina.dart
 - [x] 2.3 Verify focused Flutter tests pass
 
 ## 3. Contract Coverage

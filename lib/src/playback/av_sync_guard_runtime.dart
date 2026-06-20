@@ -93,8 +93,7 @@ final class AVSyncGuardRuntimeActionResult<T> {
   final T? value;
   final AVSyncGuardRuntimeFailure? failure;
 
-  bool get isSuccess =>
-      kind == AVSyncGuardRuntimeActionResultKind.success;
+  bool get isSuccess => kind == AVSyncGuardRuntimeActionResultKind.success;
 }
 
 final class AVSyncGuardRuntimeRestartProjection {
@@ -161,8 +160,8 @@ final class AVSyncGuardRuntime {
       <String, AVSyncGuardRuntimeFailure>{};
   bool _disposed = false;
 
-  Future<AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>>
-      snapshot(String scopeId) async {
+  Future<AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>> snapshot(
+      String scopeId) async {
     final AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>? gated =
         _gate(scopeId);
     if (gated != null) return gated;
@@ -178,8 +177,7 @@ final class AVSyncGuardRuntime {
     if (gated != null) return gated;
 
     final DeterministicAVSyncGuard guard = _guardByScope[scopeId]!;
-    final AVSyncEvaluationOutcome outcome =
-        await guard.ingestSample(sample);
+    final AVSyncEvaluationOutcome outcome = await guard.ingestSample(sample);
     if (!outcome.isSuccess) {
       return _failed(scopeId, _failureFromGuard(outcome.failure!));
     }
@@ -242,8 +240,8 @@ final class AVSyncGuardRuntime {
   AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>? _gate(
       String scopeId) {
     if (_disposed) {
-      return AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>
-          .disposed(
+      return AVSyncGuardRuntimeActionResult<
+          AVSyncGuardRuntimeProjection>.disposed(
         const AVSyncGuardRuntimeFailure(
           kind: AVSyncGuardRuntimeFailureKind.disposed,
           message: 'AV sync guard runtime is disposed.',
@@ -251,8 +249,8 @@ final class AVSyncGuardRuntime {
       );
     }
     if (_unavailableReason != null) {
-      return AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>
-          .unavailable(
+      return AVSyncGuardRuntimeActionResult<
+          AVSyncGuardRuntimeProjection>.unavailable(
         AVSyncGuardRuntimeFailure(
           kind: AVSyncGuardRuntimeFailureKind.unavailable,
           message: _unavailableReason,
@@ -261,8 +259,8 @@ final class AVSyncGuardRuntime {
     }
     if (!_guardByScope.containsKey(scopeId) ||
         !_capabilitiesByScope.containsKey(scopeId)) {
-      return AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>
-          .unavailable(
+      return AVSyncGuardRuntimeActionResult<
+          AVSyncGuardRuntimeProjection>.unavailable(
         AVSyncGuardRuntimeFailure(
           kind: AVSyncGuardRuntimeFailureKind.unavailable,
           message: 'AV sync guard runtime is unavailable for $scopeId.',
@@ -271,8 +269,8 @@ final class AVSyncGuardRuntime {
     }
     if (!_capabilitiesByScope[scopeId]!
         .supports(PlaybackCapability.avSyncGuard)) {
-      return AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>
-          .failed(
+      return AVSyncGuardRuntimeActionResult<
+          AVSyncGuardRuntimeProjection>.failed(
         const AVSyncGuardRuntimeFailure(
           kind: AVSyncGuardRuntimeFailureKind.capabilityUnsupported,
           message: 'AVSyncGuard capability is unsupported for this scope.',
@@ -313,17 +311,16 @@ final class AVSyncGuardRuntime {
     final String? latestDegradationAction =
         storedDecisions.isNotEmpty ? storedDecisions.first.action : null;
 
-    final AVSyncDecision? latestDecision =
-        _latestDecisionsByScope[scopeId];
-    final AVSyncHealth? health = latestDecision?.health ??
-        _healthFromStored(storedHealth?.health);
+    final AVSyncDecision? latestDecision = _latestDecisionsByScope[scopeId];
+    final AVSyncHealth? health =
+        latestDecision?.health ?? _healthFromStored(storedHealth?.health);
 
     return AVSyncGuardRuntimeProjection(
       scopeId: scopeId,
       health: health,
       latestDriftMillis: storedHealth?.lastDriftMillis,
-      latestDegradationAction: latestDecision?.action.name ??
-          latestDegradationAction,
+      latestDegradationAction:
+          latestDecision?.action.name ?? latestDegradationAction,
       sampleCount: storedHealth?.sampleCount,
       latestDecision: latestDecision,
       latestFailure: _latestFailuresByScope[scopeId],

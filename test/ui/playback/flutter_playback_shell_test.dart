@@ -1,10 +1,11 @@
-import 'package:celesteria/celesteria.dart';
-import 'package:celesteria/src/ui/playback/flutter_playback_shell.dart';
+import 'package:elaina/elaina.dart';
+import 'package:elaina/src/ui/playback/flutter_playback_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders playback state and active surface controls', (WidgetTester tester) async {
+  testWidgets('renders playback state and active surface controls',
+      (WidgetTester tester) async {
     final MockFlutterPlaybackShellDriver driver = _driver();
 
     await tester.pumpWidget(_host(driver));
@@ -20,7 +21,8 @@ void main() {
     expect(find.text('Tracks'), findsOneWidget);
   });
 
-  testWidgets('dispatches mock intents and updates rendered state', (WidgetTester tester) async {
+  testWidgets('dispatches mock intents and updates rendered state',
+      (WidgetTester tester) async {
     final MockFlutterPlaybackShellDriver driver = _driver();
 
     await tester.pumpWidget(_host(driver));
@@ -46,13 +48,16 @@ void main() {
     expect(find.text('Subtitle: subtitle-ja'), findsOneWidget);
   });
 
-  testWidgets('renders controller-driven state and dispatches through driver', (WidgetTester tester) async {
-    final ControllerDrivenFlutterPlaybackShellDriver driver = ControllerDrivenFlutterPlaybackShellDriver(
+  testWidgets('renders controller-driven state and dispatches through driver',
+      (WidgetTester tester) async {
+    final ControllerDrivenFlutterPlaybackShellDriver driver =
+        ControllerDrivenFlutterPlaybackShellDriver(
       controller: MockPlaybackController(
         matrix: _matrix(),
         initialState: const PlaybackStateSnapshot(
           status: PlaybackLifecycleStatus.paused,
-          timeline: PlaybackTimelineState(position: Duration(seconds: 5), duration: Duration(minutes: 2)),
+          timeline: PlaybackTimelineState(
+              position: Duration(seconds: 5), duration: Duration(minutes: 2)),
         ),
       ),
     );
@@ -77,15 +82,20 @@ void main() {
     driver.dispose();
   });
 
-  test('controller-driven driver notifies once with fresh result after dispatch', () async {
-    final ControllerDrivenFlutterPlaybackShellDriver driver = ControllerDrivenFlutterPlaybackShellDriver(
+  test(
+      'controller-driven driver notifies once with fresh result after dispatch',
+      () async {
+    final ControllerDrivenFlutterPlaybackShellDriver driver =
+        ControllerDrivenFlutterPlaybackShellDriver(
       controller: MockPlaybackController(
         matrix: _matrix(),
-        initialState: const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.paused),
+        initialState:
+            const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.paused),
       ),
     );
     final List<PlaybackLifecycleStatus> statuses = <PlaybackLifecycleStatus>[];
-    final List<PlaybackPageIntentOutcome?> outcomes = <PlaybackPageIntentOutcome?>[];
+    final List<PlaybackPageIntentOutcome?> outcomes =
+        <PlaybackPageIntentOutcome?>[];
     driver.addListener(() {
       statuses.add(driver.snapshot.status);
       outcomes.add(driver.lastIntentResult?.outcome);
@@ -93,15 +103,20 @@ void main() {
 
     await driver.dispatch(const PlaybackPageIntent.play());
 
-    expect(statuses, <PlaybackLifecycleStatus>[PlaybackLifecycleStatus.playing]);
-    expect(outcomes, <PlaybackPageIntentOutcome?>[PlaybackPageIntentOutcome.executed]);
+    expect(
+        statuses, <PlaybackLifecycleStatus>[PlaybackLifecycleStatus.playing]);
+    expect(outcomes,
+        <PlaybackPageIntentOutcome?>[PlaybackPageIntentOutcome.executed]);
 
     driver.dispose();
   });
 
-  testWidgets('hides controls absent from the surface descriptor', (WidgetTester tester) async {
-    final MockFlutterPlaybackShellDriver driver = MockFlutterPlaybackShellDriver(
-      initialSnapshot: const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
+  testWidgets('hides controls absent from the surface descriptor',
+      (WidgetTester tester) async {
+    final MockFlutterPlaybackShellDriver driver =
+        MockFlutterPlaybackShellDriver(
+      initialSnapshot:
+          const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
       surface: const PlaybackPageSurfaceDescriptor(
         controls: <PlaybackPageControlDescriptor>[
           PlaybackPageControlDescriptor(id: PlaybackPageControlId.playPause),

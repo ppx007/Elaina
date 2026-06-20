@@ -1,6 +1,6 @@
 # Phase 6: Automation Extension Core
 
-This phase adds contract scaffolding for Celesteria architecture plan steps 26-30.
+This phase adds contract scaffolding for Elaina architecture plan steps 26-30.
 
 ## Implemented Boundary
 

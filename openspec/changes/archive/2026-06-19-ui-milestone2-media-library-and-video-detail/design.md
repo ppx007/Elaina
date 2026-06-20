@@ -7,7 +7,7 @@ This design outlines how the Media Library and Video Detail UI pages integrate w
 **Goals:**
 - Construct a card-based Media Library view presenting local folders, scanner status, and scan progress.
 - Construct a details screen showing descriptions, action buttons (Follow/Unfollow), and episode selectors.
-- Connect widgets to the respective stream and future descriptors exposed by [MediaLibraryRuntime](file:///D:/CodeWork/pkpk/lib/src/domain/media/media_library_runtime.dart) and [VideoDetailPageContract](file:///D:/CodeWork/pkpk/lib/src/ui/detail/video_detail_page_contract.dart).
+- Connect widgets to the respective stream and future descriptors exposed by [MediaLibraryRuntime](file:///D:/CodeWork/elaina/lib/src/domain/media/media_library_runtime.dart) and [VideoDetailPageContract](file:///D:/CodeWork/elaina/lib/src/ui/detail/video_detail_page_contract.dart).
 
 **Non-Goals:**
 - Implementing online scraping or custom subtitle indexing directly in the UI layer.
@@ -16,7 +16,7 @@ This design outlines how the Media Library and Video Detail UI pages integrate w
 ## Decisions
 
 ### 1. Stream-backed Detail Observation
-- **Choice**: The `VideoDetailPage` widget will subscribe to the `watch()` stream exposed by [VideoDetailPageContract](file:///D:/CodeWork/pkpk/lib/src/ui/detail/video_detail_page_contract.dart#L11) instead of performing manual loads.
+- **Choice**: The `VideoDetailPage` widget will subscribe to the `watch()` stream exposed by [VideoDetailPageContract](file:///D:/CodeWork/elaina/lib/src/ui/detail/video_detail_page_contract.dart#L11) instead of performing manual loads.
 - **Rationale**: Any state change (e.g., episode watched, followed state) propagates naturally through the DB to the stream, updating the UI automatically.
 
 ### 2. Standardized Card Component

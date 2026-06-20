@@ -55,7 +55,7 @@ This change deliberately stops before Phase 2 / Step 12 basic danmaku rendering.
 
 1. Add deterministic gateway-bound Dandanplay provider/comment runtime and bootstrap composition under `lib/src/provider/dandanplay/`.
 2. Add or update Domain ACG runtime composition so `AcgDataController` can be backed by real Dandanplay runtime providers.
-3. Export only contract-safe runtime/bootstrap surfaces through `lib/celesteria.dart`.
+3. Export only contract-safe runtime/bootstrap surfaces through `lib/elaina.dart`.
 4. Add focused tests, smoke validation, and boundary checker scripts.
 5. Run `openspec validate "bootstrap-phase2-dandanplay-provider-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused Dandanplay tests, Dandanplay checker scripts, and existing Bangumi/subtitle/player smoke checks.
 

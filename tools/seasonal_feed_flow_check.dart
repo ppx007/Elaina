@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   final SeasonalFeedFlowSmokeResult result = await runSeasonalFeedFlowSmoke();

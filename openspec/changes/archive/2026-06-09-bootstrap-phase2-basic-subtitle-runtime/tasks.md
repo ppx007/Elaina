@@ -16,7 +16,7 @@
 
 - [x] 3.1 Extend Domain/Playback-safe subtitle state surfaces so playback consumers can observe available subtitle tracks and active cue descriptors without Flutter, Provider, Storage, Streaming, Network, diagnostics, or native binding types.
 - [x] 3.2 Wire subtitle state into playback page foundation descriptors indirectly, preserving UI ownership of rendering and preventing Domain/Playback imports from UI shell types.
-- [x] 3.3 Export only contract-safe parser, runtime, scanner, and state surfaces through `lib/celesteria.dart` without exposing concrete provider, storage, streaming, network, native player, or Flutter shell dependencies.
+- [x] 3.3 Export only contract-safe parser, runtime, scanner, and state surfaces through `lib/elaina.dart` without exposing concrete provider, storage, streaming, network, native player, or Flutter shell dependencies.
 
 ## 4. Tests and Validation
 

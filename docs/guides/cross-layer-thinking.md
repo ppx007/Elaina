@@ -4,7 +4,7 @@ Source: extracted from `.trellis/spec/guides/cross-layer-thinking-guide.md` on 2
 
 ## Purpose
 
-Most integration bugs appear at layer boundaries, not inside a single layer. Celesteria is especially sensitive to this because the architecture intentionally separates UI, Domain, Playback, Provider, Gateway, Storage, Streaming, and Network.
+Most integration bugs appear at layer boundaries, not inside a single layer. Elaina is especially sensitive to this because the architecture intentionally separates UI, Domain, Playback, Provider, Gateway, Storage, Streaming, and Network.
 
 Before changing a feature that crosses layers, map the complete data flow and define every boundary contract explicitly.
 
@@ -55,7 +55,7 @@ Bad: UI knows about MPV, VLC, Bangumi, Dandanplay, libtorrent, yuc.wiki, raw RSS
 
 Good: UI depends on domain-facing contracts, capability declarations, and user-intent models.
 
-## Celesteria Boundary Rules
+## Elaina Boundary Rules
 
 - UI must not directly depend on MPV/VLC/Bangumi/Dandanplay/libtorrent/yuc.wiki.
 - yuc.wiki is an RSS `FeedSource`, not a privileged special-case scraping provider.

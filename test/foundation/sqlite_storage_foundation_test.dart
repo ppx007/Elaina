@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -180,7 +180,7 @@ void main() {
 
 Future<File> _tempDatabaseFile() async {
   final Directory directory =
-      await Directory.systemTemp.createTemp('celesteria_sqlite_storage_');
+      await Directory.systemTemp.createTemp('elaina_sqlite_storage_');
   return File('${directory.path}${Platform.pathSeparator}storage.db');
 }
 

@@ -5,7 +5,7 @@ The system SHALL include `lib/src/playback/fallback_adapter_runtime.dart` as a P
 
 #### Scenario: Runtime file exists and exports bootstrap
 - **WHEN** the codebase is inspected for Step 25 artifacts
-- **THEN** `fallback_adapter_runtime.dart` contains `FallbackAdapterBootstrap`, `FallbackAdapterRuntime`, and projection types, and `celesteria.dart` exports the runtime
+- **THEN** `fallback_adapter_runtime.dart` contains `FallbackAdapterBootstrap`, `FallbackAdapterRuntime`, and projection types, and `elaina.dart` exports the runtime
 
 ### Requirement: Repository baseline SHALL enforce VLC fallback adapter runtime boundary
 The system SHALL enforce that `fallback_adapter_runtime.dart` does not import `player_adapter`, `playback_controller`, VLC-specific packages, native FFI, Flutter widgets, diagnostics center, RSS automation, online rule runtime, WebView, captions, network policy, or any out-of-slice dependency.

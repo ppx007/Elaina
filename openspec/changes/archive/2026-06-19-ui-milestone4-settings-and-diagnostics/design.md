@@ -7,7 +7,7 @@ This design outlines the settings form structure and the diagnostics telemetry c
 **Goals:**
 - Construct the `SettingsPage` containing sections for general, network, and player options.
 - Construct the `DiagnosticsPage` displaying active system status, capabilities, and timeline logs.
-- Connect widgets to preference storage and [DiagnosticsCenterRuntime](file:///D:/CodeWork/pkpk/lib/src/foundation/diagnostics/diagnostics_center_runtime.dart).
+- Connect widgets to preference storage and [DiagnosticsCenterRuntime](file:///D:/CodeWork/elaina/lib/src/foundation/diagnostics/diagnostics_center_runtime.dart).
 
 **Non-Goals:**
 - Implementing remote logging or analytics reports.

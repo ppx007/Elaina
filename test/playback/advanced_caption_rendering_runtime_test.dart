@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -41,8 +41,7 @@ void main() {
       expect(result.value!.latestRendererState,
           StoredAdvancedCaptionRendererStateKind.applied);
       // Restart projection replays stored state
-      expect(
-          result.value!.restart.activeProfileId, 'ac-vivid');
+      expect(result.value!.restart.activeProfileId, 'ac-vivid');
       expect(result.value!.restart.latestRendererState,
           StoredAdvancedCaptionRendererStateKind.applied);
       await runtime.dispose();
@@ -75,8 +74,8 @@ void main() {
       ).createRuntime();
 
       await runtime.evaluate('adapter-1', _profile());
-      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>
-          result = await runtime.renderMatrixDanmaku(
+      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> result =
+          await runtime.renderMatrixDanmaku(
         'adapter-1',
         MatrixDanmakuRequest(
           comments: <DanmakuComment>[],
@@ -104,8 +103,8 @@ void main() {
       ).createRuntime();
 
       await runtime.evaluate('adapter-1', _profile());
-      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>
-          result = await runtime.renderDualSubtitles(
+      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> result =
+          await runtime.renderDualSubtitles(
         'adapter-1',
         DualSubtitleRequest(
           primary: _subtitleSource('sub-en'),
@@ -128,8 +127,8 @@ void main() {
       ).createRuntime();
 
       await runtime.evaluate('adapter-1', _profile());
-      final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>
-          result = await runtime.disable('adapter-1');
+      final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome> result =
+          await runtime.disable('adapter-1');
 
       expect(result.isSuccess, isTrue);
       expect(result.value!.isSuccess, isTrue);
@@ -161,15 +160,13 @@ void main() {
   });
 
   group('AdvancedCaptionRuntime unsupported', () {
-    test('unsupported scope evaluate returns capabilityUnsupported',
-        () async {
+    test('unsupported scope evaluate returns capabilityUnsupported', () async {
       final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-      final AdvancedCaptionRuntime runtime = _unsupportedBootstrap(bus: bus)
-          .createRuntime();
+      final AdvancedCaptionRuntime runtime =
+          _unsupportedBootstrap(bus: bus).createRuntime();
 
       final AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>
-          result =
-          await runtime.evaluate('adapter-unsupported', _profile());
+          result = await runtime.evaluate('adapter-unsupported', _profile());
 
       expect(result.isSuccess, isFalse);
       expect(result.failure!.kind,
@@ -181,18 +178,17 @@ void main() {
 
   group('AdvancedCaptionRuntime unavailable', () {
     test('unavailable runtime rejects all operations', () async {
-      final AdvancedCaptionRuntime runtime =
-          AdvancedCaptionRuntime.unavailable(
-              reason: 'No caption renderer available.');
+      final AdvancedCaptionRuntime runtime = AdvancedCaptionRuntime.unavailable(
+          reason: 'No caption renderer available.');
 
       final AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>
           snapshot = await runtime.snapshot('any');
       final AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>
           evaluate = await runtime.evaluate('any', _profile());
-      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>
-          render = await runtime.renderMatrixDanmaku('any', _matrixRequest());
-      final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>
-          disable = await runtime.disable('any');
+      final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> render =
+          await runtime.renderMatrixDanmaku('any', _matrixRequest());
+      final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome> disable =
+          await runtime.disable('any');
 
       expect(snapshot.isSuccess, isFalse);
       expect(snapshot.failure!.kind,
@@ -201,11 +197,11 @@ void main() {
       expect(evaluate.failure!.kind,
           AdvancedCaptionRuntimeFailureKind.unavailable);
       expect(render.isSuccess, isFalse);
-      expect(render.failure!.kind,
-          AdvancedCaptionRuntimeFailureKind.unavailable);
+      expect(
+          render.failure!.kind, AdvancedCaptionRuntimeFailureKind.unavailable);
       expect(disable.isSuccess, isFalse);
-      expect(disable.failure!.kind,
-          AdvancedCaptionRuntimeFailureKind.unavailable);
+      expect(
+          disable.failure!.kind, AdvancedCaptionRuntimeFailureKind.unavailable);
     });
   });
 
@@ -218,8 +214,7 @@ void main() {
           result = await runtime.snapshot('adapter-1');
 
       expect(result.isSuccess, isFalse);
-      expect(
-          result.failure!.kind, AdvancedCaptionRuntimeFailureKind.disposed);
+      expect(result.failure!.kind, AdvancedCaptionRuntimeFailureKind.disposed);
     });
   });
 
@@ -237,15 +232,9 @@ void main() {
       await runtime.renderMatrixDanmaku('adapter-1', _matrixRequest());
       final List<CacheInvalidationEvent> delivered = await events;
 
-      expect(
-          delivered
-              .whereType<AdvancedCaptionCapabilityReevaluated>()
-              .length,
+      expect(delivered.whereType<AdvancedCaptionCapabilityReevaluated>().length,
           greaterThanOrEqualTo(1));
-      expect(
-          delivered
-              .whereType<AdvancedCaptionRendererStateChanged>()
-              .length,
+      expect(delivered.whereType<AdvancedCaptionRendererStateChanged>().length,
           greaterThanOrEqualTo(1));
       await runtime.dispose();
       await bus.close();
@@ -301,8 +290,7 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(result.value!.restart.activeProfileId, 'ac-vivid');
-      expect(result.value!.restart.latestRendererState,
-          isNotNull);
+      expect(result.value!.restart.latestRendererState, isNotNull);
       await second.dispose();
       await bus.close();
     });
@@ -313,8 +301,8 @@ AdvancedCaptionRuntimeBootstrap _bootstrap({
   DeterministicAdvancedCaptionStore? store,
   StreamCacheInvalidationBus? bus,
 }) {
-  final DeterministicAdvancedCaptionStore captionStore =
-      store ?? DeterministicAdvancedCaptionStore(
+  final DeterministicAdvancedCaptionStore captionStore = store ??
+      DeterministicAdvancedCaptionStore(
         seedProfiles: <StoredAdvancedCaptionProfileRecord>[
           _storedProfile('ac-vivid'),
         ],
@@ -389,10 +377,8 @@ StoredAdvancedCaptionProfileRecord _storedProfile(String id) {
 PlaybackCapabilityMatrix _supportedCapabilities() {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
-      PlaybackCapability.matrixDanmaku:
-          const CapabilityStatus.supported(),
-      PlaybackCapability.dualSubtitles:
-          const CapabilityStatus.supported(),
+      PlaybackCapability.matrixDanmaku: const CapabilityStatus.supported(),
+      PlaybackCapability.dualSubtitles: const CapabilityStatus.supported(),
       PlaybackCapability.pgsSubtitleRendering:
           const CapabilityStatus.supported(),
       PlaybackCapability.assSubtitleEnhancement:

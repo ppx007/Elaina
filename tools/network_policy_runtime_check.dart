@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   final DeterministicNetworkPolicyStore store =
@@ -58,18 +58,23 @@ Future<void> main() async {
   _expect(blocked.value is NetworkPolicyBlocked,
       'Blocked evaluation must preserve block decision.');
   _expect(
-      blockInvalidations.whereType<NetworkPolicyEvaluationOutcomeRecorded>().length ==
+      blockInvalidations
+              .whereType<NetworkPolicyEvaluationOutcomeRecorded>()
+              .length ==
           1,
       'Blocked evaluation must publish outcome invalidation.');
   _expect(
-      blockInvalidations.whereType<NetworkPolicyBlockDecisionRecorded>().length ==
+      blockInvalidations
+              .whereType<NetworkPolicyBlockDecisionRecorded>()
+              .length ==
           1,
       'Blocked evaluation must publish block invalidation.');
 
   final NetworkPolicyRuntimeActionResult<NetworkPolicyRuntimeProjection>
       replay = await runtime.snapshot('provider-a');
-  _expect(replay.value!.restart.latestEvaluationDecisionKind ==
-      StoredNetworkPolicyDecisionKind.blocked.name,
+  _expect(
+      replay.value!.restart.latestEvaluationDecisionKind ==
+          StoredNetworkPolicyDecisionKind.blocked.name,
       'Restart projection must replay stored block decision.');
   _expect(replay.value!.restart.latestBlockReason != null,
       'Restart projection must replay stored block reason.');
@@ -96,7 +101,8 @@ Future<void> main() async {
       uri: Uri.parse('https://example.test/video'),
     ),
   );
-  _expect(disabled.failure!.kind == NetworkPolicyRuntimeFailureKind.policyDisabled,
+  _expect(
+      disabled.failure!.kind == NetworkPolicyRuntimeFailureKind.policyDisabled,
       'Disabled provider must report policyDisabled.');
   _expect((await runtime.reenable(providerScope: 'provider-a')).isSuccess,
       'Reenable must succeed.');

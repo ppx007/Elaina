@@ -1,4 +1,4 @@
-﻿## Why
+## Why
 
 The diagnostics center already has typed deterministic contracts, storage contracts, and cache invalidation events, but it lacks the Phase 6 runtime acceptance layer used by the adjacent runtime slices. Step 30 needs a minimal bootstrap/runtime wrapper so diagnostics state can be recorded, projected, replayed, retained, and exported through typed outcomes without gaining control authority over other layers.
 
@@ -25,7 +25,7 @@ The diagnostics center already has typed deterministic contracts, storage contra
 ## Impact
 
 - New runtime file: `lib/src/foundation/diagnostics/diagnostics_center_runtime.dart`
-- Modified barrel: `lib/celesteria.dart`
+- Modified barrel: `lib/elaina.dart`
 - New focused test: `test/foundation/diagnostics_center_runtime_test.dart`
 - New tools: `tools/diagnostics_center_runtime_check.dart`, `tools/check_diagnostics_center_runtime.ps1`
 - OpenSpec deltas for Step 30 runtime capability and touched specs

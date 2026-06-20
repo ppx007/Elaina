@@ -467,7 +467,8 @@ final class VirtualMediaStreamRuntime {
         _gate<List<VirtualStreamRestartProjection>>();
     if (gate != null) return gate;
 
-    final List<StoredVirtualMediaStreamRecord> records = await _listAllStreams();
+    final List<StoredVirtualMediaStreamRecord> records =
+        await _listAllStreams();
     final List<VirtualStreamRestartProjection> projections =
         <VirtualStreamRestartProjection>[];
     for (final StoredVirtualMediaStreamRecord record in records) {
@@ -585,7 +586,8 @@ final class VirtualMediaStreamRuntime {
   }
 
   Future<void> _publishSnapshot() async {
-    final List<StoredVirtualMediaStreamRecord> records = await _listAllStreams();
+    final List<StoredVirtualMediaStreamRecord> records =
+        await _listAllStreams();
     _snapshot = VirtualMediaStreamRuntimeSnapshot(
       status: _disposed
           ? VirtualMediaStreamRuntimeStatus.disposed

@@ -11,7 +11,7 @@ import 'bangumi_provider.dart';
 import 'bangumi_registration.dart';
 import 'bangumi_runtime.dart';
 
-const String defaultBangumiApiUserAgent = 'Celesteria/0.1';
+const String defaultBangumiApiUserAgent = 'Elaina/0.1';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
 const int bangumiAnimeSubjectType = 2;

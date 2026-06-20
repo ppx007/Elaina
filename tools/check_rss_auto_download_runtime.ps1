@@ -48,7 +48,7 @@ foreach ($term in $requiredTerms) {
 }
 
 # --- Barrel exports ---
-$barrel = "$root\lib\celesteria.dart"
+$barrel = "$root\lib\elaina.dart"
 $barrelContent = Get-Content -LiteralPath $barrel -Raw
 if ($barrelContent -notmatch "export 'src/provider/rss/rss_auto_download_policy.dart'") {
     throw "Missing barrel export for rss_auto_download_policy.dart"
@@ -61,7 +61,7 @@ if ($barrelContent -notmatch "export 'src/provider/rss/rss_auto_download_runtime
 $checker = "$root\tools\rss_auto_download_runtime_check.dart"
 $checkerContent = Get-Content -LiteralPath $checker -Raw
 $checkerTerms = @(
-    "import '../lib/celesteria.dart';",
+    "import '../lib/elaina.dart';",
     'DeterministicRssAutoDownloadPolicyStore',
     'DeterministicRssAutomationHistoryStore',
     'StreamCacheInvalidationBus',

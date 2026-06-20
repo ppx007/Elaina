@@ -75,7 +75,7 @@ After deletion, validate the repository state before staging:
 
 ```powershell
 openspec validate --all
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
 ```
 
 ## Baseline Staging Implication

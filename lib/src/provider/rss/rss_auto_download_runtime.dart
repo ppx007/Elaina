@@ -13,7 +13,7 @@ final class RssAutoDownloadPolicyRuntimeBootstrap {
     this.cacheInvalidationBus,
     this.clock,
   })  : evaluatorByScope = Map<String,
-            DeterministicRssAutoDownloadPolicyEvaluator>.unmodifiable(
+                DeterministicRssAutoDownloadPolicyEvaluator>.unmodifiable(
             evaluatorByScope),
         capabilitiesByScope =
             Map<String, RssAutomationCapabilityMatrix>.unmodifiable(
@@ -171,8 +171,7 @@ final class RssAutoDownloadPolicyRuntime {
       : _policyStore = DeterministicRssAutoDownloadPolicyStore(),
         _evaluatorByScope =
             const <String, DeterministicRssAutoDownloadPolicyEvaluator>{},
-        _capabilitiesByScope =
-            const <String, RssAutomationCapabilityMatrix>{},
+        _capabilitiesByScope = const <String, RssAutomationCapabilityMatrix>{},
         _historyStore = null,
         _cacheInvalidationBus = null,
         _clock = null,
@@ -192,10 +191,12 @@ final class RssAutoDownloadPolicyRuntime {
   RssAutomationHandoffOutcome? _latestHandoffOutcome;
   RssAutoDownloadPolicyRuntimeFailure? _latestFailure;
 
-  Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>
-      snapshot(String scopeId) async {
-    final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
-        gated =
+  Future<
+      RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>> snapshot(
+      String scopeId) async {
+    final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection>? gated =
         _gate(scopeId, RssAutomationCapability.policyEvaluation);
     if (gated != null) return gated;
     return RssAutoDownloadPolicyRuntimeActionResult<
@@ -203,11 +204,12 @@ final class RssAutoDownloadPolicyRuntime {
         await _projection(scopeId));
   }
 
-  Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>
-      evaluate(String scopeId, RssAutoDownloadPolicy policy,
-          Iterable<FeedItem> items) async {
-    final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
-        gated =
+  Future<
+      RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>> evaluate(String scopeId,
+      RssAutoDownloadPolicy policy, Iterable<FeedItem> items) async {
+    final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection>? gated =
         _gate(scopeId, RssAutomationCapability.policyEvaluation);
     if (gated != null) return gated;
 
@@ -275,7 +277,9 @@ final class RssAutoDownloadPolicyRuntime {
           outcomeKind: _decisionOutcomeKind(decision),
           ruleId: decision is RssAutomationAccepted
               ? decision.candidate.ruleId.value
-              : (decision is RssAutomationRejected ? decision.ruleId?.value : null),
+              : (decision is RssAutomationRejected
+                  ? decision.ruleId?.value
+                  : null),
         ));
       }
     } else {
@@ -285,7 +289,7 @@ final class RssAutoDownloadPolicyRuntime {
       );
       _latestEvaluationOutcome = outcome;
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
+          RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
     }
 
     return RssAutoDownloadPolicyRuntimeActionResult<
@@ -293,10 +297,12 @@ final class RssAutoDownloadPolicyRuntime {
         await _projection(scopeId));
   }
 
-  Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>
-      handoff(String scopeId, RssDownloadCandidate candidate) async {
-    final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
-        gated =
+  Future<
+      RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>> handoff(
+      String scopeId, RssDownloadCandidate candidate) async {
+    final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection>? gated =
         _gate(scopeId, RssAutomationCapability.btTaskHandoff);
     if (gated != null) return gated;
 
@@ -309,7 +315,8 @@ final class RssAutoDownloadPolicyRuntime {
 
       await _persistAcceptedCandidate(candidate);
       await _persistDedupeKey(candidate);
-      await _persistEnqueueOutcome(candidate, StoredRssAutoDownloadEnqueueState.pending);
+      await _persistEnqueueOutcome(
+          candidate, StoredRssAutoDownloadEnqueueState.pending);
 
       _publishEvent(RssAutoDownloadCandidateAccepted(
         occurredAt: _now(),
@@ -337,7 +344,7 @@ final class RssAutoDownloadPolicyRuntime {
         message: outcome.failure!.message,
       );
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
+          RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
     }
 
     return RssAutoDownloadPolicyRuntimeActionResult<
@@ -345,10 +352,12 @@ final class RssAutoDownloadPolicyRuntime {
         await _projection(scopeId));
   }
 
-  Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>
-      disable(String scopeId, RssAutoDownloadPolicyId policyId) async {
-    final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
-        gated =
+  Future<
+      RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>> disable(
+      String scopeId, RssAutoDownloadPolicyId policyId) async {
+    final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection>? gated =
         _gate(scopeId, RssAutomationCapability.policyEvaluation);
     if (gated != null) return gated;
 
@@ -360,7 +369,7 @@ final class RssAutoDownloadPolicyRuntime {
         message: 'RSS auto-download policy not found.',
       );
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
+          RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
     }
 
     await _policyStore.storePolicy(StoredRssAutoDownloadPolicyRecord(
@@ -383,10 +392,12 @@ final class RssAutoDownloadPolicyRuntime {
         await _projection(scopeId));
   }
 
-  Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>
-      reenable(String scopeId, RssAutoDownloadPolicyId policyId) async {
-    final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
-        gated =
+  Future<
+      RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>> reenable(
+      String scopeId, RssAutoDownloadPolicyId policyId) async {
+    final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection>? gated =
         _gate(scopeId, RssAutomationCapability.policyEvaluation);
     if (gated != null) return gated;
 
@@ -398,7 +409,7 @@ final class RssAutoDownloadPolicyRuntime {
         message: 'RSS auto-download policy not found.',
       );
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
+          RssAutoDownloadPolicyRuntimeProjection>.failed(_latestFailure!);
     }
 
     await _policyStore.storePolicy(StoredRssAutoDownloadPolicyRecord(
@@ -425,11 +436,12 @@ final class RssAutoDownloadPolicyRuntime {
     _disposed = true;
   }
 
-  RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>?
+  RssAutoDownloadPolicyRuntimeActionResult<
+          RssAutoDownloadPolicyRuntimeProjection>?
       _gate(String scopeId, RssAutomationCapability requiredCapability) {
     if (_disposed) {
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.disposed(
+          RssAutoDownloadPolicyRuntimeProjection>.disposed(
         const RssAutoDownloadPolicyRuntimeFailure(
           kind: RssAutoDownloadPolicyRuntimeFailureKind.disposed,
           message: 'RSS auto-download policy runtime is disposed.',
@@ -438,7 +450,7 @@ final class RssAutoDownloadPolicyRuntime {
     }
     if (_unavailableReason != null) {
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.unavailable(
+          RssAutoDownloadPolicyRuntimeProjection>.unavailable(
         RssAutoDownloadPolicyRuntimeFailure(
           kind: RssAutoDownloadPolicyRuntimeFailureKind.unavailable,
           message: _unavailableReason,
@@ -448,7 +460,7 @@ final class RssAutoDownloadPolicyRuntime {
     if (!_evaluatorByScope.containsKey(scopeId) ||
         !_capabilitiesByScope.containsKey(scopeId)) {
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.unavailable(
+          RssAutoDownloadPolicyRuntimeProjection>.unavailable(
         RssAutoDownloadPolicyRuntimeFailure(
           kind: RssAutoDownloadPolicyRuntimeFailureKind.unavailable,
           message:
@@ -457,9 +469,10 @@ final class RssAutoDownloadPolicyRuntime {
       );
     }
     if (!_capabilitiesByScope[scopeId]!
-        .statusOf(requiredCapability).supported) {
+        .statusOf(requiredCapability)
+        .supported) {
       return RssAutoDownloadPolicyRuntimeActionResult<
-              RssAutoDownloadPolicyRuntimeProjection>.failed(
+          RssAutoDownloadPolicyRuntimeProjection>.failed(
         RssAutoDownloadPolicyRuntimeFailure(
           kind: RssAutoDownloadPolicyRuntimeFailureKind.capabilityUnsupported,
           message:
@@ -526,8 +539,7 @@ final class RssAutoDownloadPolicyRuntime {
     );
   }
 
-  Future<void> _persistAcceptedCandidate(
-      RssDownloadCandidate candidate) async {
+  Future<void> _persistAcceptedCandidate(RssDownloadCandidate candidate) async {
     await _policyStore.storeAcceptedCandidate(
       StoredRssAutoDownloadAcceptedCandidateRecord(
         id: candidate.item.id.value,
@@ -553,7 +565,8 @@ final class RssAutoDownloadPolicyRuntime {
     await _policyStore.storeRejectedCandidate(
       StoredRssAutoDownloadRejectedCandidateRecord(
         id: rejection.item.id.value,
-        policyId: _latestEvaluationOutcome?.decisions.first.policyId?.value ?? '',
+        policyId:
+            _latestEvaluationOutcome?.decisions.first.policyId?.value ?? '',
         itemId: rejection.item.id.value,
         sourceId: rejection.item.sourceId.value,
         itemDedupeKey: rejection.item.dedupeKey.value,
@@ -577,8 +590,7 @@ final class RssAutoDownloadPolicyRuntime {
     );
   }
 
-  Future<void> _persistEnqueueOutcome(
-      RssDownloadCandidate candidate,
+  Future<void> _persistEnqueueOutcome(RssDownloadCandidate candidate,
       StoredRssAutoDownloadEnqueueState state) async {
     await _policyStore.recordEnqueueOutcome(
       StoredRssAutoDownloadEnqueueOutcomeRecord(

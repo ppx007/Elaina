@@ -60,7 +60,7 @@ foreach ($term in $requiredRuntimeTerms) {
 # ---------------------------------------------------------------------------
 # 4. Barrel export check
 # ---------------------------------------------------------------------------
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   "export 'src/playback/av_sync_guard.dart';",
   "export 'src/playback/av_sync_guard_runtime.dart';"
@@ -77,7 +77,7 @@ $checkerPath = Join-Path $root 'tools/av_sync_guard_runtime_check.dart'
 $checker = Get-Content -LiteralPath $checkerPath -Raw
 
 foreach ($term in @(
-  "import '../lib/celesteria.dart';",
+  "import '../lib/elaina.dart';",
   'DeterministicAVSyncGuardStore',
   'StreamCacheInvalidationBus',
   'DeterministicAVSyncGuard',

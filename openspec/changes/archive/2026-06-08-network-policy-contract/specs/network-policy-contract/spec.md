@@ -40,4 +40,4 @@ The system MUST NOT define VPN, TUN, kernel filtering, DPI, packet capture, or z
 
 #### Scenario: Policy is evaluated for provider traffic
 - **WHEN** a network policy decision is produced
-- **THEN** the decision applies only to Celesteria-managed provider traffic and not unrelated system traffic
+- **THEN** the decision applies only to Elaina-managed provider traffic and not unrelated system traffic

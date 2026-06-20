@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -44,17 +44,18 @@ void main() {
       updatedAt: observedAt,
     ));
 
-    expect((await store.findCandidateById('fallback-vlc-contract'))?.priority,
-        1);
-    expect((await store.activeConfiguration('playback-scope'))?.enabled,
-        isTrue);
+    expect(
+        (await store.findCandidateById('fallback-vlc-contract'))?.priority, 1);
+    expect(
+        (await store.activeConfiguration('playback-scope'))?.enabled, isTrue);
     expect((await store.selectionHistory('playback-scope')).single.candidateId,
         'fallback-vlc-contract');
     expect((await store.latestStrategyState('playback-scope'))?.state,
         StoredFallbackStrategyStateKind.selected);
   });
 
-  test('deterministic fallback selects compatible candidate and publishes events',
+  test(
+      'deterministic fallback selects compatible candidate and publishes events',
       () async {
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
     final DeterministicFallbackAdapterStore store =
@@ -88,12 +89,12 @@ void main() {
     expect(selected.selection?.candidate.id.value, 'fallback-vlc-contract');
     expect(selected.selection?.hiddenCapabilities,
         contains(PlaybackCapability.anime4kPreset));
-    expect((await store.activeConfiguration('playback-scope'))?.enabled,
-        isTrue);
+    expect(
+        (await store.activeConfiguration('playback-scope'))?.enabled, isTrue);
     expect((await store.selectionHistory('playback-scope')).single.failureKind,
         FallbackFailureKind.loadFailure.name);
-    expect(delivered.whereType<FallbackAdapterRegistrationChanged>(),
-        isNotEmpty);
+    expect(
+        delivered.whereType<FallbackAdapterRegistrationChanged>(), isNotEmpty);
     expect(delivered.whereType<FallbackStrategyStateChanged>(), isNotEmpty);
     expect(delivered.whereType<FallbackSelectionChanged>(), isNotEmpty);
     await bus.close();
@@ -132,7 +133,8 @@ void main() {
       ),
     );
 
-    expect(noCandidate.failure?.kind, FallbackEvaluationFailureKind.noCandidate);
+    expect(
+        noCandidate.failure?.kind, FallbackEvaluationFailureKind.noCandidate);
     expect(disabled.isSuccess, isTrue);
     expect(disabledSelection.failure?.kind,
         FallbackEvaluationFailureKind.disabled);
@@ -203,7 +205,8 @@ final class _FallbackTestAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> dispose() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
   Future<TrackDiscoveryResult> discoverTracks() =>
@@ -213,23 +216,25 @@ final class _FallbackTestAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> pause() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> pause() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> play() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> play() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<PlaybackCommandResult> seek(Duration position) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> stop() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> stop() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) =>

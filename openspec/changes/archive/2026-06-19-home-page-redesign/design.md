@@ -1,5 +1,5 @@
 ## Context
-The UI needs to be updated to match the final `nighttime_home.html` reference, establishing a premium, glassmorphic, cyber-themed interface. This involves updating `CelesteriaAppShell` and its nested pages.
+The UI needs to be updated to match the final `nighttime_home.html` reference, establishing a premium, glassmorphic, cyber-themed interface. This involves updating `ElainaAppShell` and its nested pages.
 
 ## Goals / Non-Goals
 

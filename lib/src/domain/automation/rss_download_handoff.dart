@@ -5,7 +5,8 @@ final class AutomationDownloadRequest {
   AutomationDownloadRequest({
     required this.candidate,
     Iterable<BtFileIndex> initialFileSelections = const <BtFileIndex>[],
-  }) : initialFileSelections = List<BtFileIndex>.unmodifiable(initialFileSelections);
+  }) : initialFileSelections =
+            List<BtFileIndex>.unmodifiable(initialFileSelections);
 
   final RssDownloadCandidate candidate;
   final List<BtFileIndex> initialFileSelections;
@@ -15,7 +16,8 @@ final class AutomationDownloadRequest {
     return BtTaskCreateRequest(
       source: switch (downloadSource) {
         MagnetRssDownloadSource(:final uri) => MagnetBtTaskSource(uri: uri),
-        TorrentRssDownloadSource(:final uri) => TorrentDataBtTaskSource(uri: uri),
+        TorrentRssDownloadSource(:final uri) =>
+          TorrentDataBtTaskSource(uri: uri),
       },
       initialFileSelections: initialFileSelections,
     );
@@ -35,7 +37,8 @@ final class AutomationEnqueueOutcome {
     required this.kind,
     required this.message,
     this.taskId,
-  }) : assert(message != '', 'Automation enqueue outcome message must not be empty.');
+  }) : assert(message != '',
+            'Automation enqueue outcome message must not be empty.');
 
   final AutomationEnqueueOutcomeKind kind;
   final String message;

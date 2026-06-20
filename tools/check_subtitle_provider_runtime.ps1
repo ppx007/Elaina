@@ -87,7 +87,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/domain/subtitle/subtitle_provider_runtime.dart',
   'src/domain/subtitle/subtitle_discovery.dart',

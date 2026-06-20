@@ -42,12 +42,14 @@ final class WebViewSessionBackfillRuntimeActionResult<T> {
   });
 
   const WebViewSessionBackfillRuntimeActionResult.success([T? value])
-      : this._(kind: WebViewSessionBackfillRuntimeActionResultKind.success,
+      : this._(
+            kind: WebViewSessionBackfillRuntimeActionResultKind.success,
             value: value);
 
   WebViewSessionBackfillRuntimeActionResult.failed(
       WebViewSessionBackfillRuntimeFailure failure)
-      : this._(kind: WebViewSessionBackfillRuntimeActionResultKind.failed,
+      : this._(
+            kind: WebViewSessionBackfillRuntimeActionResultKind.failed,
             failure: failure);
 
   WebViewSessionBackfillRuntimeActionResult.unavailable(String message)
@@ -70,7 +72,8 @@ final class WebViewSessionBackfillRuntimeActionResult<T> {
   final T? value;
   final WebViewSessionBackfillRuntimeFailure? failure;
 
-  bool get isSuccess => kind == WebViewSessionBackfillRuntimeActionResultKind.success;
+  bool get isSuccess =>
+      kind == WebViewSessionBackfillRuntimeActionResultKind.success;
 }
 
 final class WebViewSessionBackfillRuntimeRestartProjection {
@@ -153,10 +156,8 @@ final class WebViewSessionBackfillRuntime {
 
   WebViewSessionBackfillRuntime.unavailable({required String reason})
       : _store = null,
-        _backfillByScope =
-            const <String, WebViewSessionBackfill>{},
-        _capabilitiesByScope =
-            const <String, WebViewSessionCapabilityMatrix>{},
+        _backfillByScope = const <String, WebViewSessionBackfill>{},
+        _capabilitiesByScope = const <String, WebViewSessionCapabilityMatrix>{},
         _bus = null,
         _clock = null,
         _unavailableReason = reason;
@@ -177,8 +178,9 @@ final class WebViewSessionBackfillRuntime {
 
   DateTime _now() => (_clock != null) ? _clock() : DateTime.now().toUtc();
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> snapshot(
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> snapshot(
       String providerScope) async {
     final WebViewSessionBackfillRuntimeActionResult<void>? gate =
         _gate(providerScope);
@@ -186,8 +188,9 @@ final class WebViewSessionBackfillRuntime {
     return _projection(providerScope);
   }
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> completeManually({
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> completeManually({
     required String providerScope,
     required ManualChallengeRequest request,
   }) async {
@@ -211,7 +214,8 @@ final class WebViewSessionBackfillRuntime {
       reason: outcome.message,
     );
 
-    if (outcome.artifacts != null && outcome.kind == SessionBackfillOutcomeKind.captured) {
+    if (outcome.artifacts != null &&
+        outcome.kind == SessionBackfillOutcomeKind.captured) {
       final SessionArtifactBundle bundle = outcome.artifacts!;
       final List<StoredWebViewSessionArtifactRecord> storedArtifacts =
           <StoredWebViewSessionArtifactRecord>[
@@ -261,8 +265,9 @@ final class WebViewSessionBackfillRuntime {
     return _projection(providerScope);
   }
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> prepareRetry({
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> prepareRetry({
     required String providerScope,
     required Uri requestUri,
   }) async {
@@ -285,8 +290,8 @@ final class WebViewSessionBackfillRuntime {
 
     final StoredManualChallengeRequestRecord latestChallenge = challenges.last;
     final List<StoredWebViewSessionArtifactRecord> artifacts =
-        await _requireStore()
-            .activeArtifactsForProvider(providerScope: providerScope, now: _now());
+        await _requireStore().activeArtifactsForProvider(
+            providerScope: providerScope, now: _now());
     if (artifacts.isEmpty) {
       return WebViewSessionBackfillRuntimeActionResult<
           WebViewSessionBackfillRuntimeProjection>.failed(
@@ -303,8 +308,7 @@ final class WebViewSessionBackfillRuntime {
           WebViewSessionBackfillRuntimeProjection>.failed(
         WebViewSessionBackfillRuntimeFailure(
           kind: WebViewSessionBackfillRuntimeFailureKind.rejectedOrigin,
-          message:
-              'Request URI origin does not match challenge origin.',
+          message: 'Request URI origin does not match challenge origin.',
           providerScope: providerScope,
         ),
       );
@@ -338,8 +342,9 @@ final class WebViewSessionBackfillRuntime {
     return _projection(providerScope);
   }
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> revokeArtifact({
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> revokeArtifact({
     required String providerScope,
     required String artifactId,
   }) async {
@@ -348,7 +353,8 @@ final class WebViewSessionBackfillRuntime {
     if (gate != null) return _castFail(gate);
 
     final DateTime now = _now();
-    await _requireStore().revokeArtifact(artifactId: artifactId, revokedAt: now);
+    await _requireStore()
+        .revokeArtifact(artifactId: artifactId, revokedAt: now);
 
     _publishEvent(WebViewSessionArtifactStateChanged(
       occurredAt: now,
@@ -360,8 +366,9 @@ final class WebViewSessionBackfillRuntime {
     return _projection(providerScope);
   }
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> recordCapability({
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> recordCapability({
     required String providerScope,
     required WebViewSessionCapability capability,
     required bool supported,
@@ -371,10 +378,9 @@ final class WebViewSessionBackfillRuntime {
     if (gate != null) return _castFail(gate);
 
     final DateTime now = _now();
-    final StoredWebViewSessionCapabilityState state =
-        supported
-            ? StoredWebViewSessionCapabilityState.supported
-            : StoredWebViewSessionCapabilityState.unsupported;
+    final StoredWebViewSessionCapabilityState state = supported
+        ? StoredWebViewSessionCapabilityState.supported
+        : StoredWebViewSessionCapabilityState.unsupported;
 
     await _requireStore().storeCapability(StoredWebViewSessionCapabilityRecord(
       providerScope: providerScope,
@@ -397,8 +403,7 @@ final class WebViewSessionBackfillRuntime {
     _disposed = true;
   }
 
-  WebViewSessionBackfillRuntimeActionResult<void>? _gate(
-      String providerScope) {
+  WebViewSessionBackfillRuntimeActionResult<void>? _gate(String providerScope) {
     if (_disposed) {
       return WebViewSessionBackfillRuntimeActionResult<void>.disposed();
     }
@@ -441,25 +446,26 @@ final class WebViewSessionBackfillRuntime {
     return null;
   }
 
-  Future<WebViewSessionBackfillRuntimeActionResult<
-      WebViewSessionBackfillRuntimeProjection>> _projection(
+  Future<
+      WebViewSessionBackfillRuntimeActionResult<
+          WebViewSessionBackfillRuntimeProjection>> _projection(
       String providerScope) async {
     final List<StoredManualChallengeRequestRecord> challenges =
         await _requireStore().challengeRequestsForProvider(providerScope);
     final StoredManualChallengeRequestRecord? latestChallenge =
         challenges.isNotEmpty ? challenges.last : null;
     final List<StoredWebViewSessionArtifactRecord> artifacts =
-        await _requireStore()
-            .activeArtifactsForProvider(providerScope: providerScope, now: _now());
+        await _requireStore().activeArtifactsForProvider(
+            providerScope: providerScope, now: _now());
     final StoredWebViewSessionBackfillAttemptRecord? latestAttempt =
         latestChallenge != null
             ? await _requireStore().latestBackfillAttempt(latestChallenge.id)
             : null;
     final StoredWebViewSessionCapabilityRecord? capability =
         await _requireStore().capabilityForProvider(
-              providerScope: providerScope,
-              capability: WebViewSessionCapability.isolatedWebView.name,
-            );
+      providerScope: providerScope,
+      capability: WebViewSessionCapability.isolatedWebView.name,
+    );
 
     final WebViewSessionBackfillRuntimeRestartProjection restart =
         WebViewSessionBackfillRuntimeRestartProjection(

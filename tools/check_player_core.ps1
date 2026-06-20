@@ -72,7 +72,7 @@ $forbiddenUiPlaybackImports = @(
   'src/storage/',
   'src/streaming/',
   'src/network/',
-  'package:celesteria/celesteria.dart'
+  'package:elaina/elaina.dart'
 )
 $uiPlaybackFiles = Get-ChildItem -LiteralPath $uiPlaybackPath -Recurse -File | Where-Object { $_.Extension -eq '.dart' }
 foreach ($file in $uiPlaybackFiles) {
@@ -97,7 +97,7 @@ foreach ($file in $frameworkNeutralPlaybackContracts) {
   }
 }
 
-$publicBarrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$publicBarrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($publicBarrel.Contains('flutter_playback_shell.dart')) {
   throw 'Public Dart contract barrel must not export the Flutter playback shell.'
 }

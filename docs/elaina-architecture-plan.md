@@ -1,12 +1,12 @@
-# Celesteria 播放器架构推进计划 v20.4
+# Elaina 播放器架构推进计划 v20.4
 
-软件名称：Celesteria
+软件名称：Elaina
 
 简称：1017
 
 ## 定位
 
-Celesteria 是一个端侧优先的跨平台 ACG 播放器。核心能力包括 MPV 默认播放、多字幕与高级字幕、高级弹幕、Bangumi 元数据、弹弹play 弹幕、BT 边下边播、RSS 自动下载、季度新番订阅、Anime4K/MPV 画质增强、在线规则源扩展与诊断中心。
+Elaina 是一个端侧优先的跨平台 ACG 播放器。核心能力包括 MPV 默认播放、多字幕与高级字幕、高级弹幕、Bangumi 元数据、弹弹play 弹幕、BT 边下边播、RSS 自动下载、季度新番订阅、Anime4K/MPV 画质增强、在线规则源扩展与诊断中心。
 
 系统原则是：播放链路优先稳定，所有外部能力通过 Provider/Adapter/Profile 接入，避免把具体服务或播放器写死在业务层。
 

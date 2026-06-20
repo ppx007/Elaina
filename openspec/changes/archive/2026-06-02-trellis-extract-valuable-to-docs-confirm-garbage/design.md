@@ -2,8 +2,8 @@
 
 The archived repository baseline staging plan marks `.trellis/tasks/` and `.trellis/workspace/` as unresolved. Direct reads show three active task PRDs with useful historical decisions:
 
-- `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md`: records Celesteria naming, Phase 0 / Step 1-4 as first implementation slice, yuc.wiki as RSS `FeedSource`, and extension-point boundaries.
-- `.trellis/tasks/06-01-bootstrap-celesteria-implementation/prd.md`: confirms the first executable slice should implement full Phase 0 / Step 1-4 rather than player UI.
+- `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md`: records Elaina naming, Phase 0 / Step 1-4 as first implementation slice, yuc.wiki as RSS `FeedSource`, and extension-point boundaries.
+- `.trellis/tasks/06-01-bootstrap-elaina-implementation/prd.md`: confirms the first executable slice should implement full Phase 0 / Step 1-4 rather than player UI.
 - `.trellis/tasks/06-01-opencode-trellis-omo-routing/prd.md`: records an obsolete OpenCode/Trellis-to-OMO routing plan now superseded by OpenSpec-first workflow.
 
 Direct reads also show `.trellis/spec/guides/cross-layer-thinking-guide.md` contains reusable bug-prevention guidance and real examples. `.trellis/workspace/index.md` is mostly a generic Trellis workspace template. The `.opencode/tmp-*` files are one-off cleanup/check scripts from the earlier archive troubleshooting session and should be treated as garbage candidates after confirmation.

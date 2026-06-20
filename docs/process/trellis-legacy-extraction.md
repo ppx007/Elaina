@@ -13,10 +13,10 @@ The goal is preservation without carrying raw session noise into the repository 
 
 | Source path | Classification | Target action | Rationale |
 |---|---|---|---|
-| `.trellis/tasks/00-bootstrap-guidelines/prd.md` | keep-legacy | Do not extract beyond this inventory | Generic Trellis bootstrap task for filling placeholder specs. It documents Trellis setup, not a Celesteria product decision. |
+| `.trellis/tasks/00-bootstrap-guidelines/prd.md` | keep-legacy | Do not extract beyond this inventory | Generic Trellis bootstrap task for filling placeholder specs. It documents Trellis setup, not a Elaina product decision. |
 | `.trellis/tasks/00-bootstrap-guidelines/task.json` | keep-legacy | Do not extract | Runtime task metadata for the legacy Trellis task system. |
-| `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md` | extract-to-docs | Summarized in `docs/decisions/phase0-implementation-scope.md` | Records Celesteria naming, `1017`, yuc.wiki as RSS `FeedSource`, extension points, and the Phase 0 / Step 1-4 first-slice decision. |
-| `.trellis/tasks/06-01-bootstrap-celesteria-implementation/prd.md` | extract-to-docs | Summarized in `docs/decisions/phase0-implementation-scope.md` | Confirms the first executable slice is full Phase 0 / Step 1-4 rather than player UI or direct provider integration. |
+| `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md` | extract-to-docs | Summarized in `docs/decisions/phase0-implementation-scope.md` | Records Elaina naming, `1017`, yuc.wiki as RSS `FeedSource`, extension points, and the Phase 0 / Step 1-4 first-slice decision. |
+| `.trellis/tasks/06-01-bootstrap-elaina-implementation/prd.md` | extract-to-docs | Summarized in `docs/decisions/phase0-implementation-scope.md` | Confirms the first executable slice is full Phase 0 / Step 1-4 rather than player UI or direct provider integration. |
 | `.trellis/tasks/06-01-opencode-trellis-omo-routing/prd.md` | keep-legacy | Mention as superseded workflow history | Records an obsolete OpenCode/Trellis-to-OMO routing plan that was superseded by OpenSpec-first workflow. |
 | `.trellis/tasks/archive/` | keep-legacy | No extraction needed | Directory is currently empty. |
 | `.trellis/workspace/index.md` | keep-legacy | Do not extract | Generic workspace/session template, not project-specific product knowledge. |
@@ -35,7 +35,7 @@ The goal is preservation without carrying raw session noise into the repository 
 
 The project-level decisions extracted from Trellis task PRDs are now recorded in `docs/decisions/phase0-implementation-scope.md`:
 
-- The product name is `Celesteria`; `1017` remains a code name or abbreviation.
+- The product name is `Elaina`; `1017` remains a code name or abbreviation.
 - The first implementation slice is full Phase 0 / Step 1-4: layered boundaries, local storage foundation, `ProviderGateway`, and `CacheInvalidationBus`.
 - The project must not start from player UI, playback-page interaction, or direct provider integration.
 - yuc.wiki is an RSS `FeedSource`, not a hardcoded scraper or privileged online provider.

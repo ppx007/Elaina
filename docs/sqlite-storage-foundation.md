@@ -25,7 +25,7 @@ has a concrete database schema.
 
 ```dart
 final SqliteStorageFoundation storage =
-    SqliteStorageFoundation.open('celesteria.db');
+    SqliteStorageFoundation.open('elaina.db');
 
 await storage.settings.writeString(key: 'language', value: 'ja');
 await storage.dispose();

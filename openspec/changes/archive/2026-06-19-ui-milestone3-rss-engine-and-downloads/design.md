@@ -7,7 +7,7 @@ This design outlines how the RSS Feed subscription management and BT downloads t
 **Goals:**
 - Construct the `RssPage` showing subscribed feeds and seasonal indexes.
 - Construct the `DownloadsPage` displaying torrent progress, piece priority maps, and action controls.
-- Connect pages to [RssEngineRuntime](file:///D:/CodeWork/pkpk/lib/src/domain/rss/rss_engine_runtime.dart) and [BtTaskCoreRuntime](file:///D:/CodeWork/pkpk/lib/src/streaming/bt_task_core_runtime.dart).
+- Connect pages to [RssEngineRuntime](file:///D:/CodeWork/elaina/lib/src/domain/rss/rss_engine_runtime.dart) and [BtTaskCoreRuntime](file:///D:/CodeWork/elaina/lib/src/streaming/bt_task_core_runtime.dart).
 
 **Non-Goals:**
 - Modifying the underlying torrent piece selection algorithm or RSS scheduler scheduling interval.

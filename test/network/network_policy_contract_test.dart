@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -99,7 +99,8 @@ void main() {
     Future<NetworkPolicyFailureKind?> kindFor(String uri) async {
       final NetworkPolicyDecision decision = await evaluator.evaluate(
         policy: policy,
-        request: NetworkPolicyRequest(providerScope: 'provider-a', uri: Uri.parse(uri)),
+        request: NetworkPolicyRequest(
+            providerScope: 'provider-a', uri: Uri.parse(uri)),
       );
       return decision is NetworkPolicyBlocked ? decision.kind : null;
     }

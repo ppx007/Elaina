@@ -7,7 +7,7 @@
 | Status | Active — core baseline complete through Step 60 (full feature gate) |
 | Audience | External frontend / UI implementation track |
 | Core owner contact | See repository `CODEOWNERS` / project lead |
-| Source of truth | Exported contracts in `lib/celesteria.dart` + the concrete docs linked below |
+| Source of truth | Exported contracts in `lib/elaina.dart` + the concrete docs linked below |
 
 This document is the entry point for the external frontend/UI implementation
 track. The current repository is ready for frontend development against stable
@@ -37,7 +37,7 @@ The core/runtime baseline is complete through Step 60:
 - OpenSpec is the active workflow authority.
 - Core runtime, provider, storage, playback, streaming, diagnostics, and smoke
   gates are implemented and archived through the full feature gate.
-- Public contracts are exported from `lib/celesteria.dart`.
+- Public contracts are exported from `lib/elaina.dart`.
 - The existing Flutter playback shell is a contract/mock harness, not the final
   application shell.
 - There is no `lib/main.dart` yet. Creating the app entry point is frontend
@@ -78,7 +78,7 @@ Frontend code must consume Domain/UI-facing contracts. It must not directly
 depend on concrete backend implementations.
 
 > **Important — the barrel does not enforce this for you.**
-> `package:celesteria/celesteria.dart` is a single barrel that currently
+> `package:elaina/elaina.dart` is a single barrel that currently
 > re-exports *every* `lib/src/**` file, including the concrete backends listed
 > below. Importing the barrel therefore makes forbidden symbols *visible*. The
 > boundary is a **discipline rule the UI layer must self-enforce**, backed by
@@ -117,14 +117,14 @@ if ($hits) { $hits; throw "UI imports a forbidden concrete backend." }
 ```
 
 If the core team later publishes a curated UI-facing barrel (e.g.
-`package:celesteria/ui.dart`), switch UI imports to it and this guard becomes a
+`package:elaina/ui.dart`), switch UI imports to it and this guard becomes a
 backstop.
 
 ## Primary Entry Points
 
 Read these first:
 
-- `lib/celesteria.dart`
+- `lib/elaina.dart`
 - `docs/player-runtime-composition.md`
 - `docs/player-capability-gate.md`
 - `docs/player-ui-integration-contract.md`
@@ -345,7 +345,7 @@ bundled libmpv DLL:
 powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
   -ReleaseDir "<build-windows-release-dir>" `
   -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "<artifact-dir>\celesteria-windows.zip"
+  -OutputZip "<artifact-dir>\elaina-windows.zip"
 ```
 
 The release zip must contain the app executable and `libmpv-2.dll` in the same
@@ -373,7 +373,7 @@ The first frontend handoff is successful when:
 
 - `lib/main.dart` starts the desktop Flutter app
 - the app composition root owns and disposes core runtime objects
-- UI imports contracts from `package:celesteria/celesteria.dart` or approved
+- UI imports contracts from `package:elaina/elaina.dart` or approved
   UI-facing contract files
 - local file selection opens playback through `LocalPlaybackSourceHandoff`
 - playback controls are derived from `PlaybackPageSurfaceDescriptor`

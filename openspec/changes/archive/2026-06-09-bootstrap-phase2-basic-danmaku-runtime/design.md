@@ -58,7 +58,7 @@ This change is the bridge between provider-sourced danmaku comments and player-c
 1. Extend basic danmaku Playback contracts with deterministic runtime, renderer implementation, runtime snapshot, lifecycle, and immutable frame data.
 2. Add Domain state projection and Dandanplay comment normalization helpers.
 3. Extend playback state and playback page surface descriptors with framework-neutral danmaku overlay data.
-4. Export only safe contracts and runtime/bootstrap surfaces through `lib/celesteria.dart`.
+4. Export only safe contracts and runtime/bootstrap surfaces through `lib/elaina.dart`.
 5. Add focused tests, smoke check, and boundary checker script.
 6. Run `openspec validate "bootstrap-phase2-basic-danmaku-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused danmaku tests, checker scripts, and existing Dandanplay/subtitle/player runtime smoke checks.
 

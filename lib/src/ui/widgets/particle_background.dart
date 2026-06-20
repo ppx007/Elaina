@@ -78,7 +78,11 @@ class _ParticleBackgroundState extends State<ParticleBackground>
       }
 
       // Respawn
-      if (p.x < 0 || p.x > _lastSize.width || p.y < 0 || p.y > _lastSize.height || p.size <= 0.2) {
+      if (p.x < 0 ||
+          p.x > _lastSize.width ||
+          p.y < 0 ||
+          p.y > _lastSize.height ||
+          p.size <= 0.2) {
         _particles[i] = _createParticle(_lastSize);
       }
     }
@@ -88,7 +92,8 @@ class _ParticleBackgroundState extends State<ParticleBackground>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final Size currentSize = Size(constraints.maxWidth, constraints.maxHeight);
+        final Size currentSize =
+            Size(constraints.maxWidth, constraints.maxHeight);
         if (_lastSize != currentSize) {
           _lastSize = currentSize;
           _initParticles(currentSize);

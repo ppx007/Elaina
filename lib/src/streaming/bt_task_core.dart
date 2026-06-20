@@ -217,7 +217,7 @@ final class BtTaskCreateRequest {
   final List<BtFileIndex> initialFileSelections;
 }
 
-abstract interface class DownloadEngineAdapter implements CelesteriaAdapter {
+abstract interface class DownloadEngineAdapter implements ElainaAdapter {
   BtCapabilityMatrix get capabilities;
 
   Future<BtTaskId> createTask(BtTaskCreateRequest request);

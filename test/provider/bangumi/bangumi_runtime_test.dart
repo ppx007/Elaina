@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,7 +10,7 @@ void main() {
     final _RecordingGateway gateway = _RecordingGateway();
     final BangumiSubject subject = BangumiSubject(
       id: const BangumiSubjectId('subject-1017'),
-      title: 'Celesteria',
+      title: 'Elaina',
       summary: 'Deterministic ACG runtime',
     );
     final BangumiEpisode episode = BangumiEpisode(
@@ -36,7 +36,7 @@ void main() {
         await runtime.searchSubjects('runtime');
     final List<BangumiSubject> matches =
         (searchResult as AcgProviderSuccess<List<BangumiSubject>>).value;
-    expect(matches.single.title, 'Celesteria');
+    expect(matches.single.title, 'Elaina');
     expect(gateway.lastCacheKey, 'subject-search:runtime');
 
     final AcgProviderResult<BangumiEpisode> episodeResult =

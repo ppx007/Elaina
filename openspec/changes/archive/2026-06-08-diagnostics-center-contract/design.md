@@ -1,6 +1,6 @@
 ## Context
 
-Celesteria has completed Phase 6 contract slices for RSS automation, online rule runtime, WebView session backfill, and provider-scoped network policy. These flows now produce typed failures, retry descriptors, capability states, storage records, and invalidation events, but diagnostics is still only a high-level registry/snapshot/export contract without durable storage, capability gating, deterministic scaffolding, or event propagation.
+Elaina has completed Phase 6 contract slices for RSS automation, online rule runtime, WebView session backfill, and provider-scoped network policy. These flows now produce typed failures, retry descriptors, capability states, storage records, and invalidation events, but diagnostics is still only a high-level registry/snapshot/export contract without durable storage, capability gating, deterministic scaffolding, or event propagation.
 
 Step 30 closes the Phase 6 extension capability freeze by making diagnostics the local, read-only observability boundary across playback, BT, ProviderGateway, cache, rule-source, network-policy, storage, and A/V sync flows.
 

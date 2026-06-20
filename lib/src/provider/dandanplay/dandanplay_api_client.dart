@@ -11,7 +11,7 @@ import 'dandanplay_provider.dart';
 import 'dandanplay_registration.dart';
 import 'dandanplay_runtime.dart';
 
-const String defaultDandanplayApiUserAgent = 'Celesteria/0.1';
+const String defaultDandanplayApiUserAgent = 'Elaina/0.1';
 const String dandanplayMatchModeFileNameOnly = 'fileNameOnly';
 const int dandanplayCommentsFromOffset = 0;
 const bool dandanplayCommentsWithRelated = true;

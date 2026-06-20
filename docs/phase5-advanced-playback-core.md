@@ -1,6 +1,6 @@
 # Phase 5: Advanced Playback Core
 
-This phase adds contract scaffolding for Celesteria architecture plan steps 22-25.
+This phase adds contract scaffolding for Elaina architecture plan steps 22-25.
 
 ## Implemented Boundary
 

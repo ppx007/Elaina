@@ -61,7 +61,7 @@ Current code already has many primitives in `lib/src/domain/media/media_library.
 1. Add media-library runtime values, snapshot/result/failure types, query/action values, and a `MediaLibraryRuntime`/bootstrap composition entry point under `lib/src/domain/media/`.
 2. Compose existing deterministic scanner, catalog repository, batch import, playback history store, provider binding store, playback handoff, and cache invalidation bus behind the runtime.
 3. Add deterministic scan/import/catalog/history/binding/playback actions and observer snapshots.
-4. Export safe media-library runtime surfaces through `lib/celesteria.dart`.
+4. Export safe media-library runtime surfaces through `lib/elaina.dart`.
 5. Add focused tests, a Dart smoke checker, and a PowerShell boundary checker that chains existing Phase 3 checks.
 6. Run `openspec validate "bootstrap-phase3-media-library-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused media-library runtime tests, media-library checker scripts, and existing detail/library, video detail, Bangumi, Dandanplay, subtitle, and danmaku smoke checks.
 

@@ -9,7 +9,7 @@
 
 - [x] 2.1 Add Domain-facing ACG/Bangumi bootstrap or runtime helper that exposes an `AcgDataController` backed by deterministic Bangumi runtime providers.
 - [x] 2.2 Ensure Bangumi unavailable or unauthenticated results remain optional enrichment and do not require playback, subtitle runtime, Dandanplay, RSS, BT, online-rule, native player, or UI dependencies.
-- [x] 2.3 Export only contract-safe Bangumi runtime/bootstrap surfaces through `lib/celesteria.dart` without exposing concrete HTTP, OAuth UI, token storage, or network implementation details.
+- [x] 2.3 Export only contract-safe Bangumi runtime/bootstrap surfaces through `lib/elaina.dart` without exposing concrete HTTP, OAuth UI, token storage, or network implementation details.
 
 ## 3. Tests and Validation
 

@@ -23,7 +23,7 @@
 
 ## 4. Public Surface and Downstream Handoff
 
-- [x] 4.1 Export the Step 20 runtime/bootstrap surface from `lib/celesteria.dart` only after focused tests pass.
+- [x] 4.1 Export the Step 20 runtime/bootstrap surface from `lib/elaina.dart` only after focused tests pass.
 - [x] 4.2 Provide timeline-safe priority projection data for later Step 21 consumers without implementing timeline overlay composition or rendering.
 - [x] 4.3 Preserve playback and virtual stream boundaries so scheduler runtime does not close streams, serve bytes, mutate buffered ranges, or control player adapters.
 - [x] 4.4 Confirm BT task core remains the source of scheduler metadata and selected-file state, not concrete engine objects.

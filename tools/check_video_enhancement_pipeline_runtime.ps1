@@ -61,7 +61,7 @@ foreach ($term in $requiredRuntimeTerms) {
 # ---------------------------------------------------------------------------
 # 4. Barrel export check
 # ---------------------------------------------------------------------------
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   "export 'src/playback/video_enhancement_pipeline.dart';",
   "export 'src/playback/video_enhancement_pipeline_runtime.dart';"
@@ -78,7 +78,7 @@ $checkerPath = Join-Path $root 'tools/video_enhancement_pipeline_runtime_check.d
 $checker = Get-Content -LiteralPath $checkerPath -Raw
 
 foreach ($term in @(
-  "import '../lib/celesteria.dart';",
+  "import '../lib/elaina.dart';",
   'DeterministicEnhancementProfileStore',
   'StreamCacheInvalidationBus',
   'DeterministicVideoEnhancementPipeline',

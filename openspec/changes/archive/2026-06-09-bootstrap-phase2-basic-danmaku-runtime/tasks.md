@@ -11,7 +11,7 @@
 - [x] 2.2 Add Dandanplay comment normalization helpers that map provider comment mode, timestamp, text, and color into `DanmakuComment` values without coupling Playback to provider runtime implementations.
 - [x] 2.3 Extend playback state snapshots with optional basic danmaku overlay data while preserving framework-neutral and provider-neutral contracts.
 - [x] 2.4 Extend playback page surface descriptors with basic danmaku overlay descriptors for scrolling, top, and bottom lanes without adding Flutter widget, Canvas, native-renderer, or provider dependencies.
-- [x] 2.5 Export only safe basic danmaku runtime/state/bridge surfaces through `lib/celesteria.dart`.
+- [x] 2.5 Export only safe basic danmaku runtime/state/bridge surfaces through `lib/elaina.dart`.
 
 ## 3. Tests and Validation
 

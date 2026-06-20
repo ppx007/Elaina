@@ -1,6 +1,6 @@
 ## Context
 
-`bootstrap-acg-data-experience` has been archived, so Celesteria now has contracts for subtitles, Bangumi, Dandanplay, danmaku, provider results, and provider gateway boundaries. The architecture plan defines Phase 3 as Step 13 video detail page, Step 14 media library, Step 15 SubtitleProvider, Step 16 RSS engine, and Step 17 YucWiki RSS seasonal indexer.
+`bootstrap-acg-data-experience` has been archived, so Elaina now has contracts for subtitles, Bangumi, Dandanplay, danmaku, provider results, and provider gateway boundaries. The architecture plan defines Phase 3 as Step 13 video detail page, Step 14 media library, Step 15 SubtitleProvider, Step 16 RSS engine, and Step 17 YucWiki RSS seasonal indexer.
 
 This slice connects local media organization and seasonal subscription data without making online sources or RSS mandatory for playback. Detail page data must flow through Domain contracts. Feed and provider traffic must flow through `ProviderGateway`. YucWiki is a normal RSS source and must not become a special scraper.
 

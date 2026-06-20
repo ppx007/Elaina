@@ -25,7 +25,7 @@ Phase 6 Step 26 is the first automation-extension slice: RSS auto-download polic
 
 ## Impact
 
-- Affected Dart contracts are expected under `lib/src/domain/rss/`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/streaming/`, and `lib/celesteria.dart`.
+- Affected Dart contracts are expected under `lib/src/domain/rss/`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/streaming/`, and `lib/elaina.dart`.
 - New storage contract file expected under `lib/src/foundation/storage/` for RSS auto-download policy persistence.
 - Verification updates expected in `test/domain/rss/` or `test/provider/rss/`, `tools/player_core_runtime_check.dart` or an automation runtime checker, `tools/check_automation_extension_core.ps1`, and `docs/phase6-automation-extension-core.md`.
 - No new external dependencies, concrete torrent engines, libtorrent bindings, RSS fetch/parse duplication, online source crawlers, yuc.wiki special cases, JavaScript/WASM rule execution, WebView challenge handling, DNS/network policy behavior, diagnostics actions, Flutter UI, or mandatory automation startup path.

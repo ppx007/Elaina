@@ -1,17 +1,17 @@
 import 'dart:async';
 
-import 'package:celesteria/celesteria.dart';
-import 'package:celesteria/src/ui/download/downloads_page.dart';
-import 'package:celesteria/src/ui/rss/rss_page.dart';
-import 'package:celesteria/src/ui/theme/celesteria_theme.dart';
+import 'package:elaina/elaina.dart';
+import 'package:elaina/src/ui/download/downloads_page.dart';
+import 'package:elaina/src/ui/rss/rss_page.dart';
+import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _testHost({required Widget child}) {
   return MaterialApp(
-    home: CelesteriaTheme(
-      data: CelesteriaThemeData.dark,
-      mode: CelesteriaThemeMode.dark,
+    home: ElainaTheme(
+      data: ElainaThemeData.dark,
+      mode: ElainaThemeMode.dark,
       onModeChanged: (_) {},
       child: child,
     ),

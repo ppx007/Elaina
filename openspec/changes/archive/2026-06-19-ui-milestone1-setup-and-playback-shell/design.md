@@ -1,6 +1,6 @@
 ## Context
 
-The core contracts, playback controllers, and background services for Celesteria (1017) are successfully implemented through Phase 6 (Step 60). However, the app lacks a desktop entry point, layout rail, central styling theme, and a local media file playback screen. This document outlines the technical design for these frontend foundation modules.
+The core contracts, playback controllers, and background services for Elaina (1017) are successfully implemented through Phase 6 (Step 60). However, the app lacks a desktop entry point, layout rail, central styling theme, and a local media file playback screen. This document outlines the technical design for these frontend foundation modules.
 
 ## Goals / Non-Goals
 
@@ -19,8 +19,8 @@ The core contracts, playback controllers, and background services for Celesteria
 ## Decisions
 
 ### 1. Centralized Theme System (No Magic Values)
-- **Choice**: Create `lib/src/ui/theme/celesteria_theme.dart` exporting a dedicated color, spacing, and typography schema.
-- **Rationale**: To prevent magic numbers/colors scattered in widget classes, all widgets will reference static constants like `CelesteriaColors.background` and `CelesteriaSpacing.medium`.
+- **Choice**: Create `lib/src/ui/theme/elaina_theme.dart` exporting a dedicated color, spacing, and typography schema.
+- **Rationale**: To prevent magic numbers/colors scattered in widget classes, all widgets will reference static constants like `ElainaColors.background` and `ElainaSpacing.medium`.
 
 ### 2. Dependency Injection & Runtime Composition Root
 - **Choice**: The `App` widget at `lib/main.dart` acts as the composition root, creating the player composition once at startup and passing it down using Flutter's `InheritedWidget` or vanilla dependency injection.

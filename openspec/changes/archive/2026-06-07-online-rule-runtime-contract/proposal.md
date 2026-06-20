@@ -26,7 +26,7 @@ Phase 6 Step 27 is the next architecture-plan slice after RSS auto-download: onl
 
 ## Impact
 
-- Affected Dart contracts are expected under `lib/src/provider/online/`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/foundation/gateway/`, `lib/src/network/`, and `lib/celesteria.dart`.
+- Affected Dart contracts are expected under `lib/src/provider/online/`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/foundation/gateway/`, `lib/src/network/`, and `lib/elaina.dart`.
 - New storage contract file expected under `lib/src/foundation/storage/` for online rule runtime persistence.
 - Verification updates expected in `test/provider/online/`, `tools/player_core_runtime_check.dart`, `tools/check_automation_extension_core.ps1`, and `docs/phase6-automation-extension-core.md`.
 - No new external dependencies, concrete crawler/scraper implementation, JavaScript/WASM/scriptlet execution, WebView challenge flow, automatic captcha solving, concrete DNS/proxy resolver, diagnostics action, Flutter UI, yuc.wiki special case, or mandatory online-source startup path.

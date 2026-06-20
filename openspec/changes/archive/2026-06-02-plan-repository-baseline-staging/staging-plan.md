@@ -17,11 +17,11 @@ Commands run during this apply step:
 
 ```powershell
 openspec list --json
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' log --oneline -30
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' branch --show-current
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' log --oneline -30
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' branch --show-current
 ```
 
 Observed state:
@@ -30,7 +30,7 @@ Observed state:
 - Branch: `main`
 - Staged diff: none (`git diff --cached --stat` returned no output)
 - Tracked unstaged diff: 48 files, 136 insertions, 5,187 deletions
-- History available for style detection: `9e5d657 Initial Celesteria architecture plan`
+- History available for style detection: `9e5d657 Initial Elaina architecture plan`
 
 ## Drift From Archived Review
 
@@ -58,7 +58,7 @@ Style: PLAIN
 - Short: 0 (0%)
 
 Reference examples from repo:
-1. `Initial Celesteria architecture plan`
+1. `Initial Elaina architecture plan`
 
 All future commit messages should follow English + plain style unless more history appears before commit execution.
 
@@ -111,9 +111,9 @@ Validation gates:
 - `openspec validate --all`
 - Verify no active change directory is included unless it has first been archived.
 
-### Commit 2: Add Celesteria Dart contract baseline
+### Commit 2: Add Elaina Dart contract baseline
 
-Proposed message: `Add Celesteria Dart contract baseline`
+Proposed message: `Add Elaina Dart contract baseline`
 
 Future staging scope:
 
@@ -136,9 +136,9 @@ Validation gates:
 - `powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"`
 - Earlier phase checker scripts if the user wants every phase validated independently.
 
-### Commit 3: Add Celesteria phase documentation baseline
+### Commit 3: Add Elaina phase documentation baseline
 
-Proposed message: `Add Celesteria phase documentation baseline`
+Proposed message: `Add Elaina phase documentation baseline`
 
 Future staging scope:
 
@@ -224,7 +224,7 @@ Proposed message: `Preserve Trellis task history`
 Future staging scope requiring human decision:
 
 - `.trellis/tasks/06-01-save-elaina-player-architecture-plan/`
-- `.trellis/tasks/06-01-bootstrap-celesteria-implementation/`
+- `.trellis/tasks/06-01-bootstrap-elaina-implementation/`
 - `.trellis/tasks/06-01-opencode-trellis-omo-routing/`
 
 Justification: these files contain task/session history that may be useful project context, but they are not automatically source-of-truth code or specs.
@@ -241,11 +241,11 @@ Validation gates:
 
 ### Commit 8: Review architecture plan updates
 
-Proposed message: `Update Celesteria architecture plan`
+Proposed message: `Update Elaina architecture plan`
 
 Future staging scope:
 
-- `docs/celesteria-architecture-plan.md`
+- `docs/elaina-architecture-plan.md`
 
 Justification: the architecture plan is the durable product roadmap and should remain independently reviewable from workflow and contract scaffolding.
 
@@ -275,10 +275,10 @@ Every group with three or more files has a justification above. Future execution
 These are review commands for a future approved staging step. They are not executed by this change:
 
 ```powershell
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' status --short --branch
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --stat
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' add -n <pathspecs-for-one-group>
-$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/pkpk' diff --cached --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' status --short --branch
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --stat
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' add -n <pathspecs-for-one-group>
+$env:GIT_MASTER='1'; & ('g' + 'it') -c safe.directory='D:/CodeWork/elaina' diff --cached --stat
 openspec validate --all
 dart analyze
 powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"

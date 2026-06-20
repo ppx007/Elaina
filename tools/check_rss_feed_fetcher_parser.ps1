@@ -74,7 +74,7 @@ foreach ($file in $domainFiles) {
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/provider/rss/rss_feed_fetcher_parser.dart';")) {
   throw 'Public Dart barrel missing RSS feed fetcher/parser export.'
 }

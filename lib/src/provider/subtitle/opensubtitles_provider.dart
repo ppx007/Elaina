@@ -11,7 +11,7 @@ import 'subtitle_registration.dart';
 
 const SubtitleProviderId opensubtitlesProviderId =
     SubtitleProviderId('opensubtitles');
-const String opensubtitlesDefaultUserAgent = 'Celesteria/0.1';
+const String opensubtitlesDefaultUserAgent = 'Elaina/0.1';
 const double opensubtitlesCandidateConfidence = 0.8;
 const String opensubtitlesDefaultEncodingHint = 'utf-8';
 const Duration opensubtitlesSearchCacheTtl = Duration(minutes: 30);

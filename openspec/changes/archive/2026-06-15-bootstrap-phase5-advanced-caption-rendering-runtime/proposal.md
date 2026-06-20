@@ -25,7 +25,7 @@ Phase 5 Step 24 (advanced caption rendering) has a fully implemented contract la
 ## Impact
 
 - New file: `lib/src/playback/advanced_caption_rendering_runtime.dart`
-- Barrel export addition in `lib/celesteria.dart`
+- Barrel export addition in `lib/elaina.dart`
 - New test: `test/playback/advanced_caption_rendering_runtime_test.dart`
 - New checkers: `tools/advanced_caption_rendering_runtime_check.dart`, `tools/check_advanced_caption_rendering_runtime.ps1`
 - Six delta spec files under `openspec/changes/.../specs/`

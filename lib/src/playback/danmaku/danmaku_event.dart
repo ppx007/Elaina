@@ -5,7 +5,8 @@ enum DanmakuMode {
 }
 
 final class DanmakuCommentId {
-  const DanmakuCommentId(this.value) : assert(value != '', 'Danmaku comment id must not be empty.');
+  const DanmakuCommentId(this.value)
+      : assert(value != '', 'Danmaku comment id must not be empty.');
 
   final String value;
 }

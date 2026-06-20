@@ -14,7 +14,7 @@ if ([string]::IsNullOrWhiteSpace($ReleaseDir)) {
   $ReleaseDir = Join-Path $root 'build\windows\x64\runner\Release'
 }
 if ([string]::IsNullOrWhiteSpace($OutputZip)) {
-  $OutputZip = Join-Path $root 'build\dist\celesteria-windows-x64.zip'
+  $OutputZip = Join-Path $root 'build\dist\elaina-windows-x64.zip'
 }
 
 function Resolve-FullPath([string]$Path) {

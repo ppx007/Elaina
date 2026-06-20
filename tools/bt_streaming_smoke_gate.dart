@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 const int _smokeTorrentId = 55;
 const String _smokeInfoHash = 'step55btstreamingsmokegatehash';
@@ -59,7 +59,7 @@ final class BtStreamingSmokeGateResult {
 
 Future<BtStreamingSmokeGateResult> runBtStreamingSmokeGate() async {
   final Directory root =
-      await Directory.systemTemp.createTemp('celesteria-bt-streaming-smoke-');
+      await Directory.systemTemp.createTemp('elaina-bt-streaming-smoke-');
   final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
   final DeterministicBtTaskStore btTaskStore = DeterministicBtTaskStore();
   final DeterministicVirtualMediaStreamStore streamStore =

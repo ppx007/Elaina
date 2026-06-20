@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -402,7 +402,7 @@ StoredProviderBindingRecord _storedBinding({
 
 Future<File> _tempDatabaseFile() async {
   final Directory directory =
-      await Directory.systemTemp.createTemp('celesteria-video-detail-test-');
+      await Directory.systemTemp.createTemp('elaina-video-detail-test-');
   return File('${directory.path}${Platform.pathSeparator}storage.sqlite');
 }
 

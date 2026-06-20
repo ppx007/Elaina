@@ -6,7 +6,7 @@
 ## 2. GREEN Implementation
 
 - [x] 2.1 Create `lib/src/network/webview_session_backfill_runtime.dart` with `WebViewSessionBackfillRuntimeBootstrap`, typed runtime failure/action result types, restart/projection models, scoped gates, and runtime operations (`snapshot`, `completeManually`, `prepareRetry`, `revokeArtifact`, `recordCapability`, `dispose`)
-- [x] 2.2 Add barrel export `export 'src/network/webview_session_backfill_runtime.dart';` in `lib/celesteria.dart`
+- [x] 2.2 Add barrel export `export 'src/network/webview_session_backfill_runtime.dart';` in `lib/elaina.dart`
 - [x] 2.3 Run focused runtime tests and confirm all pass
 
 ## 3. Contract Coverage

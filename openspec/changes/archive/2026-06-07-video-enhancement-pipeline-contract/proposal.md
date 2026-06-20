@@ -24,6 +24,6 @@ Phase 4 BT playback contracts are complete, so the plan moves to Phase 5 Step 22
 
 ## Impact
 
-- Affected code: `lib/src/playback/video_enhancement_pipeline.dart`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/playback/capability_matrix.dart` if capability helpers need refinement, `lib/celesteria.dart`, focused tests, runtime checks, and `tools/check_advanced_playback_core.ps1`.
+- Affected code: `lib/src/playback/video_enhancement_pipeline.dart`, `lib/src/foundation/storage/`, `lib/src/foundation/cache_invalidation/`, `lib/src/playback/capability_matrix.dart` if capability helpers need refinement, `lib/elaina.dart`, focused tests, runtime checks, and `tools/check_advanced_playback_core.ps1`.
 - Affected specs: new `video-enhancement-pipeline-contract` plus deltas for `video-enhancement-pipeline`, `local-storage-foundation`, `cache-invalidation-bus`, and `playback-capability-matrix`.
 - Dependencies: existing Playback capability/profile contracts, Storage, and CacheInvalidationBus only; no concrete MPV/VLC/libmpv/media-kit shader implementation, no FFI/native plugin, no Flutter widget/rendering code, no diagnostics center, and no Phase 6 provider/network automation.

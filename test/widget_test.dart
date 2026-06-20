@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:celesteria/celesteria.dart';
-import 'package:celesteria/main.dart';
+import 'package:elaina/elaina.dart';
+import 'package:elaina/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -122,11 +122,12 @@ class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
   Future<void> remove(BtTaskId taskId) async {}
 
   @override
-  Future<void> selectFiles(BtTaskId taskId, Iterable<BtFileIndex> files) async {}
+  Future<void> selectFiles(
+      BtTaskId taskId, Iterable<BtFileIndex> files) async {}
 }
 
 void main() {
-  testWidgets('Celesteria App Shell smoke test', (WidgetTester tester) async {
+  testWidgets('Elaina App Shell smoke test', (WidgetTester tester) async {
     final mockController = MockPlaybackController(
       matrix: PlaybackCapabilityMatrix(
         capabilities: const <PlaybackCapability, CapabilityStatus>{
@@ -186,7 +187,7 @@ void main() {
     );
 
     expect(find.text('欢迎回来，指挥官！'), findsOneWidget);
-    expect(find.text('PKPK'), findsOneWidget);
+    expect(find.text('Elaina'), findsOneWidget);
 
     libraryRuntime.dispose();
   });

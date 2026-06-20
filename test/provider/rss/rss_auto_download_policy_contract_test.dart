@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -92,8 +92,8 @@ void main() {
     expect((await store.policyById('policy-1'))?.label, 'Anime policy');
     expect((await store.activationsForPolicy('policy-1')).single.sourceId,
         'anime-feed');
-    expect((await store.rulesForPolicy('policy-1')).single.label,
-        'Episode rule');
+    expect(
+        (await store.rulesForPolicy('policy-1')).single.label, 'Episode rule');
     expect(
         (await store.evaluationsForItem(
                 policyId: 'policy-1', itemDedupeKey: 'item-dedupe-1'))
@@ -114,7 +114,8 @@ void main() {
         StoredRssAutoDownloadEnqueueState.pending);
   });
 
-  test('policy evaluator accepts torrent candidates and builds BT handoff models',
+  test(
+      'policy evaluator accepts torrent candidates and builds BT handoff models',
       () async {
     final DeterministicRssAutoDownloadPolicyEvaluator evaluator =
         DeterministicRssAutoDownloadPolicyEvaluator(
@@ -142,7 +143,8 @@ void main() {
     expect(history.entries.single.decision, isA<RssAutomationAccepted>());
   });
 
-  test('policy evaluator applies exclude precedence and durable dedupe', () async {
+  test('policy evaluator applies exclude precedence and durable dedupe',
+      () async {
     final DeterministicRssAutoDownloadPolicyEvaluator evaluator =
         DeterministicRssAutoDownloadPolicyEvaluator(
             clock: () => DateTime.utc(2026, 6, 7, 12));
@@ -241,8 +243,8 @@ void main() {
     expect(delivered.whereType<RssAutoDownloadCandidateAccepted>().length, 1);
     expect(delivered.whereType<RssAutoDownloadCandidateRejected>().length, 1);
     expect(delivered.whereType<RssAutoDownloadDedupeStateChanged>().length, 1);
-    expect(delivered.whereType<RssAutoDownloadEnqueueOutcomeRecorded>().length,
-        1);
+    expect(
+        delivered.whereType<RssAutoDownloadEnqueueOutcomeRecorded>().length, 1);
   });
 }
 
@@ -288,7 +290,10 @@ RssAutoDownloadPolicy _policy({bool excludeBatch = false}) {
   );
 }
 
-FeedItem _feedItem({String id = 'item-1', String dedupeKey = 'item-1', String title = 'Episode 1'}) {
+FeedItem _feedItem(
+    {String id = 'item-1',
+    String dedupeKey = 'item-1',
+    String title = 'Episode 1'}) {
   return FeedItem(
     id: FeedItemId(id),
     sourceId: const FeedSourceId('anime-feed'),

@@ -21,7 +21,8 @@ final class StoredDiagnosticsSchemaRecord {
     required this.registeredAt,
     Iterable<String> requiredPayloadKeys = const <String>[],
     this.capabilityArea,
-  })  : assert(eventType != '', 'Diagnostics schema event type must not be empty.'),
+  })  : assert(eventType != '',
+            'Diagnostics schema event type must not be empty.'),
         assert(version > 0, 'Diagnostics schema version must be positive.'),
         requiredPayloadKeys = List<String>.unmodifiable(requiredPayloadKeys);
 
@@ -49,9 +50,12 @@ final class StoredDiagnosticsEventRecord {
     this.capabilityArea,
   })  : assert(id != '', 'Diagnostics event id must not be empty.'),
         assert(eventType != '', 'Diagnostics event type must not be empty.'),
-        assert(schemaVersion > 0, 'Diagnostics schema version must be positive.'),
-        assert(sourceModule != '', 'Diagnostics source module must not be empty.'),
-        assert(correlationId != '', 'Diagnostics correlation id must not be empty.'),
+        assert(
+            schemaVersion > 0, 'Diagnostics schema version must be positive.'),
+        assert(
+            sourceModule != '', 'Diagnostics source module must not be empty.'),
+        assert(correlationId != '',
+            'Diagnostics correlation id must not be empty.'),
         payload = Map<String, Object?>.unmodifiable(payload);
 
   final String id;
@@ -84,7 +88,8 @@ final class StoredDiagnosticsSnapshotRecord {
   })  : assert(id != '', 'Diagnostics snapshot id must not be empty.'),
         eventIds = List<String>.unmodifiable(eventIds),
         eventTypes = List<String>.unmodifiable(eventTypes),
-        capabilityAreas = List<DiagnosticsCapability>.unmodifiable(capabilityAreas);
+        capabilityAreas =
+            List<DiagnosticsCapability>.unmodifiable(capabilityAreas);
 
   final String id;
   final DateTime createdAt;
@@ -106,7 +111,8 @@ final class StoredDiagnosticsExportRequestRecord {
     required this.format,
     required this.requestedAt,
   })  : assert(id != '', 'Diagnostics export request id must not be empty.'),
-        assert(snapshotId != '', 'Diagnostics export snapshot id must not be empty.'),
+        assert(snapshotId != '',
+            'Diagnostics export snapshot id must not be empty.'),
         assert(format != '', 'Diagnostics export format must not be empty.');
 
   final String id;
@@ -127,8 +133,10 @@ final class StoredDiagnosticsExportOutcomeRecord {
     this.uri,
     this.reason,
   })  : assert(id != '', 'Diagnostics export outcome id must not be empty.'),
-        assert(requestId != '', 'Diagnostics export request id must not be empty.'),
-        assert(snapshotId != '', 'Diagnostics export snapshot id must not be empty.'),
+        assert(requestId != '',
+            'Diagnostics export request id must not be empty.'),
+        assert(snapshotId != '',
+            'Diagnostics export snapshot id must not be empty.'),
         assert(format != '', 'Diagnostics export format must not be empty.');
 
   final String id;
@@ -151,9 +159,12 @@ final class StoredDiagnosticsRetentionStateRecord {
     required this.removedEventCount,
     required this.remainingEventCount,
   })  : assert(id != '', 'Diagnostics retention state id must not be empty.'),
-        assert(maxEvents > 0, 'Diagnostics retention maxEvents must be positive.'),
-        assert(removedEventCount >= 0, 'removedEventCount must not be negative.'),
-        assert(remainingEventCount >= 0, 'remainingEventCount must not be negative.');
+        assert(
+            maxEvents > 0, 'Diagnostics retention maxEvents must be positive.'),
+        assert(
+            removedEventCount >= 0, 'removedEventCount must not be negative.'),
+        assert(remainingEventCount >= 0,
+            'remainingEventCount must not be negative.');
 
   final String id;
   final DateTime enforcedAt;
@@ -200,13 +211,16 @@ abstract interface class DiagnosticsStore {
 
   Future<StoredDiagnosticsSnapshotRecord?> snapshotById(String id);
 
-  Future<void> recordExportRequest(StoredDiagnosticsExportRequestRecord request);
+  Future<void> recordExportRequest(
+      StoredDiagnosticsExportRequestRecord request);
 
-  Future<void> recordExportOutcome(StoredDiagnosticsExportOutcomeRecord outcome);
+  Future<void> recordExportOutcome(
+      StoredDiagnosticsExportOutcomeRecord outcome);
 
   Future<StoredDiagnosticsExportOutcomeRecord?> exportOutcomeById(String id);
 
-  Future<void> recordRetentionState(StoredDiagnosticsRetentionStateRecord state);
+  Future<void> recordRetentionState(
+      StoredDiagnosticsRetentionStateRecord state);
 
   Future<StoredDiagnosticsRetentionStateRecord?> latestRetentionState();
 
@@ -236,7 +250,8 @@ final class DeterministicDiagnosticsStore implements DiagnosticsStore {
   final List<StoredDiagnosticsRetentionStateRecord> _retentionStates =
       <StoredDiagnosticsRetentionStateRecord>[];
   final Map<DiagnosticsCapability, StoredDiagnosticsCapabilityRecord>
-      _capabilities = <DiagnosticsCapability, StoredDiagnosticsCapabilityRecord>{};
+      _capabilities =
+      <DiagnosticsCapability, StoredDiagnosticsCapabilityRecord>{};
 
   @override
   Future<StoredDiagnosticsCapabilityRecord?> capability(
@@ -270,7 +285,8 @@ final class DeterministicDiagnosticsStore implements DiagnosticsStore {
         const <DiagnosticsCapability>[],
   }) {
     final Set<String> eventTypeSet = eventTypes.toSet();
-    final Set<DiagnosticsCapability> capabilityAreaSet = capabilityAreas.toSet();
+    final Set<DiagnosticsCapability> capabilityAreaSet =
+        capabilityAreas.toSet();
     final List<StoredDiagnosticsEventRecord> events =
         <StoredDiagnosticsEventRecord>[
       for (final StoredDiagnosticsEventRecord event in _eventsById.values)
@@ -300,26 +316,30 @@ final class DeterministicDiagnosticsStore implements DiagnosticsStore {
   }
 
   @override
-  Future<void> recordExportOutcome(StoredDiagnosticsExportOutcomeRecord outcome) {
+  Future<void> recordExportOutcome(
+      StoredDiagnosticsExportOutcomeRecord outcome) {
     _exportOutcomesById[outcome.id] = outcome;
     return Future<void>.value();
   }
 
   @override
-  Future<void> recordExportRequest(StoredDiagnosticsExportRequestRecord request) {
+  Future<void> recordExportRequest(
+      StoredDiagnosticsExportRequestRecord request) {
     _exportRequestsById[request.id] = request;
     return Future<void>.value();
   }
 
   @override
-  Future<void> recordRetentionState(StoredDiagnosticsRetentionStateRecord state) {
+  Future<void> recordRetentionState(
+      StoredDiagnosticsRetentionStateRecord state) {
     _retentionStates.add(state);
     return Future<void>.value();
   }
 
   @override
   Future<StoredDiagnosticsSchemaRecord?> schemaByEventType(String eventType) {
-    return Future<StoredDiagnosticsSchemaRecord?>.value(_schemasByType[eventType]);
+    return Future<StoredDiagnosticsSchemaRecord?>.value(
+        _schemasByType[eventType]);
   }
 
   @override
@@ -355,11 +375,11 @@ final class DeterministicDiagnosticsStore implements DiagnosticsStore {
     if (_snapshotsById.isEmpty) {
       return Future<StoredDiagnosticsSnapshotRecord?>.value(null);
     }
-    final List<StoredDiagnosticsSnapshotRecord> sorted =
-        _snapshotsById.values.toList()
-          ..sort((StoredDiagnosticsSnapshotRecord left,
-                  StoredDiagnosticsSnapshotRecord right) =>
-              left.createdAt.compareTo(right.createdAt));
+    final List<StoredDiagnosticsSnapshotRecord> sorted = _snapshotsById.values
+        .toList()
+      ..sort((StoredDiagnosticsSnapshotRecord left,
+              StoredDiagnosticsSnapshotRecord right) =>
+          left.createdAt.compareTo(right.createdAt));
     return Future<StoredDiagnosticsSnapshotRecord?>.value(sorted.last);
   }
 

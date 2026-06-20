@@ -1,6 +1,6 @@
 ## Why
 
-The Phase 0 foundation is archived, so Celesteria can now move into the first playback-facing slice without violating the architecture plan's sequencing. This change freezes the player core boundary before advanced subtitles, danmaku, provider integrations, RSS, BT streaming, or enhancement features are introduced.
+The Phase 0 foundation is archived, so Elaina can now move into the first playback-facing slice without violating the architecture plan's sequencing. This change freezes the player core boundary before advanced subtitles, danmaku, provider integrations, RSS, BT streaming, or enhancement features are introduced.
 
 ## What Changes
 

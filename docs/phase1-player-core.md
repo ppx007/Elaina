@@ -1,6 +1,6 @@
 # Phase 1 Player Core Contracts
 
-This document records the implementation boundary for `bootstrap-player-core`, covering Phase 1 / Step 5-8 from `docs/celesteria-architecture-plan.md`.
+This document records the implementation boundary for `bootstrap-player-core`, covering Phase 1 / Step 5-8 from `docs/elaina-architecture-plan.md`.
 
 ## Scope
 

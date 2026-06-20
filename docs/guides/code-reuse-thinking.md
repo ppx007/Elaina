@@ -4,7 +4,7 @@ Source: extracted from `.trellis/spec/guides/code-reuse-thinking-guide.md` on 20
 
 ## Purpose
 
-Duplicated logic is a common source of inconsistent behavior. In Celesteria, duplication is especially risky around adapters, providers, capability handling, diagnostics, cache invalidation, and network policy because similar-looking code can silently diverge across layers.
+Duplicated logic is a common source of inconsistent behavior. In Elaina, duplication is especially risky around adapters, providers, capability handling, diagnostics, cache invalidation, and network policy because similar-looking code can silently diverge across layers.
 
 Search before adding new code. Reuse or extend established contracts when they already express the behavior.
 
@@ -92,7 +92,7 @@ Prevention:
 - [ ] If one path is auto-derived and another is manually listed, update both.
 - [ ] Add a regression or validation check that compares outputs from both mechanisms when practical.
 
-## Celesteria-Specific Reuse Bias
+## Elaina-Specific Reuse Bias
 
 - Prefer existing Provider/Adapter/Profile/Capability contracts over new one-off shapes.
 - Prefer gateway and network policy helpers over direct external-service calls.

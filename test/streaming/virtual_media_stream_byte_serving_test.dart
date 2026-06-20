@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const String _taskId = 'task-1';
@@ -13,7 +13,7 @@ const int _testChunkSizeBytes = 3;
 void main() {
   test('file byte source serves selected virtual stream ranges', () async {
     final Directory directory =
-        await Directory.systemTemp.createTemp('celesteria-byte-serving-');
+        await Directory.systemTemp.createTemp('elaina-byte-serving-');
     try {
       final File mediaFile = File('${directory.path}/episode.mkv');
       await mediaFile.writeAsBytes(_fileBytes);
@@ -65,7 +65,7 @@ void main() {
 
   test('file byte source reports missing selected file as typed failure',
       () async {
-    final Uri missingFileUri = Uri.file('Z:/celesteria/missing-episode.mkv');
+    final Uri missingFileUri = Uri.file('Z:/elaina/missing-episode.mkv');
     final _VirtualByteServingHarness harness =
         await _VirtualByteServingHarness.create(missingFileUri);
     await harness.runtime.createStream(

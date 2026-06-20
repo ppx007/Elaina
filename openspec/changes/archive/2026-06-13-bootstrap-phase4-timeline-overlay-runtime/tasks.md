@@ -23,7 +23,7 @@
 
 ## 4. Public Surface and Boundary Preservation
 
-- [x] 4.1 Export the Step 21 runtime/bootstrap surface from `lib/celesteria.dart` after focused tests pass.
+- [x] 4.1 Export the Step 21 runtime/bootstrap surface from `lib/elaina.dart` after focused tests pass.
 - [x] 4.2 Preserve existing `TimelineOverlayComposer` and `TimelineOverlayStore` contracts while adding runtime/bootstrap projections.
 - [x] 4.3 Ensure piece-priority scheduler inputs are consumed as read-only projections and no scheduler plan generation or application is invoked by timeline overlay runtime.
 - [x] 4.4 Ensure virtual stream inputs are consumed as read-only descriptors/buffered ranges and no stream lifecycle or byte-range serving operation is invoked by timeline overlay runtime.

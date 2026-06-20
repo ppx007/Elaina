@@ -1,7 +1,8 @@
 import 'capability_matrix.dart';
 
 final class MediaTrackId {
-  const MediaTrackId(this.value) : assert(value != '', 'Track id must not be empty.');
+  const MediaTrackId(this.value)
+      : assert(value != '', 'Track id must not be empty.');
 
   final String value;
 }

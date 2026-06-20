@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria is still a greenfield project, but its architecture plan already makes one thing explicit: starting from playback UI or a single provider integration would hard-code cross-layer dependencies too early and create rework across playback, RSS, metadata, and diagnostics. The first implementation slice needs to freeze the architectural foundation so later feature work lands on stable contracts instead of ad hoc glue.
+Elaina is still a greenfield project, but its architecture plan already makes one thing explicit: starting from playback UI or a single provider integration would hard-code cross-layer dependencies too early and create rework across playback, RSS, metadata, and diagnostics. The first implementation slice needs to freeze the architectural foundation so later feature work lands on stable contracts instead of ad hoc glue.
 
 ## What Changes
 

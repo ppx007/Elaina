@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has completed the ACG data experience boundary through Step 17, so the next roadmap slice can define BT playback without leaking download-engine details into the UI or player. Phase 4 freezes Steps 18-21: BT task core, virtual media streaming, piece priority scheduling, and playback timeline overlays.
+Elaina has completed the ACG data experience boundary through Step 17, so the next roadmap slice can define BT playback without leaking download-engine details into the UI or player. Phase 4 freezes Steps 18-21: BT task core, virtual media streaming, piece priority scheduling, and playback timeline overlays.
 
 ## What Changes
 

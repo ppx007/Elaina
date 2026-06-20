@@ -158,7 +158,7 @@ foreach ($term in @('package:flutter', 'dart:ui', 'BangumiProviderRuntime', 'Pro
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/domain/detail/video_detail.dart',
   'src/domain/detail/video_detail_runtime.dart',

@@ -20,11 +20,13 @@ final class AcgDataController {
   final DandanplayProvider _dandanplayProvider;
   final DandanplayCommentProvider _dandanplayCommentProvider;
 
-  Future<AcgProviderResult<BangumiSubject>> bangumiSubject(BangumiSubjectId id) {
+  Future<AcgProviderResult<BangumiSubject>> bangumiSubject(
+      BangumiSubjectId id) {
     return _bangumiProvider.lookupSubject(id);
   }
 
-  Future<AcgProviderResult<BangumiEpisode>> bangumiEpisode(BangumiEpisodeId id) {
+  Future<AcgProviderResult<BangumiEpisode>> bangumiEpisode(
+      BangumiEpisodeId id) {
     return _bangumiProvider.lookupEpisode(id);
   }
 
@@ -32,23 +34,28 @@ final class AcgDataController {
     return _bangumiAuthProvider.currentSession();
   }
 
-  Future<AcgProviderResult<void>> syncBangumiProgress(BangumiProgressUpdate update) {
+  Future<AcgProviderResult<void>> syncBangumiProgress(
+      BangumiProgressUpdate update) {
     return _bangumiAuthProvider.syncProgress(update);
   }
 
-  Future<AcgProviderResult<List<DandanplayMatchCandidate>>> matchDandanplay(String filename) {
+  Future<AcgProviderResult<List<DandanplayMatchCandidate>>> matchDandanplay(
+      String filename) {
     return _dandanplayProvider.matchLocalMedia(filename);
   }
 
-  Future<AcgProviderResult<List<DandanplayMatchCandidate>>> searchDandanplay(String query) {
+  Future<AcgProviderResult<List<DandanplayMatchCandidate>>> searchDandanplay(
+      String query) {
     return _dandanplayProvider.search(query);
   }
 
-  Future<AcgProviderResult<List<DandanplayComment>>> dandanplayComments(DandanplayEpisodeId episodeId) {
+  Future<AcgProviderResult<List<DandanplayComment>>> dandanplayComments(
+      DandanplayEpisodeId episodeId) {
     return _dandanplayCommentProvider.commentsForEpisode(episodeId);
   }
 
-  Future<AcgProviderResult<void>> postDandanplayComment(DandanplayCommentPost post) {
+  Future<AcgProviderResult<void>> postDandanplayComment(
+      DandanplayCommentPost post) {
     return _dandanplayCommentProvider.postComment(post);
   }
 }

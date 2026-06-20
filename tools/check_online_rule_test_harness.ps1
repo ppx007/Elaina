@@ -35,7 +35,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/provider/online/online_rule_test_harness.dart';")) {
   throw 'Public Dart contract barrel missing online rule test harness export.'
 }

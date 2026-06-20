@@ -1,6 +1,6 @@
 ## Context
 
-Phase 6 Steps 26-30 move Celesteria from playback/data foundation into optional automation and extension contracts. Step 26 is RSS auto-download: feed items already accepted by the RSS Engine can be evaluated by declarative policies and, when accepted, handed to BT task creation through engine-neutral Streaming contracts.
+Phase 6 Steps 26-30 move Elaina from playback/data foundation into optional automation and extension contracts. Step 26 is RSS auto-download: feed items already accepted by the RSS Engine can be evaluated by declarative policies and, when accepted, handed to BT task creation through engine-neutral Streaming contracts.
 
 The bootstrap `rss-auto-download-policy` spec already requires reuse of existing feed contracts, declarative matching, durable history, engine-neutral BT enqueue, and optional capability gating. It does not yet define durable policy/matcher/history records, typed evaluation and enqueue outcomes, deterministic matching semantics, invalidation events, or checker/runtime coverage. This change must deepen those contracts without creating a second feed engine, special-casing yuc.wiki, importing concrete torrent engines, or making automation part of the core playback loop.
 

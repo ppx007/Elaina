@@ -11,7 +11,7 @@
 
 - [x] 2.1 Reuse existing `FeedSource`, `FeedFetcher`, `FeedParser`, `FeedDeduplicator`, `RssFeedStore`, `FeedItem`, `RssRefreshOutcome`, and ProviderGateway result contracts instead of introducing parallel RSS feed, source, item, fetch, parser, cursor, or dedupe models.
 - [x] 2.2 Keep yuc.wiki modeled only as a normal `FeedSource` and ensure RSS engine runtime does not implement yuc.wiki-specific scraping, seasonal normalization, Bangumi match queue work, RSS auto-download filtering, torrent task creation, online-rule parsing, or UI behavior.
-- [x] 2.3 Export only safe RSS runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter RSS pages, HTTP clients, concrete storage implementations, seasonal runtime, auto-download execution, BT runtime, online-rule runtime, diagnostics, or native-player bindings.
+- [x] 2.3 Export only safe RSS runtime and contract surfaces through `lib/elaina.dart` without exporting concrete Flutter RSS pages, HTTP clients, concrete storage implementations, seasonal runtime, auto-download execution, BT runtime, online-rule runtime, diagnostics, or native-player bindings.
 - [x] 2.4 Preserve existing subtitle-provider, media-library, video-detail, subtitle, Bangumi, Dandanplay, and danmaku runtime checker behavior while extending validation for the Step 16 RSS engine runtime slice.
 
 ## 3. Tests and Validation

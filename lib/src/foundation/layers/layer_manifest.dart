@@ -23,7 +23,7 @@ final class LayerBoundary {
   final Set<LayerId> allowedDependencies;
 }
 
-const List<LayerBoundary> celesteriaLayerManifest = <LayerBoundary>[
+const List<LayerBoundary> elainaLayerManifest = <LayerBoundary>[
   LayerBoundary(
     id: LayerId.ui,
     responsibility: 'Screens, widgets, and user interaction state.',
@@ -44,36 +44,42 @@ const List<LayerBoundary> celesteriaLayerManifest = <LayerBoundary>[
   ),
   LayerBoundary(
     id: LayerId.playback,
-    responsibility: 'Player orchestration, capability reporting, and media-clock contracts.',
+    responsibility:
+        'Player orchestration, capability reporting, and media-clock contracts.',
     exposes: 'PlayerAdapter and playback capability interfaces.',
     allowedDependencies: <LayerId>{LayerId.streaming},
   ),
   LayerBoundary(
     id: LayerId.provider,
-    responsibility: 'External metadata, danmaku, subtitle, RSS, and source integrations.',
+    responsibility:
+        'External metadata, danmaku, subtitle, RSS, and source integrations.',
     exposes: 'Provider contracts without concrete transport policy.',
     allowedDependencies: <LayerId>{LayerId.gateway},
   ),
   LayerBoundary(
     id: LayerId.gateway,
-    responsibility: 'Provider request governance, cache policy, retry, and rate limiting.',
+    responsibility:
+        'Provider request governance, cache policy, retry, and rate limiting.',
     exposes: 'ProviderGateway contracts.',
     allowedDependencies: <LayerId>{LayerId.storage, LayerId.network},
   ),
   LayerBoundary(
     id: LayerId.storage,
-    responsibility: 'SQLite metadata, blob cache, media cache, settings, and migrations.',
+    responsibility:
+        'SQLite metadata, blob cache, media cache, settings, and migrations.',
     exposes: 'Storage repositories and migration contracts.',
   ),
   LayerBoundary(
     id: LayerId.streaming,
-    responsibility: 'Virtual media streams, BT streaming, piece priority, and buffered ranges.',
+    responsibility:
+        'Virtual media streams, BT streaming, piece priority, and buffered ranges.',
     exposes: 'Streaming abstractions only.',
     allowedDependencies: <LayerId>{LayerId.storage},
   ),
   LayerBoundary(
     id: LayerId.network,
-    responsibility: 'DNS, proxy, SSRF guard, cookie/session isolation, and transport policy.',
+    responsibility:
+        'DNS, proxy, SSRF guard, cookie/session isolation, and transport policy.',
     exposes: 'Network policy contracts.',
   ),
 ];
@@ -92,10 +98,10 @@ bool isLayerDependencyAllowed({
   required LayerId from,
   required LayerId to,
 }) {
-  final LayerBoundary source = celesteriaLayerManifest.firstWhere(
+  final LayerBoundary source = elainaLayerManifest.firstWhere(
     (LayerBoundary boundary) => boundary.id == from,
     orElse: () => throw StateError(
-      'No LayerBoundary declared for $from in celesteriaLayerManifest. '
+      'No LayerBoundary declared for $from in elainaLayerManifest. '
       'Every LayerId must have a matching manifest entry.',
     ),
   );

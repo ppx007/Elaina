@@ -61,7 +61,7 @@ playback page, video surface, and Windows runner, use the real release output:
 powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
   -ReleaseDir "build\windows\x64\runner\Release" `
   -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "build\dist\celesteria-windows-x64.zip"
+  -OutputZip "build\dist\elaina-windows-x64.zip"
 ```
 
 The zip must allow unzip-and-run local playback without customer MPV

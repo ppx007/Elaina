@@ -1,8 +1,9 @@
-﻿import "package:celesteria/celesteria.dart";
+import "package:elaina/elaina.dart";
 import "package:flutter_test/flutter_test.dart";
 
 void main() {
-  test("FoundationBootstrap composes storage gateway and invalidation bus", () async {
+  test("FoundationBootstrap composes storage gateway and invalidation bus",
+      () async {
     final FoundationBootstrap bootstrap = FoundationBootstrap();
 
     // Storage foundation is accessible with all 24 stores.
@@ -16,16 +17,20 @@ void main() {
     expect(bootstrap.storage.providerBinding, isA<ProviderBindingRepository>());
     expect(bootstrap.storage.subtitleCache, isA<SubtitleCacheStore>());
     expect(bootstrap.storage.rssFeed, isA<RssFeedStore>());
-    expect(bootstrap.storage.rssAutoDownloadPolicy, isA<RssAutoDownloadPolicyStore>());
+    expect(bootstrap.storage.rssAutoDownloadPolicy,
+        isA<RssAutoDownloadPolicyStore>());
     expect(bootstrap.storage.onlineRuleRuntime, isA<OnlineRuleRuntimeStore>());
-    expect(bootstrap.storage.webViewSessionBackfill, isA<WebViewSessionBackfillStore>());
+    expect(bootstrap.storage.webViewSessionBackfill,
+        isA<WebViewSessionBackfillStore>());
     expect(bootstrap.storage.networkPolicy, isA<NetworkPolicyStore>());
     expect(bootstrap.storage.diagnostics, isA<DiagnosticsStore>());
     expect(bootstrap.storage.seasonalCatalog, isA<SeasonalCatalogStore>());
     expect(bootstrap.storage.bangumiMatchQueue, isA<BangumiMatchQueueStore>());
     expect(bootstrap.storage.btTask, isA<BtTaskStore>());
-    expect(bootstrap.storage.virtualMediaStream, isA<VirtualMediaStreamStore>());
-    expect(bootstrap.storage.piecePriorityScheduler, isA<PiecePrioritySchedulerStore>());
+    expect(
+        bootstrap.storage.virtualMediaStream, isA<VirtualMediaStreamStore>());
+    expect(bootstrap.storage.piecePriorityScheduler,
+        isA<PiecePrioritySchedulerStore>());
     expect(bootstrap.storage.timelineOverlay, isA<TimelineOverlayStore>());
     expect(bootstrap.storage.videoEnhancement, isA<EnhancementProfileStore>());
     expect(bootstrap.storage.avSyncGuard, isA<AVSyncGuardStore>());
@@ -43,7 +48,8 @@ void main() {
     expect(bootstrap.isDisposed, isTrue);
   });
 
-  test("FoundationBootstrap disposal rejects further invalidation publishes", () async {
+  test("FoundationBootstrap disposal rejects further invalidation publishes",
+      () async {
     final FoundationBootstrap bootstrap = FoundationBootstrap();
     final StreamCacheInvalidationBus bus =
         bootstrap.invalidationBus as StreamCacheInvalidationBus;
@@ -60,7 +66,8 @@ void main() {
     );
   });
 
-  test("FoundationBootstrap disposal rejects storage and gateway access", () async {
+  test("FoundationBootstrap disposal rejects storage and gateway access",
+      () async {
     final FoundationBootstrap bootstrap = FoundationBootstrap();
     await bootstrap.dispose();
 
@@ -89,7 +96,8 @@ void main() {
       ]),
     );
     expect(blobUri.toString(), isNotEmpty);
-    final Stream<List<int>>? readStream = await storage.blobCache.readBlob("test-blob");
+    final Stream<List<int>>? readStream =
+        await storage.blobCache.readBlob("test-blob");
     expect(readStream, isNotNull);
     await storage.blobCache.evictBlob("test-blob");
     expect(await storage.blobCache.readBlob("test-blob"), isNull);
@@ -113,8 +121,10 @@ void main() {
       basename: "test.mkv",
       addedAt: DateTime.utc(2026, 6, 8, 12),
     ));
-    expect((await storage.mediaLibrary.findById("lib-1"))?.basename, "test.mkv");
-    expect((await storage.mediaLibrary.findByLocalMediaId("media-1"))?.id, "lib-1");
+    expect(
+        (await storage.mediaLibrary.findById("lib-1"))?.basename, "test.mkv");
+    expect((await storage.mediaLibrary.findByLocalMediaId("media-1"))?.id,
+        "lib-1");
     expect(await storage.mediaLibrary.count(), 1);
 
     // Playback history repository.
@@ -146,7 +156,9 @@ void main() {
     );
   });
 
-  test("DeterministicProviderGateway preserves registrations request keys and typed failures", () async {
+  test(
+      "DeterministicProviderGateway preserves registrations request keys and typed failures",
+      () async {
     final DeterministicStorageFoundation storage =
         DeterministicStorageFoundation();
     final DeterministicProviderGateway gateway =
@@ -289,23 +301,31 @@ void main() {
 
   test("Foundation bootstrap forbidden dependencies list is non-empty", () {
     expect(FoundationBootstrap.forbiddenDependencies.isNotEmpty, isTrue);
-    expect(FoundationBootstrap.forbiddenDependencies.contains("package:flutter"), isTrue);
+    expect(
+        FoundationBootstrap.forbiddenDependencies.contains("package:flutter"),
+        isTrue);
     expect(FoundationBootstrap.forbiddenDependencies.contains("mpv"), isTrue);
-    expect(FoundationBootstrap.forbiddenDependencies.contains("dart:mirrors"), isTrue);
+    expect(FoundationBootstrap.forbiddenDependencies.contains("dart:mirrors"),
+        isTrue);
     expect(FoundationBootstrap.forbiddenDependencies.contains("eval("), isTrue);
   });
 
   test("Foundation bootstrap required terms are declared", () {
     expect(FoundationBootstrap.requiredTerms.isNotEmpty, isTrue);
-    expect(FoundationBootstrap.requiredTerms.contains("FoundationRuntime"), isTrue);
-    expect(FoundationBootstrap.requiredTerms.contains("StorageFoundation"), isTrue);
-    expect(FoundationBootstrap.requiredTerms.contains("ProviderGateway"), isTrue);
-    expect(FoundationBootstrap.requiredTerms.contains("CacheInvalidationBus"), isTrue);
+    expect(FoundationBootstrap.requiredTerms.contains("FoundationRuntime"),
+        isTrue);
+    expect(FoundationBootstrap.requiredTerms.contains("StorageFoundation"),
+        isTrue);
+    expect(
+        FoundationBootstrap.requiredTerms.contains("ProviderGateway"), isTrue);
+    expect(FoundationBootstrap.requiredTerms.contains("CacheInvalidationBus"),
+        isTrue);
   });
 
   test("LayerBoundaryChecker validates forbidden and required terms", () {
     expect(
-      LayerBoundaryChecker.findForbiddenTerms("import package:flutter/material.dart"),
+      LayerBoundaryChecker.findForbiddenTerms(
+          "import package:flutter/material.dart"),
       contains("package:flutter"),
     );
     expect(
@@ -315,7 +335,7 @@ void main() {
     expect(
       LayerBoundaryChecker.findMissingRequiredTerms(
           "FoundationRuntime StorageFoundation ProviderGateway CacheInvalidationBus "
-          "LayerBoundary celesteriaLayerManifest"),
+          "LayerBoundary elainaLayerManifest"),
       isEmpty,
     );
     expect(
@@ -329,15 +349,15 @@ void main() {
     expect(errors, isEmpty);
   });
 
-  test("FoundationBootstrap.withDependencies accepts explicit stores", () async {
+  test("FoundationBootstrap.withDependencies accepts explicit stores",
+      () async {
     final DeterministicStorageFoundation storage =
         DeterministicStorageFoundation();
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
     final DeterministicProviderGateway gateway =
         DeterministicProviderGateway(storage: storage);
 
-    final FoundationBootstrap bootstrap =
-        FoundationBootstrap.withDependencies(
+    final FoundationBootstrap bootstrap = FoundationBootstrap.withDependencies(
       storage: storage,
       invalidationBus: bus,
       gateway: gateway,

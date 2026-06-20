@@ -60,8 +60,10 @@ final class StoredOnlineRuleManifestRecord {
     required this.updatedAt,
     Map<String, String> metadata = const <String, String>{},
   })  : assert(sourceId != '', 'Online rule source id must not be empty.'),
-        assert(displayName != '', 'Online rule display name must not be empty.'),
-        assert(version != '', 'Online rule manifest version must not be empty.'),
+        assert(
+            displayName != '', 'Online rule display name must not be empty.'),
+        assert(
+            version != '', 'Online rule manifest version must not be empty.'),
         assert(checksum != '', 'Online rule checksum must not be empty.'),
         assert(updateInterval > Duration.zero,
             'Online rule update interval must be positive.'),
@@ -87,7 +89,8 @@ final class StoredOnlineRuleManifestVersionRecord {
     required this.recordedAt,
     this.previousVersion,
   })  : assert(sourceId != '', 'Online rule source id must not be empty.'),
-        assert(version != '', 'Online rule manifest version must not be empty.'),
+        assert(
+            version != '', 'Online rule manifest version must not be empty.'),
         assert(checksum != '', 'Online rule checksum must not be empty.');
 
   final String sourceId;
@@ -106,8 +109,10 @@ final class StoredOnlineExtractionOperationRecord {
     required this.required,
     this.attribute,
   })  : assert(id != '', 'Online extraction operation id must not be empty.'),
-        assert(expression != '', 'Online extraction expression must not be empty.'),
-        assert(outputKey != '', 'Online extraction output key must not be empty.');
+        assert(expression != '',
+            'Online extraction expression must not be empty.'),
+        assert(
+            outputKey != '', 'Online extraction output key must not be empty.');
 
   final String id;
   final StoredOnlineExtractionKind kind;
@@ -126,8 +131,8 @@ final class StoredOnlineRuleSetRecord {
         const <StoredOnlineExtractionOperationRecord>[],
   })  : assert(id != '', 'Online rule set id must not be empty.'),
         assert(sourceId != '', 'Online rule source id must not be empty.'),
-        operations =
-            List<StoredOnlineExtractionOperationRecord>.unmodifiable(operations);
+        operations = List<StoredOnlineExtractionOperationRecord>.unmodifiable(
+            operations);
 
   final String id;
   final String sourceId;
@@ -146,7 +151,8 @@ final class StoredOnlineRuleValidationIssueRecord {
     this.unsupportedKind,
   })  : assert(id != '', 'Online rule validation issue id must not be empty.'),
         assert(sourceId != '', 'Online rule source id must not be empty.'),
-        assert(message != '', 'Online rule validation message must not be empty.');
+        assert(
+            message != '', 'Online rule validation message must not be empty.');
 
   final String id;
   final String sourceId;
@@ -214,7 +220,8 @@ final class StoredUnsupportedOnlineOperationRecord {
     this.operationId,
   })  : assert(id != '', 'Unsupported online operation id must not be empty.'),
         assert(sourceId != '', 'Online rule source id must not be empty.'),
-        assert(reason != '', 'Unsupported online operation reason must not be empty.');
+        assert(reason != '',
+            'Unsupported online operation reason must not be empty.');
 
   final String id;
   final String sourceId;
@@ -285,7 +292,8 @@ abstract interface class OnlineRuleRuntimeStore {
   Future<List<StoredUnsupportedOnlineOperationRecord>>
       unsupportedOperationsForSource(String sourceId);
 
-  Future<void> storeCapability(StoredOnlineRuleSourceCapabilityRecord capability);
+  Future<void> storeCapability(
+      StoredOnlineRuleSourceCapabilityRecord capability);
 
   Future<StoredOnlineRuleSourceCapabilityRecord?> capabilityForSource(
       String sourceId);
@@ -371,8 +379,8 @@ final class DeterministicOnlineRuleRuntimeStore
   Future<void> recordManifestVersion(
       StoredOnlineRuleManifestVersionRecord version) {
     _versionsBySource
-        .putIfAbsent(version.sourceId,
-            () => <StoredOnlineRuleManifestVersionRecord>[])
+        .putIfAbsent(
+            version.sourceId, () => <StoredOnlineRuleManifestVersionRecord>[])
         .add(version);
     return Future<void>.value();
   }
@@ -473,9 +481,10 @@ final class DeterministicOnlineRuleRuntimeStore
   @override
   Future<List<StoredOnlineRuleManifestVersionRecord>> versionsForSource(
       String sourceId) {
-    return Future<List<StoredOnlineRuleManifestVersionRecord>>.value(
-        <StoredOnlineRuleManifestVersionRecord>[
-          ...?_versionsBySource[sourceId],
-        ]);
+    return Future<
+        List<
+            StoredOnlineRuleManifestVersionRecord>>.value(<StoredOnlineRuleManifestVersionRecord>[
+      ...?_versionsBySource[sourceId],
+    ]);
   }
 }

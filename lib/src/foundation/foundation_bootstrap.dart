@@ -1,4 +1,4 @@
-﻿import "cache_invalidation/cache_invalidation_bus.dart";
+import "cache_invalidation/cache_invalidation_bus.dart";
 import "deterministic_storage_foundation.dart";
 import "foundation_runtime.dart";
 import "gateway/provider_gateway.dart";
@@ -95,7 +95,7 @@ final class FoundationBootstrap {
   late final FoundationRuntime _runtime;
 
   /// The 8-layer manifest for boundary validation.
-  static const List<LayerBoundary> layerManifest = celesteriaLayerManifest;
+  static const List<LayerBoundary> layerManifest = elainaLayerManifest;
 
   /// Forbidden import terms for foundation bootstrap.
   static const Set<String> forbiddenDependencies =

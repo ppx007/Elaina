@@ -22,12 +22,12 @@
 - [x] 2.8 Implement `snapshot(scopeId)` returning projection from stored + in-memory state
 - [x] 2.9 Implement `evaluate()`, `renderMatrixDanmaku()`, `renderDualSubtitles()`, `renderAdvancedSubtitle()`, `disable()`, `acceptDegradation()` delegating to per-scope deterministic renderer after gate
 - [x] 2.10 Implement `dispose()` setting disposed flag
-- [x] 2.11 Add barrel export `export 'src/playback/advanced_caption_rendering_runtime.dart';` in `lib/celesteria.dart`
+- [x] 2.11 Add barrel export `export 'src/playback/advanced_caption_rendering_runtime.dart';` in `lib/elaina.dart`
 - [x] 2.12 Run focused tests and confirm all pass (GREEN)
 
 ## 3. Validation Checkers
 
-- [x] 3.1 Create `tools/advanced_caption_rendering_runtime_check.dart` importing `../lib/celesteria.dart`, standalone smoke checker with `_expect`/`_expectFailure`, covering: snapshot restart replay, evaluate, renderMatrixDanmaku, renderDualSubtitles, disable, acceptDegradation, unsupported scope, unavailable runtime, disposed runtime, fixed clock `DateTime.utc(2026, 6, 15, 12)`
+- [x] 3.1 Create `tools/advanced_caption_rendering_runtime_check.dart` importing `../lib/elaina.dart`, standalone smoke checker with `_expect`/`_expectFailure`, covering: snapshot restart replay, evaluate, renderMatrixDanmaku, renderDualSubtitles, disable, acceptDegradation, unsupported scope, unavailable runtime, disposed runtime, fixed clock `DateTime.utc(2026, 6, 15, 12)`
 - [x] 3.2 Create `tools/check_advanced_caption_rendering_runtime.ps1` with required file presence, Dart smoke run, required runtime terms, barrel export terms, checker terms, forbidden boundary terms, import guards
 - [x] 3.3 Run `dart run tools/advanced_caption_rendering_runtime_check.dart` and confirm exit 0
 - [x] 3.4 Run `powershell -ExecutionPolicy Bypass -File tools/check_advanced_caption_rendering_runtime.ps1` and confirm pass message
@@ -44,7 +44,7 @@
 - [x] 5.1 Run `openspec validate "bootstrap-phase5-advanced-caption-rendering-runtime" --strict` and confirm valid
 - [x] 5.2 Run `openspec validate --all` and confirm 0 failures
 - [x] 5.3 Run scope guard: scan runtime/test/checker files for forbidden boundary terms (Mpv, Vlc, media-kit, MethodChannel, dart:ffi, DynamicLibrary, ShaderBundle, package:flutter/material, DiagnosticsCenter, RssAutoDownload, OnlineRule, WebView, CaptionRendering, NetworkPolicy, FallbackAdapter, FallbackOrchestrator) and confirm zero hits
-- [x] 5.4 Run LSP diagnostics on `lib/src/playback/advanced_caption_rendering_runtime.dart`, `tools/advanced_caption_rendering_runtime_check.dart`, `lib/celesteria.dart` and confirm clean
+- [x] 5.4 Run LSP diagnostics on `lib/src/playback/advanced_caption_rendering_runtime.dart`, `tools/advanced_caption_rendering_runtime_check.dart`, `lib/elaina.dart` and confirm clean
 
 ## 6. Scope Guard and Task Completion
 

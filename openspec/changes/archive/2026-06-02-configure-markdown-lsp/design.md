@@ -25,7 +25,7 @@ During apply, JSON validation confirmed the `opencode.json` Markdown entry was v
 **Non-Goals:**
 
 - Installing new tools or package dependencies.
-- Changing Celesteria application source code.
+- Changing Elaina application source code.
 - Changing project OpenSpec product contracts beyond this proposal's own artifacts.
 - Moving the entire OpenCode config into this repository.
 - Editing provider/API secrets or unrelated config values.

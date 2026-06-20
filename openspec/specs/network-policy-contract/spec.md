@@ -43,7 +43,7 @@ The system MUST NOT define VPN, TUN, kernel filtering, DPI, packet capture, or z
 
 #### Scenario: Policy is evaluated for provider traffic
 - **WHEN** a network policy decision is produced
-- **THEN** the decision applies only to Celesteria-managed provider traffic and not unrelated system traffic
+- **THEN** the decision applies only to Elaina-managed provider traffic and not unrelated system traffic
 
 ### Requirement: Network policy contract SHALL expose runtime action results
 The network policy contract SHALL support a runtime acceptance layer with typed action results, scoped projections, restart projections, unavailable/disposed gates, unsupported-capability gates, and compact runtime failures over the deterministic policy evaluator.

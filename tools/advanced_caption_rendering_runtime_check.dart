@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   await verifyAdvancedCaptionRenderingRuntimeContract();
@@ -25,25 +25,25 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
       'Runtime restart projection must replay stored renderer state.');
 
   // Evaluate returns typed success with evaluation report.
-  final AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>
-      evaluated = await harness.runtime.evaluate('adapter-1', _profile());
+  final AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome> evaluated =
+      await harness.runtime.evaluate('adapter-1', _profile());
   _expect(evaluated.isSuccess, 'Evaluate must return typed success.');
   _expect(evaluated.value?.report != null,
       'Evaluate must produce a caption evaluation report.');
 
   // RenderMatrixDanmaku returns typed success.
   final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> matrixResult =
-      await harness.runtime.renderMatrixDanmaku(
-          'adapter-1', _matrixDanmakuRequest());
-  _expect(matrixResult.isSuccess,
-      'RenderMatrixDanmaku must return typed success.');
+      await harness.runtime
+          .renderMatrixDanmaku('adapter-1', _matrixDanmakuRequest());
+  _expect(
+      matrixResult.isSuccess, 'RenderMatrixDanmaku must return typed success.');
 
   // RenderDualSubtitles returns typed success.
   final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> dualResult =
-      await harness.runtime.renderDualSubtitles(
-          'adapter-1', _dualSubtitleRequest());
-  _expect(dualResult.isSuccess,
-      'RenderDualSubtitles must return typed success.');
+      await harness.runtime
+          .renderDualSubtitles('adapter-1', _dualSubtitleRequest());
+  _expect(
+      dualResult.isSuccess, 'RenderDualSubtitles must return typed success.');
 
   // Disable returns typed success.
   final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome> disabled =
@@ -51,14 +51,13 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
   _expect(disabled.isSuccess, 'Disable must return typed success.');
 
   // Accept degradation returns typed success with degraded outcome.
-  final AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome>
-      degraded = await harness.runtime.acceptDegradation(
+  final AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome> degraded =
+      await harness.runtime.acceptDegradation(
     'adapter-1',
     AVSyncDegradationAction.disableAdvancedCaptions,
     reason: 'AV sync drift exceeded threshold.',
   );
-  _expect(degraded.isSuccess,
-      'Accept degradation must return typed success.');
+  _expect(degraded.isSuccess, 'Accept degradation must return typed success.');
 
   // Unsupported capability returns typed failure.
   final AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>
@@ -70,13 +69,12 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
       'Unsupported scope must return capabilityUnsupported failure.');
 
   // Unavailable runtime rejects all operations.
-  final AdvancedCaptionRuntime unavailable =
-      AdvancedCaptionRuntime.unavailable(
-          reason: 'No caption runtime available.');
+  final AdvancedCaptionRuntime unavailable = AdvancedCaptionRuntime.unavailable(
+      reason: 'No caption runtime available.');
   final AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>
       unavailSnapshot = await unavailable.snapshot('any');
-  _expect(!unavailSnapshot.isSuccess,
-      'Unavailable runtime must reject snapshot.');
+  _expect(
+      !unavailSnapshot.isSuccess, 'Unavailable runtime must reject snapshot.');
   _expect(
       unavailSnapshot.failure?.kind ==
           AdvancedCaptionRuntimeFailureKind.unavailable,
@@ -84,23 +82,21 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
 
   final AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>
       unavailEval = await unavailable.evaluate('any', _profile());
-  _expect(!unavailEval.isSuccess,
-      'Unavailable runtime must reject evaluate.');
+  _expect(!unavailEval.isSuccess, 'Unavailable runtime must reject evaluate.');
   _expect(
       unavailEval.failure?.kind ==
           AdvancedCaptionRuntimeFailureKind.unavailable,
       'Unavailable runtime evaluate must return unavailable failure.');
 
-  final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>
-      unavailMatrix = await unavailable.renderMatrixDanmaku(
-          'any', _matrixDanmakuRequest());
+  final AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome> unavailMatrix =
+      await unavailable.renderMatrixDanmaku('any', _matrixDanmakuRequest());
   _expect(!unavailMatrix.isSuccess,
       'Unavailable runtime must reject renderMatrixDanmaku.');
 
-  final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome> unavailDisable =
-      await unavailable.disable('any');
-  _expect(!unavailDisable.isSuccess,
-      'Unavailable runtime must reject disable.');
+  final AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>
+      unavailDisable = await unavailable.disable('any');
+  _expect(
+      !unavailDisable.isSuccess, 'Unavailable runtime must reject disable.');
 
   final AdvancedCaptionRuntimeActionResult<CaptionDegradationOutcome>
       unavailDegradation = await unavailable.acceptDegradation(
@@ -115,8 +111,8 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
   await harness.runtime.dispose();
   final AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>
       disposedSnapshot = await harness.runtime.snapshot('adapter-1');
-  _expect(!disposedSnapshot.isSuccess,
-      'Disposed runtime must reject snapshot.');
+  _expect(
+      !disposedSnapshot.isSuccess, 'Disposed runtime must reject snapshot.');
   _expect(
       disposedSnapshot.failure?.kind ==
           AdvancedCaptionRuntimeFailureKind.disposed,
@@ -127,11 +123,9 @@ Future<void> verifyAdvancedCaptionRenderingRuntimeContract() async {
   final AdvancedCaptionRuntimeActionResult<AdvancedCaptionRuntimeProjection>
       restartSnapshot = await restartHarness.runtime.snapshot('adapter-1');
   _expect(restartSnapshot.isSuccess, 'Restart snapshot must pass.');
-  _expect(
-      restartSnapshot.value?.restart.dualSubtitlePrimaryId == 'sub-en',
+  _expect(restartSnapshot.value?.restart.dualSubtitlePrimaryId == 'sub-en',
       'Restart projection must replay stored dual subtitle primary.');
-  _expect(
-      restartSnapshot.value?.restart.dualSubtitleSecondaryId == 'sub-jp',
+  _expect(restartSnapshot.value?.restart.dualSubtitleSecondaryId == 'sub-jp',
       'Restart projection must replay stored dual subtitle secondary.');
 
   await restartHarness.close();

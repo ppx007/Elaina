@@ -1,6 +1,6 @@
 ## Context
 
-Phase 6 Steps 26-30 move Celesteria from playback/data foundation into optional automation and extension contracts. Step 27 is online rule sources: declarative source manifests describe how to extract search results, detail metadata, episode lists, and playable-source candidates from provider-managed pages.
+Phase 6 Steps 26-30 move Elaina from playback/data foundation into optional automation and extension contracts. Step 27 is online rule sources: declarative source manifests describe how to extract search results, detail metadata, episode lists, and playable-source candidates from provider-managed pages.
 
 The bootstrap `online-rule-runtime` spec already requires declarative manifests, CSS selector / XPath 1.0 / regex extraction, page-type separation, ProviderGateway network access, and optionality. It does not yet define durable manifest/rule/evaluation records, typed validation and evaluation outcomes, normalized read models, invalidation events, runtime validation, or checker coverage. This change must deepen those contracts without implementing a concrete crawler, scraper, JavaScript/WASM engine, WebView challenge flow, network resolver, diagnostics action, or UI.
 

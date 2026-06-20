@@ -27,11 +27,13 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) async {
-    final PlaybackCommandResult? disposed = _rejectIfDisposed(PlaybackOperation.load);
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.load);
     if (disposed != null) return disposed;
     operations.add(PlaybackOperation.load);
     loadedSource = source;
-    return _resultFor?.call(PlaybackOperation.load) ?? const PlaybackCommandResult.success();
+    return _resultFor?.call(PlaybackOperation.load) ??
+        const PlaybackCommandResult.success();
   }
 
   @override
@@ -46,11 +48,13 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
 
   @override
   Future<PlaybackCommandResult> seek(Duration position) async {
-    final PlaybackCommandResult? disposed = _rejectIfDisposed(PlaybackOperation.seek);
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.seek);
     if (disposed != null) return disposed;
     operations.add(PlaybackOperation.seek);
     seekPosition = position;
-    return _resultFor?.call(PlaybackOperation.seek) ?? const PlaybackCommandResult.success();
+    return _resultFor?.call(PlaybackOperation.seek) ??
+        const PlaybackCommandResult.success();
   }
 
   @override
@@ -65,13 +69,15 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
     }
     operations.add(PlaybackOperation.dispose);
     _disposed = true;
-    return _resultFor?.call(PlaybackOperation.dispose) ?? const PlaybackCommandResult.success();
+    return _resultFor?.call(PlaybackOperation.dispose) ??
+        const PlaybackCommandResult.success();
   }
 
   @override
   Future<TrackDiscoveryResult> discoverTracks() async {
     if (_disposed) {
-      return TrackDiscoveryResult.unsupported(reason: 'Deterministic MPV binding has been disposed.');
+      return TrackDiscoveryResult.unsupported(
+          reason: 'Deterministic MPV binding has been disposed.');
     }
     operations.add(PlaybackOperation.discoverTracks);
     return TrackDiscoveryResult(
@@ -79,9 +85,11 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
       capabilityMatrix: PlaybackCapabilityMatrix(
         capabilities: <PlaybackCapability, CapabilityStatus>{
           PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
-          PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+          PlaybackCapability.subtitleTrackDiscovery:
+              CapabilityStatus.supported(),
           PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
-          PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+          PlaybackCapability.subtitleTrackSwitching:
+              CapabilityStatus.supported(),
         },
       ),
     );
@@ -90,17 +98,21 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) async {
     if (_disposed) {
-      return const TrackSwitchResult.unsupported('Deterministic MPV binding has been disposed.');
+      return const TrackSwitchResult.unsupported(
+          'Deterministic MPV binding has been disposed.');
     }
     operations.add(PlaybackOperation.switchTrack);
-    if (!_tracks.any((MediaTrackDescriptor track) => track.id.value == trackId.value)) {
-      return TrackSwitchResult.unsupported('Track ${trackId.value} is not available.');
+    if (!_tracks
+        .any((MediaTrackDescriptor track) => track.id.value == trackId.value)) {
+      return TrackSwitchResult.unsupported(
+          'Track ${trackId.value} is not available.');
     }
     switchedTrackId = trackId;
     return const TrackSwitchResult.success();
   }
 
-  Future<PlaybackCommandResult> _recordCommand(PlaybackOperation operation) async {
+  Future<PlaybackCommandResult> _recordCommand(
+      PlaybackOperation operation) async {
     final PlaybackCommandResult? disposed = _rejectIfDisposed(operation);
     if (disposed != null) return disposed;
     operations.add(operation);

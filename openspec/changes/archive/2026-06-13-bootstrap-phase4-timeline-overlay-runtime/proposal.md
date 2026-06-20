@@ -32,7 +32,7 @@ Phase 4 Step 18-20 now establish replayable BT task, virtual stream, and piece-p
 ## Impact
 
 - Likely implementation anchors: `lib/src/streaming/timeline_overlay.dart`, new `lib/src/streaming/timeline_overlay_runtime.dart`, `lib/src/foundation/storage/timeline_overlay_storage_contracts.dart`, and `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`.
-- Public export impact: `lib/celesteria.dart` should export the runtime/bootstrap surface after tests pass.
+- Public export impact: `lib/elaina.dart` should export the runtime/bootstrap surface after tests pass.
 - Test impact: add `test/streaming/timeline_overlay_runtime_test.dart` while preserving existing `test/streaming/timeline_overlay_contract_test.dart`.
 - Tooling impact: add `tools/timeline_overlay_runtime_check.dart` and `tools/check_timeline_overlay_runtime.ps1`.
 - Downstream impact: future UI/timeline rendering work may consume runtime snapshots, but this change does not implement widgets, gestures, drawing, or playback control.

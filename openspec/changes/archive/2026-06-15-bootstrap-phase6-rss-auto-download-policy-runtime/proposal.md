@@ -32,7 +32,7 @@ The DeterministicRssAutoDownloadPolicyEvaluator already evaluates feed items aga
 
 - New file: `lib/src/provider/rss/rss_auto_download_runtime.dart`
 - Modified file: `lib/src/foundation/storage/rss_auto_download_policy_storage_contracts.dart` (add DeterministicRssAutomationHistoryStore)
-- Modified barrel: `lib/celesteria.dart` (add export)
+- Modified barrel: `lib/elaina.dart` (add export)
 - New test: `test/provider/rss/rss_auto_download_runtime_test.dart`
 - New tools: `tools/rss_auto_download_runtime_check.dart`, `tools/check_rss_auto_download_runtime.ps1`
 - No changes to existing `rss_auto_download_policy.dart`, `feed_contracts.dart`, or `rss_download_handoff.dart`

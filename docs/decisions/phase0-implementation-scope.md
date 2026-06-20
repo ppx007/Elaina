@@ -4,12 +4,12 @@ Date: 2026-06-02
 Sources:
 
 - `.trellis/tasks/06-01-save-elaina-player-architecture-plan/prd.md`
-- `.trellis/tasks/06-01-bootstrap-celesteria-implementation/prd.md`
-- `docs/celesteria-architecture-plan.md`
+- `.trellis/tasks/06-01-bootstrap-elaina-implementation/prd.md`
+- `docs/elaina-architecture-plan.md`
 
 ## Decision
 
-Celesteria's first implementation slice is the full Phase 0 / Step 1-4 foundation:
+Elaina's first implementation slice is the full Phase 0 / Step 1-4 foundation:
 
 1. Layered project boundaries.
 2. Local storage foundation.
@@ -20,7 +20,7 @@ This is intentionally not a player UI slice and not a direct provider integratio
 
 ## Context
 
-The early Trellis PRDs recorded a greenfield project with one durable source document: `docs/celesteria-architecture-plan.md`. That architecture plan already defined the eight-layer model: UI, Domain, Playback, Provider, Gateway, Storage, Streaming, and Network.
+The early Trellis PRDs recorded a greenfield project with one durable source document: `docs/elaina-architecture-plan.md`. That architecture plan already defined the eight-layer model: UI, Domain, Playback, Provider, Gateway, Storage, Streaming, and Network.
 
 Multiple rollout cuts were possible, including starting with visible playback UI, player-core work, or provider integration. The recorded decision was to start with structural boundaries because later playback, provider, RSS, streaming, diagnostics, and network-policy work all depend on those contracts.
 
@@ -43,7 +43,7 @@ Starting with Phase 0 / Step 1-4 reduces rework risk:
 
 ## Durable Product Constraints
 
-- `Celesteria` is the product name; `1017` remains the code name or abbreviation.
+- `Elaina` is the product name; `1017` remains the code name or abbreviation.
 - yuc.wiki is treated as an RSS `FeedSource`, not a hardcoded scraper or privileged provider.
 - Player, provider, RSS consumer, storage, network policy, enhancement profile, and diagnostics integrations are extension points.
 - UI should expose only capabilities supported by the current environment and adapters.

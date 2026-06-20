@@ -77,7 +77,7 @@ foreach ($file in $domainSeasonalFiles) {
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/domain/seasonal/seasonal_feed_flow.dart';")) {
   throw 'Public Dart barrel missing seasonal feed flow export.'
 }

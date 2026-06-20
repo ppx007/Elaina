@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   final DeterministicDiagnosticsStore store = DeterministicDiagnosticsStore();
@@ -54,8 +54,7 @@ Future<void> main() async {
   await _expect((await runtime.recordSchema(schema)).isSuccess,
       'Schema registration must succeed.');
 
-  final List<CacheInvalidationEvent> schemaEvents =
-      await schemaEventsFuture;
+  final List<CacheInvalidationEvent> schemaEvents = await schemaEventsFuture;
   await _expect(schemaEvents.single is DiagnosticsSchemaRegistered,
       'Schema registration must publish invalidation.');
 
@@ -78,8 +77,8 @@ Future<void> main() async {
       bus.events.take(1).toList();
   final DiagnosticsCenterRuntimeActionResult<void> recordEventResult =
       await runtime.recordEvent(event);
-  await _expect(recordEventResult.isSuccess,
-      'Redacted event recording must succeed.');
+  await _expect(
+      recordEventResult.isSuccess, 'Redacted event recording must succeed.');
   final List<CacheInvalidationEvent> eventEvents = await eventEventsFuture;
   await _expect(eventEvents.single is DiagnosticsEventRecorded,
       'Event recording must publish invalidation.');
@@ -90,8 +89,7 @@ Future<void> main() async {
       snapshotResult = await runtime.querySnapshot(DiagnosticsQuery(
     category: DiagnosticsCategory.storage,
   ));
-  await _expect(snapshotResult.isSuccess,
-      'Snapshot query must succeed.');
+  await _expect(snapshotResult.isSuccess, 'Snapshot query must succeed.');
   await _expect(snapshotResult.value!.restart.eventCount == 1,
       'Snapshot projection must include one event.');
   await _expect(snapshotResult.value!.latestSnapshot != null,
@@ -115,14 +113,16 @@ Future<void> main() async {
     snapshot: snapshot,
     format: 'json',
   );
-  await _expect(exportResult.isSuccess,
-      'Local export descriptor must succeed.');
+  await _expect(
+      exportResult.isSuccess, 'Local export descriptor must succeed.');
   await _expect(exportResult.value!.state == DiagnosticsExportState.described,
       'Local export descriptor must be described.');
   final List<CacheInvalidationEvent> exportEvents = await exportEventsFuture;
-  await _expect(exportEvents.whereType<DiagnosticsExportRequestRecorded>().length == 1,
+  await _expect(
+      exportEvents.whereType<DiagnosticsExportRequestRecorded>().length == 1,
       'Export request must publish invalidation.');
-  await _expect(exportEvents.whereType<DiagnosticsExportOutcomeRecorded>().length == 1,
+  await _expect(
+      exportEvents.whereType<DiagnosticsExportOutcomeRecorded>().length == 1,
       'Export outcome must publish invalidation.');
 
   final Future<List<CacheInvalidationEvent>> retentionEventsFuture =
@@ -136,10 +136,12 @@ Future<void> main() async {
 
   final Future<List<CacheInvalidationEvent>> capabilityEventsFuture =
       bus.events.take(1).toList();
-  await _expect((await runtime.recordCapability(
-    capability: DiagnosticsCapability.schemaRegistration,
-    supported: true,
-  )).isSuccess,
+  await _expect(
+      (await runtime.recordCapability(
+        capability: DiagnosticsCapability.schemaRegistration,
+        supported: true,
+      ))
+          .isSuccess,
       'Capability recording must succeed.');
   final List<CacheInvalidationEvent> capabilityEvents =
       await capabilityEventsFuture;
@@ -196,11 +198,13 @@ Future<void> main() async {
       'Unavailable runtime must fail.');
 
   runtime.dispose();
-  await _expect((await runtime.snapshot()).failure?.kind ==
-      DiagnosticsCenterRuntimeFailureKind.disposed,
+  await _expect(
+      (await runtime.snapshot()).failure?.kind ==
+          DiagnosticsCenterRuntimeFailureKind.disposed,
       'Disposed runtime must fail.');
 
-  final DiagnosticsCenterRuntime freshRuntime = DiagnosticsCenterRuntimeBootstrap(
+  final DiagnosticsCenterRuntime freshRuntime =
+      DiagnosticsCenterRuntimeBootstrap(
     store: store,
     registry: registry,
     retentionPolicy: retentionPolicy,
@@ -210,8 +214,8 @@ Future<void> main() async {
   ).createRuntime();
   final DiagnosticsCenterRuntimeActionResult<DiagnosticsCenterRuntimeProjection>
       freshSnapshot = await freshRuntime.snapshot();
-  await _expect(freshSnapshot.isSuccess,
-      'Fresh runtime snapshot must succeed.');
+  await _expect(
+      freshSnapshot.isSuccess, 'Fresh runtime snapshot must succeed.');
   await _expect(freshSnapshot.value!.restart.schemaCount == 1,
       'Fresh runtime must replay stored schema count.');
   await _expect(freshSnapshot.value!.restart.eventCount == 1,

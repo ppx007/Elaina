@@ -1,4 +1,4 @@
-﻿import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/detail/video_detail.dart';
@@ -9,10 +9,9 @@ import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
 import '../../../domain/playback/playback_source_handoff.dart';
 import '../../../domain/playback/playback_state.dart';
+import '../../../domain/profile/profile_domain.dart';
 import '../../../domain/rss/rss_engine_runtime.dart';
 import '../../../domain/settings/settings_domain.dart';
-import '../../../provider/bangumi/bangumi_auth.dart';
-import '../../../provider/provider_result.dart';
 import '../../detail/video_detail_page.dart';
 import '../../detail/video_detail_page_contract.dart';
 import '../../diagnostics/diagnostics_page.dart';
@@ -20,14 +19,14 @@ import '../../download/downloads_page.dart';
 import '../../media/media_library_page.dart';
 import '../../rss/rss_page.dart';
 import '../../settings/settings_page.dart';
-import '../../theme/celesteria_theme.dart';
+import '../../theme/elaina_theme.dart';
 import '../../widgets/hero_carousel.dart';
 import '../../widgets/hot_updates_carousel.dart';
 import '../../widgets/particle_background.dart';
 import '../production_playback_page.dart';
 
-class CelesteriaAppShell extends StatefulWidget {
-  const CelesteriaAppShell({
+class ElainaAppShell extends StatefulWidget {
+  const ElainaAppShell({
     super.key,
     required this.playbackController,
     required this.videoSurface,
@@ -37,7 +36,7 @@ class CelesteriaAppShell extends StatefulWidget {
     required this.downloadRuntime,
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
-    this.bangumiAuthProvider,
+    this.profileProvider,
     this.carouselAutoScroll = true,
   });
 
@@ -49,14 +48,14 @@ class CelesteriaAppShell extends StatefulWidget {
   final DownloadRuntime downloadRuntime;
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
-  final BangumiAuthProvider? bangumiAuthProvider;
+  final UserProfileProvider? profileProvider;
   final bool carouselAutoScroll;
 
   @override
-  State<CelesteriaAppShell> createState() => _CelesteriaAppShellState();
+  State<ElainaAppShell> createState() => _ElainaAppShellState();
 }
 
-class _CelesteriaAppShellState extends State<CelesteriaAppShell>
+class _ElainaAppShellState extends State<ElainaAppShell>
     implements PlaybackStateObserver {
   int _currentIndex = 0;
   bool _playbackOverlayActive = false;
@@ -153,7 +152,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     // Build the correct sub-page
     final Widget mainPageContent = IndexedStack(
@@ -232,7 +231,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   // Navigation sidebar builder
-  Widget _buildSidebar(CelesteriaThemeData theme) {
+  Widget _buildSidebar(ElainaThemeData theme) {
     final double sidebarWidth = 260.0;
     return Container(
       width: sidebarWidth,
@@ -262,7 +261,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                 ),
                 const SizedBox(width: 16.0),
                 Text(
-                  'PKPK',
+                  'Elaina',
                   style: TextStyle(
                     color: theme.primary,
                     fontSize: 24,
@@ -314,7 +313,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     IconData inactiveIcon,
     IconData activeIcon,
     String label,
-    CelesteriaThemeData theme,
+    ElainaThemeData theme,
   ) {
     final bool isSelected = _currentIndex == index;
     return Padding(
@@ -322,6 +321,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: () {
             setState(() {
               _currentIndex = index;
@@ -387,7 +387,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   // 1. Beautiful Home Page
-  Widget _buildHomePage(CelesteriaThemeData theme) {
+  Widget _buildHomePage(ElainaThemeData theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
       child: Column(
@@ -447,7 +447,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                   _buildThemeToggle(context),
                   const SizedBox(width: 16),
                   _BangumiProfileAvatar(
-                    authProvider: widget.bangumiAuthProvider,
+                    profileProvider: widget.profileProvider,
                     theme: theme,
                     refreshRevision: _bangumiAuthRevision,
                   ),
@@ -522,7 +522,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
 
   // Theme selector slider
   Widget _buildThemeToggle(BuildContext context) {
-    final CelesteriaTheme theme = CelesteriaTheme.controllerOf(context);
+    final ElainaTheme theme = ElainaTheme.controllerOf(context);
     final bool isDark = theme.data.brightness == Brightness.dark;
 
     return Container(
@@ -570,31 +570,37 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[
-                GestureDetector(
-                  onTap: () => theme.onModeChanged(CelesteriaThemeMode.light),
-                  child: Container(
-                    color: Colors.transparent,
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.light_mode,
-                      size: 18,
-                      color: !isDark
-                          ? theme.data.primary
-                          : Colors.white.withValues(alpha: 0.6),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => theme.onModeChanged(ElainaThemeMode.light),
+                    child: Container(
+                      color: Colors.transparent,
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        Icons.light_mode,
+                        size: 18,
+                        color: !isDark
+                            ? theme.data.primary
+                            : Colors.white.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => theme.onModeChanged(CelesteriaThemeMode.dark),
-                  child: Container(
-                    color: Colors.transparent,
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.dark_mode,
-                      size: 18,
-                      color: isDark
-                          ? theme.data.primary
-                          : Colors.white.withValues(alpha: 0.6),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => theme.onModeChanged(ElainaThemeMode.dark),
+                    child: Container(
+                      color: Colors.transparent,
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        Icons.dark_mode,
+                        size: 18,
+                        color: isDark
+                            ? theme.data.primary
+                            : Colors.white.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ),
@@ -606,7 +612,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     );
   }
 
-  Widget _buildRecommendationsGrid(CelesteriaThemeData theme) {
+  Widget _buildRecommendationsGrid(ElainaThemeData theme) {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -628,7 +634,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     String rating,
     String symbol,
     int accentIndex,
-    CelesteriaThemeData theme,
+    ElainaThemeData theme,
   ) {
     return Container(
       decoration: BoxDecoration(
@@ -703,7 +709,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   // 2. Library Page
-  Widget _buildLibraryPage(CelesteriaThemeData theme) {
+  Widget _buildLibraryPage(ElainaThemeData theme) {
     return MediaLibraryPage(
       mediaLibraryRuntime: widget.mediaLibraryRuntime,
       playbackController: widget.playbackController,
@@ -716,21 +722,21 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   // 3. Downloads Page
-  Widget _buildDownloadsPage(CelesteriaThemeData theme) {
+  Widget _buildDownloadsPage(ElainaThemeData theme) {
     return DownloadsPage(
       downloadRuntime: widget.downloadRuntime,
     );
   }
 
   // 4. RSS Page
-  Widget _buildRssPage(CelesteriaThemeData theme) {
+  Widget _buildRssPage(ElainaThemeData theme) {
     return RssPage(
       rssEngineRuntime: widget.rssEngineRuntime,
     );
   }
 
   // 5. Settings Page
-  Widget _buildSettingsPage(CelesteriaThemeData theme) {
+  Widget _buildSettingsPage(ElainaThemeData theme) {
     return SettingsPage(
       settingsRuntime: widget.settingsRuntime,
       onBangumiAuthChanged: _refreshBangumiProfile,
@@ -738,7 +744,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   // 6. Diagnostics Page
-  Widget _buildDiagnosticsPage(CelesteriaThemeData theme) {
+  Widget _buildDiagnosticsPage(ElainaThemeData theme) {
     return DiagnosticsPage(
       diagnosticsRuntime: widget.diagnosticsRuntime,
     );
@@ -762,13 +768,13 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
 
 class _BangumiProfileAvatar extends StatefulWidget {
   const _BangumiProfileAvatar({
-    required this.authProvider,
+    required this.profileProvider,
     required this.theme,
     required this.refreshRevision,
   });
 
-  final BangumiAuthProvider? authProvider;
-  final CelesteriaThemeData theme;
+  final UserProfileProvider? profileProvider;
+  final ElainaThemeData theme;
   final int refreshRevision;
 
   @override
@@ -778,39 +784,34 @@ class _BangumiProfileAvatar extends StatefulWidget {
 class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
   static const double _avatarDiameter = 40;
 
-  Future<AcgProviderResult<BangumiAuthSession>>? _sessionFuture;
+  Future<UserProfileSnapshot?>? _profileFuture;
 
   @override
   void initState() {
     super.initState();
-    _sessionFuture = widget.authProvider?.currentSession();
+    _profileFuture = widget.profileProvider?.currentProfile();
   }
 
   @override
   void didUpdateWidget(_BangumiProfileAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.authProvider != widget.authProvider ||
+    if (oldWidget.profileProvider != widget.profileProvider ||
         oldWidget.refreshRevision != widget.refreshRevision) {
-      _sessionFuture = widget.authProvider?.currentSession();
+      _profileFuture = widget.profileProvider?.currentProfile();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Future<AcgProviderResult<BangumiAuthSession>>? sessionFuture =
-        _sessionFuture;
-    if (sessionFuture == null) {
+    final Future<UserProfileSnapshot?>? profileFuture = _profileFuture;
+    if (profileFuture == null) {
       return _buildFallbackAvatar(widget.theme);
     }
-    return FutureBuilder<AcgProviderResult<BangumiAuthSession>>(
-      future: sessionFuture,
-      builder: (BuildContext context,
-          AsyncSnapshot<AcgProviderResult<BangumiAuthSession>> snapshot) {
-        final AcgProviderResult<BangumiAuthSession>? result = snapshot.data;
-        if (result is! AcgProviderSuccess<BangumiAuthSession>) {
-          return _buildFallbackAvatar(widget.theme);
-        }
-        final Uri? avatarUri = result.value.avatarUri;
+    return FutureBuilder<UserProfileSnapshot?>(
+      future: profileFuture,
+      builder:
+          (BuildContext context, AsyncSnapshot<UserProfileSnapshot?> snapshot) {
+        final Uri? avatarUri = snapshot.data?.avatarUri;
         if (avatarUri == null) {
           return _buildFallbackAvatar(widget.theme);
         }
@@ -837,7 +838,7 @@ class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
     );
   }
 
-  Widget _buildFallbackAvatar(CelesteriaThemeData theme) {
+  Widget _buildFallbackAvatar(ElainaThemeData theme) {
     return CircleAvatar(
       radius: _avatarDiameter / 2,
       backgroundColor: theme.secondary.withValues(alpha: 0.3),
@@ -849,7 +850,7 @@ class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
 class _ShellBackdrop extends StatelessWidget {
   const _ShellBackdrop({required this.theme});
 
-  final CelesteriaThemeData theme;
+  final ElainaThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -901,7 +902,7 @@ class _RecommendationBackdrop extends StatelessWidget {
 
   final String symbol;
   final int accentIndex;
-  final CelesteriaThemeData theme;
+  final ElainaThemeData theme;
 
   @override
   Widget build(BuildContext context) {

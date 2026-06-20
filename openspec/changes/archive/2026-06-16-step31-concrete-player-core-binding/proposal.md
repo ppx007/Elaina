@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has completed the Step 1-30 contract scaffold and runtime bootstrap
+Elaina has completed the Step 1-30 contract scaffold and runtime bootstrap
 acceptance layer. The next implementation layer needs a first concrete runtime
 binding while preserving the existing layer boundaries and keeping UI work
 outside this change.

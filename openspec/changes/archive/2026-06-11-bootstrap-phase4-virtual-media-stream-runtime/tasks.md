@@ -23,7 +23,7 @@
 
 - [x] 4.1 Playback layer: Extend playback source handoff support for virtual stream runtime projections or descriptors - expect existing playback source model reuse
 - [x] 4.2 Playback layer: Reject direct BT task, engine, piece map, scheduler, timeline, socket, file handle, or native player values - expect explicit unsupported outcomes
-- [x] 4.3 Public API: Export the Step 19 runtime/bootstrap surface from `lib/celesteria.dart` only after focused tests pass - expect stable public contract access
+- [x] 4.3 Public API: Export the Step 19 runtime/bootstrap surface from `lib/elaina.dart` only after focused tests pass - expect stable public contract access
 - [x] 4.4 Repository baseline: Confirm Step 19 remains optional and does not require Step 20 scheduler, Step 21 timeline, Phase 6, diagnostics, UI, network, storage migration, or native player work
 
 ## 5. Validation Tooling

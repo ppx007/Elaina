@@ -221,11 +221,14 @@ final class VideoEnhancementPipelineRuntime {
   final Map<String, EnhancementBudgetPressureSnapshot> _latestBudgetsByScope =
       <String, EnhancementBudgetPressureSnapshot>{};
   final Map<String, VideoEnhancementPipelineRuntimeFailure>
-      _latestFailuresByScope = <String, VideoEnhancementPipelineRuntimeFailure>{};
+      _latestFailuresByScope =
+      <String, VideoEnhancementPipelineRuntimeFailure>{};
   bool _disposed = false;
 
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-      VideoEnhancementPipelineRuntimeProjection>> snapshot(String scopeId) async {
+  Future<
+      VideoEnhancementPipelineRuntimeActionResult<
+          VideoEnhancementPipelineRuntimeProjection>> snapshot(
+      String scopeId) async {
     final VideoEnhancementPipelineRuntimeActionResult<
         VideoEnhancementPipelineRuntimeProjection>? gated = _gate(scopeId);
     if (gated != null) return gated;
@@ -235,8 +238,9 @@ final class VideoEnhancementPipelineRuntime {
     );
   }
 
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-      VideoEnhancementPipelineRuntimeProjection>> evaluate({
+  Future<
+      VideoEnhancementPipelineRuntimeActionResult<
+          VideoEnhancementPipelineRuntimeProjection>> evaluate({
     required String scopeId,
     required VideoEnhancementProfile profile,
   }) async {
@@ -263,8 +267,9 @@ final class VideoEnhancementPipelineRuntime {
     );
   }
 
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-      VideoEnhancementPipelineRuntimeProjection>> apply({
+  Future<
+      VideoEnhancementPipelineRuntimeActionResult<
+          VideoEnhancementPipelineRuntimeProjection>> apply({
     required String scopeId,
     required String profileId,
   }) async {
@@ -303,8 +308,9 @@ final class VideoEnhancementPipelineRuntime {
     );
   }
 
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-      VideoEnhancementPipelineRuntimeProjection>> requestDegradation({
+  Future<
+      VideoEnhancementPipelineRuntimeActionResult<
+          VideoEnhancementPipelineRuntimeProjection>> requestDegradation({
     required String scopeId,
     required EnhancementRuntimeDegradationRequest request,
   }) async {
@@ -323,8 +329,7 @@ final class VideoEnhancementPipelineRuntime {
         ),
       );
     }
-    final List<VideoEnhancementProfile> targets =
-        <VideoEnhancementProfile>[];
+    final List<VideoEnhancementProfile> targets = <VideoEnhancementProfile>[];
     for (final String targetId in request.candidateTargetProfileIds) {
       final StoredEnhancementProfileRecord? target =
           await _profileStore.findProfileById(targetId);
@@ -344,7 +349,8 @@ final class VideoEnhancementPipelineRuntime {
       return _failed(scopeId, _failureFromPipeline(outcome.failure!));
     }
     _latestBudgetsByScope[scopeId] = outcome.snapshot!;
-    await _profileStore.recordPipelineState(StoredEnhancementPipelineStateRecord(
+    await _profileStore
+        .recordPipelineState(StoredEnhancementPipelineStateRecord(
       scopeId: scopeId,
       profileId: request.profileId,
       state: outcome.snapshot!.isOverBudget
@@ -352,8 +358,7 @@ final class VideoEnhancementPipelineRuntime {
           : StoredEnhancementPipelineStateKind.applied,
       supported: true,
       budgetPressure: outcome.snapshot!.pressureRatio,
-      degradationTargetProfileId:
-          outcome.snapshot!.degradationTarget?.id.value,
+      degradationTargetProfileId: outcome.snapshot!.degradationTarget?.id.value,
       updatedAt: _clock(),
     ));
     _latestFailuresByScope.remove(scopeId);
@@ -400,8 +405,9 @@ final class VideoEnhancementPipelineRuntime {
     return null;
   }
 
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-      VideoEnhancementPipelineRuntimeProjection>> _failed(
+  Future<
+      VideoEnhancementPipelineRuntimeActionResult<
+          VideoEnhancementPipelineRuntimeProjection>> _failed(
     String scopeId,
     VideoEnhancementPipelineRuntimeFailure failure,
   ) async {
@@ -470,11 +476,9 @@ final class VideoEnhancementPipelineRuntime {
       latestPipelineState: pipelineState,
       latestCapabilityReport: _latestReportsByScope[scopeId],
       latestBudgetPressure: _latestBudgetsByScope[scopeId],
-      degradationTargetProfileId: _latestBudgetsByScope[scopeId]
-              ?.degradationTarget
-              ?.id
-              .value ??
-          storedState?.degradationTargetProfileId,
+      degradationTargetProfileId:
+          _latestBudgetsByScope[scopeId]?.degradationTarget?.id.value ??
+              storedState?.degradationTargetProfileId,
       latestFailure: _latestFailuresByScope[scopeId] ??
           (storedState?.failureReason == null
               ? null
@@ -502,8 +506,8 @@ VideoEnhancementProfile _profileFromStored(
         VideoScalerIntent.adapterDefault),
     hdrHandling: _enumByName(HdrHandlingIntent.values, record.hdrHandlingIntent,
         HdrHandlingIntent.adapterDefault),
-    deband: _enumByName(
-        DebandIntent.values, record.debandIntent, DebandIntent.off),
+    deband:
+        _enumByName(DebandIntent.values, record.debandIntent, DebandIntent.off),
     anime4kPreset: _enumByName(Anime4kPresetIntent.values,
         record.anime4kPresetIntent, Anime4kPresetIntent.off),
   );
@@ -524,7 +528,8 @@ EnhancementPipelineState _pipelineStateFromStored(
       EnhancementPipelineState.disabled,
     StoredEnhancementPipelineStateKind.evaluated =>
       EnhancementPipelineState.evaluated,
-    StoredEnhancementPipelineStateKind.applied => EnhancementPipelineState.applied,
+    StoredEnhancementPipelineStateKind.applied =>
+      EnhancementPipelineState.applied,
     StoredEnhancementPipelineStateKind.rejected =>
       EnhancementPipelineState.rejected,
     StoredEnhancementPipelineStateKind.degraded =>

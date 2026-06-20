@@ -4,7 +4,8 @@ import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
 final class SubtitleProviderId {
-  const SubtitleProviderId(this.value) : assert(value != '', 'Subtitle provider id must not be empty.');
+  const SubtitleProviderId(this.value)
+      : assert(value != '', 'Subtitle provider id must not be empty.');
 
   final String value;
 }
@@ -17,7 +18,8 @@ final class SubtitleSearchQuery {
     this.episodeNumber,
     this.localMediaUri,
   })  : assert(title != '', 'Subtitle query title must not be empty.'),
-        assert(languageCode != '', 'Subtitle query language must not be empty.');
+        assert(
+            languageCode != '', 'Subtitle query language must not be empty.');
 
   final String title;
   final String languageCode;
@@ -44,8 +46,10 @@ final class SubtitleProviderCandidate {
     this.sourceUri,
   })  : assert(id != '', 'Subtitle candidate id must not be empty.'),
         assert(title != '', 'Subtitle candidate title must not be empty.'),
-        assert(reference != '', 'Subtitle candidate reference must not be empty.'),
-        assert(confidence >= 0 && confidence <= 1, 'confidence must be between 0 and 1.');
+        assert(
+            reference != '', 'Subtitle candidate reference must not be empty.'),
+        assert(confidence >= 0 && confidence <= 1,
+            'confidence must be between 0 and 1.');
 
   final String id;
   final SubtitleProviderId providerId;
@@ -92,7 +96,9 @@ abstract interface class SubtitleProvider implements GatewayBoundProvider {
 
   SubtitleProviderCachePolicy get cachePolicy;
 
-  Future<AcgProviderResult<List<SubtitleProviderCandidate>>> searchSubtitles(SubtitleSearchQuery query);
+  Future<AcgProviderResult<List<SubtitleProviderCandidate>>> searchSubtitles(
+      SubtitleSearchQuery query);
 
-  Future<AcgProviderResult<RetrievedSubtitleFile>> retrieveSubtitle(SubtitleProviderCandidate candidate);
+  Future<AcgProviderResult<RetrievedSubtitleFile>> retrieveSubtitle(
+      SubtitleProviderCandidate candidate);
 }

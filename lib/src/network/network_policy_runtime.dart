@@ -39,10 +39,13 @@ final class NetworkPolicyRuntimeActionResult<T> {
   });
 
   const NetworkPolicyRuntimeActionResult.success([T? value])
-      : this._(kind: NetworkPolicyRuntimeActionResultKind.success, value: value);
+      : this._(
+            kind: NetworkPolicyRuntimeActionResultKind.success, value: value);
 
   NetworkPolicyRuntimeActionResult.failed(NetworkPolicyRuntimeFailure failure)
-      : this._(kind: NetworkPolicyRuntimeActionResultKind.failed, failure: failure);
+      : this._(
+            kind: NetworkPolicyRuntimeActionResultKind.failed,
+            failure: failure);
 
   NetworkPolicyRuntimeActionResult.unavailable(String message)
       : this._(
@@ -66,8 +69,7 @@ final class NetworkPolicyRuntimeActionResult<T> {
   final T? value;
   final NetworkPolicyRuntimeFailure? failure;
 
-  bool get isSuccess =>
-      kind == NetworkPolicyRuntimeActionResultKind.success;
+  bool get isSuccess => kind == NetworkPolicyRuntimeActionResultKind.success;
 }
 
 final class NetworkPolicyRuntimeRestartProjection {
@@ -223,8 +225,7 @@ final class NetworkPolicyRuntime {
 
   Future<NetworkPolicyRuntimeActionResult<NetworkPolicyRuntimeProjection>>
       snapshot(String providerScope) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return _castFail(gate);
     return _projection(providerScope);
   }
@@ -233,8 +234,7 @@ final class NetworkPolicyRuntime {
     required String providerScope,
     required NetworkPolicyRequest request,
   }) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return _castFail(gate);
 
     if (_disabledScopes.contains(providerScope)) {
@@ -271,8 +271,7 @@ final class NetworkPolicyRuntime {
       );
     }
 
-    final NetworkPolicyEvaluator evaluator =
-        _evaluatorsByScope[providerScope]!;
+    final NetworkPolicyEvaluator evaluator = _evaluatorsByScope[providerScope]!;
 
     final NetworkPolicyDecision decision;
     try {
@@ -288,8 +287,7 @@ final class NetworkPolicyRuntime {
     }
 
     final DateTime now = _now();
-    final String evalId =
-        'eval-${providerScope}-${now.millisecondsSinceEpoch}';
+    final String evalId = 'eval-${providerScope}-${now.millisecondsSinceEpoch}';
 
     final StoredNetworkPolicyDecisionKind decisionKind =
         decision is NetworkPolicyAllowed
@@ -368,8 +366,7 @@ final class NetworkPolicyRuntime {
     required NetworkPolicyId policyId,
     String? reason,
   }) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return _castFail(gate);
 
     if (policyId.value.isEmpty) {
@@ -390,8 +387,7 @@ final class NetworkPolicyRuntime {
           NetworkPolicyRuntimeProjection>.failed(
         NetworkPolicyRuntimeFailure(
           kind: NetworkPolicyRuntimeFailureKind.invalidAssignment,
-          message:
-              'Policy profile ${policyId.value} not found in store.',
+          message: 'Policy profile ${policyId.value} not found in store.',
           providerScope: providerScope,
         ),
       );
@@ -425,8 +421,7 @@ final class NetworkPolicyRuntime {
   Future<NetworkPolicyRuntimeActionResult<void>> disable({
     required String providerScope,
   }) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return gate;
 
     _disabledScopes.add(providerScope);
@@ -436,8 +431,7 @@ final class NetworkPolicyRuntime {
   Future<NetworkPolicyRuntimeActionResult<void>> reenable({
     required String providerScope,
   }) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return gate;
 
     _disabledScopes.remove(providerScope);
@@ -450,8 +444,7 @@ final class NetworkPolicyRuntime {
     required NetworkPolicyCapability capability,
     required bool supported,
   }) async {
-    final NetworkPolicyRuntimeActionResult<void>? gate =
-        _gate(providerScope);
+    final NetworkPolicyRuntimeActionResult<void>? gate = _gate(providerScope);
     if (gate != null) return _castFail(gate);
 
     final DateTime now = _now();

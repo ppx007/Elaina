@@ -12,7 +12,7 @@
 - [x] 2.1 Add a `VideoDetailRuntime` or `VideoDetailBootstrap` composition entry point that wires repository, action handler, metadata provider, playback history store, provider binding store, playback source handoff, and cache invalidation bus.
 - [x] 2.2 Publish cache invalidation events for detail metadata refresh, binding/follow state changes, and continue-watching input changes without introducing storage migrations or persistent detail caches.
 - [x] 2.3 Keep video detail UI contracts framework-neutral and ensure Domain/runtime files do not import concrete Flutter widgets, ProviderGateway internals, storage implementations, RSS, subtitle provider, seasonal indexer, BT, online-rule, network policy, diagnostics, MPV/VLC, or native-player bindings.
-- [x] 2.4 Export only safe video detail runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter page implementations.
+- [x] 2.4 Export only safe video detail runtime and contract surfaces through `lib/elaina.dart` without exporting concrete Flutter page implementations.
 - [x] 2.5 Preserve existing Phase 3 contract checker behavior while extending validation for the Step 13 runtime slice.
 
 ## 3. Tests and Validation

@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,8 +18,8 @@ void main() {
     expect(proj.restart.scopeId, 'adapter-1');
     expect(proj.restart.enabled, isTrue);
     expect(proj.restart.selectedCandidateId, 'fallback-vlc-runtime');
-    expect(proj.restart.strategyState,
-        StoredFallbackStrategyStateKind.selected);
+    expect(
+        proj.restart.strategyState, StoredFallbackStrategyStateKind.selected);
   });
 
   test('registerCandidate succeeds and publishes invalidation', () async {
@@ -43,8 +43,8 @@ void main() {
   test('deregisterCandidate succeeds', () async {
     final _RuntimeHarness harness = await _createHarness();
     final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
-        result = await harness.runtime
-            .deregisterCandidate('adapter-1', const FallbackAdapterId('fallback-vlc-runtime'));
+        result = await harness.runtime.deregisterCandidate(
+            'adapter-1', const FallbackAdapterId('fallback-vlc-runtime'));
 
     expect(result.isSuccess, isTrue);
   });
@@ -83,7 +83,8 @@ void main() {
         result = await harness.runtime.disable('adapter-1');
 
     expect(result.isSuccess, isTrue);
-    expect(result.value!.strategyState, StoredFallbackStrategyStateKind.disabled);
+    expect(
+        result.value!.strategyState, StoredFallbackStrategyStateKind.disabled);
     expect(await disabledEvents, isNotEmpty);
   });
 
@@ -100,8 +101,7 @@ void main() {
 
     expect(result.isSuccess, isTrue);
     expect(result.value!.latestCapabilityReadModel, isNotNull);
-    expect(result.value!.latestCapabilityReadModel!.hidesAnyCapability,
-        isTrue);
+    expect(result.value!.latestCapabilityReadModel!.hidesAnyCapability, isTrue);
     expect(await capEvents, isNotEmpty);
   });
 
@@ -125,10 +125,10 @@ void main() {
     );
 
     final List<
-            Future<
-                FallbackAdapterRuntimeActionResult<
-                    FallbackAdapterRuntimeProjection>>>
-        ops = <Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>>[
+        Future<
+            FallbackAdapterRuntimeActionResult<
+                FallbackAdapterRuntimeProjection>>> ops = <Future<
+        FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>>>[
       unavailable.snapshot('any'),
       unavailable.registerCandidate('any', candidate),
       unavailable.deregisterCandidate('any', const FallbackAdapterId('x')),
@@ -144,8 +144,9 @@ void main() {
           scopeId: 'any', candidateId: const FallbackAdapterId('x')),
     ];
 
-    for (final Future<FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>> op
-        in ops) {
+    for (final Future<
+        FallbackAdapterRuntimeActionResult<
+            FallbackAdapterRuntimeProjection>> op in ops) {
       final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
           r = await op;
       expect(r.isSuccess, isFalse);
@@ -182,8 +183,7 @@ void main() {
       store: DeterministicFallbackAdapterStore(),
       scopeId: 'adapter-nocand',
     );
-    final FallbackAdapterRuntime noCandidateRuntime =
-        FallbackAdapterBootstrap(
+    final FallbackAdapterRuntime noCandidateRuntime = FallbackAdapterBootstrap(
       store: noCandidateStrategy.store,
       strategyByScope: <String, DeterministicPlaybackFallbackStrategy>{
         'adapter-nocand': noCandidateStrategy,
@@ -196,8 +196,7 @@ void main() {
     final FallbackAdapterRuntimeActionResult<FallbackAdapterRuntimeProjection>
         result = await noCandidateRuntime.selectFallback(
       scopeId: 'adapter-nocand',
-      source:
-          LocalFilePlaybackSource(uri: Uri.file('D:/media/nocand.mkv')),
+      source: LocalFilePlaybackSource(uri: Uri.file('D:/media/nocand.mkv')),
       failure: const FallbackFailure(
           kind: FallbackFailureKind.loadFailure, message: 'failed'),
     );
@@ -267,7 +266,8 @@ Future<_RuntimeHarness> _createHarness() async {
       ),
     },
     capabilitiesByScope: <String, PlaybackCapabilityMatrix>{
-      'adapter-unsupported': PlaybackCapabilityMatrix.unsupported(reason: 'All unsupported.'),
+      'adapter-unsupported':
+          PlaybackCapabilityMatrix.unsupported(reason: 'All unsupported.'),
     },
   ).createRuntime();
 
@@ -290,7 +290,11 @@ final class _RuntimeHarness {
   final StreamCacheInvalidationBus _bus;
 
   Future<List<T>> eventsOfType<T extends CacheInvalidationEvent>() async {
-    return _bus.events.where((CacheInvalidationEvent e) => e is T).cast<T>().take(1).toList();
+    return _bus.events
+        .where((CacheInvalidationEvent e) => e is T)
+        .cast<T>()
+        .take(1)
+        .toList();
   }
 }
 
@@ -342,7 +346,8 @@ final class _FallbackTestAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> dispose() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
   Future<TrackDiscoveryResult> discoverTracks() =>
@@ -352,23 +357,25 @@ final class _FallbackTestAdapter implements PlayerAdapter {
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> pause() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> pause() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> play() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> play() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<PlaybackCommandResult> seek(Duration position) =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+      Future<PlaybackCommandResult>.value(
+          const PlaybackCommandResult.success());
 
   @override
-  Future<PlaybackCommandResult> stop() =>
-      Future<PlaybackCommandResult>.value(const PlaybackCommandResult.success());
+  Future<PlaybackCommandResult> stop() => Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.success());
 
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) =>

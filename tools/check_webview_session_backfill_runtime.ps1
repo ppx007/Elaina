@@ -48,7 +48,7 @@ foreach ($term in $requiredTerms) {
 }
 
 # --- Barrel exports ---
-$barrel = "$root\lib\celesteria.dart"
+$barrel = "$root\lib\elaina.dart"
 $barrelContent = Get-Content -LiteralPath $barrel -Raw
 if ($barrelContent -notmatch "export 'src/network/webview_session_backfill.dart'") {
     throw "Missing barrel export for webview_session_backfill.dart"
@@ -61,7 +61,7 @@ if ($barrelContent -notmatch "export 'src/network/webview_session_backfill_runti
 $checker = "$root\tools\webview_session_backfill_runtime_check.dart"
 $checkerContent = Get-Content -LiteralPath $checker -Raw
 $checkerTerms = @(
-    "import '../lib/celesteria.dart';",
+    "import '../lib/elaina.dart';",
     'DeterministicWebViewSessionBackfillStore',
     'StreamCacheInvalidationBus',
     'WebViewSessionBackfillRuntimeBootstrap',

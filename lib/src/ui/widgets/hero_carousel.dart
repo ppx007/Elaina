@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class HeroCarousel extends StatefulWidget {
   const HeroCarousel({
@@ -81,7 +81,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = CelesteriaTheme.of(context);
+    final theme = ElainaTheme.of(context);
 
     return SizedBox(
       height: 400,
@@ -177,7 +177,7 @@ class _HeroPosterPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
     final List<List<Color>> palettes = <List<Color>>[
       <Color>[theme.primary, theme.accentMagenta],
       <Color>[theme.secondary, const Color(0xFF5B7CFA)],

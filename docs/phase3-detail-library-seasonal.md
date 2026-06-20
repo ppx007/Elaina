@@ -1,6 +1,6 @@
 # Phase 3: Detail, Library, Subtitle Provider, RSS, Seasonal Indexer
 
-This phase adds contract scaffolding for Celesteria architecture plan steps 13-17.
+This phase adds contract scaffolding for Elaina architecture plan steps 13-17.
 
 ## Implemented Boundary
 

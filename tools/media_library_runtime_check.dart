@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 import 'video_detail_runtime_check.dart';
 
 Future<void> main() async {
@@ -156,7 +156,7 @@ Future<void> _verifyPlaybackHistoryIntegration() async {
 
 Future<void> _verifyStorageBackedMediaLibraryRuntime() async {
   final Directory root = await Directory.systemTemp.createTemp(
-    'celesteria-media-library-check-',
+    'elaina-media-library-check-',
   );
   final DateTime now = DateTime.utc(2026, 6, 17, 14);
   final StreamCacheInvalidationBus invalidationBus =

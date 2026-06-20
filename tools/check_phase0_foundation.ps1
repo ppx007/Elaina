@@ -5,7 +5,7 @@ $lib = Join-Path $root 'lib'
 $requiredFiles = @(
   'pubspec.yaml',
   'analysis_options.yaml',
-  'lib/celesteria.dart',
+  'lib/elaina.dart',
   'lib/src/foundation/layers/layer_manifest.dart',
   'lib/src/foundation/extension_points.dart',
   'lib/src/foundation/storage/storage_contracts.dart',
@@ -119,7 +119,7 @@ foreach ($fromLayer in $layerRules.Keys) {
 
       $allowed = $layerRules[$fromLayer] -contains $toLayer
       $singleQuotePattern = "../$toLayer/"
-      $packagePattern = "package:celesteria/src/$toLayer/"
+      $packagePattern = "package:elaina/src/$toLayer/"
       $importsLayer = $content.Contains($singleQuotePattern) -or $content.Contains($packagePattern)
       if ($importsLayer -and -not $allowed) {
         throw "Forbidden layer import from '$fromLayer' to '$toLayer' found in $($file.FullName)"
@@ -165,7 +165,7 @@ foreach ($term in $foundationForbiddenTerms) {
 # Foundation runtime must contain required terms
 $foundationRequiredTerms = @(
   'FoundationRuntime', 'StorageFoundation', 'ProviderGateway',
-  'CacheInvalidationBus', 'LayerBoundary', 'celesteriaLayerManifest'
+  'CacheInvalidationBus', 'LayerBoundary', 'elainaLayerManifest'
 )
 foreach ($term in $foundationRequiredTerms) {
   if ($foundationRuntime -notmatch [regex]::Escape($term)) {
@@ -199,7 +199,7 @@ foreach ($term in @('package:flutter', 'drift', 'moor', 'hive', 'HttpClient(', '
 }
 
 # Public barrel must export foundation surfaces
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @('foundation_runtime.dart', 'layer_boundary_checker.dart', 'deterministic_storage_foundation.dart', 'foundation_bootstrap.dart')) {
   if ($barrel -notmatch [regex]::Escape($export)) {
     throw "Public barrel missing foundation export: $export"
@@ -235,7 +235,7 @@ $requiredBootstrapTerms = @(
   'LayerBoundaryChecker',
   'foundationBootstrapForbiddenDependencies',
   'foundationBootstrapAllowedExports',
-  'celesteriaLayerManifest'
+  'elainaLayerManifest'
 )
 foreach ($term in $requiredBootstrapTerms) {
   if ($bootstrap -notmatch [regex]::Escape($term)) {

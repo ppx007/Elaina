@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/download/download_domain.dart';
-import '../theme/celesteria_theme.dart';
+import '../theme/elaina_theme.dart';
 
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({
@@ -132,7 +132,7 @@ class _DownloadsPageState extends State<DownloadsPage>
   static const int _pieceGridColumns = 16;
 
   // Visual piece grid helper
-  Widget _buildPieceMap(double progress, CelesteriaThemeData theme) {
+  Widget _buildPieceMap(double progress, ElainaThemeData theme) {
     const int totalBlocks = _totalPieceBlocks;
     final int completedBlocks = (progress * totalBlocks).round();
 
@@ -166,7 +166,7 @@ class _DownloadsPageState extends State<DownloadsPage>
 
   @override
   Widget build(BuildContext context) {
-    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final ElainaThemeData theme = ElainaTheme.of(context);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),

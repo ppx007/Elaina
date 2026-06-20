@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -31,7 +31,8 @@ void main() {
     }
 
     RssAutomationCapabilityMatrix _unsupportedCapabilities() {
-      return RssAutomationCapabilityMatrix.unsupported(reason: 'Not available.');
+      return RssAutomationCapabilityMatrix.unsupported(
+          reason: 'Not available.');
     }
 
     RssAutomationCapabilityMatrix _noHandoffCapabilities() {
@@ -121,8 +122,9 @@ void main() {
     });
 
     test('initial snapshot returns projection from seeded store', () async {
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime.snapshot('scope-1');
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.snapshot('scope-1');
 
       expect(result.isSuccess, isTrue);
       final RssAutoDownloadPolicyRuntimeProjection projection = result.value!;
@@ -134,9 +136,9 @@ void main() {
     });
 
     test('evaluate succeeds and persists to store', () async {
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime.evaluate(
-              'scope-1', policy, <FeedItem>[feedItem]);
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.evaluate('scope-1', policy, <FeedItem>[feedItem]);
 
       expect(result.isSuccess, isTrue);
       final RssAutoDownloadPolicyRuntimeProjection projection = result.value!;
@@ -157,8 +159,9 @@ void main() {
       final RssAutomationAccepted accepted =
           evalOutcome.decisions.whereType<RssAutomationAccepted>().first;
 
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime.handoff('scope-1', accepted.candidate);
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.handoff('scope-1', accepted.candidate);
 
       expect(result.isSuccess, isTrue);
       final RssAutoDownloadPolicyRuntimeProjection projection = result.value!;
@@ -168,8 +171,8 @@ void main() {
     });
 
     test('disable succeeds and sets enabled false', () async {
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result =
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
           await runtime.disable('scope-1', RssAutoDownloadPolicyId('policy-1'));
 
       expect(result.isSuccess, isTrue);
@@ -178,8 +181,9 @@ void main() {
 
     test('reenable succeeds and sets enabled true', () async {
       await runtime.disable('scope-1', RssAutoDownloadPolicyId('policy-1'));
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime.reenable(
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.reenable(
               'scope-1', RssAutoDownloadPolicyId('policy-1'));
 
       expect(result.isSuccess, isTrue);
@@ -187,7 +191,8 @@ void main() {
     });
 
     test('unsupported capability returns capabilityUnsupported', () async {
-      final RssAutoDownloadPolicyRuntime unsupportedRuntime = await _createRuntime(
+      final RssAutoDownloadPolicyRuntime unsupportedRuntime =
+          await _createRuntime(
         evaluatorByScope: <String, DeterministicRssAutoDownloadPolicyEvaluator>{
           'scope-unsupported': evaluator,
         },
@@ -196,19 +201,21 @@ void main() {
         },
       );
 
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result =
-          await unsupportedRuntime.evaluate('scope-unsupported', policy, <FeedItem>[feedItem]);
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await unsupportedRuntime
+              .evaluate('scope-unsupported', policy, <FeedItem>[feedItem]);
 
       expect(result.isSuccess, isFalse);
-      expect(
-          result.failure!.kind,
+      expect(result.failure!.kind,
           RssAutoDownloadPolicyRuntimeFailureKind.capabilityUnsupported);
     });
 
-    test('handoff with no btTaskHandoff capability returns capabilityUnsupported',
+    test(
+        'handoff with no btTaskHandoff capability returns capabilityUnsupported',
         () async {
-      final RssAutoDownloadPolicyRuntime noHandoffRuntime = await _createRuntime(
+      final RssAutoDownloadPolicyRuntime noHandoffRuntime =
+          await _createRuntime(
         evaluatorByScope: <String, DeterministicRssAutoDownloadPolicyEvaluator>{
           'scope-no-handoff': evaluator,
         },
@@ -217,8 +224,9 @@ void main() {
         },
       );
 
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await noHandoffRuntime.handoff(
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await noHandoffRuntime.handoff(
               'scope-no-handoff',
               RssDownloadCandidate(
                 policyId: policy.id,
@@ -228,8 +236,7 @@ void main() {
               ));
 
       expect(result.isSuccess, isFalse);
-      expect(
-          result.failure!.kind,
+      expect(result.failure!.kind,
           RssAutoDownloadPolicyRuntimeFailureKind.capabilityUnsupported);
     });
 
@@ -238,8 +245,12 @@ void main() {
           RssAutoDownloadPolicyRuntime.unavailable(
               reason: 'RSS automation unavailable.');
 
-      final List<Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>>
-          ops = <Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>>>[
+      final List<
+          Future<
+              RssAutoDownloadPolicyRuntimeActionResult<
+                  RssAutoDownloadPolicyRuntimeProjection>>> ops = <Future<
+          RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection>>>[
         unavailable.snapshot('scope-1'),
         unavailable.evaluate('scope-1', policy, <FeedItem>[feedItem]),
         unavailable.handoff(
@@ -254,10 +265,11 @@ void main() {
         unavailable.reenable('scope-1', RssAutoDownloadPolicyId('policy-1')),
       ];
 
-      for (final Future<RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>> op
-          in ops) {
-        final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-            result = await op;
+      for (final Future<
+          RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection>> op in ops) {
+        final RssAutoDownloadPolicyRuntimeActionResult<
+            RssAutoDownloadPolicyRuntimeProjection> result = await op;
         expect(result.isSuccess, isFalse);
         expect(result.failure!.kind,
             RssAutoDownloadPolicyRuntimeFailureKind.unavailable);
@@ -266,8 +278,9 @@ void main() {
 
     test('disposed runtime rejects snapshot', () async {
       await runtime.dispose();
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime.snapshot('scope-1');
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.snapshot('scope-1');
 
       expect(result.isSuccess, isFalse);
       expect(result.failure!.kind,
@@ -276,8 +289,7 @@ void main() {
 
     test('invalidation events are published on evaluate', () async {
       // Collect events during the action
-      final List<CacheInvalidationEvent> collected =
-          <CacheInvalidationEvent>[];
+      final List<CacheInvalidationEvent> collected = <CacheInvalidationEvent>[];
       final StreamSubscription<CacheInvalidationEvent> sub =
           bus.events.listen(collected.add);
 
@@ -296,7 +308,8 @@ void main() {
       await runtime.evaluate('scope-1', policy, <FeedItem>[feedItem]);
 
       // Create a new runtime from the same store (simulating restart)
-      final RssAutoDownloadPolicyRuntime restartedRuntime = await _createRuntime(
+      final RssAutoDownloadPolicyRuntime restartedRuntime =
+          await _createRuntime(
         evaluatorByScope: <String, DeterministicRssAutoDownloadPolicyEvaluator>{
           'scope-1': evaluator,
         },
@@ -305,8 +318,9 @@ void main() {
         },
       );
 
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await restartedRuntime.snapshot('scope-1');
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await restartedRuntime.snapshot('scope-1');
 
       expect(result.isSuccess, isTrue);
       final RssAutoDownloadPolicyRuntimeRestartProjection restart =
@@ -316,7 +330,8 @@ void main() {
 
     test('domain failure mapping - automationDisabled', () async {
       final DeterministicRssAutoDownloadPolicyEvaluator disabledEvaluator =
-          const DeterministicRssAutoDownloadPolicyEvaluator(automationEnabled: false);
+          const DeterministicRssAutoDownloadPolicyEvaluator(
+              automationEnabled: false);
 
       final RssAutoDownloadPolicyRuntime disabledRuntime = await _createRuntime(
         evaluatorByScope: <String, DeterministicRssAutoDownloadPolicyEvaluator>{
@@ -329,23 +344,26 @@ void main() {
 
       // Evaluate with automation disabled - items get RssAutomationDisabled decisions
       // which are NOT failures - they're valid decisions. The evaluator succeeds.
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await disabledRuntime.evaluate(
-              'scope-disabled', policy, <FeedItem>[feedItem]);
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await disabledRuntime
+              .evaluate('scope-disabled', policy, <FeedItem>[feedItem]);
 
       // Evaluation still succeeds but decisions contain Disabled decisions
       expect(result.isSuccess, isTrue);
       expect(result.value!.latestEvaluationOutcome!.decisions, isNotEmpty);
       expect(
-          result.value!.latestEvaluationOutcome!.decisions.whereType<RssAutomationDisabled>(),
+          result.value!.latestEvaluationOutcome!.decisions
+              .whereType<RssAutomationDisabled>(),
           isNotEmpty);
     });
 
     test('disable with non-existent policy returns policyNotFound failure',
         () async {
-      final RssAutoDownloadPolicyRuntimeActionResult<RssAutoDownloadPolicyRuntimeProjection>
-          result = await runtime
-          .disable('scope-1', RssAutoDownloadPolicyId('non-existent'));
+      final RssAutoDownloadPolicyRuntimeActionResult<
+              RssAutoDownloadPolicyRuntimeProjection> result =
+          await runtime.disable(
+              'scope-1', RssAutoDownloadPolicyId('non-existent'));
 
       expect(result.isSuccess, isFalse);
       expect(result.failure!.kind,

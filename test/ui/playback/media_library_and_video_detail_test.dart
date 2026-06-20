@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:celesteria/celesteria.dart';
-import 'package:celesteria/src/domain/diagnostics/diagnostics_domain.dart';
-import 'package:celesteria/src/domain/settings/settings_domain.dart';
-import 'package:celesteria/src/ui/detail/video_detail_page.dart';
-import 'package:celesteria/src/ui/media/media_library_page.dart';
-import 'package:celesteria/src/ui/playback/shell/celesteria_app_shell.dart';
-import 'package:celesteria/src/ui/theme/celesteria_theme.dart';
+import 'package:elaina/elaina.dart';
+import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/domain/settings/settings_domain.dart';
+import 'package:elaina/src/ui/detail/video_detail_page.dart';
+import 'package:elaina/src/ui/media/media_library_page.dart';
+import 'package:elaina/src/ui/playback/shell/elaina_app_shell.dart';
+import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -92,9 +92,9 @@ final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
 
 Widget _testHost({required Widget child}) {
   return MaterialApp(
-    home: CelesteriaTheme(
-      data: CelesteriaThemeData.dark,
-      mode: CelesteriaThemeMode.dark,
+    home: ElainaTheme(
+      data: ElainaThemeData.dark,
+      mode: ElainaThemeMode.dark,
       onModeChanged: (_) {},
       child: child,
     ),
@@ -301,7 +301,7 @@ void main() {
     });
   });
 
-  group('CelesteriaAppShell Integration Tests', () {
+  group('ElainaAppShell Integration Tests', () {
     testWidgets('navigation and detail page overlay toggles successfully',
         (WidgetTester tester) async {
       final DateTime now = DateTime.utc(2026, 6, 19, 12);
@@ -406,7 +406,7 @@ void main() {
 
       await tester.pumpWidget(
         _testHost(
-          child: CelesteriaAppShell(
+          child: ElainaAppShell(
             playbackController: playbackController,
             videoSurface: const SizedBox(),
             mediaLibraryRuntime: libraryRuntime,

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Network policy boundary SHALL cover provider-scoped DNS and proxy intent
-The network policy boundary SHALL treat per-domain DNS, DoH, DoT, direct routing, proxy tag, block, fallback, and audit behavior as provider-scoped declarative intent for Celesteria-managed provider traffic.
+The network policy boundary SHALL treat per-domain DNS, DoH, DoT, direct routing, proxy tag, block, fallback, and audit behavior as provider-scoped declarative intent for Elaina-managed provider traffic.
 
 #### Scenario: Provider request matches resolver policy
 - **WHEN** a provider-facing request matches a provider-scoped DNS, DoH, DoT, direct, proxy, or block rule

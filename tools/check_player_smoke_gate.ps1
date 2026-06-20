@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $libMpvFileName = 'libmpv-2.dll'
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("celesteria-player-smoke-" + [System.Guid]::NewGuid().ToString('N'))
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("elaina-player-smoke-" + [System.Guid]::NewGuid().ToString('N'))
 
 function Resolve-FullPath([string]$Path) {
   return [System.IO.Path]::GetFullPath($Path)
@@ -81,9 +81,9 @@ try {
   $distDir = Join-Path $tempRoot 'dist'
   New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
   New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-  Set-Content -LiteralPath (Join-Path $releaseDir 'Celesteria.exe') -Value 'temporary smoke executable'
+  Set-Content -LiteralPath (Join-Path $releaseDir 'Elaina.exe') -Value 'temporary smoke executable'
 
-  $zipPath = Join-Path $distDir 'celesteria-player-smoke.zip'
+  $zipPath = Join-Path $distDir 'elaina-player-smoke.zip'
   & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'package_windows_release.ps1') -ReleaseDir $releaseDir -LibMpvPath $resolvedLibMpv -OutputZip $zipPath
   if ($LASTEXITCODE -ne 0) {
     throw 'Windows release package smoke failed.'

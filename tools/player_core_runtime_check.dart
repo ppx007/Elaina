@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 import 'subtitle_runtime_check.dart';
 
 Future<void> main() async {

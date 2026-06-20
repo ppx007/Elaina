@@ -65,7 +65,8 @@ final class StoredManualChallengeRequestRecord {
     this.reason,
     Map<String, String> metadata = const <String, String>{},
   })  : assert(id != '', 'Manual challenge request id must not be empty.'),
-        assert(providerScope != '', 'Manual challenge provider scope must not be empty.'),
+        assert(providerScope != '',
+            'Manual challenge provider scope must not be empty.'),
         metadata = Map<String, String>.unmodifiable(metadata);
 
   final String id;
@@ -99,10 +100,13 @@ final class StoredWebViewSessionArtifactRecord {
     this.revokedAt,
     Map<String, String> metadata = const <String, String>{},
   })  : assert(id != '', 'WebView session artifact id must not be empty.'),
-        assert(challengeRequestId != '', 'Challenge request id must not be empty.'),
-        assert(providerScope != '', 'WebView session provider scope must not be empty.'),
+        assert(challengeRequestId != '',
+            'Challenge request id must not be empty.'),
+        assert(providerScope != '',
+            'WebView session provider scope must not be empty.'),
         assert(name != '', 'WebView session artifact name must not be empty.'),
-        assert(valueReference != '', 'WebView session value reference must not be empty.'),
+        assert(valueReference != '',
+            'WebView session value reference must not be empty.'),
         metadata = Map<String, String>.unmodifiable(metadata);
 
   final String id;
@@ -135,9 +139,12 @@ final class StoredWebViewSessionBackfillAttemptRecord {
     this.providerCacheKey,
     this.failureKind,
     this.message,
-  })  : assert(id != '', 'WebView session backfill attempt id must not be empty.'),
-        assert(challengeRequestId != '', 'Challenge request id must not be empty.'),
-        assert(providerScope != '', 'WebView session provider scope must not be empty.');
+  })  : assert(
+            id != '', 'WebView session backfill attempt id must not be empty.'),
+        assert(challengeRequestId != '',
+            'Challenge request id must not be empty.'),
+        assert(providerScope != '',
+            'WebView session provider scope must not be empty.');
 
   final String id;
   final String challengeRequestId;
@@ -157,8 +164,10 @@ final class StoredWebViewSessionCapabilityRecord {
     required this.state,
     required this.updatedAt,
     this.reason,
-  })  : assert(providerScope != '', 'WebView session provider scope must not be empty.'),
-        assert(capability != '', 'WebView session capability must not be empty.');
+  })  : assert(providerScope != '',
+            'WebView session provider scope must not be empty.'),
+        assert(
+            capability != '', 'WebView session capability must not be empty.');
 
   final String providerScope;
   final String capability;
@@ -193,7 +202,8 @@ abstract interface class WebViewSessionBackfillStore {
     required DateTime now,
   });
 
-  Future<void> revokeArtifact({required String artifactId, required DateTime revokedAt});
+  Future<void> revokeArtifact(
+      {required String artifactId, required DateTime revokedAt});
 
   Future<void> recordBackfillAttempt(
       StoredWebViewSessionBackfillAttemptRecord attempt);
@@ -230,7 +240,8 @@ final class DeterministicWebViewSessionBackfillStore
       <StoredWebViewSessionArtifactRecord>[
         for (final StoredWebViewSessionArtifactRecord artifact
             in _artifactsById.values)
-          if (artifact.providerScope == providerScope && _isActive(artifact, now))
+          if (artifact.providerScope == providerScope &&
+              _isActive(artifact, now))
             artifact,
       ],
     );
@@ -293,7 +304,8 @@ final class DeterministicWebViewSessionBackfillStore
     required String artifactId,
     required DateTime revokedAt,
   }) {
-    final StoredWebViewSessionArtifactRecord? artifact = _artifactsById[artifactId];
+    final StoredWebViewSessionArtifactRecord? artifact =
+        _artifactsById[artifactId];
     if (artifact != null) {
       _artifactsById[artifactId] = StoredWebViewSessionArtifactRecord(
         id: artifact.id,
@@ -328,7 +340,8 @@ final class DeterministicWebViewSessionBackfillStore
   }
 
   @override
-  Future<void> storeCapability(StoredWebViewSessionCapabilityRecord capability) {
+  Future<void> storeCapability(
+      StoredWebViewSessionCapabilityRecord capability) {
     _capabilities[_key(capability.providerScope, capability.capability)] =
         capability;
     return Future<void>.value();

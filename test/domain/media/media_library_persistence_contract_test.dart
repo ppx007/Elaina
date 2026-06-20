@@ -1,10 +1,15 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('catalog repository stores, updates, lists, and removes media items', () async {
-    final DeterministicMediaLibraryCatalogRepository repository = DeterministicMediaLibraryCatalogRepository();
-    final MediaLibraryItem item = _item(id: 'item-1', mediaId: 'media-1', uri: Uri.parse('file:///D:/media/episode-1.mkv'));
+  test('catalog repository stores, updates, lists, and removes media items',
+      () async {
+    final DeterministicMediaLibraryCatalogRepository repository =
+        DeterministicMediaLibraryCatalogRepository();
+    final MediaLibraryItem item = _item(
+        id: 'item-1',
+        mediaId: 'media-1',
+        uri: Uri.parse('file:///D:/media/episode-1.mkv'));
 
     final MediaLibraryItem stored = await repository.store(item);
     final MediaLibraryItem updated = MediaLibraryItem(
@@ -20,31 +25,45 @@ void main() {
     expect(await repository.count(), 1);
 
     await repository.update(updated);
-    expect((await repository.list()).single.duration, const Duration(minutes: 24));
+    expect(
+        (await repository.list()).single.duration, const Duration(minutes: 24));
     expect(await repository.remove(item.id), isTrue);
     expect(await repository.count(), 0);
   });
 
   test('batch import creates catalog items and skips URI duplicates', () async {
-    final DeterministicMediaLibraryCatalogRepository repository = DeterministicMediaLibraryCatalogRepository();
-    final MediaScanCandidate candidate = _candidate(mediaId: 'media-1', uri: Uri.parse('file:///D:/media/episode-1.mkv'));
-    final DeterministicMediaBatchImportContract importer = DeterministicMediaBatchImportContract(repository: repository);
+    final DeterministicMediaLibraryCatalogRepository repository =
+        DeterministicMediaLibraryCatalogRepository();
+    final MediaScanCandidate candidate = _candidate(
+        mediaId: 'media-1', uri: Uri.parse('file:///D:/media/episode-1.mkv'));
+    final DeterministicMediaBatchImportContract importer =
+        DeterministicMediaBatchImportContract(repository: repository);
 
-    final MediaImportResult firstImport = await importer.importBatch(<MediaScanCandidate>[candidate]);
-    final MediaImportResult secondImport = await importer.importBatch(<MediaScanCandidate>[candidate]);
+    final MediaImportResult firstImport =
+        await importer.importBatch(<MediaScanCandidate>[candidate]);
+    final MediaImportResult secondImport =
+        await importer.importBatch(<MediaScanCandidate>[candidate]);
 
     expect(firstImport.importedCount, 1);
     expect(firstImport.skippedDuplicateCount, 0);
     expect(secondImport.importedCount, 0);
     expect(secondImport.skippedDuplicateCount, 1);
-    expect(secondImport.skippedDuplicates.single.identity.uri, candidate.identity.uri);
+    expect(secondImport.skippedDuplicates.single.identity.uri,
+        candidate.identity.uri);
   });
 
-  test('batch import reports conflict when URI and fingerprint match different items', () async {
-    final MediaFileFingerprint fingerprint = const MediaFileFingerprint(algorithm: 'sha256', value: 'fingerprint-a');
-    final DeterministicMediaLibraryCatalogRepository repository = DeterministicMediaLibraryCatalogRepository(
+  test(
+      'batch import reports conflict when URI and fingerprint match different items',
+      () async {
+    final MediaFileFingerprint fingerprint =
+        const MediaFileFingerprint(algorithm: 'sha256', value: 'fingerprint-a');
+    final DeterministicMediaLibraryCatalogRepository repository =
+        DeterministicMediaLibraryCatalogRepository(
       seedItems: <MediaLibraryItem>[
-        _item(id: 'item-uri', mediaId: 'media-uri', uri: Uri.parse('file:///D:/media/conflict.mkv')),
+        _item(
+            id: 'item-uri',
+            mediaId: 'media-uri',
+            uri: Uri.parse('file:///D:/media/conflict.mkv')),
         _item(
           id: 'item-fingerprint',
           mediaId: 'media-fingerprint',
@@ -53,27 +72,46 @@ void main() {
         ),
       ],
     );
-    final DeterministicMediaBatchImportContract importer = DeterministicMediaBatchImportContract(repository: repository);
+    final DeterministicMediaBatchImportContract importer =
+        DeterministicMediaBatchImportContract(repository: repository);
 
-    final MediaImportResult result = await importer.importBatch(<MediaScanCandidate>[
-      _candidate(mediaId: 'media-candidate', uri: Uri.parse('file:///D:/media/conflict.mkv'), fingerprint: fingerprint),
+    final MediaImportResult result =
+        await importer.importBatch(<MediaScanCandidate>[
+      _candidate(
+          mediaId: 'media-candidate',
+          uri: Uri.parse('file:///D:/media/conflict.mkv'),
+          fingerprint: fingerprint),
     ]);
 
     expect(result.importedCount, 0);
     expect(result.failureCount, 1);
-    expect(result.failures.single.kind, MediaImportFailureKind.duplicateConflict);
+    expect(
+        result.failures.single.kind, MediaImportFailureKind.duplicateConflict);
   });
 
-  test('playback history records latest entries and continue watching summaries', () async {
-    final DeterministicPlaybackHistoryStore store = DeterministicPlaybackHistoryStore();
+  test(
+      'playback history records latest entries and continue watching summaries',
+      () async {
+    final DeterministicPlaybackHistoryStore store =
+        DeterministicPlaybackHistoryStore();
     final DateTime earlier = DateTime.utc(2026, 6, 4, 10, 0);
     final DateTime later = DateTime.utc(2026, 6, 4, 10, 5);
 
-    await store.record(_historyEntry(id: 'history-1', mediaId: 'media-1', position: const Duration(minutes: 2), updatedAt: earlier));
-    await store.record(_historyEntry(id: 'history-2', mediaId: 'media-1', position: const Duration(minutes: 8), updatedAt: later));
+    await store.record(_historyEntry(
+        id: 'history-1',
+        mediaId: 'media-1',
+        position: const Duration(minutes: 2),
+        updatedAt: earlier));
+    await store.record(_historyEntry(
+        id: 'history-2',
+        mediaId: 'media-1',
+        position: const Duration(minutes: 8),
+        updatedAt: later));
 
-    final PlaybackHistoryEntry? latest = await store.latestFor(const LocalMediaId('media-1'));
-    final List<ContinueWatchingState> summaries = await store.continueWatching(limit: 1);
+    final PlaybackHistoryEntry? latest =
+        await store.latestFor(const LocalMediaId('media-1'));
+    final List<ContinueWatchingState> summaries =
+        await store.continueWatching(limit: 1);
 
     expect(latest?.id.value, 'history-2');
     expect(summaries.single.mediaId.value, 'media-1');
@@ -82,7 +120,8 @@ void main() {
   });
 
   test('provider binding store preserves user-confirmed authority', () async {
-    final DeterministicProviderBindingStore store = DeterministicProviderBindingStore();
+    final DeterministicProviderBindingStore store =
+        DeterministicProviderBindingStore();
     final ProviderBinding automatic = _binding(
       id: 'binding-auto',
       mediaId: 'media-1',
@@ -97,8 +136,10 @@ void main() {
     );
 
     await store.saveUserConfirmed(confirmed);
-    final ProviderBinding savedAutomatic = await store.saveAutomaticIfAllowed(automatic);
-    final ProviderBinding? strongest = await store.bindingFor(const LocalMediaId('media-1'));
+    final ProviderBinding savedAutomatic =
+        await store.saveAutomaticIfAllowed(automatic);
+    final ProviderBinding? strongest =
+        await store.bindingFor(const LocalMediaId('media-1'));
 
     expect(savedAutomatic, confirmed);
     expect(strongest, confirmed);
@@ -108,7 +149,8 @@ void main() {
   test('cache invalidation bus publishes library and history events', () async {
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
     final DateTime observedAt = DateTime.utc(2026, 6, 4, 11, 0);
-    final Future<List<CacheInvalidationEvent>> publishedEvents = bus.events.take(2).toList();
+    final Future<List<CacheInvalidationEvent>> publishedEvents =
+        bus.events.take(2).toList();
 
     bus.publish(
       LibraryItemAdded(
@@ -117,11 +159,13 @@ void main() {
         localMediaId: 'media-1',
       ),
     );
-    bus.publish(HistoryRecorded(occurredAt: observedAt, localMediaId: 'media-1'));
+    bus.publish(
+        HistoryRecorded(occurredAt: observedAt, localMediaId: 'media-1'));
     final List<CacheInvalidationEvent> events = await publishedEvents;
     await bus.close();
 
-    expect(events.whereType<LibraryItemAdded>().single.changeKind, MediaLibraryChangeKind.created);
+    expect(events.whereType<LibraryItemAdded>().single.changeKind,
+        MediaLibraryChangeKind.created);
     expect(events.whereType<HistoryRecorded>().single.localMediaId, 'media-1');
   });
 }
@@ -139,14 +183,20 @@ MediaLibraryItem _item({
   );
 }
 
-MediaScanCandidate _candidate({required String mediaId, required Uri uri, MediaFileFingerprint? fingerprint}) {
+MediaScanCandidate _candidate(
+    {required String mediaId,
+    required Uri uri,
+    MediaFileFingerprint? fingerprint}) {
   return MediaScanCandidate(
     identity: _identity(mediaId: mediaId, uri: uri, fingerprint: fingerprint),
     sizeBytes: 42,
   );
 }
 
-LocalMediaIdentity _identity({required String mediaId, required Uri uri, MediaFileFingerprint? fingerprint}) {
+LocalMediaIdentity _identity(
+    {required String mediaId,
+    required Uri uri,
+    MediaFileFingerprint? fingerprint}) {
   return LocalMediaIdentity(
     id: LocalMediaId(mediaId),
     uri: uri,

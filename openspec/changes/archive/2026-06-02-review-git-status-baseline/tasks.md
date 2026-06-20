@@ -1,7 +1,7 @@
 ## 1. Read-only status capture
 
 - [x] 1.1 Confirm OpenSpec has no active changes before reviewing git status.
-- [x] 1.2 Run PowerShell-safe read-only git status commands with `GIT_MASTER=1` and `safe.directory` set for `D:/CodeWork/pkpk`.
+- [x] 1.2 Run PowerShell-safe read-only git status commands with `GIT_MASTER=1` and `safe.directory` set for `D:/CodeWork/elaina`.
 - [x] 1.3 Capture short status, porcelain status, name-status diff, diff stat, and untracked file list without staging or modifying files.
 
 ## 2. Dirty-tree classification

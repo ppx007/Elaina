@@ -29,14 +29,14 @@ If a legacy Trellis command is needed for archaeology, use `.trellis/scripts/` i
 
 ## Overview
 
-Celesteria (code name 1017) is an end-side-first cross-platform ACG player. The current repository is a Flutter/Dart contract scaffold with native playback, provider, streaming, storage, network, diagnostics, and UI boundary contracts.
+Elaina (code name 1017) is an end-side-first cross-platform ACG player. The current repository is a Flutter/Dart contract scaffold with native playback, provider, streaming, storage, network, diagnostics, and UI boundary contracts.
 
 The project is no longer a source-free planning repository. `lib/`, `test/`, `tools/`, `docs/`, and `openspec/` are project source-of-truth areas.
 
 ## Structure
 
 ```text
-pkpk/
+elaina/
 ├── AGENTS.md          # Current agent-facing project baseline
 ├── README.md          # Human project entrypoint and validation commands
 ├── analysis_options.yaml
@@ -59,14 +59,14 @@ pkpk/
 | Task | Location |
 |------|----------|
 | Current baseline and validation | `README.md` |
-| Architecture decisions | `docs/celesteria-architecture-plan.md` |
+| Architecture decisions | `docs/elaina-architecture-plan.md` |
 | Phase implementation docs | `docs/phase*.md` |
 | Stable process docs | `docs/process/` |
 | Cross-layer thinking | `docs/guides/cross-layer-thinking.md` |
 | Code reuse patterns | `docs/guides/code-reuse-thinking.md` |
 | Active specs | `openspec/specs/*/spec.md` |
 | Archived changes | `openspec/changes/archive/` |
-| Public Dart exports | `lib/celesteria.dart` |
+| Public Dart exports | `lib/elaina.dart` |
 | Local validation scripts | `tools/check_*.ps1` and `tools/*_runtime_check.dart` |
 
 ## Conventions

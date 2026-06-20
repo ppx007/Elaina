@@ -11,7 +11,7 @@
 
 - [x] 2.1 Consume existing subtitle cache contracts for provider search and content cache hit/miss behavior without introducing SQLite migrations, blob cache writes, file cache implementation, or persistent runtime caches.
 - [x] 2.2 Keep subtitle-provider runtime files provider-boundary-safe and ensure they do not import concrete Flutter widgets, storage implementations, RSS, seasonal indexer, BT, online-rule, diagnostics, advanced caption rendering, network clients, OpenSubtitles SDKs, scraping/crawler code, captcha automation, MPV/VLC, or native-player bindings.
-- [x] 2.3 Export only safe subtitle-provider runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter subtitle pages, concrete provider clients, or storage implementations.
+- [x] 2.3 Export only safe subtitle-provider runtime and contract surfaces through `lib/elaina.dart` without exporting concrete Flutter subtitle pages, concrete provider clients, or storage implementations.
 - [x] 2.4 Preserve existing subtitle runtime, media-library runtime, and detail/library/seasonal checker behavior while extending validation for the Step 15 subtitle-provider runtime slice.
 
 ## 3. Tests and Validation

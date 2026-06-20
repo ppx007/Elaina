@@ -22,7 +22,8 @@ enum BasicSubtitleRuntimeFailureKind {
 
 final class BasicSubtitleRuntimeFailure {
   const BasicSubtitleRuntimeFailure({required this.kind, required this.message})
-      : assert(message != '', 'Subtitle runtime failure message must not be empty.');
+      : assert(message != '',
+            'Subtitle runtime failure message must not be empty.');
 
   final BasicSubtitleRuntimeFailureKind kind;
   final String message;
@@ -62,12 +63,15 @@ final class BasicSubtitleRuntimeSnapshot {
 }
 
 final class BasicSubtitleLoadResult {
-  const BasicSubtitleLoadResult._({this.track, this.failure, this.warnings = const <String>[]});
+  const BasicSubtitleLoadResult._(
+      {this.track, this.failure, this.warnings = const <String>[]});
 
-  const BasicSubtitleLoadResult.loaded(SubtitleTrack track, {List<String> warnings = const <String>[]})
+  const BasicSubtitleLoadResult.loaded(SubtitleTrack track,
+      {List<String> warnings = const <String>[]})
       : this._(track: track, warnings: warnings);
 
-  const BasicSubtitleLoadResult.failure(BasicSubtitleRuntimeFailure failure) : this._(failure: failure);
+  const BasicSubtitleLoadResult.failure(BasicSubtitleRuntimeFailure failure)
+      : this._(failure: failure);
 
   final SubtitleTrack? track;
   final BasicSubtitleRuntimeFailure? failure;
@@ -79,11 +83,13 @@ final class BasicSubtitleLoadResult {
 final class BasicSubtitleScanResult {
   const BasicSubtitleScanResult._({required this.candidates, this.failure});
 
-  const BasicSubtitleScanResult.success(List<ExternalSubtitleCandidate> candidates)
+  const BasicSubtitleScanResult.success(
+      List<ExternalSubtitleCandidate> candidates)
       : this._(candidates: candidates);
 
   const BasicSubtitleScanResult.failure(BasicSubtitleRuntimeFailure failure)
-      : this._(candidates: const <ExternalSubtitleCandidate>[], failure: failure);
+      : this._(
+            candidates: const <ExternalSubtitleCandidate>[], failure: failure);
 
   final List<ExternalSubtitleCandidate> candidates;
   final BasicSubtitleRuntimeFailure? failure;
@@ -96,7 +102,9 @@ final class BasicSubtitleSelectionResult {
 
   const BasicSubtitleSelectionResult.selected() : this._();
 
-  const BasicSubtitleSelectionResult.failure(BasicSubtitleRuntimeFailure failure) : this._(failure: failure);
+  const BasicSubtitleSelectionResult.failure(
+      BasicSubtitleRuntimeFailure failure)
+      : this._(failure: failure);
 
   final BasicSubtitleRuntimeFailure? failure;
 
@@ -112,13 +120,16 @@ final class BasicSubtitleRuntime {
     SubtitleParserRegistry? parserRegistry,
     LocalExternalSubtitleScanner? scanner,
     SubtitleOffset offset = const SubtitleOffset(Duration.zero),
-  })  : _parserRegistry = parserRegistry ?? BasicSubtitleParserRegistry.defaults(),
+  })  : _parserRegistry =
+            parserRegistry ?? BasicSubtitleParserRegistry.defaults(),
         _scanner = scanner,
-        _snapshot = BasicSubtitleRuntimeSnapshot(status: BasicSubtitleRuntimeStatus.idle, offset: offset);
+        _snapshot = BasicSubtitleRuntimeSnapshot(
+            status: BasicSubtitleRuntimeStatus.idle, offset: offset);
 
   final SubtitleParserRegistry _parserRegistry;
   final LocalExternalSubtitleScanner? _scanner;
-  final List<BasicSubtitleRuntimeObserver> _observers = <BasicSubtitleRuntimeObserver>[];
+  final List<BasicSubtitleRuntimeObserver> _observers =
+      <BasicSubtitleRuntimeObserver>[];
   BasicSubtitleRuntimeSnapshot _snapshot;
   bool _disposed = false;
 
@@ -143,28 +154,36 @@ final class BasicSubtitleRuntime {
     if (_disposed) return BasicSubtitleScanResult.failure(_disposedFailure());
     final LocalExternalSubtitleScanner? scanner = _scanner;
     if (scanner == null) {
-      return const BasicSubtitleScanResult.success(<ExternalSubtitleCandidate>[]);
+      return const BasicSubtitleScanResult.success(
+          <ExternalSubtitleCandidate>[]);
     }
     _publish(_copySnapshot(status: BasicSubtitleRuntimeStatus.scanning));
-    final List<ExternalSubtitleCandidate> candidates = await scanner.scan(request);
+    final List<ExternalSubtitleCandidate> candidates =
+        await scanner.scan(request);
     _publish(_copySnapshot(status: BasicSubtitleRuntimeStatus.ready));
-    return BasicSubtitleScanResult.success(List<ExternalSubtitleCandidate>.unmodifiable(candidates));
+    return BasicSubtitleScanResult.success(
+        List<ExternalSubtitleCandidate>.unmodifiable(candidates));
   }
 
   Future<BasicSubtitleLoadResult> load(SubtitleParseRequest request) async {
     if (_disposed) return BasicSubtitleLoadResult.failure(_disposedFailure());
-    final SubtitleParser? parser = _parserRegistry.parserFor(request.source.format);
+    final SubtitleParser? parser =
+        _parserRegistry.parserFor(request.source.format);
     if (parser == null) {
       final BasicSubtitleRuntimeFailure failure = BasicSubtitleRuntimeFailure(
         kind: BasicSubtitleRuntimeFailureKind.unsupportedFormat,
         message: 'No parser is registered for ${request.source.format.name}.',
       );
-      _publish(_copySnapshot(status: BasicSubtitleRuntimeStatus.failed, failure: failure));
+      _publish(_copySnapshot(
+          status: BasicSubtitleRuntimeStatus.failed, failure: failure));
       return BasicSubtitleLoadResult.failure(failure);
     }
     try {
       final SubtitleParseResult result = await parser.parse(request);
-      final List<SubtitleTrack> tracks = <SubtitleTrack>[..._snapshot.loadedTracks, result.track];
+      final List<SubtitleTrack> tracks = <SubtitleTrack>[
+        ..._snapshot.loadedTracks,
+        result.track
+      ];
       _publish(
         BasicSubtitleRuntimeSnapshot(
           status: BasicSubtitleRuntimeStatus.ready,
@@ -175,20 +194,24 @@ final class BasicSubtitleRuntime {
           warnings: <String>[..._snapshot.warnings, ...result.warnings],
         ),
       );
-      return BasicSubtitleLoadResult.loaded(result.track, warnings: result.warnings);
+      return BasicSubtitleLoadResult.loaded(result.track,
+          warnings: result.warnings);
     } on Object catch (error) {
       final BasicSubtitleRuntimeFailure failure = BasicSubtitleRuntimeFailure(
         kind: BasicSubtitleRuntimeFailureKind.parseFailure,
         message: error.toString(),
       );
-      _publish(_copySnapshot(status: BasicSubtitleRuntimeStatus.failed, failure: failure));
+      _publish(_copySnapshot(
+          status: BasicSubtitleRuntimeStatus.failed, failure: failure));
       return BasicSubtitleLoadResult.failure(failure);
     }
   }
 
   BasicSubtitleSelectionResult select(SubtitleSource source) {
-    if (_disposed) return BasicSubtitleSelectionResult.failure(_disposedFailure());
-    final bool exists = _snapshot.loadedTracks.any((SubtitleTrack track) => track.source.id == source.id);
+    if (_disposed)
+      return BasicSubtitleSelectionResult.failure(_disposedFailure());
+    final bool exists = _snapshot.loadedTracks
+        .any((SubtitleTrack track) => track.source.id == source.id);
     if (!exists) {
       return const BasicSubtitleSelectionResult.failure(
         BasicSubtitleRuntimeFailure(
@@ -202,12 +225,17 @@ final class BasicSubtitleRuntime {
   }
 
   BasicSubtitleRuntimeSnapshot resolveActiveCues(PlayerClockSnapshot clock) {
-    if (_disposed) return _copySnapshot(status: BasicSubtitleRuntimeStatus.disposed, failure: _disposedFailure());
+    if (_disposed)
+      return _copySnapshot(
+          status: BasicSubtitleRuntimeStatus.disposed,
+          failure: _disposedFailure());
     final SubtitleSource? selected = _snapshot.selectedSource;
-    final SubtitleTrack? track = selected == null ? null : _trackForSource(selected);
+    final SubtitleTrack? track =
+        selected == null ? null : _trackForSource(selected);
     final List<SubtitleCue> active = track == null
         ? const <SubtitleCue>[]
-        : SubtitleCueResolver(offset: _snapshot.offset).activeCues(track: track, clock: clock);
+        : SubtitleCueResolver(offset: _snapshot.offset)
+            .activeCues(track: track, clock: clock);
     _publish(_copySnapshot(activeCues: active));
     return _snapshot;
   }
@@ -220,7 +248,9 @@ final class BasicSubtitleRuntime {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _publish(_copySnapshot(status: BasicSubtitleRuntimeStatus.disposed, failure: _disposedFailure()));
+    _publish(_copySnapshot(
+        status: BasicSubtitleRuntimeStatus.disposed,
+        failure: _disposedFailure()));
     _observers.clear();
   }
 
@@ -260,7 +290,8 @@ final class BasicSubtitleRuntime {
 
   void _publish(BasicSubtitleRuntimeSnapshot snapshot) {
     _snapshot = snapshot;
-    for (final BasicSubtitleRuntimeObserver observer in List<BasicSubtitleRuntimeObserver>.of(_observers)) {
+    for (final BasicSubtitleRuntimeObserver observer
+        in List<BasicSubtitleRuntimeObserver>.of(_observers)) {
       observer.onSubtitleRuntimeSnapshot(snapshot);
     }
   }

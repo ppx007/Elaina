@@ -1,4 +1,4 @@
-﻿import "cache_invalidation/cache_invalidation_bus.dart";
+import "cache_invalidation/cache_invalidation_bus.dart";
 import "gateway/provider_gateway.dart";
 import "layers/layer_manifest.dart";
 import "storage/storage_contracts.dart";
@@ -26,8 +26,8 @@ final class FoundationRuntime {
   final ProviderGateway _gateway;
   bool _disposed = false;
 
-  /// The layer manifest for the 8-layer Celesteria architecture.
-  static const List<LayerBoundary> layerManifest = celesteriaLayerManifest;
+  /// The layer manifest for the 8-layer Elaina architecture.
+  static const List<LayerBoundary> layerManifest = elainaLayerManifest;
 
   /// Storage foundation exposing all local store contracts.
   StorageFoundation get storage {
@@ -176,8 +176,7 @@ final class DeterministicProviderGateway implements ProviderGateway {
 
   void _checkNotClosed() {
     if (_closed) {
-      throw StateError(
-          "DeterministicProviderGateway has been closed.");
+      throw StateError("DeterministicProviderGateway has been closed.");
     }
   }
 

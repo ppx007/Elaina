@@ -1,6 +1,6 @@
 ## Why
 
-Celesteria has completed and archived the Step 1-30 contract bootstrap, so the workspace needs a stable repository baseline before further implementation work. Trellis is no longer the active workflow authority, but `.trellis/` remnants still exist and the repository lacks root hygiene such as `.gitignore`, so closeout must preserve useful history while shifting the project to OpenSpec plus git as the durable baseline.
+Elaina has completed and archived the Step 1-30 contract bootstrap, so the workspace needs a stable repository baseline before further implementation work. Trellis is no longer the active workflow authority, but `.trellis/` remnants still exist and the repository lacks root hygiene such as `.gitignore`, so closeout must preserve useful history while shifting the project to OpenSpec plus git as the durable baseline.
 
 ## What Changes
 
@@ -14,7 +14,7 @@ Celesteria has completed and archived the Step 1-30 contract bootstrap, so the w
 ## Capabilities
 
 ### New Capabilities
-- `repository-baseline`: Defines repository initialization, hygiene, Trellis closeout, validation, and commit-readiness requirements for the post-bootstrap Celesteria workspace.
+- `repository-baseline`: Defines repository initialization, hygiene, Trellis closeout, validation, and commit-readiness requirements for the post-bootstrap Elaina workspace.
 
 ### Modified Capabilities
 

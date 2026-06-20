@@ -26,7 +26,7 @@ The VLC fallback adapter contract layer (Step 25) defines how playback switches 
 ## Impact
 
 - New file: `lib/src/playback/fallback_adapter_runtime.dart` (runtime + bootstrap + projections + failure kinds)
-- Modified: `lib/celesteria.dart` (add barrel export for runtime)
+- Modified: `lib/elaina.dart` (add barrel export for runtime)
 - New test: `test/playback/fallback_adapter_runtime_test.dart`
 - New tools: `tools/fallback_adapter_runtime_check.dart`, `tools/check_fallback_adapter_runtime.ps1`
 - New OpenSpec capability: `phase5-vlc-fallback-adapter-runtime`

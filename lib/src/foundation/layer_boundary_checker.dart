@@ -1,4 +1,4 @@
-﻿import 'layers/layer_manifest.dart';
+import 'layers/layer_manifest.dart';
 
 /// Deterministic layer-boundary metadata for Phase 0 foundation bootstrap.
 ///
@@ -75,7 +75,7 @@ final class LayerBoundaryChecker {
     'ProviderGateway',
     'CacheInvalidationBus',
     'LayerBoundary',
-    'celesteriaLayerManifest',
+    'elainaLayerManifest',
   };
 
   /// Checks that [content] does not contain any forbidden foundation terms.
@@ -110,9 +110,9 @@ final class LayerBoundaryChecker {
   static List<String> validateManifest() {
     final List<String> errors = <String>[];
     final Set<LayerId> declaredIds =
-        celesteriaLayerManifest.map((LayerBoundary b) => b.id).toSet();
+        elainaLayerManifest.map((LayerBoundary b) => b.id).toSet();
 
-    for (final LayerBoundary boundary in celesteriaLayerManifest) {
+    for (final LayerBoundary boundary in elainaLayerManifest) {
       for (final LayerId dep in boundary.allowedDependencies) {
         if (!declaredIds.contains(dep)) {
           errors.add(

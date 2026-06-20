@@ -1,6 +1,6 @@
 ## Why
 
-Phase 0 now has an executable foundation bootstrap, but Phase 1 player core surfaces still live as separate contracts and checker slices rather than a lifecycle-managed runtime. The next architecture-plan slice is Phase 1 / Step 5-8, so Celesteria needs a composed player-core bootstrap before moving into ACG data, BT streaming, advanced playback, or application shell work.
+Phase 0 now has an executable foundation bootstrap, but Phase 1 player core surfaces still live as separate contracts and checker slices rather than a lifecycle-managed runtime. The next architecture-plan slice is Phase 1 / Step 5-8, so Elaina needs a composed player-core bootstrap before moving into ACG data, BT streaming, advanced playback, or application shell work.
 
 ## What Changes
 
@@ -27,6 +27,6 @@ Phase 0 now has an executable foundation bootstrap, but Phase 1 player core surf
 ## Impact
 
 - New player-core runtime/bootstrap files under `lib/src/domain/playback/` plus deterministic binding scaffolding under `lib/src/playback/`.
-- Public barrel exports in `lib/celesteria.dart` for contract-safe player-core runtime surfaces.
+- Public barrel exports in `lib/elaina.dart` for contract-safe player-core runtime surfaces.
 - Focused tests under `test/playback/` and checker updates in `tools/`.
 - OpenSpec deltas for the new runtime capability and the existing Phase 1 playback/layering capabilities listed above.

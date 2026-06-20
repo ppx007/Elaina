@@ -22,8 +22,10 @@ enum SubtitleProviderRuntimeFailureKind {
 }
 
 final class SubtitleProviderRuntimeFailure {
-  const SubtitleProviderRuntimeFailure({required this.kind, required this.message})
-      : assert(message != '', 'Subtitle provider runtime failure message must not be empty.');
+  const SubtitleProviderRuntimeFailure(
+      {required this.kind, required this.message})
+      : assert(message != '',
+            'Subtitle provider runtime failure message must not be empty.');
 
   final SubtitleProviderRuntimeFailureKind kind;
   final String message;
@@ -38,29 +40,38 @@ enum SubtitleProviderActionResultKind {
 }
 
 final class SubtitleProviderActionResult<T> {
-  const SubtitleProviderActionResult._({required this.kind, this.value, this.failure});
+  const SubtitleProviderActionResult._(
+      {required this.kind, this.value, this.failure});
 
-  const SubtitleProviderActionResult.success([T? value]) : this._(kind: SubtitleProviderActionResultKind.success, value: value);
+  const SubtitleProviderActionResult.success([T? value])
+      : this._(kind: SubtitleProviderActionResultKind.success, value: value);
 
   SubtitleProviderActionResult.unavailable(String message)
       : this._(
           kind: SubtitleProviderActionResultKind.unavailable,
-          failure: SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.unavailable, message: message),
+          failure: SubtitleProviderRuntimeFailure(
+              kind: SubtitleProviderRuntimeFailureKind.unavailable,
+              message: message),
         );
 
   SubtitleProviderActionResult.unsupported(String message)
       : this._(
           kind: SubtitleProviderActionResultKind.unsupported,
-          failure: SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.unsupported, message: message),
+          failure: SubtitleProviderRuntimeFailure(
+              kind: SubtitleProviderRuntimeFailureKind.unsupported,
+              message: message),
         );
 
   SubtitleProviderActionResult.ignored(String message)
       : this._(
           kind: SubtitleProviderActionResultKind.ignored,
-          failure: SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.unavailable, message: message),
+          failure: SubtitleProviderRuntimeFailure(
+              kind: SubtitleProviderRuntimeFailureKind.unavailable,
+              message: message),
         );
 
-  const SubtitleProviderActionResult.failed(SubtitleProviderRuntimeFailure failure)
+  const SubtitleProviderActionResult.failed(
+      SubtitleProviderRuntimeFailure failure)
       : this._(kind: SubtitleProviderActionResultKind.failed, failure: failure);
 
   final SubtitleProviderActionResultKind kind;
@@ -74,14 +85,22 @@ final class SubtitleProviderRuntimeSnapshot {
   SubtitleProviderRuntimeSnapshot({
     required this.status,
     this.request,
-    Iterable<LocalSubtitleDiscoveryCandidate> localCandidates = const <LocalSubtitleDiscoveryCandidate>[],
-    Iterable<ProviderSubtitleDiscoveryCandidate> providerCandidates = const <ProviderSubtitleDiscoveryCandidate>[],
-    Iterable<SubtitleDiscoveryProviderFailure> providerFailures = const <SubtitleDiscoveryProviderFailure>[],
+    Iterable<LocalSubtitleDiscoveryCandidate> localCandidates =
+        const <LocalSubtitleDiscoveryCandidate>[],
+    Iterable<ProviderSubtitleDiscoveryCandidate> providerCandidates =
+        const <ProviderSubtitleDiscoveryCandidate>[],
+    Iterable<SubtitleDiscoveryProviderFailure> providerFailures =
+        const <SubtitleDiscoveryProviderFailure>[],
     this.handoff,
-    Iterable<SubtitleProviderRuntimeFailure> failures = const <SubtitleProviderRuntimeFailure>[],
-  })  : localCandidates = List<LocalSubtitleDiscoveryCandidate>.unmodifiable(localCandidates),
-        providerCandidates = List<ProviderSubtitleDiscoveryCandidate>.unmodifiable(providerCandidates),
-        providerFailures = List<SubtitleDiscoveryProviderFailure>.unmodifiable(providerFailures),
+    Iterable<SubtitleProviderRuntimeFailure> failures =
+        const <SubtitleProviderRuntimeFailure>[],
+  })  : localCandidates =
+            List<LocalSubtitleDiscoveryCandidate>.unmodifiable(localCandidates),
+        providerCandidates =
+            List<ProviderSubtitleDiscoveryCandidate>.unmodifiable(
+                providerCandidates),
+        providerFailures = List<SubtitleDiscoveryProviderFailure>.unmodifiable(
+            providerFailures),
         failures = List<SubtitleProviderRuntimeFailure>.unmodifiable(failures);
 
   const SubtitleProviderRuntimeSnapshot.idle()
@@ -103,15 +122,19 @@ final class SubtitleProviderRuntimeSnapshot {
 }
 
 abstract interface class SubtitleProviderRuntimeObserver {
-  void onSubtitleProviderRuntimeSnapshot(SubtitleProviderRuntimeSnapshot snapshot);
+  void onSubtitleProviderRuntimeSnapshot(
+      SubtitleProviderRuntimeSnapshot snapshot);
 }
 
 final class SubtitleProviderRuntime {
-  SubtitleProviderRuntime({required SubtitleDiscoveryContract discovery}) : _discovery = discovery;
+  SubtitleProviderRuntime({required SubtitleDiscoveryContract discovery})
+      : _discovery = discovery;
 
   final SubtitleDiscoveryContract _discovery;
-  final List<SubtitleProviderRuntimeObserver> _observers = <SubtitleProviderRuntimeObserver>[];
-  SubtitleProviderRuntimeSnapshot _snapshot = const SubtitleProviderRuntimeSnapshot.idle();
+  final List<SubtitleProviderRuntimeObserver> _observers =
+      <SubtitleProviderRuntimeObserver>[];
+  SubtitleProviderRuntimeSnapshot _snapshot =
+      const SubtitleProviderRuntimeSnapshot.idle();
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
@@ -119,7 +142,8 @@ final class SubtitleProviderRuntime {
   SubtitleProviderRuntimeSnapshot get currentSnapshot => _snapshot;
 
   void addObserver(SubtitleProviderRuntimeObserver observer) {
-    if (_disposed) throw StateError('SubtitleProviderRuntime has been disposed.');
+    if (_disposed)
+      throw StateError('SubtitleProviderRuntime has been disposed.');
     if (!_observers.contains(observer)) _observers.add(observer);
   }
 
@@ -127,26 +151,36 @@ final class SubtitleProviderRuntime {
     _observers.remove(observer);
   }
 
-  Future<SubtitleProviderActionResult<SubtitleDiscoveryResult>> discover(SubtitleDiscoveryRequest request) async {
+  Future<SubtitleProviderActionResult<SubtitleDiscoveryResult>> discover(
+      SubtitleDiscoveryRequest request) async {
     if (_disposed) return _disposedResult();
-    _publish(SubtitleProviderRuntimeSnapshot(status: SubtitleProviderRuntimeStatus.searching, request: request));
+    _publish(SubtitleProviderRuntimeSnapshot(
+        status: SubtitleProviderRuntimeStatus.searching, request: request));
     final SubtitleDiscoveryResult result = await _discovery.discover(request);
-    final List<SubtitleProviderRuntimeFailure> failures = <SubtitleProviderRuntimeFailure>[
-      for (final SubtitleDiscoveryProviderFailure failure in result.providerFailures)
-        SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.providerFailure, message: failure.message),
+    final List<SubtitleProviderRuntimeFailure> failures =
+        <SubtitleProviderRuntimeFailure>[
+      for (final SubtitleDiscoveryProviderFailure failure
+          in result.providerFailures)
+        SubtitleProviderRuntimeFailure(
+            kind: SubtitleProviderRuntimeFailureKind.providerFailure,
+            message: failure.message),
     ];
     _publish(SubtitleProviderRuntimeSnapshot(
-      status: failures.isEmpty ? SubtitleProviderRuntimeStatus.ready : SubtitleProviderRuntimeStatus.failed,
+      status: failures.isEmpty
+          ? SubtitleProviderRuntimeStatus.ready
+          : SubtitleProviderRuntimeStatus.failed,
       request: request,
       localCandidates: result.localCandidates,
       providerCandidates: result.providerCandidates,
       providerFailures: result.providerFailures,
       failures: failures,
     ));
-    return SubtitleProviderActionResult<SubtitleDiscoveryResult>.success(result);
+    return SubtitleProviderActionResult<SubtitleDiscoveryResult>.success(
+        result);
   }
 
-  Future<SubtitleProviderActionResult<SubtitleProviderHandoffResult>> prepareProviderSubtitle(SubtitleProviderCandidate candidate) async {
+  Future<SubtitleProviderActionResult<SubtitleProviderHandoffResult>>
+      prepareProviderSubtitle(SubtitleProviderCandidate candidate) async {
     if (_disposed) return _disposedResult();
     _publish(SubtitleProviderRuntimeSnapshot(
       status: SubtitleProviderRuntimeStatus.retrieving,
@@ -155,11 +189,14 @@ final class SubtitleProviderRuntime {
       providerCandidates: _snapshot.providerCandidates,
       providerFailures: _snapshot.providerFailures,
     ));
-    final SubtitleProviderHandoffResult result = await _discovery.prepareProviderSubtitle(candidate);
+    final SubtitleProviderHandoffResult result =
+        await _discovery.prepareProviderSubtitle(candidate);
     if (!result.isSuccess) {
-      final SubtitleProviderRuntimeFailure failure = SubtitleProviderRuntimeFailure(
+      final SubtitleProviderRuntimeFailure failure =
+          SubtitleProviderRuntimeFailure(
         kind: SubtitleProviderRuntimeFailureKind.retrievalFailed,
-        message: result.failure?.message ?? 'Subtitle provider retrieval failed.',
+        message:
+            result.failure?.message ?? 'Subtitle provider retrieval failed.',
       );
       _publish(SubtitleProviderRuntimeSnapshot(
         status: SubtitleProviderRuntimeStatus.failed,
@@ -170,7 +207,8 @@ final class SubtitleProviderRuntime {
         handoff: result,
         failures: <SubtitleProviderRuntimeFailure>[failure],
       ));
-      return SubtitleProviderActionResult<SubtitleProviderHandoffResult>.failed(failure);
+      return SubtitleProviderActionResult<SubtitleProviderHandoffResult>.failed(
+          failure);
     }
     _publish(SubtitleProviderRuntimeSnapshot(
       status: SubtitleProviderRuntimeStatus.ready,
@@ -180,18 +218,25 @@ final class SubtitleProviderRuntime {
       providerFailures: _snapshot.providerFailures,
       handoff: result,
     ));
-    return SubtitleProviderActionResult<SubtitleProviderHandoffResult>.success(result);
+    return SubtitleProviderActionResult<SubtitleProviderHandoffResult>.success(
+        result);
   }
 
-  Future<SubtitleProviderActionResult<SubtitleParseRequest>> prepareParserRequest(SubtitleProviderCandidate candidate) async {
-    final SubtitleProviderActionResult<SubtitleProviderHandoffResult> result = await prepareProviderSubtitle(candidate);
+  Future<SubtitleProviderActionResult<SubtitleParseRequest>>
+      prepareParserRequest(SubtitleProviderCandidate candidate) async {
+    final SubtitleProviderActionResult<SubtitleProviderHandoffResult> result =
+        await prepareProviderSubtitle(candidate);
     final SubtitleParseRequest? parseRequest = result.value?.parseRequest;
     if (!result.isSuccess || parseRequest == null) {
       return SubtitleProviderActionResult<SubtitleParseRequest>.failed(
-        result.failure ?? const SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.retrievalFailed, message: 'Subtitle parser request is unavailable.'),
+        result.failure ??
+            const SubtitleProviderRuntimeFailure(
+                kind: SubtitleProviderRuntimeFailureKind.retrievalFailed,
+                message: 'Subtitle parser request is unavailable.'),
       );
     }
-    return SubtitleProviderActionResult<SubtitleParseRequest>.success(parseRequest);
+    return SubtitleProviderActionResult<SubtitleParseRequest>.success(
+        parseRequest);
   }
 
   void dispose() {
@@ -205,7 +250,9 @@ final class SubtitleProviderRuntime {
       providerFailures: _snapshot.providerFailures,
       handoff: _snapshot.handoff,
       failures: const <SubtitleProviderRuntimeFailure>[
-        SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.disposed, message: 'SubtitleProviderRuntime has been disposed.'),
+        SubtitleProviderRuntimeFailure(
+            kind: SubtitleProviderRuntimeFailureKind.disposed,
+            message: 'SubtitleProviderRuntime has been disposed.'),
       ],
     ));
     _observers.clear();
@@ -213,14 +260,17 @@ final class SubtitleProviderRuntime {
 
   void _publish(SubtitleProviderRuntimeSnapshot snapshot) {
     _snapshot = snapshot;
-    for (final SubtitleProviderRuntimeObserver observer in List<SubtitleProviderRuntimeObserver>.of(_observers)) {
+    for (final SubtitleProviderRuntimeObserver observer
+        in List<SubtitleProviderRuntimeObserver>.of(_observers)) {
       observer.onSubtitleProviderRuntimeSnapshot(snapshot);
     }
   }
 
   SubtitleProviderActionResult<T> _disposedResult<T>() {
     return SubtitleProviderActionResult<T>.failed(
-      const SubtitleProviderRuntimeFailure(kind: SubtitleProviderRuntimeFailureKind.disposed, message: 'SubtitleProviderRuntime has been disposed.'),
+      const SubtitleProviderRuntimeFailure(
+          kind: SubtitleProviderRuntimeFailureKind.disposed,
+          message: 'SubtitleProviderRuntime has been disposed.'),
     );
   }
 }
@@ -244,13 +294,17 @@ final class SubtitleProviderBootstrap {
 
   final SubtitleProviderRuntime runtime;
 
-  Future<SubtitleProviderActionResult<SubtitleDiscoveryResult>> discover(SubtitleDiscoveryRequest request) => runtime.discover(request);
+  Future<SubtitleProviderActionResult<SubtitleDiscoveryResult>> discover(
+          SubtitleDiscoveryRequest request) =>
+      runtime.discover(request);
 
-  Future<SubtitleProviderActionResult<SubtitleProviderHandoffResult>> prepareProviderSubtitle(SubtitleProviderCandidate candidate) {
+  Future<SubtitleProviderActionResult<SubtitleProviderHandoffResult>>
+      prepareProviderSubtitle(SubtitleProviderCandidate candidate) {
     return runtime.prepareProviderSubtitle(candidate);
   }
 
-  Future<SubtitleProviderActionResult<SubtitleParseRequest>> prepareParserRequest(SubtitleProviderCandidate candidate) {
+  Future<SubtitleProviderActionResult<SubtitleParseRequest>>
+      prepareParserRequest(SubtitleProviderCandidate candidate) {
     return runtime.prepareParserRequest(candidate);
   }
 

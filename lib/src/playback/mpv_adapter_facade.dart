@@ -21,7 +21,8 @@ abstract interface class MpvAdapterBinding {
 }
 
 final class MpvPlayerAdapterFacade implements PlayerAdapter {
-  const MpvPlayerAdapterFacade.unsupported({String reason = 'MPV binding is unavailable.'})
+  const MpvPlayerAdapterFacade.unsupported(
+      {String reason = 'MPV binding is unavailable.'})
       : _binding = null,
         _boundCapabilities = null,
         _unavailableReason = reason;
@@ -61,10 +62,14 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
             PlaybackCapability.seek: CapabilityStatus.supported(),
             PlaybackCapability.stop: CapabilityStatus.supported(),
             PlaybackCapability.progressReporting: CapabilityStatus.supported(),
-            PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
-            PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
-            PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
-            PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+            PlaybackCapability.audioTrackDiscovery:
+                CapabilityStatus.supported(),
+            PlaybackCapability.audioTrackSwitching:
+                CapabilityStatus.supported(),
+            PlaybackCapability.subtitleTrackDiscovery:
+                CapabilityStatus.supported(),
+            PlaybackCapability.subtitleTrackSwitching:
+                CapabilityStatus.supported(),
             PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
           },
         );
@@ -135,7 +140,8 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
   Future<TrackDiscoveryResult> discoverTracks() async {
     final MpvAdapterBinding? binding = _binding;
     if (binding == null) {
-      return TrackDiscoveryResult.unsupported(reason: _bindingUnavailableMessage);
+      return TrackDiscoveryResult.unsupported(
+          reason: _bindingUnavailableMessage);
     }
     return binding.discoverTracks();
   }

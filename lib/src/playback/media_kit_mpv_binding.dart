@@ -14,7 +14,7 @@ import 'video_enhancement_pipeline.dart';
 typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
 
 const String windowsLibMpvFileName = 'libmpv-2.dll';
-const String celesteriaLibMpvPathEnvironmentKey = 'CELESTERIA_LIBMPV_PATH';
+const String elainaLibMpvPathEnvironmentKey = 'CELESTERIA_LIBMPV_PATH';
 const String mpvEnhancementScaleProperty = 'scale';
 const String mpvEnhancementChromaScaleProperty = 'cscale';
 const String mpvEnhancementToneMappingProperty = 'tone-mapping';
@@ -844,7 +844,7 @@ final class BundledMpvLibraryResolver {
 
     final Map<String, String> env = environment ?? Platform.environment;
     final String? envCandidate = _resolveCandidate(
-      env[celesteriaLibMpvPathEnvironmentKey],
+      env[elainaLibMpvPathEnvironmentKey],
       fileExists: doesFileExist,
       directoryExists: doesDirectoryExist,
     );

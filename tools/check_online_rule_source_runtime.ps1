@@ -61,7 +61,7 @@ foreach ($term in $requiredStep48Terms) {
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 foreach ($export in @(
   'src/provider/online/online_rule_runtime.dart',
   'src/provider/online/online_rule_source_runtime.dart'

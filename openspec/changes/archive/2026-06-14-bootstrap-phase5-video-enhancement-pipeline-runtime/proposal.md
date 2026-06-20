@@ -25,6 +25,6 @@ Phase 5 Step 22 needs a runtime acceptance layer for the existing declarative vi
 
 ## Impact
 
-- Affected production code: `lib/src/playback/video_enhancement_pipeline.dart`, new `lib/src/playback/video_enhancement_pipeline_runtime.dart`, `lib/src/foundation/storage/video_enhancement_storage_contracts.dart`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, and `lib/celesteria.dart`.
+- Affected production code: `lib/src/playback/video_enhancement_pipeline.dart`, new `lib/src/playback/video_enhancement_pipeline_runtime.dart`, `lib/src/foundation/storage/video_enhancement_storage_contracts.dart`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, and `lib/elaina.dart`.
 - Affected tests/tools: new `test/playback/video_enhancement_pipeline_runtime_test.dart`, `tools/video_enhancement_pipeline_runtime_check.dart`, and `tools/check_video_enhancement_pipeline_runtime.ps1`; existing contract tests remain regression gates.
 - No new package dependencies, native bindings, renderer integrations, platform channels, UI components, diagnostics center behavior, or AVSyncGuard policy implementation are introduced.

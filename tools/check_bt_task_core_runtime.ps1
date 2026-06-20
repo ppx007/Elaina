@@ -74,7 +74,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/streaming/bt_task_core_runtime.dart';")) {
   throw 'Public Dart contract barrel missing BT task core runtime export.'
 }

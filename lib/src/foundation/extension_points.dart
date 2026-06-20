@@ -1,9 +1,9 @@
-abstract interface class CelesteriaAdapter {
+abstract interface class ElainaAdapter {
   String get id;
   String get displayName;
 }
 
-abstract interface class ProviderContract extends CelesteriaAdapter {
+abstract interface class ProviderContract extends ElainaAdapter {
   ProviderKind get kind;
 }
 

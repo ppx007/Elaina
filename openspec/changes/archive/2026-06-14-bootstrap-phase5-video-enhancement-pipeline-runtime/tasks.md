@@ -12,7 +12,7 @@
 - [x] 2.3 Implement unavailable and disposed runtime gates that return typed outcomes without mutating storage or invoking native renderer behavior.
 - [x] 2.4 Reconstruct active profile, latest pipeline state, support status, failure reason, render budget pressure, and degradation target from storage-safe contracts.
 - [x] 2.5 Publish enhancement invalidations only after corresponding profile or pipeline state is readable through storage or runtime projection contracts.
-- [x] 2.6 Export the Step 22 runtime/bootstrap surface from `lib/celesteria.dart`.
+- [x] 2.6 Export the Step 22 runtime/bootstrap surface from `lib/elaina.dart`.
 
 ## 3. Contract Preservation and Storage Boundaries
 

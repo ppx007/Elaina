@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -174,7 +174,8 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      expect(events.whereType<WebViewSessionArtifactStateChanged>(), isNotEmpty);
+      expect(
+          events.whereType<WebViewSessionArtifactStateChanged>(), isNotEmpty);
       await subscription.cancel();
     });
 
@@ -200,23 +201,39 @@ void main() {
 
       expect((await runtime.snapshot('provider-a')).failure?.kind,
           WebViewSessionBackfillRuntimeFailureKind.unavailable);
-      expect((await runtime.completeManually(
-        providerScope: 'provider-a',
-        request: _manualRequest(),
-      )).failure?.kind, WebViewSessionBackfillRuntimeFailureKind.unavailable);
-      expect((await runtime.prepareRetry(
-        providerScope: 'provider-a',
-        requestUri: Uri.parse('https://provider.example.test/resource'),
-      )).failure?.kind, WebViewSessionBackfillRuntimeFailureKind.unavailable);
-      expect((await runtime.revokeArtifact(
-        providerScope: 'provider-a',
-        artifactId: 'artifact-1',
-      )).failure?.kind, WebViewSessionBackfillRuntimeFailureKind.unavailable);
-      expect((await runtime.recordCapability(
-        providerScope: 'provider-a',
-        capability: WebViewSessionCapability.isolatedWebView,
-        supported: false,
-      )).failure?.kind, WebViewSessionBackfillRuntimeFailureKind.unavailable);
+      expect(
+          (await runtime.completeManually(
+            providerScope: 'provider-a',
+            request: _manualRequest(),
+          ))
+              .failure
+              ?.kind,
+          WebViewSessionBackfillRuntimeFailureKind.unavailable);
+      expect(
+          (await runtime.prepareRetry(
+            providerScope: 'provider-a',
+            requestUri: Uri.parse('https://provider.example.test/resource'),
+          ))
+              .failure
+              ?.kind,
+          WebViewSessionBackfillRuntimeFailureKind.unavailable);
+      expect(
+          (await runtime.revokeArtifact(
+            providerScope: 'provider-a',
+            artifactId: 'artifact-1',
+          ))
+              .failure
+              ?.kind,
+          WebViewSessionBackfillRuntimeFailureKind.unavailable);
+      expect(
+          (await runtime.recordCapability(
+            providerScope: 'provider-a',
+            capability: WebViewSessionCapability.isolatedWebView,
+            supported: false,
+          ))
+              .failure
+              ?.kind,
+          WebViewSessionBackfillRuntimeFailureKind.unavailable);
     });
 
     test('disposed runtime rejects snapshot', () async {
@@ -234,7 +251,8 @@ void main() {
           WebViewSessionBackfillRuntimeFailureKind.disposed);
     });
 
-    test('restart projection replays stored challenge artifact and attempt state',
+    test(
+        'restart projection replays stored challenge artifact and attempt state',
         () async {
       final runtime = _runtime(
         providerScope: 'provider-a',
@@ -263,7 +281,8 @@ void main() {
           state: StoredWebViewSessionArtifactState.approved,
         ),
       ]);
-      await store.recordBackfillAttempt(StoredWebViewSessionBackfillAttemptRecord(
+      await store
+          .recordBackfillAttempt(StoredWebViewSessionBackfillAttemptRecord(
         id: 'attempt-1',
         challengeRequestId: 'challenge-1',
         providerScope: 'provider-a',
@@ -303,7 +322,8 @@ final class _UnsupportedBackfill implements WebViewSessionBackfill {
   @override
   WebViewSessionCapabilityMatrix get capabilities =>
       WebViewSessionCapabilityMatrix(
-        capabilities: <WebViewSessionCapability, WebViewSessionCapabilityStatus>{
+        capabilities: <WebViewSessionCapability,
+            WebViewSessionCapabilityStatus>{
           WebViewSessionCapability.isolatedWebView:
               WebViewSessionCapabilityStatus.supported(),
           WebViewSessionCapability.cookieCapture:

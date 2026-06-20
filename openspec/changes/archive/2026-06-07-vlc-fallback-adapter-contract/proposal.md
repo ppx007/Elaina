@@ -26,7 +26,7 @@ Phase 5 Step 25 is the final advanced playback contract slice: fallback from the
 
 ## Impact
 
-- Affected Dart contracts: `lib/src/playback/fallback_adapter.dart`, `lib/src/playback/capability_matrix.dart`, `lib/src/foundation/storage/storage_contracts.dart`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, and `lib/celesteria.dart`.
+- Affected Dart contracts: `lib/src/playback/fallback_adapter.dart`, `lib/src/playback/capability_matrix.dart`, `lib/src/foundation/storage/storage_contracts.dart`, `lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart`, and `lib/elaina.dart`.
 - New storage contract file expected under `lib/src/foundation/storage/` for fallback adapter persistence.
 - Verification updates expected in `test/playback/`, `tools/player_core_runtime_check.dart`, `tools/check_advanced_playback_core.ps1`, and `docs/phase5-advanced-playback-core.md`.
 - No new external dependencies, native bindings, VLC packages, Flutter widgets, diagnostics center integration, RSS automation, online rule runtime, WebView handling, DNS/network policy, or Phase 6 provider automation.

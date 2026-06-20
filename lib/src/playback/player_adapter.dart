@@ -3,7 +3,8 @@ import 'capability_matrix.dart';
 import 'track_management.dart';
 
 abstract class PlaybackSource {
-  const PlaybackSource({required this.uri, this.headers = const <String, String>{}});
+  const PlaybackSource(
+      {required this.uri, this.headers = const <String, String>{}});
 
   final Uri uri;
   final Map<String, String> headers;
@@ -57,14 +58,15 @@ final class PlaybackCommandResult {
 
   const PlaybackCommandResult.success() : this._();
 
-  const PlaybackCommandResult.failure(PlaybackFailure failure) : this._(failure: failure);
+  const PlaybackCommandResult.failure(PlaybackFailure failure)
+      : this._(failure: failure);
 
   final PlaybackFailure? failure;
 
   bool get isSuccess => failure == null;
 }
 
-abstract interface class PlayerAdapter implements CelesteriaAdapter {
+abstract interface class PlayerAdapter implements ElainaAdapter {
   PlaybackCapabilityMatrix get capabilities;
 
   Future<PlaybackCommandResult> load(PlaybackSource source);
@@ -97,7 +99,8 @@ PlaybackCommandResult playbackSourceSupportResult({
   required PlaybackSource source,
   required PlaybackCapabilityMatrix capabilityMatrix,
 }) {
-  final PlaybackCapability? requiredCapability = playbackCapabilityForSource(source);
+  final PlaybackCapability? requiredCapability =
+      playbackCapabilityForSource(source);
   if (requiredCapability == null) {
     return const PlaybackCommandResult.failure(
       PlaybackFailure(
@@ -108,7 +111,8 @@ PlaybackCommandResult playbackSourceSupportResult({
     );
   }
 
-  final CapabilityStatus sourceSupport = capabilityMatrix.statusOf(requiredCapability);
+  final CapabilityStatus sourceSupport =
+      capabilityMatrix.statusOf(requiredCapability);
   if (sourceSupport.isSupported) {
     return const PlaybackCommandResult.success();
   }
@@ -117,7 +121,8 @@ PlaybackCommandResult playbackSourceSupportResult({
     PlaybackFailure(
       operation: PlaybackOperation.load,
       kind: PlaybackFailureKind.unsupported,
-      message: sourceSupport.reason ?? 'Playback source capability is unsupported.',
+      message:
+          sourceSupport.reason ?? 'Playback source capability is unsupported.',
     ),
   );
 }

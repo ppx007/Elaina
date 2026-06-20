@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -102,8 +102,7 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(events.whereType<DiagnosticsSchemaRegistered>(), isNotEmpty);
 
-      final storedSchema =
-          await store.schemaByEventType('test-event');
+      final storedSchema = await store.schemaByEventType('test-event');
       expect(storedSchema, isNotNull);
       expect(storedSchema!.eventType, 'test-event');
 
@@ -244,8 +243,7 @@ void main() {
       final result = await runtime.recordSchema(_testSchema());
 
       expect(result.isSuccess, isFalse);
-      expect(
-          result.failure?.kind,
+      expect(result.failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.capabilityUnsupported);
     });
 
@@ -253,27 +251,23 @@ void main() {
       final runtime =
           DiagnosticsCenterRuntime.unavailable(reason: 'Platform unsupported.');
 
-      expect(
-          (await runtime.recordSchema(_testSchema())).failure?.kind,
+      expect((await runtime.recordSchema(_testSchema())).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
-      expect(
-          (await runtime.recordEvent(_testEvent())).failure?.kind,
+      expect((await runtime.recordEvent(_testEvent())).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
-      expect(
-          (await runtime
-                  .querySnapshot(DiagnosticsQuery())).failure?.kind,
+      expect((await runtime.querySnapshot(DiagnosticsQuery())).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
-      expect(
-          (await runtime.enforceRetention()).failure?.kind,
+      expect((await runtime.enforceRetention()).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
-      expect(
-          (await runtime.snapshot()).failure?.kind,
+      expect((await runtime.snapshot()).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
       expect(
           (await runtime.recordCapability(
             capability: DiagnosticsCapability.schemaRegistration,
             supported: true,
-          )).failure?.kind,
+          ))
+              .failure
+              ?.kind,
           DiagnosticsCenterRuntimeFailureKind.unavailable);
     });
 
@@ -281,14 +275,11 @@ void main() {
       final runtime = _runtime();
       runtime.dispose();
 
-      expect(
-          (await runtime.recordSchema(_testSchema())).failure?.kind,
+      expect((await runtime.recordSchema(_testSchema())).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.disposed);
-      expect(
-          (await runtime.recordEvent(_testEvent())).failure?.kind,
+      expect((await runtime.recordEvent(_testEvent())).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.disposed);
-      expect(
-          (await runtime.snapshot()).failure?.kind,
+      expect((await runtime.snapshot()).failure?.kind,
           DiagnosticsCenterRuntimeFailureKind.disposed);
     });
 

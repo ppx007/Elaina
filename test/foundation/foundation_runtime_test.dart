@@ -1,4 +1,4 @@
-﻿import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -65,14 +65,14 @@ void main() {
   });
 
   test('layer boundary checker rejects forbidden terms', () {
-    final List<String> found =
-        LayerBoundaryChecker.findForbiddenTerms('import package:flutter/material.dart');
+    final List<String> found = LayerBoundaryChecker.findForbiddenTerms(
+        'import package:flutter/material.dart');
     expect(found, contains('package:flutter'));
   });
 
   test('layer boundary checker confirms required terms', () {
     final List<String> missing = LayerBoundaryChecker.findMissingRequiredTerms(
-      'FoundationRuntime StorageFoundation ProviderGateway CacheInvalidationBus LayerBoundary celesteriaLayerManifest',
+      'FoundationRuntime StorageFoundation ProviderGateway CacheInvalidationBus LayerBoundary elainaLayerManifest',
     );
     expect(missing, isEmpty);
   });
@@ -86,16 +86,16 @@ void main() {
     expect(storage.mediaCache, isA<DeterministicMediaCacheStore>());
     expect(storage.settings, isA<DeterministicSettingsStore>());
     expect(storage.mediaLibrary, isA<DeterministicMediaLibraryStore>());
-    expect(storage.playbackHistory,
-        isA<DeterministicPlaybackHistoryRepository>());
-    expect(storage.providerBinding,
-        isA<DeterministicProviderBindingRepository>());
+    expect(
+        storage.playbackHistory, isA<DeterministicPlaybackHistoryRepository>());
+    expect(
+        storage.providerBinding, isA<DeterministicProviderBindingRepository>());
     expect(storage.subtitleCache, isA<DeterministicSubtitleCacheStore>());
     expect(storage.rssFeed, isA<DeterministicRssFeedStore>());
     expect(storage.rssAutoDownloadPolicy,
         isA<DeterministicRssAutoDownloadPolicyStore>());
-    expect(storage.onlineRuleRuntime,
-        isA<DeterministicOnlineRuleRuntimeStore>());
+    expect(
+        storage.onlineRuleRuntime, isA<DeterministicOnlineRuleRuntimeStore>());
     expect(storage.webViewSessionBackfill,
         isA<DeterministicWebViewSessionBackfillStore>());
     expect(storage.networkPolicy, isA<DeterministicNetworkPolicyStore>());
@@ -127,8 +127,8 @@ void main() {
         providerId: ProviderId('test-provider'),
         ratePolicy:
             ProviderRatePolicy(maxRequests: 10, window: Duration(minutes: 1)),
-        retryPolicy:
-            ProviderRetryPolicy(maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
       ),
     );
 
@@ -150,8 +150,7 @@ void main() {
   test('provider gateway returns typed failure for unregistered provider',
       () async {
     final DeterministicProviderGateway gateway =
-        DeterministicProviderGateway(
-            storage: DeterministicStorageFoundation());
+        DeterministicProviderGateway(storage: DeterministicStorageFoundation());
 
     expect(
       () => gateway.execute<String>(
@@ -169,8 +168,7 @@ void main() {
 
   test('provider gateway deduplicates matching request keys', () async {
     final DeterministicProviderGateway gateway =
-        DeterministicProviderGateway(
-            storage: DeterministicStorageFoundation());
+        DeterministicProviderGateway(storage: DeterministicStorageFoundation());
     int loadCount = 0;
 
     await gateway.registerProvider(
@@ -178,8 +176,8 @@ void main() {
         providerId: ProviderId('dedup-provider'),
         ratePolicy:
             ProviderRatePolicy(maxRequests: 10, window: Duration(minutes: 1)),
-        retryPolicy:
-            ProviderRetryPolicy(maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
       ),
     );
 
@@ -273,7 +271,8 @@ void main() {
 
   test('invalidation bus delivers events and rejects after close', () async {
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
-    final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();
+    final Future<List<CacheInvalidationEvent>> events =
+        bus.events.take(2).toList();
 
     bus.publish(DanmakuPosted(
       occurredAt: DateTime.utc(2026, 6, 8),
@@ -324,8 +323,8 @@ void main() {
     final Stream<List<int>>? stream = await store.readBlob('test-blob');
     expect(stream, isNotNull);
 
-    final List<int> data =
-        await stream!.fold<List<int>>(<int>[], (prev, chunk) => prev..addAll(chunk));
+    final List<int> data = await stream!
+        .fold<List<int>>(<int>[], (prev, chunk) => prev..addAll(chunk));
     expect(data, <int>[1, 2, 3]);
 
     await store.evictBlob('test-blob');
@@ -356,7 +355,8 @@ void main() {
     await store.store(record);
     expect((await store.findById('item-1'))?.basename, 'test.mkv');
     expect((await store.findByLocalMediaId('media-1'))?.id, 'item-1');
-    expect((await store.findByUri(Uri.parse('file:///test.mkv')))?.id, 'item-1');
+    expect(
+        (await store.findByUri(Uri.parse('file:///test.mkv')))?.id, 'item-1');
     expect(await store.count(), 1);
 
     await store.remove('item-1');
@@ -376,7 +376,8 @@ void main() {
       updatedAt: DateTime.utc(2026, 6, 8, 12),
     ));
 
-    final StoredPlaybackHistoryRecord? latest = await store.latestFor('media-1');
+    final StoredPlaybackHistoryRecord? latest =
+        await store.latestFor('media-1');
     expect(latest?.position, const Duration(minutes: 10));
 
     final List<StoredPlaybackHistoryRecord> watching =
@@ -436,5 +437,3 @@ final class _TestMigration implements SchemaMigration {
   @override
   Future<void> migrate(MigrationExecutor executor) async {}
 }
-
-

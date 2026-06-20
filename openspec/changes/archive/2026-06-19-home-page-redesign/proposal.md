@@ -4,7 +4,7 @@ The current app shell and home page UI are functional but rely on basic placehol
 
 ## What Changes
 
-- Overhaul `CelesteriaAppShell` and its home page content to match the provided `nighttime_home.html` reference design.
+- Overhaul `ElainaAppShell` and its home page content to match the provided `nighttime_home.html` reference design.
 - Implement glassmorphic styling, neon accents, and smooth animations (e.g., fade-in, pulse-ambient) within the Flutter UI layer.
 - Integrate the auto-sliding hero carousel and "Hot Updates" horizontal scroll areas.
 - Build the particle background effect in Flutter using a CustomPainter or an appropriate package, ensuring it meets performance requirements.
@@ -21,6 +21,6 @@ The current app shell and home page UI are functional but rely on basic placehol
 
 ## Impact
 
-- **Affected Code**: `lib/src/ui/playback/shell/celesteria_app_shell.dart`, `lib/src/ui/theme/celesteria_theme.dart`, and new UI component files.
+- **Affected Code**: `lib/src/ui/playback/shell/elaina_app_shell.dart`, `lib/src/ui/theme/elaina_theme.dart`, and new UI component files.
 - **Dependencies**: May require additional animation or particle system packages if not built from scratch with `CustomPainter`.
 - **Architecture**: Strictly confined to the UI layer. No impact on Domain or Foundation contracts.

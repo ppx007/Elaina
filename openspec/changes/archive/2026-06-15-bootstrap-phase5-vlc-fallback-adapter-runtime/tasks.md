@@ -15,7 +15,7 @@
 ## 2. GREEN: Runtime implementation
 
 - [x] 2.1 Create `lib/src/playback/fallback_adapter_runtime.dart` with `FallbackAdapterBootstrap`, `FallbackAdapterRuntimeFailureKind` (11 values), `FallbackAdapterRuntimeFailure`, `FallbackAdapterRuntimeActionResultKind`, generic `FallbackAdapterRuntimeActionResult<T>`, `FallbackAdapterRuntimeRestartProjection`, `FallbackAdapterRuntimeProjection`, and `FallbackAdapterRuntime` with 7 methods (`snapshot`, `registerCandidate`, `deregisterCandidate`, `selectFallback`, `disable`, `reevaluateCapabilities`, `dispose`)
-- [x] 2.2 Add barrel export `export 'src/playback/fallback_adapter_runtime.dart';` in `lib/celesteria.dart`
+- [x] 2.2 Add barrel export `export 'src/playback/fallback_adapter_runtime.dart';` in `lib/elaina.dart`
 - [x] 2.3 Run focused runtime tests and confirm all pass
 
 ## 3. Contract validation
@@ -42,5 +42,5 @@
 ## 6. Scope guard and completion
 
 - [x] 6.1 Run `findstr /s /n /i` on runtime/test/checker files scanning for forbidden boundary terms (Mpv, Vlc, media-kit, MethodChannel, dart:ffi, DynamicLibrary, ShaderBundle, NativeRenderer, DiagnosticsCenter, RssAutoDownload, OnlineRule, WebView, CaptionRendering, AdvancedCaption, NetworkPolicy, PlayerAdapter import in runtime, FallbackOrchestrator)
-- [x] 6.2 Run LSP diagnostics on `lib/src/playback/fallback_adapter_runtime.dart`, `test/playback/fallback_adapter_runtime_test.dart`, `tools/fallback_adapter_runtime_check.dart`, and `lib/celesteria.dart` — verify clean
+- [x] 6.2 Run LSP diagnostics on `lib/src/playback/fallback_adapter_runtime.dart`, `test/playback/fallback_adapter_runtime_test.dart`, `tools/fallback_adapter_runtime_check.dart`, and `lib/elaina.dart` — verify clean
 - [x] 6.3 Mark all tasks complete in `tasks.md` and verify `openspec instructions apply` reports `all_done`

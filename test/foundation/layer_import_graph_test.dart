@@ -3,7 +3,7 @@ library;
 
 import 'dart:io';
 
-import 'package:celesteria/src/foundation/layers/layer_manifest.dart';
+import 'package:elaina/src/foundation/layers/layer_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Walks the real `lib/src` import graph and enforces the layer manifest.
@@ -33,8 +33,7 @@ void main() {
     expect(libSrc.existsSync(), isTrue, reason: 'lib/src must exist');
 
     final List<String> violations = <String>[];
-    final RegExp relativeImport =
-        RegExp(r'''import\s+['"](\.\./[^'"]+)['"]''');
+    final RegExp relativeImport = RegExp(r'''import\s+['"](\.\./[^'"]+)['"]''');
 
     for (final FileSystemEntity entity
         in libSrc.listSync(recursive: true, followLinks: false)) {

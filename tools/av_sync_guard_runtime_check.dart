@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   await verifyAVSyncGuardRuntimeContract();
@@ -19,8 +19,7 @@ Future<void> verifyAVSyncGuardRuntimeContract() async {
       initial.value?.latestDegradationAction ==
           AVSyncDegradationAction.reduceEnhancementIntensity.name,
       'Runtime snapshot must replay stored degradation action.');
-  _expect(
-      initial.value?.restart.health == StoredAVSyncHealthKind.warning,
+  _expect(initial.value?.restart.health == StoredAVSyncHealthKind.warning,
       'Runtime restart projection must replay stored health kind.');
   _expect(
       initial.value?.restart.latestDegradationAction ==
@@ -57,8 +56,8 @@ Future<void> verifyAVSyncGuardRuntimeContract() async {
 
   // Unsupported capability returns typed failure.
   final AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>
-      unsupported = await harness.unsupportedRuntime.ingestSample(
-          'adapter-unsupported', _sample(0));
+      unsupported = await harness.unsupportedRuntime
+          .ingestSample('adapter-unsupported', _sample(0));
   _expect(
       unsupported.failure?.kind ==
           AVSyncGuardRuntimeFailureKind.capabilityUnsupported,
@@ -171,8 +170,7 @@ final class _RuntimeHarness {
 }
 
 Future<_RuntimeHarness> _harness() async {
-  final DeterministicAVSyncGuardStore store =
-      DeterministicAVSyncGuardStore(
+  final DeterministicAVSyncGuardStore store = DeterministicAVSyncGuardStore(
     seedHealth: <StoredAVSyncHealthRecord>[
       StoredAVSyncHealthRecord(
         scopeId: 'adapter-1',

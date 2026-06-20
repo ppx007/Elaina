@@ -71,7 +71,7 @@ foreach ($term in @(
   }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/streaming/virtual_media_stream_runtime.dart';")) {
   throw 'Public Dart contract barrel missing virtual media stream runtime export.'
 }

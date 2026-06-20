@@ -1,6 +1,6 @@
 ## Why
 
-The player core is archived, so Celesteria can now add the first ACG-specific experience layer without destabilizing playback foundations. This change defines basic subtitles, Bangumi and Dandanplay provider boundaries, and basic danmaku rendering contracts while keeping provider traffic behind `ProviderGateway` and UI behind Domain/Playback contracts.
+The player core is archived, so Elaina can now add the first ACG-specific experience layer without destabilizing playback foundations. This change defines basic subtitles, Bangumi and Dandanplay provider boundaries, and basic danmaku rendering contracts while keeping provider traffic behind `ProviderGateway` and UI behind Domain/Playback contracts.
 
 ## What Changes
 

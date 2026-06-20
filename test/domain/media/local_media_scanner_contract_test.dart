@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -15,11 +15,13 @@ void main() {
     expect(result.scope?.extensions, <String>{'mkv', 'mp4'});
     expect(result.scope?.excludePatterns, <String>['skip']);
     expect(
-      result.scope?.accepts(Uri.parse('file:///D:/media/episode.mkv'), basename: 'episode.mkv'),
+      result.scope?.accepts(Uri.parse('file:///D:/media/episode.mkv'),
+          basename: 'episode.mkv'),
       isTrue,
     );
     expect(
-      result.scope?.accepts(Uri.parse('file:///D:/media/skip/episode.mkv'), basename: 'episode.mkv'),
+      result.scope?.accepts(Uri.parse('file:///D:/media/skip/episode.mkv'),
+          basename: 'episode.mkv'),
       isFalse,
     );
   });
@@ -34,13 +36,18 @@ void main() {
 
     expect(result.isSuccess, isFalse);
     expect(result.failures.single.kind, MediaScanFailureKind.unsupportedScheme);
-    expect(result.failures.single.uri, Uri.parse('https://example.test/media/'));
+    expect(
+        result.failures.single.uri, Uri.parse('https://example.test/media/'));
   });
 
-  test('deterministic scanner publishes accepted candidates and completion event', () async {
+  test(
+      'deterministic scanner publishes accepted candidates and completion event',
+      () async {
     const MediaScanId scanId = MediaScanId('scan-accepted');
-    final MediaScanCandidate candidate = _candidate(Uri.parse('file:///D:/media/episode.mkv'));
-    final DeterministicMediaLibraryScanner scanner = DeterministicMediaLibraryScanner(
+    final MediaScanCandidate candidate =
+        _candidate(Uri.parse('file:///D:/media/episode.mkv'));
+    final DeterministicMediaLibraryScanner scanner =
+        DeterministicMediaLibraryScanner(
       scanId: scanId,
       candidates: <MediaScanCandidate>[candidate],
     );
@@ -50,14 +57,18 @@ void main() {
 
     expect(result.candidates.single, candidate);
     expect(result.failures, isEmpty);
-    expect(events.whereType<MediaScanCandidateDiscovered>().single.candidate, candidate);
+    expect(events.whereType<MediaScanCandidateDiscovered>().single.candidate,
+        candidate);
     expect(events.whereType<MediaScanProgressChanged>().single.scannedCount, 1);
     expect(events.whereType<MediaScanCompleted>().single.result, result);
   });
 
-  test('deterministic scanner reports excluded and unreadable entries as typed failures', () async {
+  test(
+      'deterministic scanner reports excluded and unreadable entries as typed failures',
+      () async {
     const MediaScanId scanId = MediaScanId('scan-failures');
-    final DeterministicMediaLibraryScanner scanner = DeterministicMediaLibraryScanner(
+    final DeterministicMediaLibraryScanner scanner =
+        DeterministicMediaLibraryScanner(
       scanId: scanId,
       candidates: <MediaScanCandidate>[
         _candidate(Uri.parse('file:///D:/media/skip/episode.mkv')),
@@ -71,18 +82,23 @@ void main() {
       ],
     );
 
-    final MediaScanResult result = await scanner.scan(_scope(excludePatterns: const <String>['skip']));
+    final MediaScanResult result =
+        await scanner.scan(_scope(excludePatterns: const <String>['skip']));
 
     expect(result.candidates, isEmpty);
-    expect(result.failures.map((MediaScanFailure failure) => failure.kind), <MediaScanFailureKind>[
-      MediaScanFailureKind.unreadableEntry,
-      MediaScanFailureKind.excluded,
-    ]);
+    expect(
+        result.failures.map((MediaScanFailure failure) => failure.kind),
+        <MediaScanFailureKind>[
+          MediaScanFailureKind.unreadableEntry,
+          MediaScanFailureKind.excluded,
+        ]);
   });
 
-  test('deterministic scanner cancellation is idempotent and terminal', () async {
+  test('deterministic scanner cancellation is idempotent and terminal',
+      () async {
     const MediaScanId scanId = MediaScanId('scan-cancelled');
-    final DeterministicMediaLibraryScanner scanner = DeterministicMediaLibraryScanner(scanId: scanId);
+    final DeterministicMediaLibraryScanner scanner =
+        DeterministicMediaLibraryScanner(scanId: scanId);
 
     await scanner.cancel(scanId);
     await scanner.cancel(scanId);
@@ -94,9 +110,12 @@ void main() {
     expect(events.whereType<MediaScanCancelled>().length, 1);
   });
 
-  test('scanner-produced candidate remains compatible with playback source handoff', () async {
+  test(
+      'scanner-produced candidate remains compatible with playback source handoff',
+      () async {
     const MediaScanId scanId = MediaScanId('scan-handoff');
-    final DeterministicMediaLibraryScanner scanner = DeterministicMediaLibraryScanner(
+    final DeterministicMediaLibraryScanner scanner =
+        DeterministicMediaLibraryScanner(
       scanId: scanId,
       candidates: <MediaScanCandidate>[
         _candidate(Uri.parse('file:///D:/media/handoff.mkv')),
@@ -104,24 +123,29 @@ void main() {
     );
 
     final MediaScanResult scanResult = await scanner.scan(_scope());
-    final PlaybackSourceHandoffResult handoffResult = const LocalPlaybackSourceHandoff().prepare(
-      PlaybackSourceHandoffInput.mediaScanCandidate(scanResult.candidates.single),
+    final PlaybackSourceHandoffResult handoffResult =
+        const LocalPlaybackSourceHandoff().prepare(
+      PlaybackSourceHandoffInput.mediaScanCandidate(
+          scanResult.candidates.single),
     );
 
     expect(handoffResult.isSuccess, isTrue);
     expect(handoffResult.source, isA<LocalFilePlaybackSource>());
-    expect(handoffResult.source?.uri, scanResult.candidates.single.identity.uri);
+    expect(
+        handoffResult.source?.uri, scanResult.candidates.single.identity.uri);
   });
 
   test('invalid scanner candidate uses existing handoff failure', () {
-    final PlaybackSourceHandoffResult handoffResult = const LocalPlaybackSourceHandoff().prepare(
+    final PlaybackSourceHandoffResult handoffResult =
+        const LocalPlaybackSourceHandoff().prepare(
       PlaybackSourceHandoffInput.mediaScanCandidate(
         _candidate(Uri.parse('https://example.test/media.mkv')),
       ),
     );
 
     expect(handoffResult.isSuccess, isFalse);
-    expect(handoffResult.failure?.kind, PlaybackSourceHandoffFailureKind.unsupportedScheme);
+    expect(handoffResult.failure?.kind,
+        PlaybackSourceHandoffFailureKind.unsupportedScheme);
   });
 }
 
@@ -138,7 +162,8 @@ MediaScanCandidate _candidate(Uri uri) {
     identity: LocalMediaIdentity(
       id: const LocalMediaId('local-media'),
       uri: uri,
-      basename: uri.pathSegments.isEmpty ? 'episode.mkv' : uri.pathSegments.last,
+      basename:
+          uri.pathSegments.isEmpty ? 'episode.mkv' : uri.pathSegments.last,
     ),
     sizeBytes: 42,
   );

@@ -54,7 +54,7 @@ foreach ($term in $requiredRuntimeTerms) {
     }
 }
 
-$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/celesteria.dart') -Raw
+$barrel = Get-Content -LiteralPath (Join-Path $root 'lib/elaina.dart') -Raw
 if ($barrel -notmatch [regex]::Escape("export 'src/network/network_policy_runtime.dart';")) {
     throw 'Public Dart contract barrel missing network policy runtime export.'
 }
@@ -62,7 +62,7 @@ if ($barrel -notmatch [regex]::Escape("export 'src/network/network_policy_runtim
 $checkerPath = Join-Path $root 'tools/network_policy_runtime_check.dart'
 $checker = Get-Content -LiteralPath $checkerPath -Raw
 $requiredCheckerTerms = @(
-    "import '../lib/celesteria.dart';",
+    "import '../lib/elaina.dart';",
     'DeterministicNetworkPolicyStore',
     'StreamCacheInvalidationBus',
     'NetworkPolicyRuntimeBootstrap',

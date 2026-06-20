@@ -1,20 +1,24 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('mock controller dispatches page intents and notifies observers', () async {
+  test('mock controller dispatches page intents and notifies observers',
+      () async {
     final MockPlaybackController controller = MockPlaybackController(
       matrix: _matrix(),
       initialState: const PlaybackStateSnapshot(
         status: PlaybackLifecycleStatus.paused,
-        timeline: PlaybackTimelineState(position: Duration(seconds: 5), duration: Duration(minutes: 2)),
+        timeline: PlaybackTimelineState(
+            position: Duration(seconds: 5), duration: Duration(minutes: 2)),
       ),
     );
-    final PlaybackPageContract pageContract = PlaybackPageContract(controller: controller);
+    final PlaybackPageContract pageContract =
+        PlaybackPageContract(controller: controller);
     final _StateRecorder recorder = _StateRecorder();
     controller.addPlaybackStateObserver(recorder);
 
-    final PlaybackPageIntentResult playResult = await pageContract.dispatch(const PlaybackPageIntent.play());
+    final PlaybackPageIntentResult playResult =
+        await pageContract.dispatch(const PlaybackPageIntent.play());
 
     expect(playResult.isExecuted, isTrue);
     expect(controller.currentState.status, PlaybackLifecycleStatus.playing);
@@ -25,8 +29,10 @@ void main() {
     );
 
     expect(seekResult.isExecuted, isTrue);
-    expect(controller.currentState.timeline.position, const Duration(seconds: 42));
-    expect(recorder.snapshots.last.timeline.position, const Duration(seconds: 42));
+    expect(
+        controller.currentState.timeline.position, const Duration(seconds: 42));
+    expect(
+        recorder.snapshots.last.timeline.position, const Duration(seconds: 42));
 
     final PlaybackPageIntentResult trackResult = await pageContract.dispatch(
       const PlaybackPageIntent.selectTrack(
@@ -36,14 +42,17 @@ void main() {
     );
 
     expect(trackResult.isExecuted, isTrue);
-    expect(controller.currentState.activeTracks.audioTrackId?.value, 'audio-main');
+    expect(
+        controller.currentState.activeTracks.audioTrackId?.value, 'audio-main');
   });
 
-  test('mock controller rejects unsupported direct track type switches', () async {
+  test('mock controller rejects unsupported direct track type switches',
+      () async {
     final MockPlaybackController controller = MockPlaybackController(
       matrix: PlaybackCapabilityMatrix(
         capabilities: const <PlaybackCapability, CapabilityStatus>{
-          PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+          PlaybackCapability.subtitleTrackSwitching:
+              CapabilityStatus.supported(),
         },
       ),
     );
@@ -60,7 +69,8 @@ void main() {
     expect(audioResult.isSuccess, isFalse);
     expect(subtitleResult.isSuccess, isTrue);
     expect(controller.currentState.activeTracks.audioTrackId, isNull);
-    expect(controller.currentState.activeTracks.subtitleTrackId?.value, 'subtitle-ja');
+    expect(controller.currentState.activeTracks.subtitleTrackId?.value,
+        'subtitle-ja');
   });
 }
 

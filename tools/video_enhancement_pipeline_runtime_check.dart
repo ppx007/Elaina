@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 
 Future<void> main() async {
   await verifyVideoEnhancementPipelineRuntimeContract();
@@ -8,8 +8,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
   final _RuntimeHarness harness = await _harness();
 
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      initial = await harness.runtime.snapshot('adapter-1');
+          VideoEnhancementPipelineRuntimeProjection> initial =
+      await harness.runtime.snapshot('adapter-1');
   _expect(initial.isSuccess, 'Initial runtime snapshot must pass.');
   _expect(initial.value?.activeProfileId == 'anime-vivid',
       'Runtime snapshot must replay the active profile.');
@@ -29,9 +29,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
               (await harness.store.latestPipelineState('adapter-1'))
                   ?.supported);
   final Future<String?> activeProfileVisible =
-      _eventsOfType<EnhancementProfileChanged>(harness.bus.events)
-          .first
-          .then((EnhancementProfileChanged _) async =>
+      _eventsOfType<EnhancementProfileChanged>(harness.bus.events).first.then(
+          (EnhancementProfileChanged _) async =>
               (await harness.store.activeProfile('adapter-1'))?.profileId);
   final Future<StoredEnhancementPipelineStateKind?> pipelineVisible =
       _eventsOfType<EnhancementPipelineStateChanged>(harness.bus.events)
@@ -40,8 +39,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
               (await harness.store.latestPipelineState('adapter-1'))?.state);
 
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      evaluated = await harness.runtime.evaluate(
+          VideoEnhancementPipelineRuntimeProjection> evaluated =
+      await harness.runtime.evaluate(
     scopeId: 'adapter-1',
     profile: _profile(),
   );
@@ -52,8 +51,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
       'Capability invalidation must arrive after storage-visible state.');
 
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      applied = await harness.runtime.apply(
+          VideoEnhancementPipelineRuntimeProjection> applied =
+      await harness.runtime.apply(
     scopeId: 'adapter-1',
     profileId: 'anime-vivid',
   );
@@ -66,8 +65,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
       'Pipeline invalidation must arrive after storage-visible state.');
 
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      unsupported = await harness.runtime.evaluate(
+          VideoEnhancementPipelineRuntimeProjection> unsupported =
+      await harness.runtime.evaluate(
     scopeId: 'adapter-unsupported',
     profile: _profile(),
   );
@@ -77,8 +76,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
       'Unsupported runtime evaluation must return a typed failure.');
 
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      degraded = await harness.runtime.requestDegradation(
+          VideoEnhancementPipelineRuntimeProjection> degraded =
+      await harness.runtime.requestDegradation(
     scopeId: 'adapter-1',
     request: EnhancementRuntimeDegradationRequest(
       profileId: 'anime-vivid',
@@ -96,7 +95,8 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
   _expect(degraded.value?.degradationTargetProfileId == 'anime-light',
       'Runtime degradation request must project degradation target.');
 
-  final VideoEnhancementPipelineRuntime restarted = VideoEnhancementPipelineBootstrap(
+  final VideoEnhancementPipelineRuntime restarted =
+      VideoEnhancementPipelineBootstrap(
     profileStore: harness.store,
     runtimeByScope: <String, VideoEnhancementPipeline>{
       'adapter-1': DeterministicVideoEnhancementPipeline(
@@ -114,12 +114,14 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
     clock: _now,
   ).createRuntime();
   final VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>
-      restartSnapshot = await restarted.snapshot('adapter-1');
+          VideoEnhancementPipelineRuntimeProjection> restartSnapshot =
+      await restarted.snapshot('adapter-1');
   _expect(restartSnapshot.isSuccess, 'Restart snapshot must pass.');
   _expect(restartSnapshot.value?.restart.activeProfileId == 'anime-vivid',
       'Restart projection must replay the active profile.');
-  _expect(restartSnapshot.value?.restart.degradationTargetProfileId == 'anime-light',
+  _expect(
+      restartSnapshot.value?.restart.degradationTargetProfileId ==
+          'anime-light',
       'Restart projection must replay degradation target.');
 
   final VideoEnhancementPipelineRuntime unavailable =
@@ -143,8 +145,9 @@ Future<void> verifyVideoEnhancementPipelineRuntimeContract() async {
 }
 
 Future<void> _expectFailure(
-  Future<VideoEnhancementPipelineRuntimeActionResult<
-          VideoEnhancementPipelineRuntimeProjection>>
+  Future<
+          VideoEnhancementPipelineRuntimeActionResult<
+              VideoEnhancementPipelineRuntimeProjection>>
       action,
   VideoEnhancementPipelineRuntimeFailureKind kind,
   String message,

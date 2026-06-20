@@ -63,7 +63,7 @@ This change is the first Phase 3 runtime slice. It should reuse Phase 2 runtime 
 1. Add detail runtime values, repository implementation, action handler, action outcomes, and runtime lifecycle under `lib/src/domain/detail/`.
 2. Add narrow metadata projection helpers from Bangumi provider values to `VideoDetailViewData` without importing ProviderGateway or provider implementation internals into UI.
 3. Wire continue-watching, selected episode, follow/unfollow, and binding state through existing `PlaybackHistoryStore`, `ProviderBindingStore`, `PlaybackSourceHandoffContract`, and `CacheInvalidationBus` contracts.
-4. Export safe runtime surfaces through `lib/celesteria.dart` without exporting concrete Flutter page implementations.
+4. Export safe runtime surfaces through `lib/elaina.dart` without exporting concrete Flutter page implementations.
 5. Add focused tests, smoke check, and boundary checker script.
 6. Run `openspec validate "bootstrap-phase3-video-detail-page-runtime" --strict`, `openspec validate --all`, `dart analyze`, focused detail runtime tests, checker scripts, and existing detail/library/Phase 2 smoke checks.
 

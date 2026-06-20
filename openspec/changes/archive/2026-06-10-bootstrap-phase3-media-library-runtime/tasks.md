@@ -13,7 +13,7 @@
 
 - [x] 2.1 Publish existing cache invalidation events for imported, updated, removed, history-recorded, and binding-changed media state without introducing storage migrations or persistent runtime caches.
 - [x] 2.2 Keep media-library runtime files provider-neutral and ensure they do not import concrete Flutter widgets, ProviderGateway internals, storage implementations, subtitle provider, RSS, seasonal indexer, BT, online-rule, network policy, diagnostics, MPV/VLC, or native-player bindings.
-- [x] 2.3 Export only safe media-library runtime and contract surfaces through `lib/celesteria.dart` without exporting concrete Flutter media-library pages or storage implementations.
+- [x] 2.3 Export only safe media-library runtime and contract surfaces through `lib/elaina.dart` without exporting concrete Flutter media-library pages or storage implementations.
 - [x] 2.4 Preserve existing Phase 3 detail/library/seasonal checker behavior while extending validation for the Step 14 media-library runtime slice.
 
 ## 3. Tests and Validation

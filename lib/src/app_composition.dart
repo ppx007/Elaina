@@ -6,6 +6,7 @@ import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
 import 'domain/playback/playback_source_handoff.dart';
+import 'domain/profile/profile_domain.dart';
 import 'domain/rss/rss_engine_runtime.dart';
 import 'domain/settings/settings_domain.dart';
 import 'foundation/constants.dart';
@@ -18,6 +19,7 @@ import 'playback/player_runtime_composition.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
 import 'provider/bangumi/bangumi_auth.dart';
 import 'provider/bangumi/bangumi_runtime.dart';
+import 'provider/provider_result.dart';
 import 'provider/rss/rss_feed_fetcher_parser.dart';
 import 'streaming/bt_task_core_runtime.dart';
 import 'streaming/libtorrent_download_engine_adapter.dart';
@@ -94,6 +96,7 @@ class AppComposition {
       authProvider: bangumiApiProvider,
     );
     bangumiAuthProvider = bangumiProviderRuntime.authProvider;
+    profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
 
     videoDetailBootstrap = VideoDetailBootstrap(
       metadataProvider: bangumiProviderRuntime.metadataProvider,
@@ -179,6 +182,7 @@ class AppComposition {
   late final DiagnosticsRuntime diagnosticsRuntime;
   late final BangumiProviderRuntime bangumiProviderRuntime;
   late final BangumiAuthProvider bangumiAuthProvider;
+  late final UserProfileProvider profileProvider;
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
@@ -191,5 +195,21 @@ class AppComposition {
     rssEngineRuntime.dispose();
     btTaskCoreRuntime.dispose();
     foundation.dispose();
+  }
+}
+
+final class _BangumiUserProfileProvider implements UserProfileProvider {
+  const _BangumiUserProfileProvider(this._authProvider);
+
+  final BangumiAuthProvider _authProvider;
+
+  @override
+  Future<UserProfileSnapshot?> currentProfile() async {
+    final AcgProviderResult<BangumiAuthSession> result =
+        await _authProvider.currentSession();
+    if (result is! AcgProviderSuccess<BangumiAuthSession>) {
+      return null;
+    }
+    return UserProfileSnapshot(avatarUri: result.value.avatarUri);
   }
 }

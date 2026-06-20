@@ -1,4 +1,4 @@
-import 'package:celesteria/src/foundation/security/outbound_uri_guard.dart';
+import 'package:elaina/src/foundation/security/outbound_uri_guard.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -12,8 +12,7 @@ void main() {
       expect(guard.classifyHost('2130706433'), OutboundHostRisk.loopback);
       expect(guard.classifyHost('0x7f000001'), OutboundHostRisk.loopback);
       expect(guard.classifyHost('::1'), OutboundHostRisk.loopback);
-      expect(
-          guard.classifyHost('::ffff:127.0.0.1'), OutboundHostRisk.loopback);
+      expect(guard.classifyHost('::ffff:127.0.0.1'), OutboundHostRisk.loopback);
     });
 
     test('blocks link-local ranges', () {
@@ -23,8 +22,7 @@ void main() {
 
     test('blocks private / unique-local ranges', () {
       expect(guard.classifyHost('10.0.0.5'), OutboundHostRisk.privateNetwork);
-      expect(
-          guard.classifyHost('172.16.0.1'), OutboundHostRisk.privateNetwork);
+      expect(guard.classifyHost('172.16.0.1'), OutboundHostRisk.privateNetwork);
       expect(
           guard.classifyHost('192.168.1.1'), OutboundHostRisk.privateNetwork);
       expect(guard.classifyHost('fd00::1'), OutboundHostRisk.privateNetwork);
@@ -33,7 +31,8 @@ void main() {
     test('allows routable public hosts', () {
       expect(guard.classifyHost('example.com'), isNull);
       expect(guard.classifyHost('8.8.8.8'), isNull);
-      expect(guard.classifyHost('172.32.0.1'), isNull); // just outside 172.16/12
+      expect(
+          guard.classifyHost('172.32.0.1'), isNull); // just outside 172.16/12
       expect(guard.isUriAllowed(Uri.parse('https://api.bgm.tv/v0/search')),
           isTrue);
     });
@@ -52,10 +51,10 @@ void main() {
           guard.classifyHost('::ffff:a9fe:a9fe'), OutboundHostRisk.linkLocal);
       expect(
           guard.classifyHost('::ffff:a00:1'), OutboundHostRisk.privateNetwork);
-      expect(guard.classifyHost('::ffff:c0a8:1'),
-          OutboundHostRisk.privateNetwork);
-      expect(guard.classifyHost('::ffff:ac10:1'),
-          OutboundHostRisk.privateNetwork);
+      expect(
+          guard.classifyHost('::ffff:c0a8:1'), OutboundHostRisk.privateNetwork);
+      expect(
+          guard.classifyHost('::ffff:ac10:1'), OutboundHostRisk.privateNetwork);
     });
 
     test('blocks expanded and zone-tagged loopback (SSRF bypass regression)',

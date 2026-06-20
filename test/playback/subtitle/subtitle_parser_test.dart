@@ -1,4 +1,4 @@
-import 'package:celesteria/celesteria.dart';
+import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,7 +8,8 @@ void main() {
     final SubtitleParseResult result = await parser.parse(
       SubtitleParseRequest(
         source: _source(SubtitleFormat.srt),
-        content: '\uFEFF1\n00:00:01,500 --> 00:00:03,000\nHello\nworld\n\n3\n00:00:02.000 --> 00:00:04.000\nOverlap\n',
+        content:
+            '\uFEFF1\n00:00:01,500 --> 00:00:03,000\nHello\nworld\n\n3\n00:00:02.000 --> 00:00:04.000\nOverlap\n',
       ),
     );
 
@@ -25,7 +26,8 @@ void main() {
     final SubtitleParseResult result = await parser.parse(
       SubtitleParseRequest(
         source: _source(SubtitleFormat.vtt),
-        content: 'WEBVTT\n\nNOTE ignored\ncomment\n\nintro\n00:01.000 --> 00:03.250 align:center line:90%\n<v narrator>Hello</v>\n',
+        content:
+            'WEBVTT\n\nNOTE ignored\ncomment\n\nintro\n00:01.000 --> 00:03.250 align:center line:90%\n<v narrator>Hello</v>\n',
       ),
     );
 
@@ -37,13 +39,15 @@ void main() {
     expect(result.track.cues.single.settings['line'], '90%');
   });
 
-  test('basic ASS parser extracts dialogue text and ignores override tags', () async {
+  test('basic ASS parser extracts dialogue text and ignores override tags',
+      () async {
     const BasicAssSubtitleParser parser = BasicAssSubtitleParser();
 
     final SubtitleParseResult result = await parser.parse(
       SubtitleParseRequest(
         source: _source(SubtitleFormat.ass),
-        content: '[Script Info]\nTitle: Example\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.20,0:00:03.40,Default,,0,0,0,,{\\i1}Hello, world\\NLine 2\n',
+        content:
+            '[Script Info]\nTitle: Example\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.20,0:00:03.40,Default,,0,0,0,,{\\i1}Hello, world\\NLine 2\n',
       ),
     );
 
@@ -54,16 +58,21 @@ void main() {
     expect(result.track.cues.single.settings['style'], 'Default');
   });
 
-  test('parser registry exposes default parsers and empty results warn', () async {
-    final BasicSubtitleParserRegistry registry = BasicSubtitleParserRegistry.defaults();
+  test('parser registry exposes default parsers and empty results warn',
+      () async {
+    final BasicSubtitleParserRegistry registry =
+        BasicSubtitleParserRegistry.defaults();
 
     expect(registry.parserFor(SubtitleFormat.srt), isA<SrtSubtitleParser>());
     expect(registry.parserFor(SubtitleFormat.vtt), isA<WebVttSubtitleParser>());
-    expect(registry.parserFor(SubtitleFormat.ass), isA<BasicAssSubtitleParser>());
+    expect(
+        registry.parserFor(SubtitleFormat.ass), isA<BasicAssSubtitleParser>());
 
-    final SubtitleParseResult empty = await registry.parserFor(SubtitleFormat.srt)!.parse(
-          SubtitleParseRequest(source: _source(SubtitleFormat.srt), content: ''),
-        );
+    final SubtitleParseResult empty =
+        await registry.parserFor(SubtitleFormat.srt)!.parse(
+              SubtitleParseRequest(
+                  source: _source(SubtitleFormat.srt), content: ''),
+            );
     expect(empty.track.cues, isEmpty);
     expect(empty.warnings.single, contains('No SRT cues'));
   });

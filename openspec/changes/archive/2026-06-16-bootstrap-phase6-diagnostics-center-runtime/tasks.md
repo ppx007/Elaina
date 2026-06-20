@@ -1,4 +1,4 @@
-﻿## 1. RED Test
+## 1. RED Test
 
 - [x] 1.1 Create `test/foundation/diagnostics_center_runtime_test.dart` with runtime scenarios for initial snapshot, schema registration, redacted event recording, query snapshot, local export descriptor, retention enforcement, capability recording, unsupported capability, unavailable runtime, disposed runtime, missing schema, invalidation events, and restart projection replay
 - [x] 1.2 Verify RED tests fail on missing diagnostics runtime symbols before implementation
@@ -6,7 +6,7 @@
 ## 2. GREEN Implementation
 
 - [x] 2.1 Create `lib/src/foundation/diagnostics/diagnostics_center_runtime.dart` with bootstrap, runtime, typed failure/action result types, projections, gates, persistence, redaction, and event publication
-- [x] 2.2 Add barrel export `export 'src/foundation/diagnostics/diagnostics_center_runtime.dart';` in `lib/celesteria.dart`
+- [x] 2.2 Add barrel export `export 'src/foundation/diagnostics/diagnostics_center_runtime.dart';` in `lib/elaina.dart`
 - [x] 2.3 Run focused runtime tests and confirm all pass
 
 ## 3. Contract Coverage

@@ -1,4 +1,4 @@
-import '../lib/celesteria.dart';
+import '../lib/elaina.dart';
 import 'media_library_runtime_check.dart';
 
 Future<void> main() async {
