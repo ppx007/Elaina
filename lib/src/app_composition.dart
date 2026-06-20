@@ -120,6 +120,7 @@ class AppComposition {
       historyStore: historyStore,
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
       invalidationBus: foundation.invalidationBus,
+      trackingProvider: trackingProvider,
     );
 
     videoDetailPageContract = VideoDetailPageContract(

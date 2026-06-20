@@ -3,6 +3,7 @@ import '../../provider/bangumi/bangumi_provider.dart';
 import '../../provider/provider_result.dart';
 import '../media/media_library.dart';
 import '../playback/playback_source_handoff.dart';
+import '../profile/bangumi_tracking_domain.dart';
 import 'video_detail.dart';
 
 enum VideoDetailRuntimeStatus {
@@ -88,6 +89,44 @@ VideoFollowState videoFollowStateFromBinding(ProviderBinding? binding) {
       : VideoFollowState.notFollowed;
 }
 
+VideoTrackingStatus videoTrackingStatusFromBinding(ProviderBinding? binding) {
+  return videoFollowStateFromBinding(binding) == VideoFollowState.followed
+      ? VideoTrackingStatus.watching
+      : VideoTrackingStatus.notTracked;
+}
+
+VideoTrackingStatus videoTrackingStatusFromBangumiTracking(
+  BangumiTrackingStatus status,
+) {
+  return switch (status) {
+    BangumiTrackingStatus.planned => VideoTrackingStatus.planned,
+    BangumiTrackingStatus.completed => VideoTrackingStatus.completed,
+    BangumiTrackingStatus.watching => VideoTrackingStatus.watching,
+    BangumiTrackingStatus.onHold => VideoTrackingStatus.onHold,
+    BangumiTrackingStatus.dropped => VideoTrackingStatus.dropped,
+  };
+}
+
+Future<VideoTrackingStatus> videoTrackingStatusForSubject({
+  required String subjectId,
+  required ProviderBinding? binding,
+  BangumiTrackingProvider? trackingProvider,
+}) async {
+  final BangumiTrackingProvider? provider = trackingProvider;
+  if (provider == null) return videoTrackingStatusFromBinding(binding);
+  final BangumiTrackingSnapshot snapshot =
+      await provider.currentAnimeCollection();
+  if (snapshot.status != BangumiTrackingLoadStatus.loaded) {
+    return videoTrackingStatusFromBinding(binding);
+  }
+  for (final BangumiTrackingItem item in snapshot.items) {
+    if (item.subjectId == subjectId) {
+      return videoTrackingStatusFromBangumiTracking(item.status);
+    }
+  }
+  return VideoTrackingStatus.notTracked;
+}
+
 VideoDetailActionSet deriveVideoDetailActions(VideoDetailViewData data) {
   final List<VideoDetailAction> actions = <VideoDetailAction>[];
   if (data.continueWatching != null) {
@@ -105,10 +144,10 @@ VideoDetailActionSet deriveVideoDetailActions(VideoDetailViewData data) {
       primary: true,
     ));
   }
-  if (data.followState == VideoFollowState.followed) {
+  if (data.binding?.authority == ProviderBindingAuthority.userConfirmed) {
     actions.add(const VideoDetailAction(
         kind: VideoDetailActionKind.unfollow, label: 'Unfollow'));
-  } else {
+  } else if (data.trackingStatus == VideoTrackingStatus.notTracked) {
     actions.add(const VideoDetailAction(
         kind: VideoDetailActionKind.follow, label: 'Follow'));
   }
@@ -134,11 +173,13 @@ final class DeterministicVideoDetailRepository
     required BangumiProvider metadataProvider,
     required ProviderBindingStore bindingStore,
     required PlaybackHistoryStore historyStore,
+    BangumiTrackingProvider? trackingProvider,
     Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
     String providerId = defaultVideoDetailMetadataProviderId,
   })  : _metadataProvider = metadataProvider,
         _bindingStore = bindingStore,
         _historyStore = historyStore,
+        _trackingProvider = trackingProvider,
         _providerId = providerId,
         _seedsBySubjectId = <String, BangumiVideoDetailSeed>{
           for (final BangumiVideoDetailSeed seed in seeds)
@@ -148,6 +189,7 @@ final class DeterministicVideoDetailRepository
   final BangumiProvider _metadataProvider;
   final ProviderBindingStore _bindingStore;
   final PlaybackHistoryStore _historyStore;
+  final BangumiTrackingProvider? _trackingProvider;
   final String _providerId;
   final Map<String, BangumiVideoDetailSeed> _seedsBySubjectId;
   bool _disposed = false;
@@ -172,6 +214,12 @@ final class DeterministicVideoDetailRepository
     final List<BangumiEpisode> episodes =
         await _episodesForSubject(subject.id, seed);
     final ProviderBinding? binding = await _strongestBindingFor(seed);
+    final VideoTrackingStatus trackingStatus =
+        await videoTrackingStatusForSubject(
+      subjectId: subject.id.value,
+      binding: binding,
+      trackingProvider: _trackingProvider,
+    );
     final List<VideoDetailEpisode> detailEpisodes = <VideoDetailEpisode>[];
     ContinueWatchingState? latestContinue;
     for (final BangumiEpisode episode in episodes) {
@@ -197,6 +245,7 @@ final class DeterministicVideoDetailRepository
       episodes: List<VideoDetailEpisode>.unmodifiable(detailEpisodes),
       continueWatching: latestContinue,
       followState: videoFollowStateFromBinding(binding),
+      trackingStatus: trackingStatus,
       binding: binding,
       actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
     );
@@ -208,6 +257,7 @@ final class DeterministicVideoDetailRepository
       episodes: partial.episodes,
       continueWatching: partial.continueWatching,
       followState: partial.followState,
+      trackingStatus: partial.trackingStatus,
       binding: partial.binding,
       actions: deriveVideoDetailActions(partial),
     );
@@ -498,6 +548,7 @@ final class VideoDetailRuntime {
     required PlaybackHistoryStore historyStore,
     required PlaybackSourceHandoffContract playbackSourceHandoff,
     required CacheInvalidationBus invalidationBus,
+    BangumiTrackingProvider? trackingProvider,
     Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
     String providerId = defaultVideoDetailMetadataProviderId,
     DateTime Function()? now,
@@ -507,6 +558,7 @@ final class VideoDetailRuntime {
       metadataProvider: metadataProvider,
       bindingStore: bindingStore,
       historyStore: historyStore,
+      trackingProvider: trackingProvider,
       seeds: seeds,
       providerId: providerId,
     );

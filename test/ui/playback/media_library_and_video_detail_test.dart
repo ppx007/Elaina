@@ -686,7 +686,7 @@ void main() {
         episodes: viewData.episodes,
       ));
       await tester.pump();
-      expect(find.text('已在追番'), findsOneWidget);
+      expect(find.text('在追'), findsOneWidget);
 
       // Tap Episode 1 (available)
       await tester.tap(find.text('第 1 话'));
@@ -695,9 +695,66 @@ void main() {
       expect(playbackStartedCalled, isTrue);
 
       // Tap close/back button
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester
+          .tap(find.byKey(const ValueKey<String>('video-detail-close')));
       await tester.pump();
       expect(closeCalled, isTrue);
+    });
+
+    testWidgets('renders remote tracking status without local follow mutation',
+        (WidgetTester tester) async {
+      const VideoDetailId detailId = VideoDetailId('subject-dropped');
+      const VideoDetailViewData viewData = VideoDetailViewData(
+        id: detailId,
+        title: 'Remote Dropped Anime',
+        summary: 'Remote-only detail summary.',
+        followState: VideoFollowState.notFollowed,
+        trackingStatus: VideoTrackingStatus.dropped,
+        actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+        episodes: <VideoDetailEpisode>[
+          VideoDetailEpisode(
+            id: VideoEpisodeId('remote-ep-1'),
+            index: 1,
+            title: 'Remote Episode 1',
+          ),
+        ],
+      );
+      final FakeVideoDetailActionHandler actionHandler =
+          FakeVideoDetailActionHandler();
+      final VideoDetailPageContract contract = VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(initialData: viewData),
+          actions: actionHandler,
+        ),
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: VideoDetailPage(
+            id: detailId,
+            videoDetailPageContract: contract,
+            playbackController: playbackController,
+            onPlaybackStarted: () {},
+            onClose: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('抛弃'), findsOneWidget);
+      expect(find.text('加入追番'), findsNothing);
+
+      await tester.tap(find.text('抛弃'));
+      await tester.pump();
+      expect(actionHandler.calls, isEmpty);
     });
   });
 
@@ -843,7 +900,7 @@ void main() {
       expect(find.text('预加载番剧'), findsNWidgets(2));
 
       // Close VideoDetailPage overlay
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(Icons.arrow_back).last);
       await tester.pump();
 
       // Expect overlay is closed and we are back to Library page
@@ -1059,7 +1116,18 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Remote detail summary'), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.arrow_back));
+
+      await playbackController.open(
+        LocalFilePlaybackSource(uri: Uri.parse('file:///D:/media/remote.mkv')),
+      );
+      await playbackController.play();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester
+          .tap(find.byKey(const ValueKey<String>('video-detail-close')));
+      await tester.pump();
+      expect(find.text('Remote detail summary'), findsNothing);
+      await playbackController.stop();
       await tester.pump();
 
       await tester.tap(find.text('在追 1'));

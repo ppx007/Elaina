@@ -2,6 +2,7 @@ import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../../provider/bangumi/bangumi_provider.dart';
 import '../media/media_library.dart';
 import '../playback/playback_source_handoff.dart';
+import '../profile/bangumi_tracking_domain.dart';
 import 'video_detail.dart';
 import 'video_detail_runtime.dart';
 
@@ -62,6 +63,7 @@ final class VideoDetailBootstrap {
     required PlaybackHistoryStore historyStore,
     required PlaybackSourceHandoffContract playbackSourceHandoff,
     required CacheInvalidationBus invalidationBus,
+    BangumiTrackingProvider? trackingProvider,
     Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
     String providerId = defaultVideoDetailMetadataProviderId,
     DateTime Function()? now,
@@ -71,6 +73,7 @@ final class VideoDetailBootstrap {
           historyStore: historyStore,
           playbackSourceHandoff: playbackSourceHandoff,
           invalidationBus: invalidationBus,
+          trackingProvider: trackingProvider,
           seeds: seeds,
           providerId: providerId,
           now: now,

@@ -180,6 +180,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     });
   }
 
+  void _openDetail(String idValue) {
+    setState(() {
+      _activeDetailId = VideoDetailId(idValue);
+    });
+  }
+
   Future<void> _startBangumiLogin() async {
     final BangumiLoginController? loginController =
         widget.bangumiLoginController;
@@ -254,7 +260,16 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             ),
           ),
 
-          // Video Detail Page Overlay (grows on active detail id)
+          // Playback Screen Overlay (grows on active playback status)
+          if (_playbackOverlayActive)
+            Positioned.fill(
+              child: ProductionPlaybackPage(
+                controller: widget.playbackController,
+                videoSurface: widget.videoSurface,
+              ),
+            ),
+
+          // Video Detail Page Overlay (global top-level detail surface)
           if (_activeDetailId != null)
             Positioned.fill(
               child: VideoDetailPage(
@@ -267,15 +282,6 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                     _activeDetailId = null;
                   });
                 },
-              ),
-            ),
-
-          // Playback Screen Overlay (grows on active playback status)
-          if (_playbackOverlayActive)
-            Positioned.fill(
-              child: ProductionPlaybackPage(
-                controller: widget.playbackController,
-                videoSurface: widget.videoSurface,
               ),
             ),
         ],
@@ -940,12 +946,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                                     return _TrackingItemCard(
                                       item: item,
                                       theme: theme,
-                                      onOpenDetail: () {
-                                        setState(() {
-                                          _activeDetailId =
-                                              VideoDetailId(item.subjectId);
-                                        });
-                                      },
+                                      onOpenDetail: () =>
+                                          _openDetail(item.subjectId),
                                     );
                                   },
                                 ),
@@ -1118,11 +1120,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       mediaLibraryRuntime: widget.mediaLibraryRuntime,
       playbackController: widget.playbackController,
       settingsRuntime: widget.settingsRuntime,
-      onNavigateToDetail: (String idValue) {
-        setState(() {
-          _activeDetailId = VideoDetailId(idValue);
-        });
-      },
+      onNavigateToDetail: _openDetail,
     );
   }
 

@@ -24,6 +24,15 @@ enum VideoFollowState {
   updating,
 }
 
+enum VideoTrackingStatus {
+  notTracked,
+  planned,
+  watching,
+  completed,
+  onHold,
+  dropped,
+}
+
 final class VideoDetailEpisode {
   const VideoDetailEpisode({
     required this.id,
@@ -50,11 +59,16 @@ final class VideoDetailViewData {
     required this.episodes,
     required this.followState,
     required this.actions,
+    VideoTrackingStatus? trackingStatus,
     this.coverUri,
     this.summary,
     this.continueWatching,
     this.binding,
-  }) : assert(title != '', 'Video title must not be empty.');
+  })  : trackingStatus = trackingStatus ??
+            (followState == VideoFollowState.followed
+                ? VideoTrackingStatus.watching
+                : VideoTrackingStatus.notTracked),
+        assert(title != '', 'Video title must not be empty.');
 
   final VideoDetailId id;
   final String title;
@@ -63,6 +77,7 @@ final class VideoDetailViewData {
   final List<VideoDetailEpisode> episodes;
   final ContinueWatchingState? continueWatching;
   final VideoFollowState followState;
+  final VideoTrackingStatus trackingStatus;
   final ProviderBinding? binding;
   final VideoDetailActionSet actions;
 }

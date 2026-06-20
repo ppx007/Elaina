@@ -138,6 +138,48 @@ void main() {
     runtime.dispose();
   });
 
+  test('runtime consumes remote Bangumi tracking status for detail state',
+      () async {
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-tracked'),
+      title: 'Tracked Subject',
+      summary: 'Remote summary',
+      coverUri: Uri.parse('https://metadata.example/tracked-cover.jpg'),
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      trackingProvider: _FakeBangumiTrackingProvider(
+        BangumiTrackingSnapshot.loaded(
+          const <BangumiTrackingItem>[
+            BangumiTrackingItem(
+              subjectId: 'subject-tracked',
+              title: 'Tracked Subject',
+              status: BangumiTrackingStatus.watching,
+              watchedEpisodes: 3,
+              totalEpisodes: 12,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-tracked'));
+
+    expect(detail.followState, VideoFollowState.notFollowed);
+    expect(detail.trackingStatus, VideoTrackingStatus.watching);
+    expect(
+      detail.actions.actions.map((VideoDetailAction action) => action.kind),
+      isNot(contains(VideoDetailActionKind.follow)),
+    );
+    expect(
+      detail.actions.actions.map((VideoDetailAction action) => action.kind),
+      isNot(contains(VideoDetailActionKind.unfollow)),
+    );
+
+    runtime.dispose();
+  });
+
   test('actions route playback through handoff and publish invalidation events',
       () async {
     final DateTime now = DateTime.utc(2026, 1, 2, 12);
@@ -380,6 +422,7 @@ VideoDetailRuntime _runtime({
   PlaybackHistoryStore? historyStore,
   CacheInvalidationBus? invalidationBus,
   PlaybackSourceHandoffContract? handoff,
+  BangumiTrackingProvider? trackingProvider,
   DateTime Function()? now,
 }) {
   final BangumiSubject value = subject ?? _subject();
@@ -392,6 +435,7 @@ VideoDetailRuntime _runtime({
     historyStore: historyStore ?? DeterministicPlaybackHistoryStore(),
     playbackSourceHandoff: handoff ?? const LocalPlaybackSourceHandoff(),
     invalidationBus: invalidationBus ?? _RecordingCacheInvalidationBus(),
+    trackingProvider: trackingProvider,
     seeds: seed == null
         ? const <BangumiVideoDetailSeed>[]
         : <BangumiVideoDetailSeed>[seed],
@@ -500,6 +544,17 @@ final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
 
   @override
   Future<void> close() => _controller.close();
+}
+
+final class _FakeBangumiTrackingProvider implements BangumiTrackingProvider {
+  const _FakeBangumiTrackingProvider(this.snapshot);
+
+  final BangumiTrackingSnapshot snapshot;
+
+  @override
+  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
+    return snapshot;
+  }
 }
 
 final class _FakeBangumiProvider implements BangumiProvider {

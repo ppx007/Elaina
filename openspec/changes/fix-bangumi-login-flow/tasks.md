@@ -23,6 +23,8 @@
   runtime and refresh the tracking page after token login or manual refresh.
 - [x] 3.5 Open remote tracking entries into a Bangumi-backed detail page with
   subject metadata, cover art, and episode list data.
+- [x] 3.6 Project remote tracking status into video detail state and keep the
+  global detail overlay above playback while it is open.
 
 ## 4. Validation
 
@@ -31,3 +33,5 @@
   tracking detail navigation.
 - [x] 4.2 Run format, focused tests, Dart analysis, OpenSpec validation, and a
   credential leak scan.
+- [x] 4.3 Add regressions for tracked detail status rendering and detail
+  overlay interaction while playback is active.

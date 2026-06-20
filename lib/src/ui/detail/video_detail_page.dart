@@ -26,6 +26,9 @@ class VideoDetailPage extends StatefulWidget {
 }
 
 class _VideoDetailPageState extends State<VideoDetailPage> {
+  static const double _disabledStatusBackgroundAlpha = 0.35;
+  static const double _disabledStatusForegroundAlpha = 0.7;
+
   Future<void> _continuePlayback(VideoDetailViewData data) async {
     final VideoDetailActionResult result =
         await widget.videoDetailPageContract.continuePlayback(widget.id);
@@ -65,11 +68,42 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   }
 
   Future<void> _toggleFollow(VideoDetailViewData data) async {
+    if (!_canToggleFollow(data)) return;
     if (data.followState == VideoFollowState.followed) {
       await widget.videoDetailPageContract.unfollow(widget.id);
     } else {
       await widget.videoDetailPageContract.follow(widget.id);
     }
+  }
+
+  bool _canToggleFollow(VideoDetailViewData data) {
+    if (data.followState == VideoFollowState.followed) return true;
+    if (data.trackingStatus != VideoTrackingStatus.notTracked) return false;
+    if (data.binding != null || data.continueWatching != null) return true;
+    return data.episodes.any((VideoDetailEpisode episode) =>
+        episode.localMedia != null || episode.localMediaId != null);
+  }
+
+  String _trackingLabel(VideoTrackingStatus status) {
+    return switch (status) {
+      VideoTrackingStatus.notTracked => '加入追番',
+      VideoTrackingStatus.planned => '想看',
+      VideoTrackingStatus.watching => '在追',
+      VideoTrackingStatus.completed => '已看',
+      VideoTrackingStatus.onHold => '搁置',
+      VideoTrackingStatus.dropped => '抛弃',
+    };
+  }
+
+  IconData _trackingIcon(VideoTrackingStatus status) {
+    return switch (status) {
+      VideoTrackingStatus.notTracked => Icons.favorite_border,
+      VideoTrackingStatus.planned => Icons.bookmark_border,
+      VideoTrackingStatus.watching => Icons.favorite,
+      VideoTrackingStatus.completed => Icons.task_alt,
+      VideoTrackingStatus.onHold => Icons.pause_circle_outline,
+      VideoTrackingStatus.dropped => Icons.block,
+    };
   }
 
   @override
@@ -91,7 +125,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         }
 
         final VideoDetailViewData data = snapshot.data!;
-        final bool isFollowed = data.followState == VideoFollowState.followed;
+        final bool isTracked =
+            data.trackingStatus != VideoTrackingStatus.notTracked;
+        final bool canToggleFollow = _canToggleFollow(data);
         final bool hasContinueWatching = data.continueWatching != null;
 
         return Scaffold(
@@ -113,6 +149,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                     child: Row(
                       children: <Widget>[
                         IconButton(
+                          key: const ValueKey<String>('video-detail-close'),
                           icon: const Icon(Icons.arrow_back),
                           color: theme.onSurface,
                           onPressed: widget.onClose,
@@ -182,19 +219,26 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
                                 // Follow Action
                                 ElevatedButton.icon(
-                                  onPressed: () => _toggleFollow(data),
-                                  icon: Icon(
-                                    isFollowed
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    size: 16,
-                                  ),
-                                  label: Text(isFollowed ? '已在追番' : '加入追番'),
+                                  onPressed: canToggleFollow
+                                      ? () => _toggleFollow(data)
+                                      : null,
+                                  icon: Icon(_trackingIcon(data.trackingStatus),
+                                      size: 16),
+                                  label:
+                                      Text(_trackingLabel(data.trackingStatus)),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: isFollowed
+                                    backgroundColor: isTracked
                                         ? theme.secondary
                                         : theme.primary,
                                     foregroundColor: theme.background,
+                                    disabledBackgroundColor: theme.secondary
+                                        .withValues(
+                                            alpha:
+                                                _disabledStatusBackgroundAlpha),
+                                    disabledForegroundColor: theme.onSurface
+                                        .withValues(
+                                            alpha:
+                                                _disabledStatusForegroundAlpha),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),

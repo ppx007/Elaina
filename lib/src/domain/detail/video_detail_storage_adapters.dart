@@ -5,6 +5,7 @@ import '../../provider/provider_result.dart';
 import '../media/media_library.dart';
 import '../media/media_library_storage_adapters.dart';
 import '../playback/playback_source_handoff.dart';
+import '../profile/bangumi_tracking_domain.dart';
 import 'video_detail.dart';
 import 'video_detail_bootstrap.dart';
 import 'video_detail_runtime.dart';
@@ -16,6 +17,7 @@ final class StorageBackedVideoDetailRepository
     required MediaLibraryCatalogRepository catalogRepository,
     required ProviderBindingStore bindingStore,
     required PlaybackHistoryStore historyStore,
+    BangumiTrackingProvider? trackingProvider,
     Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
     String providerId = defaultVideoDetailMetadataProviderId,
     MediaLibraryQuery catalogQuery = const MediaLibraryQuery(),
@@ -24,6 +26,7 @@ final class StorageBackedVideoDetailRepository
         _catalogRepository = catalogRepository,
         _bindingStore = bindingStore,
         _historyStore = historyStore,
+        _trackingProvider = trackingProvider,
         _providerId = providerId,
         _catalogQuery = catalogQuery,
         _seedsBySubjectId = <String, BangumiVideoDetailSeed>{
@@ -35,6 +38,7 @@ final class StorageBackedVideoDetailRepository
   final MediaLibraryCatalogRepository _catalogRepository;
   final ProviderBindingStore _bindingStore;
   final PlaybackHistoryStore _historyStore;
+  final BangumiTrackingProvider? _trackingProvider;
   final String _providerId;
   final MediaLibraryQuery _catalogQuery;
   final Map<String, BangumiVideoDetailSeed> _seedsBySubjectId;
@@ -55,6 +59,12 @@ final class StorageBackedVideoDetailRepository
         await _boundCatalogItemsFor(subject.id.value);
     final ProviderBinding? binding =
         await _strongestBindingFor(subject.id.value, boundItems, seed);
+    final VideoTrackingStatus trackingStatus =
+        await videoTrackingStatusForSubject(
+      subjectId: subject.id.value,
+      binding: binding,
+      trackingProvider: _trackingProvider,
+    );
     final List<VideoDetailEpisode> episodes =
         seed != null && seed.episodes.isNotEmpty
             ? await _episodesFromSeed(seed)
@@ -68,6 +78,7 @@ final class StorageBackedVideoDetailRepository
       episodes: List<VideoDetailEpisode>.unmodifiable(episodes),
       continueWatching: latestContinue,
       followState: videoFollowStateFromBinding(binding),
+      trackingStatus: trackingStatus,
       binding: binding,
       actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
     );
@@ -79,6 +90,7 @@ final class StorageBackedVideoDetailRepository
       episodes: partial.episodes,
       continueWatching: partial.continueWatching,
       followState: partial.followState,
+      trackingStatus: partial.trackingStatus,
       binding: partial.binding,
       actions: deriveVideoDetailActions(partial),
     );
@@ -244,6 +256,7 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
   required CacheInvalidationBus invalidationBus,
   PlaybackSourceHandoffContract playbackSourceHandoff =
       const LocalPlaybackSourceHandoff(),
+  BangumiTrackingProvider? trackingProvider,
   Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
   String providerId = defaultVideoDetailMetadataProviderId,
   DateTime Function()? now,
@@ -261,6 +274,7 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
     catalogRepository: catalog,
     bindingStore: binding,
     historyStore: history,
+    trackingProvider: trackingProvider,
     seeds: seeds,
     providerId: providerId,
     catalogQuery: catalogQuery,
