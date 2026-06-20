@@ -1,4 +1,6 @@
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
+import 'package:elaina/src/domain/profile/profile_domain.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
 import 'package:elaina/src/ui/settings/settings_page.dart';
@@ -106,6 +108,37 @@ void main() {
     expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
   });
 
+  testWidgets('SettingsPage validates Bangumi token and refreshes profile',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+    final _RecordingBangumiLoginController bangumiLoginController =
+        _RecordingBangumiLoginController();
+    int authRefreshes = 0;
+
+    await tester.pumpWidget(_testHost(
+      child: SettingsPage(
+        settingsRuntime: settingsRuntime,
+        bangumiLoginController: bangumiLoginController,
+        onBangumiAuthChanged: () {
+          authRefreshes++;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('settings-bangumi-access-token')),
+      ' token-1 ',
+    );
+    await tester
+        .tap(find.byKey(const ValueKey<String>('settings-bangumi-login')));
+    await tester.pumpAndSettle();
+
+    expect(bangumiLoginController.submittedToken, 'token-1');
+    expect(authRefreshes, 1);
+    expect(find.text('Bangumi 已登录：Alice'), findsWidgets);
+  });
+
   testWidgets(
       'DiagnosticsPage displays capability checklist, memory usage, drift and chronological log table',
       (WidgetTester tester) async {
@@ -130,4 +163,25 @@ void main() {
     expect(find.text('play_start'), findsOneWidget);
     expect(find.text('buffer_warning'), findsOneWidget);
   });
+}
+
+final class _RecordingBangumiLoginController implements BangumiLoginController {
+  String? submittedToken;
+
+  @override
+  Future<BangumiLoginStartResult> startLogin() async {
+    return BangumiLoginStartResult.opened(
+      Uri.parse('https://bgm.tv/oauth/authorize'),
+    );
+  }
+
+  @override
+  Future<BangumiTokenSignInResult> signInWithAccessToken(
+    String accessToken,
+  ) async {
+    submittedToken = accessToken.trim();
+    return const BangumiTokenSignInResult.signedIn(
+      UserProfileSnapshot(displayName: 'Alice'),
+    );
+  }
 }

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
@@ -6,6 +9,7 @@ import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
 import 'domain/playback/playback_source_handoff.dart';
+import 'domain/profile/bangumi_login_domain.dart';
 import 'domain/profile/profile_domain.dart';
 import 'domain/rss/rss_engine_runtime.dart';
 import 'domain/settings/settings_domain.dart';
@@ -67,9 +71,12 @@ class AppComposition {
         StorageProviderBindingStore(foundation.storage.providerBinding);
 
     // 4. Bangumi Provider Runtime
+    final BangumiApiClient bangumiApiClient = BangumiApiClient(
+      transport: HttpBangumiApiTransport(),
+    );
     final bangumiApiProvider = BangumiApiProvider(
       gateway: providerGateway,
-      client: BangumiApiClient(transport: HttpBangumiApiTransport()),
+      client: bangumiApiClient,
       accessTokenProvider: () async {
         final String token = (await foundation.storage.settings
                     .readString(SettingsPreferenceKeys.bangumiAccessToken))
@@ -145,6 +152,12 @@ class AppComposition {
       settingsStore: foundation.storage.settings,
       networkPolicyStore: foundation.storage.networkPolicy,
     );
+    bangumiLoginController = _BangumiLoginController(
+      settingsRuntime: settingsRuntime,
+      authProvider: bangumiAuthProvider,
+      authorizationUri: bangumiApiClient.authorizationRequestUri(),
+      openExternalUri: const _SystemExternalUriLauncher().open,
+    );
 
     // 8. Diagnostics Runtime
     final diagnosticsCapabilityMatrix = DiagnosticsCapabilityMatrix(
@@ -186,6 +199,7 @@ class AppComposition {
   late final DiagnosticsRuntime diagnosticsRuntime;
   late final BangumiProviderRuntime bangumiProviderRuntime;
   late final BangumiAuthProvider bangumiAuthProvider;
+  late final BangumiLoginController bangumiLoginController;
   late final UserProfileProvider profileProvider;
 
   Widget buildVideoSurface(BuildContext context) {
@@ -199,6 +213,105 @@ class AppComposition {
     rssEngineRuntime.dispose();
     btTaskCoreRuntime.dispose();
     foundation.dispose();
+  }
+}
+
+typedef _OpenExternalUri = Future<bool> Function(Uri uri);
+
+final class _BangumiLoginController implements BangumiLoginController {
+  const _BangumiLoginController({
+    required SettingsRuntime settingsRuntime,
+    required BangumiAuthProvider authProvider,
+    required Uri authorizationUri,
+    required _OpenExternalUri openExternalUri,
+  })  : _settingsRuntime = settingsRuntime,
+        _authProvider = authProvider,
+        _authorizationUri = authorizationUri,
+        _openExternalUri = openExternalUri;
+
+  final SettingsRuntime _settingsRuntime;
+  final BangumiAuthProvider _authProvider;
+  final Uri _authorizationUri;
+  final _OpenExternalUri _openExternalUri;
+
+  @override
+  Future<BangumiLoginStartResult> startLogin() async {
+    try {
+      final bool opened = await _openExternalUri(_authorizationUri);
+      if (!opened) {
+        return const BangumiLoginStartResult.unavailable(
+          '无法打开系统浏览器。',
+        );
+      }
+      return BangumiLoginStartResult.opened(_authorizationUri);
+    } catch (error) {
+      return BangumiLoginStartResult.failed('打开 Bangumi 登录页失败: $error');
+    }
+  }
+
+  @override
+  Future<BangumiTokenSignInResult> signInWithAccessToken(
+    String accessToken,
+  ) async {
+    final String token = accessToken.trim();
+    await _settingsRuntime.setPreference(
+      key: SettingsPreferenceKeys.bangumiAccessToken,
+      value: token,
+    );
+    if (token.isEmpty) return const BangumiTokenSignInResult.signedOut();
+
+    final AcgProviderResult<BangumiAuthSession> result =
+        await _authProvider.currentSession();
+    if (result is AcgProviderSuccess<BangumiAuthSession>) {
+      final BangumiAuthSession session = result.value;
+      return BangumiTokenSignInResult.signedIn(
+        UserProfileSnapshot(
+          displayName: session.displayName ?? session.userId,
+          avatarUri: session.avatarUri,
+        ),
+      );
+    }
+    if (result is AcgProviderFailure<BangumiAuthSession>) {
+      if (result.kind == AcgProviderFailureKind.unauthenticated) {
+        await _settingsRuntime.setPreference(
+          key: SettingsPreferenceKeys.bangumiAccessToken,
+          value: '',
+        );
+      }
+      return BangumiTokenSignInResult.failed(result.message);
+    }
+    return const BangumiTokenSignInResult.failed('Bangumi 登录状态未知。');
+  }
+}
+
+final class _SystemExternalUriLauncher {
+  const _SystemExternalUriLauncher();
+
+  Future<bool> open(Uri uri) async {
+    final String target = uri.toString();
+    if (Platform.isWindows) {
+      return _startDetached(
+        'rundll32',
+        <String>['url.dll,FileProtocolHandler', target],
+      );
+    }
+    if (Platform.isMacOS) {
+      return _startDetached('open', <String>[target]);
+    }
+    if (Platform.isLinux) {
+      return _startDetached('xdg-open', <String>[target]);
+    }
+    return false;
+  }
+
+  Future<bool> _startDetached(String executable, List<String> arguments) async {
+    final Process process = await Process.start(
+      executable,
+      arguments,
+      mode: ProcessStartMode.detached,
+    );
+    unawaited(process.exitCode);
+    return true;
   }
 }
 

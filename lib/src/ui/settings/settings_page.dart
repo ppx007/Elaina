@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
+import '../../domain/profile/bangumi_login_domain.dart';
 import '../../domain/settings/settings_domain.dart';
 import '../theme/elaina_theme.dart';
 
@@ -9,10 +8,12 @@ class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
     required this.settingsRuntime,
+    this.bangumiLoginController,
     this.onBangumiAuthChanged,
   });
 
   final SettingsRuntime settingsRuntime;
+  final BangumiLoginController? bangumiLoginController;
   final VoidCallback? onBangumiAuthChanged;
 
   @override
@@ -24,11 +25,12 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _dnsController = TextEditingController();
   final TextEditingController _cacheController = TextEditingController();
   final TextEditingController _bangumiTokenController = TextEditingController();
-  Timer? _bangumiAuthRefreshDebounce;
 
   bool _hardwareAcceleration = true;
   String _layoutPreference = 'default';
   bool _isLoading = true;
+  bool _isBangumiTokenSaving = false;
+  String? _bangumiAuthMessage;
 
   @override
   void initState() {
@@ -42,7 +44,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _dnsController.dispose();
     _cacheController.dispose();
     _bangumiTokenController.dispose();
-    _bangumiAuthRefreshDebounce?.cancel();
     super.dispose();
   }
 
@@ -87,15 +88,54 @@ class _SettingsPageState extends State<SettingsPage> {
     await widget.settingsRuntime.setPreference(key: key, value: value);
   }
 
-  Future<void> _saveBangumiToken(String value) async {
+  Future<void> _storeBangumiAccessToken(String value) async {
     await _savePreference(
       SettingsPreferenceKeys.bangumiAccessToken,
       value.trim(),
     );
-    _bangumiAuthRefreshDebounce?.cancel();
-    _bangumiAuthRefreshDebounce = Timer(
-      const Duration(milliseconds: 600),
-      () => widget.onBangumiAuthChanged?.call(),
+  }
+
+  Future<void> _submitBangumiToken() async {
+    if (_isBangumiTokenSaving) return;
+    setState(() {
+      _isBangumiTokenSaving = true;
+      _bangumiAuthMessage = null;
+    });
+
+    final String token = _bangumiTokenController.text.trim();
+    final BangumiLoginController? loginController =
+        widget.bangumiLoginController;
+    if (loginController == null) {
+      await _storeBangumiAccessToken(token);
+      widget.onBangumiAuthChanged?.call();
+      if (mounted) {
+        setState(() {
+          _isBangumiTokenSaving = false;
+          _bangumiAuthMessage =
+              token.isEmpty ? 'Bangumi 已退出' : 'Bangumi token 已保存';
+        });
+      }
+      return;
+    }
+
+    final BangumiTokenSignInResult result =
+        await loginController.signInWithAccessToken(token);
+    if (!mounted) return;
+    if (result.status != BangumiTokenSignInStatus.failed) {
+      widget.onBangumiAuthChanged?.call();
+    }
+    final String message = switch (result.status) {
+      BangumiTokenSignInStatus.signedIn =>
+        'Bangumi 已登录：${result.profile?.displayName ?? '用户'}',
+      BangumiTokenSignInStatus.signedOut => 'Bangumi 已退出',
+      BangumiTokenSignInStatus.failed => result.message ?? 'Bangumi 登录失败',
+    };
+    setState(() {
+      _isBangumiTokenSaving = false;
+      _bangumiAuthMessage = message;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -189,10 +229,29 @@ class _SettingsPageState extends State<SettingsPage> {
                       fieldKey: const ValueKey<String>(
                           'settings-bangumi-access-token'),
                       obscureText: true,
-                      onChanged: (String val) {
-                        _saveBangumiToken(val);
+                      onChanged: (_) {
+                        if (_bangumiAuthMessage != null) {
+                          setState(() {
+                            _bangumiAuthMessage = null;
+                          });
+                        }
                       },
+                      onSubmitted: (_) => _submitBangumiToken(),
                       theme: theme,
+                      trailing: ElevatedButton.icon(
+                        key: const ValueKey<String>('settings-bangumi-login'),
+                        onPressed:
+                            _isBangumiTokenSaving ? null : _submitBangumiToken,
+                        icon: _isBangumiTokenSaving
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.login, size: 16),
+                        label: const Text('保存并登录'),
+                      ),
+                      statusText: _bangumiAuthMessage,
                     ),
                   ],
                 ),
@@ -389,6 +448,9 @@ class _SettingsPageState extends State<SettingsPage> {
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
     Key? fieldKey,
+    ValueChanged<String>? onSubmitted,
+    Widget? trailing,
+    String? statusText,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,28 +482,51 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(width: 24),
         Expanded(
           flex: 1,
-          child: TextField(
-            key: fieldKey,
-            controller: controller,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            onChanged: onChanged,
-            style: TextStyle(color: theme.onSurface, fontSize: 14),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.0),
-                borderSide: BorderSide(color: theme.border, width: 1.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              TextField(
+                key: fieldKey,
+                controller: controller,
+                keyboardType: keyboardType,
+                obscureText: obscureText,
+                onChanged: onChanged,
+                onSubmitted: onSubmitted,
+                style: TextStyle(color: theme.onSurface, fontSize: 14),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12.0, vertical: 10.0),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: theme.border, width: 1.0),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: theme.primary, width: 1.0),
+                  ),
+                ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.0),
-                borderSide: BorderSide(color: theme.primary, width: 1.0),
-              ),
-            ),
+              if (trailing != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: trailing),
+              ],
+              if (statusText != null && statusText.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  statusText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.onBackground.withValues(alpha: 0.72),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],

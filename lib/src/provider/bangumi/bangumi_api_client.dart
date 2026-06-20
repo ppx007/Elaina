@@ -20,9 +20,13 @@ const int bangumiAnimeSubjectType = 2;
 const int bangumiEpisodeCollectionWish = 1;
 const int bangumiEpisodeCollectionDone = 2;
 const int bangumiEpisodeCollectionDropped = 3;
+const String defaultBangumiOAuthClientId = 'bgm63916a369e2af2ca6';
+const String bangumiOAuthAuthorizePath = '/oauth/authorize';
+const String bangumiOAuthAuthorizationCodeResponseType = 'code';
 const Duration bangumiApiSessionProjectionTtl = Duration(minutes: 15);
 
 final Uri defaultBangumiApiBaseUri = Uri.parse('https://api.bgm.tv');
+final Uri defaultBangumiOAuthBaseUri = Uri.parse('https://bgm.tv');
 
 typedef BangumiAccessTokenProvider = Future<BangumiApiAccessToken?> Function();
 
@@ -166,6 +170,25 @@ final class BangumiApiClient {
 
   Uri currentSessionRequestUri() {
     return _uri('/v0/me');
+  }
+
+  Uri authorizationRequestUri({
+    String clientId = defaultBangumiOAuthClientId,
+    Uri? oauthBaseUri,
+    Uri? redirectUri,
+    String? state,
+  }) {
+    final Map<String, String> query = <String, String>{
+      'client_id': clientId,
+      'response_type': bangumiOAuthAuthorizationCodeResponseType,
+      if (redirectUri != null) 'redirect_uri': redirectUri.toString(),
+      if (state != null && state.trim().isNotEmpty) 'state': state.trim(),
+    };
+    final Uri baseUri = oauthBaseUri ?? defaultBangumiOAuthBaseUri;
+    return baseUri.replace(
+      path: _joinedPath(baseUri.path, bangumiOAuthAuthorizePath),
+      queryParameters: query,
+    );
   }
 
   Uri syncProgressRequestUri(BangumiProgressUpdate update) {
@@ -342,14 +365,18 @@ final class BangumiApiClient {
   }
 
   Uri _uri(String path, [Map<String, String> queryParameters = const {}]) {
-    final String basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
     return _baseUri.replace(
-      path: '$basePath$path',
+      path: _joinedPath(_baseUri.path, path),
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
   }
+}
+
+String _joinedPath(String basePath, String path) {
+  final String normalizedBase = basePath.endsWith('/')
+      ? basePath.substring(0, basePath.length - 1)
+      : basePath;
+  return '$normalizedBase$path';
 }
 
 final class BangumiApiProvider

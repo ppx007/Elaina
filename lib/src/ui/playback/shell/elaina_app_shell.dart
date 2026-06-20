@@ -9,6 +9,7 @@ import '../../../domain/media/media_library.dart';
 import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
 import '../../../domain/playback/playback_state.dart';
+import '../../../domain/profile/bangumi_login_domain.dart';
 import '../../../domain/profile/profile_domain.dart';
 import '../../../domain/rss/rss_engine_runtime.dart';
 import '../../../domain/settings/settings_domain.dart';
@@ -37,6 +38,7 @@ class ElainaAppShell extends StatefulWidget {
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
     this.profileProvider,
+    this.bangumiLoginController,
     this.carouselAutoScroll = true,
   });
 
@@ -49,6 +51,7 @@ class ElainaAppShell extends StatefulWidget {
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
   final UserProfileProvider? profileProvider;
+  final BangumiLoginController? bangumiLoginController;
   final bool carouselAutoScroll;
 
   @override
@@ -157,6 +160,28 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     setState(() {
       _currentIndex = _settingsNavIndex;
     });
+  }
+
+  Future<void> _startBangumiLogin() async {
+    final BangumiLoginController? loginController =
+        widget.bangumiLoginController;
+    if (loginController == null) {
+      _openBangumiSettings();
+      return;
+    }
+
+    final BangumiLoginStartResult result = await loginController.startLogin();
+    if (!mounted) return;
+    final String? message = switch (result.status) {
+      BangumiLoginStartStatus.opened => '已打开 Bangumi 登录页面',
+      BangumiLoginStartStatus.unavailable => result.message,
+      BangumiLoginStartStatus.failed => result.message,
+    };
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -756,7 +781,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               _BangumiAccountPill(
                 profileFuture: _profileFuture,
                 theme: theme,
-                onPressed: _openBangumiSettings,
+                onPressed: _startBangumiLogin,
               ),
             ],
           ),
@@ -835,7 +860,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                                   _currentIndex = _localLibraryNavIndex;
                                 });
                               },
-                              onOpenSettings: _openBangumiSettings,
+                              onLogin: _startBangumiLogin,
                             )
                           : GridView.builder(
                               gridDelegate:
@@ -974,6 +999,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   Widget _buildSettingsPage(ElainaThemeData theme) {
     return SettingsPage(
       settingsRuntime: widget.settingsRuntime,
+      bangumiLoginController: widget.bangumiLoginController,
       onBangumiAuthChanged: _refreshBangumiProfile,
     );
   }
@@ -1228,14 +1254,14 @@ class _TrackingEmptyState extends StatelessWidget {
     required this.hasAnyTrackedItem,
     required this.theme,
     required this.onOpenLibrary,
-    required this.onOpenSettings,
+    required this.onLogin,
   });
 
   final _TrackingFilter filter;
   final bool hasAnyTrackedItem;
   final ElainaThemeData theme;
   final VoidCallback onOpenLibrary;
-  final VoidCallback onOpenSettings;
+  final VoidCallback onLogin;
 
   String get _title {
     if (!hasAnyTrackedItem) {
@@ -1295,7 +1321,7 @@ class _TrackingEmptyState extends StatelessWidget {
                           ),
                         ),
                         OutlinedButton.icon(
-                          onPressed: onOpenSettings,
+                          onPressed: onLogin,
                           icon: const Icon(Icons.login),
                           label: const Text('登录 Bangumi'),
                           style: OutlinedButton.styleFrom(

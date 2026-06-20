@@ -842,7 +842,7 @@ void main() {
       await invalidationBus.close();
     });
 
-    testWidgets('Bangumi login action opens settings access token section',
+    testWidgets('Bangumi login action starts authorization flow',
         (WidgetTester tester) async {
       final _RecordingCacheInvalidationBus invalidationBus =
           _RecordingCacheInvalidationBus();
@@ -893,6 +893,8 @@ void main() {
       );
       final BtTaskCoreRuntime btTaskCoreRuntime =
           BtTaskCoreRuntime.unavailable(reason: 'testing');
+      final _RecordingBangumiLoginController bangumiLoginController =
+          _RecordingBangumiLoginController();
 
       await tester.pumpWidget(
         _testHost(
@@ -905,6 +907,7 @@ void main() {
             downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
             settingsRuntime: FakeSettingsRuntime(),
             diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            bangumiLoginController: bangumiLoginController,
             carouselAutoScroll: false,
           ),
         ),
@@ -915,8 +918,12 @@ void main() {
       await tester.tap(find.text('登录 Bangumi').first);
       await tester.pump();
 
-      expect(find.text('Bangumi'), findsOneWidget);
-      expect(find.text('Access token'), findsOneWidget);
+      expect(bangumiLoginController.startLoginCalls, 1);
+      expect(
+        bangumiLoginController.openedUri,
+        Uri.parse('https://bgm.tv/oauth/authorize'),
+      );
+      expect(find.text('已打开 Bangumi 登录页面'), findsOneWidget);
 
       libraryRuntime.dispose();
       await invalidationBus.close();
@@ -1054,6 +1061,29 @@ void main() {
       await invalidationBus.close();
     });
   });
+}
+
+final class _RecordingBangumiLoginController implements BangumiLoginController {
+  int startLoginCalls = 0;
+  Uri? openedUri;
+  String? submittedToken;
+
+  @override
+  Future<BangumiLoginStartResult> startLogin() async {
+    startLoginCalls++;
+    openedUri = Uri.parse('https://bgm.tv/oauth/authorize');
+    return BangumiLoginStartResult.opened(openedUri!);
+  }
+
+  @override
+  Future<BangumiTokenSignInResult> signInWithAccessToken(
+    String accessToken,
+  ) async {
+    submittedToken = accessToken;
+    return const BangumiTokenSignInResult.signedIn(
+      UserProfileSnapshot(displayName: 'Alice'),
+    );
+  }
 }
 
 class _FakeRssEngine implements RssEngineContract {
