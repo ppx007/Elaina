@@ -1,5 +1,6 @@
 import 'package:celesteria/celesteria.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:media_kit/media_kit.dart';
 
 void main() {
   group('bundled libmpv resolver', () {
@@ -746,6 +747,9 @@ List<double> _identityTransform() {
 
 final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   _FakeMediaKitMpvBackend({this.failOn, this.failOnProperty});
+
+  @override
+  Player get player => throw UnimplementedError('Fake backend does not implement player getter');
 
   final PlaybackOperation? failOn;
   final String? failOnProperty;

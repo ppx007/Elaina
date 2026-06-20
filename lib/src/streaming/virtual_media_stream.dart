@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
+
+const String virtualMediaStreamUriScheme = 'celesteria-virtual-stream';
 
 final class VirtualMediaStreamId {
   const VirtualMediaStreamId(this.value)
@@ -272,18 +276,12 @@ final class DeterministicVirtualMediaStreamRegistry
       lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
       createdAt: _clock(),
       updatedAt: _clock(),
-      contentUri: _contentUriResolver(
-            streamId: streamId,
-            taskId: taskId,
-            fileIndex: fileIndex,
-            file: file,
-          ) ??
-          _defaultContentUri(
-            streamId: streamId,
-            taskId: taskId,
-            fileIndex: fileIndex,
-            file: file,
-          ),
+      contentUri: _resolveContentUri(
+        streamId: streamId,
+        taskId: taskId,
+        fileIndex: fileIndex,
+        file: file,
+      ),
       mimeType: file.mediaMimeType,
     );
     await streamStore.storeStream(stream);
@@ -300,6 +298,26 @@ final class DeterministicVirtualMediaStreamRegistry
     ));
     return VirtualMediaStreamCreateOutcome.success(
         descriptor: _descriptorFromRecord(stream));
+  }
+
+  Uri _resolveContentUri({
+    required VirtualMediaStreamId streamId,
+    required BtTaskId taskId,
+    required BtFileIndex fileIndex,
+    required StoredBtTaskFileRecord file,
+  }) {
+    return _contentUriResolver(
+          streamId: streamId,
+          taskId: taskId,
+          fileIndex: fileIndex,
+          file: file,
+        ) ??
+        _defaultContentUri(
+          streamId: streamId,
+          taskId: taskId,
+          fileIndex: fileIndex,
+          file: file,
+        );
   }
 
   @override
@@ -438,8 +456,23 @@ final class DeterministicVirtualMediaStream implements VirtualMediaStream {
       throw failure;
     }
     try {
-      await for (final VirtualByteRangeChunk chunk
-          in source.openRange(descriptor: descriptor, request: request)) {
+      Stream<VirtualByteRangeChunk> chunks =
+          source.openRange(descriptor: descriptor, request: request);
+      // Honor the request's optional per-chunk timeout: if no chunk arrives
+      // within the window, surface the typed `timeout` failure.
+      final Duration? timeout = request.timeout;
+      if (timeout != null) {
+        chunks = chunks.timeout(
+          timeout,
+          onTimeout: (EventSink<VirtualByteRangeChunk> sink) {
+            sink.addError(_failure(
+              VirtualMediaStreamFailureKind.timeout,
+              'Virtual byte range timed out after ${timeout.inMilliseconds}ms.',
+            ));
+          },
+        );
+      }
+      await for (final VirtualByteRangeChunk chunk in chunks) {
         yield chunk;
       }
       await _recordRangeBuffered(request.range);
@@ -557,7 +590,7 @@ Uri _defaultContentUri({
   required StoredBtTaskFileRecord file,
 }) {
   return Uri.parse(
-      'celesteria-virtual-stream://${Uri.encodeComponent(streamId.value)}');
+      '$virtualMediaStreamUriScheme://${Uri.encodeComponent(streamId.value)}');
 }
 
 VirtualMediaStreamId _streamId(BtTaskId taskId, BtFileIndex fileIndex) {

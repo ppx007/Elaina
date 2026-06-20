@@ -5,6 +5,7 @@ import 'package:xml/xml.dart';
 
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
+import '../../foundation/security/outbound_uri_guard.dart';
 import '../provider_result.dart';
 import 'feed_contracts.dart';
 
@@ -43,14 +44,37 @@ abstract interface class FeedHttpTransport {
   Future<FeedHttpResponse> send(FeedHttpRequest request);
 }
 
+/// Raised when a feed request targets an SSRF-unsafe host (loopback,
+/// link-local, or private network) and is refused before dialing.
+final class FeedHttpRequestBlocked implements Exception {
+  const FeedHttpRequestBlocked({required this.uri, required this.risk});
+
+  final Uri uri;
+  final OutboundHostRisk risk;
+
+  @override
+  String toString() =>
+      'FeedHttpRequestBlocked: ${risk.name} host is not allowed ($uri).';
+}
+
 final class HttpFeedHttpTransport implements FeedHttpTransport {
-  HttpFeedHttpTransport({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  HttpFeedHttpTransport({
+    HttpClient? httpClient,
+    OutboundUriGuard outboundGuard = const OutboundUriGuard(),
+  })  : _httpClient = httpClient ?? HttpClient(),
+        _outboundGuard = outboundGuard;
 
   final HttpClient _httpClient;
+  final OutboundUriGuard _outboundGuard;
 
   @override
   Future<FeedHttpResponse> send(FeedHttpRequest request) async {
+    // SSRF guard: feed/enclosure URLs are attacker-influenced, so refuse
+    // loopback/link-local/private targets before opening the connection.
+    final OutboundHostRisk? risk = _outboundGuard.classifyUri(request.uri);
+    if (risk != null) {
+      throw FeedHttpRequestBlocked(uri: request.uri, risk: risk);
+    }
     final HttpClientRequest httpRequest =
         await _httpClient.openUrl(request.method, request.uri);
     for (final MapEntry<String, String> header in request.headers.entries) {
@@ -322,17 +346,17 @@ FeedItem _rssItem(FeedSource source, XmlElement item) {
 }
 
 FeedParseResult _parseAtom(XmlDocument document, FeedParseRequest request) {
-  final List<XmlElement> entries = <XmlElement>[
-    for (final XmlElement entry
-        in _childElements(document.rootElement, 'entry'))
-      entry,
-  ];
   if (_localName(document.rootElement) != 'feed') {
     throw const ProviderFailure(
       kind: ProviderFailureKind.terminal,
       message: 'Atom feed is missing feed root element.',
     );
   }
+  final List<XmlElement> entries = <XmlElement>[
+    for (final XmlElement entry
+        in _childElements(document.rootElement, 'entry'))
+      entry,
+  ];
   final List<FeedItem> items = <FeedItem>[
     for (final XmlElement entry in entries) _atomEntry(request.source, entry),
   ];

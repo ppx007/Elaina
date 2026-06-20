@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
+import '../../foundation/security/outbound_uri_guard.dart';
 import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 import 'bangumi_auth.dart';
@@ -67,13 +68,22 @@ abstract interface class BangumiApiTransport {
 }
 
 final class HttpBangumiApiTransport implements BangumiApiTransport {
-  HttpBangumiApiTransport({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  HttpBangumiApiTransport({
+    HttpClient? httpClient,
+    OutboundUriGuard outboundGuard = const OutboundUriGuard(),
+  })  : _httpClient = httpClient ?? HttpClient(),
+        _outboundGuard = outboundGuard;
 
   final HttpClient _httpClient;
+  final OutboundUriGuard _outboundGuard;
 
   @override
   Future<BangumiApiResponse> send(BangumiApiRequest request) async {
+    final OutboundHostRisk? risk = _outboundGuard.classifyUri(request.uri);
+    if (risk != null) {
+      throw StateError(
+          'Bangumi request blocked by SSRF guard: ${risk.name} ${request.uri}');
+    }
     final HttpClientRequest httpRequest =
         await _httpClient.openUrl(request.method, request.uri);
     for (final MapEntry<String, String> header in request.headers.entries) {
@@ -529,7 +539,9 @@ int _episodeCollectionType(BangumiProgressState state) {
     BangumiProgressState.planned => bangumiEpisodeCollectionWish,
     BangumiProgressState.watching => bangumiEpisodeCollectionDone,
     BangumiProgressState.completed => bangumiEpisodeCollectionDone,
-    BangumiProgressState.onHold => bangumiEpisodeCollectionDropped,
+    // On-hold means paused, not abandoned: keep it as "want to watch" so a
+    // paused series is never destructively flagged as dropped on Bangumi.
+    BangumiProgressState.onHold => bangumiEpisodeCollectionWish,
     BangumiProgressState.dropped => bangumiEpisodeCollectionDropped,
   };
 }

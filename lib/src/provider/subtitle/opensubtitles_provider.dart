@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
+import '../../foundation/security/outbound_uri_guard.dart';
 import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 import 'subtitle_provider.dart';
@@ -77,15 +78,24 @@ abstract interface class OpenSubtitlesApiTransport {
 }
 
 final class HttpOpenSubtitlesApiTransport implements OpenSubtitlesApiTransport {
-  HttpOpenSubtitlesApiTransport({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  HttpOpenSubtitlesApiTransport({
+    HttpClient? httpClient,
+    OutboundUriGuard outboundGuard = const OutboundUriGuard(),
+  })  : _httpClient = httpClient ?? HttpClient(),
+        _outboundGuard = outboundGuard;
 
   final HttpClient _httpClient;
+  final OutboundUriGuard _outboundGuard;
 
   @override
   Future<OpenSubtitlesApiResponse> send(
     OpenSubtitlesApiRequest request,
   ) async {
+    final OutboundHostRisk? risk = _outboundGuard.classifyUri(request.uri);
+    if (risk != null) {
+      throw StateError(
+          'OpenSubtitles request blocked by SSRF guard: ${risk.name} ${request.uri}');
+    }
     final HttpClientRequest httpRequest =
         await _httpClient.openUrl(request.method, request.uri);
     for (final MapEntry<String, String> header in request.headers.entries) {

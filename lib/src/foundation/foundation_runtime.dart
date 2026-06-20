@@ -62,10 +62,9 @@ final class FoundationRuntime {
     if (gateway is DeterministicProviderGateway) {
       gateway.close();
     }
-    final CacheInvalidationBus bus = _invalidationBus;
-    if (bus is StreamCacheInvalidationBus) {
-      await bus.close();
-    }
+    // close() is part of the CacheInvalidationBus contract now, so no runtime
+    // type check is needed; resource-free implementations no-op.
+    await _invalidationBus.close();
   }
 
   void _checkNotDisposed() {
@@ -84,14 +83,16 @@ final class FoundationRuntime {
 final class DeterministicProviderGateway implements ProviderGateway {
   DeterministicProviderGateway({
     required StorageFoundation storage,
-  }) : _storage = storage;
+    DateTime Function()? clock,
+  })  : _storage = storage,
+        _clock = clock ?? DateTime.now;
 
   final StorageFoundation _storage;
+  final DateTime Function() _clock;
 
   final Map<String, ProviderRegistration> _registrations =
       <String, ProviderRegistration>{};
-  final Map<String, ProviderGatewayResponse<Object?>> _dedupeCache =
-      <String, ProviderGatewayResponse<Object?>>{};
+  final Map<String, _DedupeEntry> _dedupeCache = <String, _DedupeEntry>{};
   bool _closed = false;
 
   @override
@@ -120,14 +121,20 @@ final class DeterministicProviderGateway implements ProviderGateway {
       );
     }
 
-    // Always check de-duplication cache for matching request keys.
+    // De-duplicate only within the request's deduplication window. A zero
+    // window disables de-duplication; expired entries are evicted so the
+    // cache cannot grow unbounded across long-lived gateways.
     final String dedupeKey = _dedupeKey(request.key);
-    final ProviderGatewayResponse<Object?>? cached = _dedupeCache[dedupeKey];
+    final DateTime now = _clock();
+    final _DedupeEntry? cached = _dedupeCache[dedupeKey];
     if (cached != null) {
-      return ProviderGatewayResponse<T>(
-        value: cached.value as T,
-        source: cached.source,
-      );
+      if (now.isBefore(cached.expiresAt)) {
+        return ProviderGatewayResponse<T>(
+          value: cached.response.value as T,
+          source: cached.response.source,
+        );
+      }
+      _dedupeCache.remove(dedupeKey);
     }
 
     try {
@@ -137,11 +144,15 @@ final class DeterministicProviderGateway implements ProviderGateway {
         source: ProviderGatewayResponseSource.network,
       );
 
-      // Always cache the outcome for de-duplication.
-      _dedupeCache[dedupeKey] = ProviderGatewayResponse<Object?>(
-        value: value,
-        source: response.source,
-      );
+      if (request.deduplicationWindow > Duration.zero) {
+        _dedupeCache[dedupeKey] = _DedupeEntry(
+          response: ProviderGatewayResponse<Object?>(
+            value: value,
+            source: response.source,
+          ),
+          expiresAt: now.add(request.deduplicationWindow),
+        );
+      }
 
       return response;
     } on ProviderFailure {
@@ -171,5 +182,13 @@ final class DeterministicProviderGateway implements ProviderGateway {
 
   static String _dedupeKey(ProviderRequestKey key) =>
       "${key.providerId.value}::${key.cacheKey}";
+}
+
+/// A de-duplication cache entry with its expiry instant.
+final class _DedupeEntry {
+  const _DedupeEntry({required this.response, required this.expiresAt});
+
+  final ProviderGatewayResponse<Object?> response;
+  final DateTime expiresAt;
 }
 

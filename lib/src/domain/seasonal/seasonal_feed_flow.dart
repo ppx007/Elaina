@@ -1,6 +1,5 @@
 import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../../foundation/storage/storage_contracts.dart';
-import '../../provider/rss/feed_contracts.dart';
 import '../rss/rss_engine_runtime.dart';
 import 'seasonal_anime.dart';
 import 'seasonal_indexer_runtime.dart';

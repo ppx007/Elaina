@@ -1,4 +1,5 @@
-import '../foundation/gateway/provider_gateway.dart';
+import '../foundation/provider_contracts.dart';
+import '../foundation/security/outbound_uri_guard.dart';
 
 final class NetworkPolicyId {
   const NetworkPolicyId(this.value)
@@ -560,26 +561,14 @@ final class DeterministicNetworkPolicyEvaluator
   }
 
   static NetworkPolicyFailureKind? _hostFailureKind(String host) {
-    final String normalized = host.toLowerCase();
-    if (normalized == 'localhost') {
-      return NetworkPolicyFailureKind.loopbackAddress;
-    }
-    final List<int>? octets = _ipv4Octets(normalized);
-    if (octets == null) {
-      return null;
-    }
-    if (octets[0] == 127) {
-      return NetworkPolicyFailureKind.loopbackAddress;
-    }
-    if (octets[0] == 169 && octets[1] == 254) {
-      return NetworkPolicyFailureKind.linkLocalAddress;
-    }
-    if (octets[0] == 10 ||
-        (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31) ||
-        (octets[0] == 192 && octets[1] == 168)) {
-      return NetworkPolicyFailureKind.privateNetworkAddress;
-    }
-    return null;
+    const OutboundUriGuard guard = OutboundUriGuard();
+    return switch (guard.classifyHost(host)) {
+      OutboundHostRisk.loopback => NetworkPolicyFailureKind.loopbackAddress,
+      OutboundHostRisk.linkLocal => NetworkPolicyFailureKind.linkLocalAddress,
+      OutboundHostRisk.privateNetwork =>
+        NetworkPolicyFailureKind.privateNetworkAddress,
+      null => null,
+    };
   }
 
   static bool _isHttpScheme(Uri uri) =>

@@ -280,6 +280,8 @@ void main() {
         ),
         'PUT /v0/users/-/collections/-/episodes/7':
             const BangumiApiResponse(statusCode: 204, body: ''),
+        'PUT /v0/users/-/collections/-/episodes/8':
+            const BangumiApiResponse(statusCode: 204, body: ''),
       },
     );
     final BangumiApiProvider provider = BangumiApiProvider(
@@ -317,6 +319,20 @@ void main() {
     final Map<String, Object?> body =
         jsonDecode(transport.requests.last.body!) as Map<String, Object?>;
     expect(body['type'], bangumiEpisodeCollectionDone);
+
+    // On-hold must never be sent as "dropped" (destructive); it maps to wish.
+    final AcgProviderResult<void> onHold = await provider.syncProgress(
+      const BangumiProgressUpdate(
+        subjectId: BangumiSubjectId('42'),
+        episodeId: BangumiEpisodeId('8'),
+        state: BangumiProgressState.onHold,
+      ),
+    );
+    expect(onHold, isA<AcgProviderSuccess<void>>());
+    final Map<String, Object?> onHoldBody =
+        jsonDecode(transport.requests.last.body!) as Map<String, Object?>;
+    expect(onHoldBody['type'], bangumiEpisodeCollectionWish);
+    expect(onHoldBody['type'], isNot(bangumiEpisodeCollectionDropped));
   });
 
   test('concrete API provider normalizes auth and API failures', () async {

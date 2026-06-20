@@ -1,4 +1,5 @@
-import '../foundation/gateway/provider_gateway.dart';
+import '../foundation/provider_contracts.dart';
+import '../foundation/security/outbound_uri_guard.dart';
 
 final class ManualChallengeRequestId {
   const ManualChallengeRequestId(this.value)
@@ -512,22 +513,7 @@ abstract interface class ProviderSessionBackfill {
   Future<void> applySessionArtifacts(SessionArtifactBundle artifacts);
 }
 
-bool _sameOrigin(Uri left, Uri right) {
-  return left.scheme == right.scheme &&
-      left.host == right.host &&
-      _effectivePort(left) == _effectivePort(right);
-}
-
-int _effectivePort(Uri uri) {
-  if (uri.hasPort) {
-    return uri.port;
-  }
-  return switch (uri.scheme) {
-    'http' => 80,
-    'https' => 443,
-    _ => 0,
-  };
-}
+bool _sameOrigin(Uri left, Uri right) => uriSameOrigin(left, right);
 
 bool _domainMatches({required String host, required String domain}) {
   final String normalizedHost = host.toLowerCase();

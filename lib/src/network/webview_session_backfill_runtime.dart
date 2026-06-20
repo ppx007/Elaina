@@ -1,4 +1,5 @@
 import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
+import '../foundation/security/outbound_uri_guard.dart';
 import '../foundation/storage/webview_session_backfill_storage_contracts.dart';
 import 'webview_session_backfill.dart';
 
@@ -309,21 +310,26 @@ final class WebViewSessionBackfillRuntime {
       );
     }
 
+    // Capture the timestamp once so the persisted attempt id and the emitted
+    // event's attemptId are identical and can be correlated.
+    final DateTime now = _now();
+    final String attemptId =
+        'retry-${latestChallenge.id}-${now.millisecondsSinceEpoch}';
+
     await _requireStore().recordBackfillAttempt(
       StoredWebViewSessionBackfillAttemptRecord(
-        id: 'retry-${latestChallenge.id}-${_now().millisecondsSinceEpoch}',
+        id: attemptId,
         challengeRequestId: latestChallenge.id,
         providerScope: providerScope,
         requestUri: requestUri,
         state: StoredWebViewSessionBackfillState.pending,
-        attemptedAt: _now(),
+        attemptedAt: now,
       ),
     );
 
-    final DateTime now = _now();
     _publishEvent(WebViewSessionBackfillOutcomeRecorded(
       occurredAt: now,
-      attemptId: 'retry-${latestChallenge.id}-${now.millisecondsSinceEpoch}',
+      attemptId: attemptId,
       challengeRequestId: latestChallenge.id,
       providerScope: providerScope,
       state: StoredWebViewSessionBackfillState.pending.name,
@@ -411,6 +417,15 @@ final class WebViewSessionBackfillRuntime {
         ),
       );
     }
+    if (!_backfillByScope.containsKey(providerScope)) {
+      return WebViewSessionBackfillRuntimeActionResult<void>.failed(
+        WebViewSessionBackfillRuntimeFailure(
+          kind: WebViewSessionBackfillRuntimeFailureKind.unsupportedOperation,
+          message: 'No backfill handler declared for scope $providerScope.',
+          providerScope: providerScope,
+        ),
+      );
+    }
     final WebViewSessionCapabilityStatus capabilityStatus =
         capabilities.statusOf(WebViewSessionCapability.isolatedWebView);
     if (!capabilityStatus.supported) {
@@ -480,19 +495,4 @@ final class WebViewSessionBackfillRuntime {
   }
 }
 
-bool _sameOrigin(Uri left, Uri right) {
-  return left.scheme == right.scheme &&
-      left.host == right.host &&
-      _effectivePort(left) == _effectivePort(right);
-}
-
-int _effectivePort(Uri uri) {
-  if (uri.hasPort) {
-    return uri.port;
-  }
-  return switch (uri.scheme) {
-    'http' => 80,
-    'https' => 443,
-    _ => 0,
-  };
-}
+bool _sameOrigin(Uri left, Uri right) => uriSameOrigin(left, right);

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
+import '../../foundation/security/outbound_uri_guard.dart';
 import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 import 'dandanplay_comments.dart';
@@ -20,6 +21,10 @@ const double dandanplayFuzzyMatchConfidence = 0.85;
 const double dandanplaySearchCandidateConfidence = 0.75;
 const int dandanplayRequestModeScrolling = 1;
 const int dandanplayRequestModeTop = 4;
+
+/// Milliseconds per second, used when converting comment timestamps to/from
+/// the dandanplay API's fractional-second `time` field.
+const int dandanplayMillisecondsPerSecond = 1000;
 const int dandanplayRequestModeBottom = 5;
 const int dandanplayResponseModeScrolling = 1;
 const int dandanplayResponseModeBottom = 4;
@@ -76,13 +81,22 @@ abstract interface class DandanplayApiTransport {
 }
 
 final class HttpDandanplayApiTransport implements DandanplayApiTransport {
-  HttpDandanplayApiTransport({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  HttpDandanplayApiTransport({
+    HttpClient? httpClient,
+    OutboundUriGuard outboundGuard = const OutboundUriGuard(),
+  })  : _httpClient = httpClient ?? HttpClient(),
+        _outboundGuard = outboundGuard;
 
   final HttpClient _httpClient;
+  final OutboundUriGuard _outboundGuard;
 
   @override
   Future<DandanplayApiResponse> send(DandanplayApiRequest request) async {
+    final OutboundHostRisk? risk = _outboundGuard.classifyUri(request.uri);
+    if (risk != null) {
+      throw StateError(
+          'Dandanplay request blocked by SSRF guard: ${risk.name} ${request.uri}');
+    }
     final HttpClientRequest httpRequest =
         await _httpClient.openUrl(request.method, request.uri);
     for (final MapEntry<String, String> header in request.headers.entries) {
@@ -225,7 +239,8 @@ final class DandanplayApiClient {
       _uri('/api/v2/comment/${Uri.encodeComponent(post.episodeId.value)}'),
       credentials: credentials,
       body: <String, Object?>{
-        'time': post.comment.timestamp.inMilliseconds / 1000,
+        'time': post.comment.timestamp.inMilliseconds /
+            dandanplayMillisecondsPerSecond,
         'mode': _requestMode(post.comment.mode),
         'color': post.comment.colorArgb ?? dandanplayDefaultCommentColorArgb,
         'comment': post.comment.text,
@@ -502,7 +517,8 @@ DandanplayComment _commentFromJson(Map<String, Object?> json) {
     );
   }
   return DandanplayComment(
-    timestamp: Duration(milliseconds: (seconds * 1000).round()),
+    timestamp: Duration(
+        milliseconds: (seconds * dandanplayMillisecondsPerSecond).round()),
     text: text,
     mode: _responseMode(mode),
     colorArgb: color,
@@ -525,9 +541,12 @@ void _throwIfApiFailure(Map<String, Object?> object, String label) {
 }
 
 String _candidateTitle(String animeTitle, String episodeTitle) {
-  if (animeTitle.isEmpty)
+  if (animeTitle.isEmpty) {
     return episodeTitle.isEmpty ? 'Dandanplay match' : episodeTitle;
-  if (episodeTitle.isEmpty) return animeTitle;
+  }
+  if (episodeTitle.isEmpty) {
+    return animeTitle;
+  }
   return '$animeTitle - $episodeTitle';
 }
 

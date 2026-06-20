@@ -228,7 +228,15 @@ final class AVSyncGuardRuntime {
   }
 
   Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
     _disposed = true;
+    // The runtime owns the per-scope guards; close their broadcast
+    // controllers so the decision streams do not leak.
+    for (final DeterministicAVSyncGuard guard in _guardByScope.values) {
+      await guard.close();
+    }
   }
 
   AVSyncGuardRuntimeActionResult<AVSyncGuardRuntimeProjection>? _gate(

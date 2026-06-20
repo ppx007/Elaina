@@ -15,6 +15,7 @@ enum MediaLibraryRuntimeFailureKind {
   disposed,
   unavailable,
   unsupported,
+  ignored,
   scanFailed,
   importFailed,
   catalogFailed,
@@ -25,7 +26,8 @@ enum MediaLibraryRuntimeFailureKind {
 
 final class MediaLibraryRuntimeFailure {
   const MediaLibraryRuntimeFailure({required this.kind, required this.message})
-      : assert(message != '', 'Media library runtime failure message must not be empty.');
+      : assert(message != '',
+            'Media library runtime failure message must not be empty.');
 
   final MediaLibraryRuntimeFailureKind kind;
   final String message;
@@ -40,26 +42,33 @@ enum MediaLibraryActionResultKind {
 }
 
 final class MediaLibraryActionResult<T> {
-  const MediaLibraryActionResult._({required this.kind, this.value, this.failure});
+  const MediaLibraryActionResult._(
+      {required this.kind, this.value, this.failure});
 
-  const MediaLibraryActionResult.success([T? value]) : this._(kind: MediaLibraryActionResultKind.success, value: value);
+  const MediaLibraryActionResult.success([T? value])
+      : this._(kind: MediaLibraryActionResultKind.success, value: value);
 
   MediaLibraryActionResult.unavailable(String message)
       : this._(
           kind: MediaLibraryActionResultKind.unavailable,
-          failure: MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.unavailable, message: message),
+          failure: MediaLibraryRuntimeFailure(
+              kind: MediaLibraryRuntimeFailureKind.unavailable,
+              message: message),
         );
 
   MediaLibraryActionResult.unsupported(String message)
       : this._(
           kind: MediaLibraryActionResultKind.unsupported,
-          failure: MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.unsupported, message: message),
+          failure: MediaLibraryRuntimeFailure(
+              kind: MediaLibraryRuntimeFailureKind.unsupported,
+              message: message),
         );
 
   MediaLibraryActionResult.ignored(String message)
       : this._(
           kind: MediaLibraryActionResultKind.ignored,
-          failure: MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.unavailable, message: message),
+          failure: MediaLibraryRuntimeFailure(
+              kind: MediaLibraryRuntimeFailureKind.ignored, message: message),
         );
 
   const MediaLibraryActionResult.failed(MediaLibraryRuntimeFailure failure)
@@ -87,12 +96,17 @@ final class MediaLibraryCatalogItemState {
 final class MediaLibraryRuntimeSnapshot {
   MediaLibraryRuntimeSnapshot({
     required this.status,
-    Iterable<MediaLibraryCatalogItemState> catalogItems = const <MediaLibraryCatalogItemState>[],
-    Iterable<ContinueWatchingState> continueWatching = const <ContinueWatchingState>[],
+    Iterable<MediaLibraryCatalogItemState> catalogItems =
+        const <MediaLibraryCatalogItemState>[],
+    Iterable<ContinueWatchingState> continueWatching =
+        const <ContinueWatchingState>[],
     Iterable<MediaScanEvent> scanEvents = const <MediaScanEvent>[],
-    Iterable<MediaLibraryRuntimeFailure> failures = const <MediaLibraryRuntimeFailure>[],
-  })  : catalogItems = List<MediaLibraryCatalogItemState>.unmodifiable(catalogItems),
-        continueWatching = List<ContinueWatchingState>.unmodifiable(continueWatching),
+    Iterable<MediaLibraryRuntimeFailure> failures =
+        const <MediaLibraryRuntimeFailure>[],
+  })  : catalogItems =
+            List<MediaLibraryCatalogItemState>.unmodifiable(catalogItems),
+        continueWatching =
+            List<ContinueWatchingState>.unmodifiable(continueWatching),
         scanEvents = List<MediaScanEvent>.unmodifiable(scanEvents),
         failures = List<MediaLibraryRuntimeFailure>.unmodifiable(failures);
 
@@ -141,8 +155,10 @@ final class MediaLibraryRuntime {
   final PlaybackSourceHandoffContract _playbackSourceHandoff;
   final CacheInvalidationBus _invalidationBus;
   final DateTime Function() _now;
-  final List<MediaLibraryRuntimeObserver> _observers = <MediaLibraryRuntimeObserver>[];
-  MediaLibraryRuntimeSnapshot _snapshot = const MediaLibraryRuntimeSnapshot.idle();
+  final List<MediaLibraryRuntimeObserver> _observers =
+      <MediaLibraryRuntimeObserver>[];
+  MediaLibraryRuntimeSnapshot _snapshot =
+      const MediaLibraryRuntimeSnapshot.idle();
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
@@ -158,17 +174,27 @@ final class MediaLibraryRuntime {
     _observers.remove(observer);
   }
 
-  Future<MediaLibraryActionResult<MediaScanResult>> scan(MediaScanScope scope) async {
+  Future<MediaLibraryActionResult<MediaScanResult>> scan(
+      MediaScanScope scope) async {
     if (_disposed) return _disposedResult();
-    _publish(MediaLibraryRuntimeSnapshot(status: MediaLibraryRuntimeStatus.scanning, catalogItems: _snapshot.catalogItems, continueWatching: _snapshot.continueWatching));
+    _publish(MediaLibraryRuntimeSnapshot(
+        status: MediaLibraryRuntimeStatus.scanning,
+        catalogItems: _snapshot.catalogItems,
+        continueWatching: _snapshot.continueWatching));
     final MediaScanResult result = await _scanner.scan(scope);
-    final List<MediaScanEvent> events = await _scanner.watch(result.scanId).toList();
-    final List<MediaLibraryRuntimeFailure> failures = <MediaLibraryRuntimeFailure>[
+    final List<MediaScanEvent> events =
+        await _scanner.watch(result.scanId).toList();
+    final List<MediaLibraryRuntimeFailure> failures =
+        <MediaLibraryRuntimeFailure>[
       for (final MediaScanFailure failure in result.failures)
-        MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.scanFailed, message: failure.message),
+        MediaLibraryRuntimeFailure(
+            kind: MediaLibraryRuntimeFailureKind.scanFailed,
+            message: failure.message),
     ];
     _publish(MediaLibraryRuntimeSnapshot(
-      status: failures.isEmpty ? MediaLibraryRuntimeStatus.ready : MediaLibraryRuntimeStatus.failed,
+      status: failures.isEmpty
+          ? MediaLibraryRuntimeStatus.ready
+          : MediaLibraryRuntimeStatus.failed,
       catalogItems: _snapshot.catalogItems,
       continueWatching: _snapshot.continueWatching,
       scanEvents: events,
@@ -183,14 +209,20 @@ final class MediaLibraryRuntime {
     return const MediaLibraryActionResult<void>.success();
   }
 
-  Future<MediaLibraryActionResult<List<MediaScanEvent>>> watchScan(MediaScanId scanId) async {
+  Future<MediaLibraryActionResult<List<MediaScanEvent>>> watchScan(
+      MediaScanId scanId) async {
     if (_disposed) return _disposedResult();
-    return MediaLibraryActionResult<List<MediaScanEvent>>.success(await _scanner.watch(scanId).toList());
+    return MediaLibraryActionResult<List<MediaScanEvent>>.success(
+        await _scanner.watch(scanId).toList());
   }
 
-  Future<MediaLibraryActionResult<MediaImportResult>> importCandidates(Iterable<MediaScanCandidate> candidates) async {
+  Future<MediaLibraryActionResult<MediaImportResult>> importCandidates(
+      Iterable<MediaScanCandidate> candidates) async {
     if (_disposed) return _disposedResult();
-    _publish(MediaLibraryRuntimeSnapshot(status: MediaLibraryRuntimeStatus.importing, catalogItems: _snapshot.catalogItems, continueWatching: _snapshot.continueWatching));
+    _publish(MediaLibraryRuntimeSnapshot(
+        status: MediaLibraryRuntimeStatus.importing,
+        catalogItems: _snapshot.catalogItems,
+        continueWatching: _snapshot.continueWatching));
     final MediaImportResult result = await _importer.importBatch(candidates);
     for (final MediaLibraryItem item in result.imported) {
       _publishItemChanged(item, MediaLibraryChangeKind.created);
@@ -199,34 +231,50 @@ final class MediaLibraryRuntime {
     return MediaLibraryActionResult<MediaImportResult>.success(result);
   }
 
-  Future<MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>> refresh({MediaLibraryQuery query = const MediaLibraryQuery(), int continueWatchingLimit = 20}) async {
+  Future<MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>> refresh(
+      {MediaLibraryQuery query = const MediaLibraryQuery(),
+      int continueWatchingLimit = 20}) async {
     if (_disposed) return _disposedResult();
-    final List<MediaLibraryItem> items = await _catalogRepository.list(query: query);
-    final List<ContinueWatchingState> continueWatching = await _historyStore.continueWatching(limit: continueWatchingLimit);
-    final Map<String, ContinueWatchingState> continueByMediaId = <String, ContinueWatchingState>{
-      for (final ContinueWatchingState state in continueWatching) state.mediaId.value: state,
+    final List<MediaLibraryItem> items =
+        await _catalogRepository.list(query: query);
+    final List<ContinueWatchingState> continueWatching =
+        await _historyStore.continueWatching(limit: continueWatchingLimit);
+    final Map<String, ContinueWatchingState> continueByMediaId =
+        <String, ContinueWatchingState>{
+      for (final ContinueWatchingState state in continueWatching)
+        state.mediaId.value: state,
     };
-    final List<MediaLibraryCatalogItemState> projected = <MediaLibraryCatalogItemState>[];
+    final List<MediaLibraryCatalogItemState> projected =
+        <MediaLibraryCatalogItemState>[];
     for (final MediaLibraryItem item in items) {
       projected.add(MediaLibraryCatalogItemState(
         item: item,
         continueWatching: continueByMediaId[item.identity.id.value],
-        binding: await _bindingStore.bindingFor(item.identity.id) ?? item.binding,
+        binding:
+            await _bindingStore.bindingFor(item.identity.id) ?? item.binding,
       ));
     }
-    final MediaLibraryRuntimeSnapshot snapshot = MediaLibraryRuntimeSnapshot(status: MediaLibraryRuntimeStatus.ready, catalogItems: projected, continueWatching: continueWatching);
+    final MediaLibraryRuntimeSnapshot snapshot = MediaLibraryRuntimeSnapshot(
+        status: MediaLibraryRuntimeStatus.ready,
+        catalogItems: projected,
+        continueWatching: continueWatching);
     _publish(snapshot);
-    return MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>.success(snapshot);
+    return MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>.success(
+        snapshot);
   }
 
-  Future<MediaLibraryActionResult<MediaLibraryItem>> detail(MediaLibraryItemId id) async {
+  Future<MediaLibraryActionResult<MediaLibraryItem>> detail(
+      MediaLibraryItemId id) async {
     if (_disposed) return _disposedResult();
     final MediaLibraryItem? item = await _catalogRepository.findById(id);
-    if (item == null) return MediaLibraryActionResult<MediaLibraryItem>.unavailable('Media library item was not found.');
+    if (item == null)
+      return MediaLibraryActionResult<MediaLibraryItem>.unavailable(
+          'Media library item was not found.');
     return MediaLibraryActionResult<MediaLibraryItem>.success(item);
   }
 
-  Future<MediaLibraryActionResult<MediaLibraryItem>> update(MediaLibraryItem item) async {
+  Future<MediaLibraryActionResult<MediaLibraryItem>> update(
+      MediaLibraryItem item) async {
     if (_disposed) return _disposedResult();
     final MediaLibraryItem updated = await _catalogRepository.update(item);
     _publishItemChanged(updated, MediaLibraryChangeKind.updated);
@@ -237,9 +285,13 @@ final class MediaLibraryRuntime {
   Future<MediaLibraryActionResult<bool>> remove(MediaLibraryItemId id) async {
     if (_disposed) return _disposedResult();
     final MediaLibraryItem? existing = await _catalogRepository.findById(id);
-    if (existing == null) return MediaLibraryActionResult<bool>.ignored('Media library item was already absent.');
+    if (existing == null)
+      return MediaLibraryActionResult<bool>.ignored(
+          'Media library item was already absent.');
     final bool removed = await _catalogRepository.remove(id);
-    if (!removed) return MediaLibraryActionResult<bool>.ignored('Media library item was already absent.');
+    if (!removed)
+      return MediaLibraryActionResult<bool>.ignored(
+          'Media library item was already absent.');
     _publishItemChanged(existing, MediaLibraryChangeKind.removed);
     await refresh();
     return const MediaLibraryActionResult<bool>.success(true);
@@ -247,41 +299,53 @@ final class MediaLibraryRuntime {
 
   Future<MediaLibraryActionResult<int>> count() async {
     if (_disposed) return _disposedResult();
-    return MediaLibraryActionResult<int>.success(await _catalogRepository.count());
+    return MediaLibraryActionResult<int>.success(
+        await _catalogRepository.count());
   }
 
-  Future<MediaLibraryActionResult<void>> recordHistory(PlaybackHistoryEntry entry) async {
+  Future<MediaLibraryActionResult<void>> recordHistory(
+      PlaybackHistoryEntry entry) async {
     if (_disposed) return _disposedResult();
     await _historyStore.record(entry);
-    _invalidationBus.publish(HistoryRecorded(occurredAt: entry.updatedAt, localMediaId: entry.mediaId.value));
+    _invalidationBus.publish(HistoryRecorded(
+        occurredAt: entry.updatedAt, localMediaId: entry.mediaId.value));
     await refresh();
     return const MediaLibraryActionResult<void>.success();
   }
 
-  Future<MediaLibraryActionResult<ProviderBinding>> saveUserBinding(ProviderBinding binding) async {
+  Future<MediaLibraryActionResult<ProviderBinding>> saveUserBinding(
+      ProviderBinding binding) async {
     if (_disposed) return _disposedResult();
-    final ProviderBinding saved = await _bindingStore.saveUserConfirmed(binding);
+    final ProviderBinding saved =
+        await _bindingStore.saveUserConfirmed(binding);
     _publishBindingChanged(saved);
     await refresh();
     return MediaLibraryActionResult<ProviderBinding>.success(saved);
   }
 
-  Future<MediaLibraryActionResult<ProviderBinding>> saveAutomaticBinding(ProviderBinding binding) async {
+  Future<MediaLibraryActionResult<ProviderBinding>> saveAutomaticBinding(
+      ProviderBinding binding) async {
     if (_disposed) return _disposedResult();
-    final ProviderBinding saved = await _bindingStore.saveAutomaticIfAllowed(binding);
+    final ProviderBinding saved =
+        await _bindingStore.saveAutomaticIfAllowed(binding);
     if (saved.id.value == binding.id.value) _publishBindingChanged(saved);
     await refresh();
     return MediaLibraryActionResult<ProviderBinding>.success(saved);
   }
 
-  Future<MediaLibraryActionResult<PlaybackSourceHandoffResult>> playItem(MediaLibraryItemId id) async {
+  Future<MediaLibraryActionResult<PlaybackSourceHandoffResult>> playItem(
+      MediaLibraryItemId id) async {
     if (_disposed) return _disposedResult();
     final MediaLibraryItem? item = await _catalogRepository.findById(id);
-    if (item == null) return MediaLibraryActionResult<PlaybackSourceHandoffResult>.unavailable('Media library item was not found.');
-    return _prepare(PlaybackSourceHandoffInput.localMediaIdentity(item.identity));
+    if (item == null)
+      return MediaLibraryActionResult<PlaybackSourceHandoffResult>.unavailable(
+          'Media library item was not found.');
+    return _prepare(
+        PlaybackSourceHandoffInput.localMediaIdentity(item.identity));
   }
 
-  MediaLibraryActionResult<PlaybackSourceHandoffResult> playCandidate(MediaScanCandidate candidate) {
+  MediaLibraryActionResult<PlaybackSourceHandoffResult> playCandidate(
+      MediaScanCandidate candidate) {
     if (_disposed) return _disposedResult();
     return _prepare(PlaybackSourceHandoffInput.mediaScanCandidate(candidate));
   }
@@ -295,28 +359,36 @@ final class MediaLibraryRuntime {
       continueWatching: _snapshot.continueWatching,
       scanEvents: _snapshot.scanEvents,
       failures: const <MediaLibraryRuntimeFailure>[
-        MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.disposed, message: 'MediaLibraryRuntime has been disposed.'),
+        MediaLibraryRuntimeFailure(
+            kind: MediaLibraryRuntimeFailureKind.disposed,
+            message: 'MediaLibraryRuntime has been disposed.'),
       ],
     ));
     _observers.clear();
   }
 
-  MediaLibraryActionResult<PlaybackSourceHandoffResult> _prepare(PlaybackSourceHandoffInput input) {
-    final PlaybackSourceHandoffResult result = _playbackSourceHandoff.prepare(input);
+  MediaLibraryActionResult<PlaybackSourceHandoffResult> _prepare(
+      PlaybackSourceHandoffInput input) {
+    final PlaybackSourceHandoffResult result =
+        _playbackSourceHandoff.prepare(input);
     if (!result.isSuccess) {
       final PlaybackSourceHandoffFailure? failure = result.failure;
-      final MediaLibraryActionResultKind kind = failure?.kind == PlaybackSourceHandoffFailureKind.missingSourceData
-          ? MediaLibraryActionResultKind.unavailable
-          : MediaLibraryActionResultKind.unsupported;
+      final MediaLibraryActionResultKind kind =
+          failure?.kind == PlaybackSourceHandoffFailureKind.missingSourceData
+              ? MediaLibraryActionResultKind.unavailable
+              : MediaLibraryActionResultKind.unsupported;
       return MediaLibraryActionResult<PlaybackSourceHandoffResult>._(
         kind: kind,
         failure: MediaLibraryRuntimeFailure(
-          kind: kind == MediaLibraryActionResultKind.unavailable ? MediaLibraryRuntimeFailureKind.unavailable : MediaLibraryRuntimeFailureKind.playbackHandoffFailed,
+          kind: kind == MediaLibraryActionResultKind.unavailable
+              ? MediaLibraryRuntimeFailureKind.unavailable
+              : MediaLibraryRuntimeFailureKind.playbackHandoffFailed,
           message: failure?.message ?? 'Playback source handoff failed.',
         ),
       );
     }
-    return MediaLibraryActionResult<PlaybackSourceHandoffResult>.success(result);
+    return MediaLibraryActionResult<PlaybackSourceHandoffResult>.success(
+        result);
   }
 
   void _publishItemChanged(MediaLibraryItem item, MediaLibraryChangeKind kind) {
@@ -339,14 +411,17 @@ final class MediaLibraryRuntime {
 
   void _publish(MediaLibraryRuntimeSnapshot snapshot) {
     _snapshot = snapshot;
-    for (final MediaLibraryRuntimeObserver observer in List<MediaLibraryRuntimeObserver>.of(_observers)) {
+    for (final MediaLibraryRuntimeObserver observer
+        in List<MediaLibraryRuntimeObserver>.of(_observers)) {
       observer.onMediaLibraryRuntimeSnapshot(snapshot);
     }
   }
 
   MediaLibraryActionResult<T> _disposedResult<T>() {
     return MediaLibraryActionResult<T>.failed(
-      const MediaLibraryRuntimeFailure(kind: MediaLibraryRuntimeFailureKind.disposed, message: 'MediaLibraryRuntime has been disposed.'),
+      const MediaLibraryRuntimeFailure(
+          kind: MediaLibraryRuntimeFailureKind.disposed,
+          message: 'MediaLibraryRuntime has been disposed.'),
     );
   }
 }
@@ -374,12 +449,19 @@ final class MediaLibraryBootstrap {
 
   final MediaLibraryRuntime runtime;
 
-  Future<MediaLibraryActionResult<MediaScanResult>> scan(MediaScanScope scope) => runtime.scan(scope);
+  Future<MediaLibraryActionResult<MediaScanResult>> scan(
+          MediaScanScope scope) =>
+      runtime.scan(scope);
 
-  Future<MediaLibraryActionResult<MediaImportResult>> importCandidates(Iterable<MediaScanCandidate> candidates) => runtime.importCandidates(candidates);
+  Future<MediaLibraryActionResult<MediaImportResult>> importCandidates(
+          Iterable<MediaScanCandidate> candidates) =>
+      runtime.importCandidates(candidates);
 
-  Future<MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>> refresh({MediaLibraryQuery query = const MediaLibraryQuery(), int continueWatchingLimit = 20}) {
-    return runtime.refresh(query: query, continueWatchingLimit: continueWatchingLimit);
+  Future<MediaLibraryActionResult<MediaLibraryRuntimeSnapshot>> refresh(
+      {MediaLibraryQuery query = const MediaLibraryQuery(),
+      int continueWatchingLimit = 20}) {
+    return runtime.refresh(
+        query: query, continueWatchingLimit: continueWatchingLimit);
   }
 
   void dispose() => runtime.dispose();

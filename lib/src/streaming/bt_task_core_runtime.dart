@@ -215,6 +215,8 @@ final class BtTaskProjection {
   final BtTaskTransferSnapshotProjection? latestTransferSnapshot;
   final BtTaskEventProjection? latestEvent;
   final BtTaskRestartProjection? restart;
+
+  BtTaskLifecycleState get state => _lifecycleState(lifecycleState);
 }
 
 final class BtTaskRuntimeObservation<T> {

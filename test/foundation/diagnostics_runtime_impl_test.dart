@@ -54,7 +54,7 @@ void main() {
       final DiagnosticsInvalidationCollector collector =
           DiagnosticsInvalidationCollector(runtime: runtime);
 
-      collector.dispose();
+      await collector.dispose();
       final DiagnosticsLocalCollectorOutcome result = await collector.observe(
         DiagnosticsCapabilityChanged(
           occurredAt: DateTime.utc(2026, 6, 18, 12),

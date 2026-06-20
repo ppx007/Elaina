@@ -20,6 +20,13 @@ const String libtorrentDownloadEngineAdapterDisplayName =
     'libtorrent Download Engine';
 const int libtorrentSkipFilePriority = 0;
 const int libtorrentSelectedFilePriority = 1;
+
+/// Lower bound for the preload budget derived from a piece-priority plan, so a
+/// plan with only a couple of head/tail pieces still primes a usable buffer.
+const int libtorrentMinPreloadBytes = 16 * 1024 * 1024; // 16 MiB
+
+/// Cap on the RAM piece cache requested when applying a plan's playback window.
+const int libtorrentMaxStreamCacheBytes = 256 * 1024 * 1024; // 256 MiB
 const String _magnetExactTopicPrefix = 'urn:btih:';
 
 enum LibtorrentTaskState {
@@ -125,6 +132,20 @@ abstract interface class LibtorrentEngineBackend {
 
   Future<void> setFilePriorities(int torrentId, List<int> priorities);
 
+  /// Primes streaming for [fileIndex] within [torrentId] using the engine's
+  /// own piece-window machinery.
+  ///
+  /// libtorrent_flutter does not expose per-piece priorities; instead it
+  /// streams a file through a sliding window primed by a head/tail preload and
+  /// a bounded RAM cache.  A piece-priority plan is therefore mapped onto these
+  /// two levers ([preloadBytes], [cacheBytes]).
+  Future<void> primeStreamWindow({
+    required int torrentId,
+    required int fileIndex,
+    required int preloadBytes,
+    required int cacheBytes,
+  });
+
   Stream<LibtorrentTorrentSnapshot> watchTorrent(int torrentId);
 }
 
@@ -157,6 +178,9 @@ final class _LibtorrentFlutterEngineBackend implements LibtorrentEngineBackend {
   final lt.LibtorrentFlutter _engine;
   final LibtorrentMetadataResolver? _metadataResolver;
   final Map<int, String> _sourceUriByTorrentId = <int, String>{};
+  // Active stream id keyed by (torrentId, fileIndex) so repeated plan
+  // applications reuse the same engine stream instead of leaking one per call.
+  final Map<(int, int), int> _streamIdByFile = <(int, int), int>{};
 
   @override
   bool get supportsCompleteMetadata => _metadataResolver != null;
@@ -217,6 +241,30 @@ final class _LibtorrentFlutterEngineBackend implements LibtorrentEngineBackend {
   Future<void> setFilePriorities(int torrentId, List<int> priorities) {
     _engine.setFilePriorities(torrentId, priorities);
     return Future<void>.value();
+  }
+
+  @override
+  Future<void> primeStreamWindow({
+    required int torrentId,
+    required int fileIndex,
+    required int preloadBytes,
+    required int cacheBytes,
+  }) async {
+    // Reuse an existing stream for this file if one is already active,
+    // otherwise open one bounded by the requested cache budget.
+    int? streamId = _streamIdByFile[(torrentId, fileIndex)];
+    if (streamId == null) {
+      final lt.StreamInfo info = _engine.startStream(
+        torrentId,
+        fileIndex: fileIndex,
+        maxCacheBytes: cacheBytes,
+      );
+      streamId = info.id;
+      _streamIdByFile[(torrentId, fileIndex)] = streamId;
+    } else {
+      _engine.setCacheSettings(streamId, capacity: cacheBytes);
+    }
+    _engine.preloadStream(streamId, preloadBytes: preloadBytes);
   }
 
   @override
@@ -391,15 +439,62 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
     await backend.setFilePriorities(torrentId, priorities);
   }
 
-  Future<void> applyPiecePriorityPlan(PiecePriorityPlan plan) {
-    return selectFiles(plan.taskId, <BtFileIndex>[plan.fileIndex]);
+  /// Applies a piece-priority [plan] to the engine.
+  ///
+  /// libtorrent_flutter has no per-piece API, so the plan's rules are mapped
+  /// onto the engine's streaming window: the file is selected for download and
+  /// the head/tail + playback-window pieces are translated into a preload
+  /// budget and a bounded RAM cache via [LibtorrentEngineBackend.primeStreamWindow].
+  Future<void> applyPiecePriorityPlan(PiecePriorityPlan plan) async {
+    final LibtorrentEngineBackend backend = await _requireBackend();
+    await selectFiles(plan.taskId, <BtFileIndex>[plan.fileIndex]);
+
+    final BtTaskMetadata metadata = await ensureMetadata(plan.taskId);
+    final (int preloadBytes, int cacheBytes) =
+        _streamWindowBudget(plan, metadata.pieceLengthBytes);
+    await backend.primeStreamWindow(
+      torrentId: _torrentId(plan.taskId),
+      fileIndex: plan.fileIndex.value,
+      preloadBytes: preloadBytes,
+      cacheBytes: cacheBytes,
+    );
+  }
+
+  /// Derives `(preloadBytes, cacheBytes)` from a plan's rules.
+  ///
+  /// Head/tail/seek pieces drive the preload budget (fast start + seekability);
+  /// playback-window pieces drive the RAM cache. Both are clamped to sane
+  /// bounds so a sparse plan still primes a usable buffer and a huge one cannot
+  /// request an unbounded cache.
+  (int, int) _streamWindowBudget(PiecePriorityPlan plan, int pieceLengthBytes) {
+    int preloadPieces = 0;
+    int windowPieces = 0;
+    for (final PiecePriorityRule rule in plan.rules) {
+      switch (rule.reason) {
+        case PiecePriorityRuleReason.firstPiece:
+        case PiecePriorityRuleReason.tailPiece:
+        case PiecePriorityRuleReason.seekTarget:
+          preloadPieces += 1;
+        case PiecePriorityRuleReason.playbackWindow:
+        case PiecePriorityRuleReason.staleWindow:
+          windowPieces += 1;
+      }
+    }
+    final int preloadBytes =
+        _max(preloadPieces * pieceLengthBytes, libtorrentMinPreloadBytes);
+    final int cacheBytes = _min(
+      _max((preloadPieces + windowPieces) * pieceLengthBytes,
+          libtorrentMinPreloadBytes),
+      libtorrentMaxStreamCacheBytes,
+    );
+    return (preloadBytes, cacheBytes);
   }
 
   @override
   Stream<BtTaskEvent> watchEvents(BtTaskId taskId) async* {
     final LibtorrentEngineBackend backend = await _requireBackend();
-    var metadataEmitted = false;
-    var failureEmitted = false;
+    bool metadataEmitted = false;
+    bool failureEmitted = false;
     await for (final LibtorrentTorrentSnapshot snapshot
         in backend.watchTorrent(_torrentId(taskId))) {
       if (!metadataEmitted &&
@@ -617,7 +712,7 @@ List<BtTaskFile> _files(List<LibtorrentFileSnapshot> files) {
   ]..sort((LibtorrentFileSnapshot left, LibtorrentFileSnapshot right) =>
       left.index.compareTo(right.index));
   final List<BtTaskFile> result = <BtTaskFile>[];
-  var offsetBytes = 0;
+  int offsetBytes = 0;
   for (final LibtorrentFileSnapshot file in ordered) {
     result.add(
       BtTaskFile(
@@ -634,7 +729,7 @@ List<BtTaskFile> _files(List<LibtorrentFileSnapshot> files) {
 }
 
 int _priorityCount(List<LibtorrentFileSnapshot> files) {
-  var maxIndex = -1;
+  int maxIndex = -1;
   for (final LibtorrentFileSnapshot file in files) {
     if (file.index > maxIndex) maxIndex = file.index;
   }
@@ -646,7 +741,7 @@ int _totalSizeBytes(
   List<LibtorrentFileSnapshot> files,
 ) {
   if (torrent.totalSizeBytes > 0) return torrent.totalSizeBytes;
-  var totalSizeBytes = 0;
+  int totalSizeBytes = 0;
   for (final LibtorrentFileSnapshot file in files) {
     totalSizeBytes += file.lengthBytes;
   }
@@ -665,3 +760,7 @@ String? _magnetInfoHash(String? sourceUri) {
   }
   return null;
 }
+
+int _max(int a, int b) => a > b ? a : b;
+
+int _min(int a, int b) => a < b ? a : b;

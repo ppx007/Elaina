@@ -1115,6 +1115,11 @@ abstract interface class CacheInvalidationBus {
   Stream<CacheInvalidationEvent> get events;
 
   void publish(CacheInvalidationEvent event);
+
+  /// Releases any underlying resources (e.g. broadcast controllers).
+  ///
+  /// Implementations that hold no resources may treat this as a no-op.
+  Future<void> close();
 }
 
 final class StreamCacheInvalidationBus implements CacheInvalidationBus {
@@ -1135,5 +1140,6 @@ final class StreamCacheInvalidationBus implements CacheInvalidationBus {
     _controller.add(event);
   }
 
+  @override
   Future<void> close() => _controller.close();
 }

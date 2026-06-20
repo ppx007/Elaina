@@ -86,6 +86,40 @@ void main() {
     );
   });
 
+  test('SSRF guard blocks IPv6, 0.0.0.0, and non-dotted IPv4 encodings',
+      () async {
+    final NetworkPolicy policy = NetworkPolicy(
+      id: const NetworkPolicyId('policy-a'),
+      providerScope: 'provider-a',
+      rules: const <NetworkPolicyRule>[],
+    );
+    final DeterministicNetworkPolicyEvaluator evaluator =
+        DeterministicNetworkPolicyEvaluator();
+
+    Future<NetworkPolicyFailureKind?> kindFor(String uri) async {
+      final NetworkPolicyDecision decision = await evaluator.evaluate(
+        policy: policy,
+        request: NetworkPolicyRequest(providerScope: 'provider-a', uri: Uri.parse(uri)),
+      );
+      return decision is NetworkPolicyBlocked ? decision.kind : null;
+    }
+
+    expect(await kindFor('http://[::1]/admin'),
+        NetworkPolicyFailureKind.loopbackAddress);
+    expect(await kindFor('http://0.0.0.0/admin'),
+        NetworkPolicyFailureKind.loopbackAddress);
+    expect(await kindFor('http://[fd00::1]/admin'),
+        NetworkPolicyFailureKind.privateNetworkAddress);
+    expect(await kindFor('http://[fe80::1]/admin'),
+        NetworkPolicyFailureKind.linkLocalAddress);
+    expect(await kindFor('http://2130706433/admin'),
+        NetworkPolicyFailureKind.loopbackAddress);
+    expect(await kindFor('http://0x7f000001/admin'),
+        NetworkPolicyFailureKind.loopbackAddress);
+    expect(await kindFor('http://[::ffff:127.0.0.1]/admin'),
+        NetworkPolicyFailureKind.loopbackAddress);
+  });
+
   test('deterministic evaluator matches domain wildcard and cidr intent',
       () async {
     final NetworkPolicy policy = NetworkPolicy(

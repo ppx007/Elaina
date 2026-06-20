@@ -250,6 +250,13 @@ void main() {
         libtorrentSelectedFilePriority,
       ],
     );
+    // The plan must reach the engine's streaming window, not just file
+    // selection: a preload budget and bounded cache are primed.
+    expect(backend.primedStreamWindows, hasLength(1));
+    expect(backend.primedStreamWindows.single.preloadBytes,
+        greaterThanOrEqualTo(libtorrentMinPreloadBytes));
+    expect(backend.primedStreamWindows.single.cacheBytes,
+        lessThanOrEqualTo(libtorrentMaxStreamCacheBytes));
     await harness.close();
   });
 
@@ -567,6 +574,9 @@ final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
   final Map<int, List<LibtorrentFileSnapshot>> filesByTorrentId =
       <int, List<LibtorrentFileSnapshot>>{};
   final Map<int, List<int>> filePrioritiesByTorrentId = <int, List<int>>{};
+  final List<({int torrentId, int fileIndex, int preloadBytes, int cacheBytes})>
+      primedStreamWindows =
+      <({int torrentId, int fileIndex, int preloadBytes, int cacheBytes})>[];
   final Map<int, StreamController<LibtorrentTorrentSnapshot>>
       _controllersByTorrentId =
       <int, StreamController<LibtorrentTorrentSnapshot>>{};
@@ -628,6 +638,21 @@ final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
     }
     filePrioritiesByTorrentId[torrentId] = <int>[...priorities];
     return Future<void>.value();
+  }
+
+  @override
+  Future<void> primeStreamWindow({
+    required int torrentId,
+    required int fileIndex,
+    required int preloadBytes,
+    required int cacheBytes,
+  }) async {
+    primedStreamWindows.add((
+      torrentId: torrentId,
+      fileIndex: fileIndex,
+      preloadBytes: preloadBytes,
+      cacheBytes: cacheBytes,
+    ));
   }
 
   @override

@@ -467,8 +467,7 @@ final class VirtualMediaStreamRuntime {
         _gate<List<VirtualStreamRestartProjection>>();
     if (gate != null) return gate;
 
-    final List<StoredVirtualMediaStreamRecord> records =
-        await _streamStore.listStreams(offset: 0, limit: 1000);
+    final List<StoredVirtualMediaStreamRecord> records = await _listAllStreams();
     final List<VirtualStreamRestartProjection> projections =
         <VirtualStreamRestartProjection>[];
     for (final StoredVirtualMediaStreamRecord record in records) {
@@ -564,9 +563,29 @@ final class VirtualMediaStreamRuntime {
     };
   }
 
+  /// Pages through every persisted stream record so reconciliation and
+  /// snapshots are not silently truncated at a fixed ceiling.
+  Future<List<StoredVirtualMediaStreamRecord>> _listAllStreams() async {
+    final List<StoredVirtualMediaStreamRecord> all =
+        <StoredVirtualMediaStreamRecord>[];
+    var offset = 0;
+    while (true) {
+      final List<StoredVirtualMediaStreamRecord> page =
+          await _streamStore.listStreams(
+        offset: offset,
+        limit: defaultListPageLimit,
+      );
+      all.addAll(page);
+      if (page.length < defaultListPageLimit) {
+        break;
+      }
+      offset += page.length;
+    }
+    return all;
+  }
+
   Future<void> _publishSnapshot() async {
-    final List<StoredVirtualMediaStreamRecord> records =
-        await _streamStore.listStreams(offset: 0, limit: 1000);
+    final List<StoredVirtualMediaStreamRecord> records = await _listAllStreams();
     _snapshot = VirtualMediaStreamRuntimeSnapshot(
       status: _disposed
           ? VirtualMediaStreamRuntimeStatus.disposed

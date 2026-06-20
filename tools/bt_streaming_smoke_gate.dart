@@ -270,6 +270,14 @@ final class _SmokeLibtorrentBackend implements LibtorrentEngineBackend {
   }
 
   @override
+  Future<void> primeStreamWindow({
+    required int torrentId,
+    required int fileIndex,
+    required int preloadBytes,
+    required int cacheBytes,
+  }) async {}
+
+  @override
   Future<LibtorrentTorrentSnapshot?> torrentById(int torrentId) {
     return Future<LibtorrentTorrentSnapshot?>.value(
       snapshotsByTorrentId[torrentId],

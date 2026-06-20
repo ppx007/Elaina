@@ -203,6 +203,74 @@ void main() {
     expect(loadCount, 1);
   });
 
+  test('provider gateway evicts dedup entries after the window expires',
+      () async {
+    DateTime now = DateTime.utc(2026, 6, 18, 12);
+    final DeterministicProviderGateway gateway = DeterministicProviderGateway(
+      storage: DeterministicStorageFoundation(),
+      clock: () => now,
+    );
+    int loadCount = 0;
+
+    await gateway.registerProvider(
+      const ProviderRegistration(
+        providerId: ProviderId('dedup-provider'),
+        ratePolicy:
+            ProviderRatePolicy(maxRequests: 10, window: Duration(minutes: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+      ),
+    );
+
+    ProviderGatewayRequest<int> request() => ProviderGatewayRequest<int>(
+          key: ProviderRequestKey(
+            providerId: const ProviderId('dedup-provider'),
+            cacheKey: 'dedup-key',
+          ),
+          load: () {
+            loadCount++;
+            return Future<int>.value(42);
+          },
+          deduplicationWindow: const Duration(seconds: 30),
+        );
+
+    await gateway.execute(request());
+    await gateway.execute(request()); // within window -> cached
+    expect(loadCount, 1);
+
+    now = now.add(const Duration(seconds: 31)); // window expired
+    await gateway.execute(request());
+    expect(loadCount, 2);
+  });
+
+  test('provider gateway does not dedup when window is zero', () async {
+    final DeterministicProviderGateway gateway =
+        DeterministicProviderGateway(storage: DeterministicStorageFoundation());
+    int loadCount = 0;
+    await gateway.registerProvider(
+      const ProviderRegistration(
+        providerId: ProviderId('no-dedup'),
+        ratePolicy:
+            ProviderRatePolicy(maxRequests: 10, window: Duration(minutes: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+      ),
+    );
+    ProviderGatewayRequest<int> request() => ProviderGatewayRequest<int>(
+          key: ProviderRequestKey(
+            providerId: const ProviderId('no-dedup'),
+            cacheKey: 'k',
+          ),
+          load: () {
+            loadCount++;
+            return Future<int>.value(7);
+          },
+        );
+    await gateway.execute(request());
+    await gateway.execute(request());
+    expect(loadCount, 2);
+  });
+
   test('invalidation bus delivers events and rejects after close', () async {
     final StreamCacheInvalidationBus bus = StreamCacheInvalidationBus();
     final Future<List<CacheInvalidationEvent>> events = bus.events.take(2).toList();

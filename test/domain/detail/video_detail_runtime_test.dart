@@ -443,6 +443,9 @@ final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
     publishedEvents.add(event);
     _controller.add(event);
   }
+
+  @override
+  Future<void> close() => _controller.close();
 }
 
 final class _FakeBangumiProvider implements BangumiProvider {

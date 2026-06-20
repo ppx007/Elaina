@@ -54,6 +54,8 @@ final class DiagnosticsInvalidationCollector {
   bool _schemaRegistered = false;
   bool _disposed = false;
   int _sequence = 0;
+  final List<StreamSubscription<CacheInvalidationEvent>> _subscriptions =
+      <StreamSubscription<CacheInvalidationEvent>>[];
 
   Future<DiagnosticsLocalCollectorOutcome> start() async {
     if (_disposed) return _disposedFailure();
@@ -79,9 +81,13 @@ final class DiagnosticsInvalidationCollector {
   }
 
   StreamSubscription<CacheInvalidationEvent> attach(CacheInvalidationBus bus) {
-    return bus.events.listen((CacheInvalidationEvent event) {
+    final StreamSubscription<CacheInvalidationEvent> subscription =
+        bus.events.listen((CacheInvalidationEvent event) {
       observe(event);
     });
+    // Track the subscription so dispose() can cancel it (cancel_subscriptions).
+    _subscriptions.add(subscription);
+    return subscription;
   }
 
   Future<DiagnosticsLocalCollectorOutcome> observe(
@@ -114,8 +120,16 @@ final class DiagnosticsInvalidationCollector {
     return const DiagnosticsLocalCollectorOutcome.success();
   }
 
-  void dispose() {
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
     _disposed = true;
+    for (final StreamSubscription<CacheInvalidationEvent> subscription
+        in _subscriptions) {
+      await subscription.cancel();
+    }
+    _subscriptions.clear();
   }
 
   DiagnosticsLocalCollectorOutcome _disposedFailure() {

@@ -5,7 +5,6 @@ import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/bangumi/bangumi_provider.dart';
 import '../../provider/provider_result.dart';
-import '../../provider/rss/feed_contracts.dart';
 import '../../provider/rss/yuc_wiki_feed_source.dart';
 import '../media/media_library.dart';
 import '../rss/rss_engine.dart';

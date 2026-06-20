@@ -94,6 +94,10 @@ bool isLayerDependencyAllowed({
 }) {
   final LayerBoundary source = celesteriaLayerManifest.firstWhere(
     (LayerBoundary boundary) => boundary.id == from,
+    orElse: () => throw StateError(
+      'No LayerBoundary declared for $from in celesteriaLayerManifest. '
+      'Every LayerId must have a matching manifest entry.',
+    ),
   );
   return source.allowedDependencies.contains(to);
 }

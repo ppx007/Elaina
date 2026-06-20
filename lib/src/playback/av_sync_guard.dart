@@ -60,11 +60,11 @@ enum AVSyncDegradationAction {
 
 final class AVSyncPolicy {
   AVSyncPolicy({
-    this.targetDrift = const Duration(milliseconds: 40),
-    this.warningDrift = const Duration(milliseconds: 80),
-    this.degradationDrift = const Duration(milliseconds: 120),
-    this.recoveryDrift = const Duration(milliseconds: 60),
-    this.sampleWindowSize = 3,
+    this.targetDrift = _targetDrift,
+    this.warningDrift = _warningDrift,
+    this.degradationDrift = _degradationDrift,
+    this.recoveryDrift = _recoveryDrift,
+    this.sampleWindowSize = _sampleWindowSize,
     Iterable<AVSyncDegradationAction> degradationOrder =
         const <AVSyncDegradationAction>[
       AVSyncDegradationAction.reduceEnhancementIntensity,
@@ -72,9 +72,28 @@ final class AVSyncPolicy {
       AVSyncDegradationAction.disableEnhancementProfile,
     ],
   })  : assert(sampleWindowSize > 0, 'sampleWindowSize must be positive.'),
+        assert(
+            degradationOrder.isNotEmpty, 'degradationOrder must not be empty.'),
         degradationOrder =
             List<AVSyncDegradationAction>.unmodifiable(degradationOrder);
 
+  /// Target drift below which playback is considered perfectly in sync.
+  static const Duration _targetDrift = const Duration(milliseconds: 40);
+
+  /// Drift above which a sync warning is raised.
+  static const Duration _warningDrift = const Duration(milliseconds: 80);
+
+  /// Drift above which degradation actions are applied.
+  static const Duration _degradationDrift = const Duration(milliseconds: 120);
+
+  /// Drift below which a degraded profile is allowed to recover.
+  static const Duration _recoveryDrift = const Duration(milliseconds: 60);
+
+  /// Number of drift samples averaged before a decision is made.
+  static const int _sampleWindowSize = 3;
+
+  /// Drift below which playback is perfectly in sync. Persisted for telemetry
+  /// and UI; decisions are driven by [warningDrift]/[degradationDrift]/[recoveryDrift].
   final Duration targetDrift;
   final Duration warningDrift;
   final Duration degradationDrift;
