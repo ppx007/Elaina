@@ -61,12 +61,22 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   bool _playbackOverlayActive = false;
   VideoDetailId? _activeDetailId;
   int _bangumiAuthRevision = 0;
+  Future<UserProfileSnapshot?>? _profileFuture;
 
   @override
   void initState() {
     super.initState();
+    _profileFuture = widget.profileProvider?.currentProfile();
     widget.playbackController.addPlaybackStateObserver(this);
     _checkPlaybackState();
+  }
+
+  @override
+  void didUpdateWidget(ElainaAppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profileProvider != widget.profileProvider) {
+      _profileFuture = widget.profileProvider?.currentProfile();
+    }
   }
 
   @override
@@ -97,6 +107,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   void _refreshBangumiProfile() {
     setState(() {
       _bangumiAuthRevision++;
+      _profileFuture = widget.profileProvider?.currentProfile();
     });
   }
 
@@ -401,15 +412,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      '欢迎回来，指挥官！',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.onSurface,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _WelcomeTitle(
+                      profileFuture: _profileFuture,
+                      theme: theme,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -447,7 +452,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                   _buildThemeToggle(context),
                   const SizedBox(width: 16),
                   _BangumiProfileAvatar(
-                    profileProvider: widget.profileProvider,
+                    profileFuture: _profileFuture,
                     theme: theme,
                     refreshRevision: _bangumiAuthRevision,
                   ),
@@ -766,54 +771,75 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   }
 }
 
-class _BangumiProfileAvatar extends StatefulWidget {
+class _WelcomeTitle extends StatelessWidget {
+  const _WelcomeTitle({
+    required this.profileFuture,
+    required this.theme,
+  });
+
+  final Future<UserProfileSnapshot?>? profileFuture;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final Future<UserProfileSnapshot?>? future = profileFuture;
+    if (future == null) {
+      return _buildText('欢迎回来');
+    }
+    return FutureBuilder<UserProfileSnapshot?>(
+      future: future,
+      builder:
+          (BuildContext context, AsyncSnapshot<UserProfileSnapshot?> snapshot) {
+        final String? displayName = snapshot.data?.displayName?.trim();
+        if (displayName == null || displayName.isEmpty) {
+          return _buildText('欢迎回来');
+        }
+        return _buildText('欢迎回来，$displayName');
+      },
+    );
+  }
+
+  Widget _buildText(String text) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: theme.onSurface,
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+class _BangumiProfileAvatar extends StatelessWidget {
   const _BangumiProfileAvatar({
-    required this.profileProvider,
+    required this.profileFuture,
     required this.theme,
     required this.refreshRevision,
   });
 
-  final UserProfileProvider? profileProvider;
+  final Future<UserProfileSnapshot?>? profileFuture;
   final ElainaThemeData theme;
   final int refreshRevision;
 
-  @override
-  State<_BangumiProfileAvatar> createState() => _BangumiProfileAvatarState();
-}
-
-class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
   static const double _avatarDiameter = 40;
-
-  Future<UserProfileSnapshot?>? _profileFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _profileFuture = widget.profileProvider?.currentProfile();
-  }
-
-  @override
-  void didUpdateWidget(_BangumiProfileAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.profileProvider != widget.profileProvider ||
-        oldWidget.refreshRevision != widget.refreshRevision) {
-      _profileFuture = widget.profileProvider?.currentProfile();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final Future<UserProfileSnapshot?>? profileFuture = _profileFuture;
-    if (profileFuture == null) {
-      return _buildFallbackAvatar(widget.theme);
+    final Future<UserProfileSnapshot?>? future = profileFuture;
+    if (future == null) {
+      return _buildFallbackAvatar(theme);
     }
     return FutureBuilder<UserProfileSnapshot?>(
-      future: profileFuture,
+      key: ValueKey<int>(refreshRevision),
+      future: future,
       builder:
           (BuildContext context, AsyncSnapshot<UserProfileSnapshot?> snapshot) {
         final Uri? avatarUri = snapshot.data?.avatarUri;
         if (avatarUri == null) {
-          return _buildFallbackAvatar(widget.theme);
+          return _buildFallbackAvatar(theme);
         }
         return ClipOval(
           child: SizedBox.square(
@@ -825,11 +851,11 @@ class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
               gaplessPlayback: true,
               errorBuilder: (BuildContext context, Object error,
                       StackTrace? stackTrace) =>
-                  _buildFallbackAvatar(widget.theme),
+                  _buildFallbackAvatar(theme),
               loadingBuilder: (BuildContext context, Widget child,
                   ImageChunkEvent? loadingProgress) {
                 if (loadingProgress == null) return child;
-                return _buildFallbackAvatar(widget.theme);
+                return _buildFallbackAvatar(theme);
               },
             ),
           ),

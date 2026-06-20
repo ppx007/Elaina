@@ -38,6 +38,15 @@ class _FakeVideoDetailRepository implements VideoDetailRepository {
       );
 }
 
+class _FakeUserProfileProvider implements UserProfileProvider {
+  const _FakeUserProfileProvider(this.snapshot);
+
+  final UserProfileSnapshot? snapshot;
+
+  @override
+  Future<UserProfileSnapshot?> currentProfile() async => snapshot;
+}
+
 class _FakeVideoDetailActionHandler implements VideoDetailActionHandler {
   @override
   Future<VideoDetailActionResult> continuePlayback(VideoDetailId id) async =>
@@ -186,8 +195,79 @@ void main() {
       ),
     );
 
-    expect(find.text('欢迎回来，指挥官！'), findsOneWidget);
+    expect(find.text('欢迎回来'), findsOneWidget);
     expect(find.text('Elaina'), findsOneWidget);
+
+    libraryRuntime.dispose();
+  });
+
+  testWidgets('Elaina App Shell greets signed-in profile',
+      (WidgetTester tester) async {
+    final mockController = MockPlaybackController(
+      matrix: PlaybackCapabilityMatrix(
+        capabilities: const <PlaybackCapability, CapabilityStatus>{
+          PlaybackCapability.playPause: CapabilityStatus.supported(),
+          PlaybackCapability.seek: CapabilityStatus.supported(),
+          PlaybackCapability.stop: CapabilityStatus.supported(),
+        },
+      ),
+    );
+
+    final libraryRuntime = MediaLibraryRuntime(
+      scanner: DeterministicMediaLibraryScanner(
+        scanId: const MediaScanId('test-scan'),
+        candidates: const [],
+      ),
+      catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+      importer: DeterministicMediaBatchImportContract(
+        repository: DeterministicMediaLibraryCatalogRepository(),
+      ),
+      historyStore: DeterministicPlaybackHistoryStore(),
+      bindingStore: DeterministicProviderBindingStore(),
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: _MockCacheInvalidationBus(),
+    );
+
+    final detailContract = VideoDetailPageContract(
+      controller: VideoDetailController(
+        repository: _FakeVideoDetailRepository(),
+        actions: _FakeVideoDetailActionHandler(),
+      ),
+    );
+
+    final policyStore = DeterministicRssAutoDownloadPolicyStore();
+
+    final rssEngineRuntime = RssEngineRuntime(
+      engine: _FakeRssEngine(),
+      store: DeterministicRssFeedStore(),
+      scheduler: _FakeFeedScheduler(),
+      policyStore: policyStore,
+    );
+
+    final btTaskCoreRuntime = BtTaskCoreRuntime.withDependencies(
+      adapter: _FakeDownloadEngineAdapter(),
+      store: DeterministicBtTaskStore(),
+    );
+
+    await tester.pumpWidget(
+      MyApp(
+        playbackController: mockController,
+        videoSurface: const SizedBox(),
+        mediaLibraryRuntime: libraryRuntime,
+        videoDetailPageContract: detailContract,
+        rssEngineRuntime: rssEngineRuntime,
+        btTaskCoreRuntime: btTaskCoreRuntime,
+        policyStore: policyStore,
+        profileProvider: const _FakeUserProfileProvider(
+          UserProfileSnapshot(displayName: 'Alice'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('欢迎回来，Alice'), findsOneWidget);
+    expect(find.text('欢迎回来'), findsNothing);
 
     libraryRuntime.dispose();
   });

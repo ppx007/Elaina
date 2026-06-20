@@ -5,11 +5,13 @@ final class BangumiAuthSession {
   const BangumiAuthSession({
     required this.userId,
     required this.expiresAt,
+    this.displayName,
     this.avatarUri,
   });
 
   final String userId;
   final DateTime expiresAt;
+  final String? displayName;
   final Uri? avatarUri;
 
   bool isExpiredAt(DateTime now) => !expiresAt.isAfter(now);

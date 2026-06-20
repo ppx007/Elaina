@@ -259,6 +259,11 @@ final class BangumiApiClient {
     return BangumiAuthSession(
       userId: userId,
       expiresAt: token.expiresAt ?? now.add(bangumiApiSessionProjectionTtl),
+      displayName: _firstNonEmptyString(<Object?>[
+        object['nickname'],
+        object['username'],
+        object['id'],
+      ]),
       avatarUri: _avatarUriFromJson(object['avatar']),
     );
   }

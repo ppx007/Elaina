@@ -317,6 +317,7 @@ void main() {
     final BangumiAuthSession mappedSession =
         (session as AcgProviderSuccess<BangumiAuthSession>).value;
     expect(mappedSession.userId, 'alice');
+    expect(mappedSession.displayName, 'Alice');
     expect(
       mappedSession.avatarUri,
       Uri.parse('https://img.test/alice-large.jpg'),

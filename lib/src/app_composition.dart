@@ -210,6 +210,10 @@ final class _BangumiUserProfileProvider implements UserProfileProvider {
     if (result is! AcgProviderSuccess<BangumiAuthSession>) {
       return null;
     }
-    return UserProfileSnapshot(avatarUri: result.value.avatarUri);
+    final BangumiAuthSession session = result.value;
+    return UserProfileSnapshot(
+      displayName: session.displayName ?? session.userId,
+      avatarUri: session.avatarUri,
+    );
   }
 }

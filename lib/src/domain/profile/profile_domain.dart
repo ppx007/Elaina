@@ -1,6 +1,7 @@
 class UserProfileSnapshot {
-  const UserProfileSnapshot({this.avatarUri});
+  const UserProfileSnapshot({this.displayName, this.avatarUri});
 
+  final String? displayName;
   final Uri? avatarUri;
 }
 
