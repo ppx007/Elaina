@@ -92,7 +92,7 @@ class AppComposition {
       metadataProvider: bangumiApiProvider,
       authProvider: bangumiApiProvider,
     );
-    bangumiAuthProvider = bangumiProviderRuntime.authProvider;
+    bangumiAuthProvider = bangumiProviderRuntime;
     profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
 
     mediaLibraryRuntime = MediaLibraryRuntime(
@@ -104,13 +104,13 @@ class AppComposition {
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
       invalidationBus: foundation.invalidationBus,
       bangumiMatcher: BangumiLocalMediaMatcher(
-        bangumiProvider: bangumiProviderRuntime.metadataProvider,
+        bangumiProvider: bangumiProviderRuntime,
       ),
     );
 
     // 5. Video Detail Runtime
     videoDetailBootstrap = VideoDetailBootstrap(
-      metadataProvider: bangumiProviderRuntime.metadataProvider,
+      metadataProvider: bangumiProviderRuntime,
       bindingStore: bindingStore,
       historyStore: historyStore,
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),

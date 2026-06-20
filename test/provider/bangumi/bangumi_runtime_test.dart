@@ -379,6 +379,51 @@ void main() {
     expect(onHoldBody['type'], isNot(bangumiEpisodeCollectionDropped));
   });
 
+  test('runtime registers concrete provider before auth requests', () async {
+    final DateTime now = DateTime.utc(2026, 6, 20);
+    final DeterministicStorageFoundation storage =
+        DeterministicStorageFoundation();
+    final DeterministicProviderGateway gateway =
+        DeterministicProviderGateway(storage: storage);
+    final _FakeBangumiTransport transport = _FakeBangumiTransport(
+      responses: <String, BangumiApiResponse>{
+        'GET /v0/me': const BangumiApiResponse(
+          statusCode: 200,
+          body: '{"username":"alice","nickname":"Alice"}',
+        ),
+      },
+    );
+    final BangumiApiProvider provider = BangumiApiProvider(
+      gateway: gateway,
+      client: BangumiApiClient(
+        transport: transport,
+        baseUri: Uri.parse('https://api.test'),
+      ),
+      accessTokenProvider: () async => BangumiApiAccessToken(
+        value: 'token-1',
+        expiresAt: now.add(const Duration(hours: 1)),
+      ),
+      now: () => now,
+    );
+
+    final AcgProviderResult<BangumiAuthSession> direct =
+        await provider.currentSession();
+    expect((direct as AcgProviderFailure<BangumiAuthSession>).message,
+        contains('Provider bangumi is not registered'));
+
+    final BangumiProviderRuntime runtime = BangumiProviderRuntime(
+      gateway: gateway,
+      metadataProvider: provider,
+      authProvider: provider,
+    );
+    final AcgProviderResult<BangumiAuthSession> viaRuntime =
+        await runtime.currentSession();
+
+    final BangumiAuthSession session =
+        (viaRuntime as AcgProviderSuccess<BangumiAuthSession>).value;
+    expect(session.userId, 'alice');
+  });
+
   test('concrete API provider normalizes auth and API failures', () async {
     final _RecordingGateway gateway = _RecordingGateway();
     final _FakeBangumiTransport transport = _FakeBangumiTransport(
