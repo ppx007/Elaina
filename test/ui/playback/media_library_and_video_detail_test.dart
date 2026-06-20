@@ -662,7 +662,6 @@ void main() {
       await tester.tap(find.text('抛弃 0'));
       await tester.pump();
       expect(find.text('当前没有抛弃条目'), findsOneWidget);
-      expect(find.textContaining('还没有 Bangumi 抛弃收藏状态'), findsOneWidget);
 
       libraryRuntime.dispose();
       await invalidationBus.close();

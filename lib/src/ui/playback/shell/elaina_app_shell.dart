@@ -750,16 +750,6 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Bangumi 账号、追番绑定与本地观看进度',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.onBackground.withValues(alpha: 0.6),
-                        fontSize: 13,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1260,22 +1250,6 @@ class _TrackingEmptyState extends StatelessWidget {
     };
   }
 
-  String get _description {
-    if (!hasAnyTrackedItem) {
-      return '先在本地媒体库中完成番剧识别或进入详情页加入追番；登录 Bangumi 后可以同步账号资料。';
-    }
-    return switch (filter) {
-      _TrackingFilter.all =>
-        '先在本地媒体库中完成番剧识别或进入详情页加入追番；这里会展示已确认关联 Bangumi 的条目和观看进度。',
-      _TrackingFilter.watching => '在追列表只显示已有本地观看进度、且尚未看完的 Bangumi 关联条目。',
-      _TrackingFilter.planned => '想看列表只显示已关联 Bangumi、但还没有本地观看进度的条目。',
-      _TrackingFilter.completed => '已看列表只显示本地观看进度达到完成阈值的 Bangumi 关联条目。',
-      _TrackingFilter.onHold => '当前本地媒体库快照还没有 Bangumi 搁置收藏状态，后续同步到收藏状态后会显示在这里。',
-      _TrackingFilter.dropped =>
-        '当前本地媒体库快照还没有 Bangumi 抛弃收藏状态，后续同步到收藏状态后会显示在这里。',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -1302,16 +1276,6 @@ class _TrackingEmptyState extends StatelessWidget {
                         color: theme.onSurface,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _description,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: theme.onBackground.withValues(alpha: 0.62),
-                        fontSize: 13,
-                        height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 20),
