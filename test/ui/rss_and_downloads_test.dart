@@ -80,6 +80,10 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
   final List<BtTaskId> pausedTasks = <BtTaskId>[];
   final List<BtTaskId> resumedTasks = <BtTaskId>[];
   final List<BtTaskId> removedTasks = <BtTaskId>[];
+  final List<BtTaskCreateRequest> createdRequests = <BtTaskCreateRequest>[];
+  bool failMetadata = false;
+  bool includeMetadataFiles = false;
+  bool failSelection = false;
 
   final StreamController<BtTaskStatus> _statusController =
       StreamController<BtTaskStatus>.broadcast(sync: true);
@@ -94,17 +98,31 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
 
   @override
   Future<BtTaskId> createTask(BtTaskCreateRequest request) {
+    createdRequests.add(request);
     return Future<BtTaskId>.value(const BtTaskId('task-1'));
   }
 
   @override
   Future<BtTaskMetadata> ensureMetadata(BtTaskId taskId) {
-    return Future<BtTaskMetadata>.value(const BtTaskMetadata(
+    if (failMetadata) {
+      throw StateError('metadata failed');
+    }
+    return Future<BtTaskMetadata>.value(BtTaskMetadata(
       infoHash: InfoHash('abc'),
       name: 'My Download Task',
       totalSizeBytes: 3072,
       pieceLengthBytes: 1024,
-      files: <BtTaskFile>[],
+      files: includeMetadataFiles
+          ? const <BtTaskFile>[
+              BtTaskFile(
+                index: BtFileIndex(0),
+                path: 'episode-1.mkv',
+                lengthBytes: 3072,
+                offsetBytes: 0,
+                selectionState: BtFileSelectionState.skipped,
+              ),
+            ]
+          : const <BtTaskFile>[],
     ));
   }
 
@@ -124,8 +142,11 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
   }
 
   @override
-  Future<void> selectFiles(
-      BtTaskId taskId, Iterable<BtFileIndex> files) async {}
+  Future<void> selectFiles(BtTaskId taskId, Iterable<BtFileIndex> files) async {
+    if (failSelection) {
+      throw StateError('selection failed');
+    }
+  }
 
   @override
   Stream<BtTaskEvent> watchEvents(BtTaskId taskId) => _eventController.stream;
@@ -322,5 +343,157 @@ void main() {
       expect(fakeAdapter.removedTasks.length, 1);
       expect(fakeAdapter.removedTasks.single.value, 'task-1');
     });
+
+    testWidgets('creates a new download task from magnet input',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet or file URL'),
+        'magnet:?xt=urn:btih:new-task',
+      );
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.createdRequests, hasLength(1));
+      expect(
+          fakeAdapter.createdRequests.single.source, isA<MagnetBtTaskSource>());
+      expect(find.text('My Download Task'), findsOneWidget);
+    });
+
+    testWidgets('surfaces metadata failure as a partial create warning',
+        (WidgetTester tester) async {
+      fakeAdapter.failMetadata = true;
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet or file URL'),
+        'magnet:?xt=urn:btih:metadata-warning',
+      );
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.createdRequests, hasLength(1));
+      expect(find.textContaining('metadata failed'), findsOneWidget);
+      expect(find.text('Creating...'), findsNothing);
+      expect(find.text('Add task'), findsOneWidget);
+    });
+
+    testWidgets('surfaces file selection failure as a partial create warning',
+        (WidgetTester tester) async {
+      fakeAdapter.includeMetadataFiles = true;
+      fakeAdapter.failSelection = true;
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet or file URL'),
+        'magnet:?xt=urn:btih:selection-warning',
+      );
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.createdRequests, hasLength(1));
+      expect(find.textContaining('selection failed'), findsOneWidget);
+      expect(find.text('Creating...'), findsNothing);
+      expect(find.text('Add task'), findsOneWidget);
+    });
+
+    testWidgets('restores create button after unexpected runtime failure',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: _ThrowingDownloadRuntime(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet or file URL'),
+        'magnet:?xt=urn:btih:runtime-error',
+      );
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Create task failed'), findsOneWidget);
+      expect(find.text('Creating...'), findsNothing);
+      expect(find.text('Add task'), findsOneWidget);
+    });
   });
+}
+
+final class _ThrowingDownloadRuntime implements DownloadRuntime {
+  final DownloadRuntimeSnapshot _snapshot = DownloadRuntimeSnapshot(
+    status: DownloadRuntimeStatus.idle,
+    tasks: const <DownloadProjection>[],
+  );
+
+  @override
+  DownloadRuntimeSnapshot get currentSnapshot => _snapshot;
+
+  @override
+  void addObserver(DownloadRuntimeObserver observer) {}
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<DownloadCreateResult> createTaskFromUri(String sourceUri) {
+    throw StateError('create exploded');
+  }
+
+  @override
+  Future<void> listTasks() async {}
+
+  @override
+  Future<void> pause(DownloadTaskId taskId) async {}
+
+  @override
+  Future<void> remove(DownloadTaskId taskId) async {}
+
+  @override
+  void removeObserver(DownloadRuntimeObserver observer) {}
+
+  @override
+  Future<void> resume(DownloadTaskId taskId) async {}
 }

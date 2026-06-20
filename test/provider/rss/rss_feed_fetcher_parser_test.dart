@@ -119,6 +119,26 @@ void main() {
       expect(transport.requests.single.uri,
           Uri.parse('https://example.test/rss.xml'));
     });
+
+    test('passes gateway context proxy URL to transport send', () async {
+      final _RecordingFeedHttpTransport transport = _RecordingFeedHttpTransport(
+        responses: <FeedHttpResponse>[
+          FeedHttpResponse(statusCode: HttpStatus.ok, body: _rssBody()),
+        ],
+      );
+      final HttpFeedFetcher fetcher = _fetcher(
+        transport: transport,
+        gateway: _ContextProxyProviderGateway(
+          proxyUrl: 'http://127.0.0.1:7890',
+        ),
+      );
+
+      final AcgProviderResult<FeedFetchResponse> result =
+          await fetcher.fetchFeed(FeedFetchRequest(source: _rssSource()));
+
+      expect(result, isA<AcgProviderSuccess<FeedFetchResponse>>());
+      expect(transport.requests.single.proxyUrl, 'http://127.0.0.1:7890');
+    });
   });
 
   group('XmlFeedParser', () {
@@ -201,11 +221,15 @@ void main() {
   });
 }
 
-HttpFeedFetcher _fetcher({required FeedHttpTransport transport}) {
+HttpFeedFetcher _fetcher({
+  required FeedHttpTransport transport,
+  ProviderGateway? gateway,
+}) {
   return HttpFeedFetcher(
-    gateway: DeterministicProviderGateway(
-      storage: DeterministicStorageFoundation(),
-    ),
+    gateway: gateway ??
+        DeterministicProviderGateway(
+          storage: DeterministicStorageFoundation(),
+        ),
     transport: transport,
   );
 }
@@ -282,5 +306,31 @@ final class _RecordingFeedHttpTransport implements FeedHttpTransport {
         responses[_index < responses.length ? _index : responses.length - 1];
     _index += 1;
     return Future<FeedHttpResponse>.value(response);
+  }
+}
+
+final class _ContextProxyProviderGateway implements ProviderGateway {
+  _ContextProxyProviderGateway({required this.proxyUrl})
+      : _storage = DeterministicStorageFoundation();
+
+  final String proxyUrl;
+  final StorageFoundation _storage;
+
+  @override
+  StorageFoundation get storage => _storage;
+
+  @override
+  Future<void> registerProvider(ProviderRegistration registration) async {}
+
+  @override
+  Future<ProviderGatewayResponse<T>> execute<T>(
+    ProviderGatewayRequest<T> request,
+  ) async {
+    return ProviderGatewayResponse<T>(
+      value: await request.executeLoad(
+        ProviderGatewayRequestContext(proxyUrl: proxyUrl),
+      ),
+      source: ProviderGatewayResponseSource.network,
+    );
   }
 }

@@ -26,7 +26,7 @@ final class SettingsRuntimeAdapter implements SettingsRuntime {
 
   static const String _proxyUrlKey = 'network_proxy_url';
   static const String _dnsPolicyKey = 'dns_policy';
-  static const String _policyId = 'default-policy';
+  static const String _policyId = AppConstants.defaultNetworkPolicyId;
   static const String _proxyRuleId = 'rule-proxy';
   static const String _dnsRuleId = 'rule-dns';
 

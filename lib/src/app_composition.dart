@@ -12,6 +12,7 @@ import 'foundation/constants.dart';
 import 'foundation/diagnostics/diagnostics_center.dart';
 import 'foundation/diagnostics/diagnostics_center_runtime.dart';
 import 'foundation/foundation_bootstrap.dart';
+import 'gateway/network_policy_provider_gateway.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
 import 'provider/bangumi/bangumi_runtime.dart';
@@ -21,7 +22,8 @@ import 'streaming/libtorrent_download_engine_adapter.dart';
 import 'ui/detail/video_detail_page_contract.dart';
 
 final class PeriodicFeedScheduler implements FeedScheduler {
-  const PeriodicFeedScheduler({this.interval = AppConstants.defaultFeedRefreshInterval});
+  const PeriodicFeedScheduler(
+      {this.interval = AppConstants.defaultFeedRefreshInterval});
 
   final Duration interval;
 
@@ -38,18 +40,27 @@ class AppComposition {
   AppComposition() {
     // 1. Initialize foundation bootstrap
     foundation = FoundationBootstrap();
+    final providerGateway = NetworkPolicyProviderGateway(
+      delegate: foundation.gateway,
+      networkPolicyStore: foundation.storage.networkPolicy,
+    );
 
     // 2. Playback Composition
     playbackComposition = mediaKitLocalFilePlayerRuntimeComposition();
-    final MediaKitMpvBinding binding = playbackComposition.binding as MediaKitMpvBinding;
+    final MediaKitMpvBinding binding =
+        playbackComposition.binding as MediaKitMpvBinding;
     videoController = VideoController(binding.backend.player);
 
     // 3. Media Library Runtime
     final scanner = LocalFileMediaLibraryScanner();
-    final catalogRepository = StorageMediaLibraryCatalogRepository(foundation.storage.mediaLibrary);
-    final importer = StorageMediaBatchImportContract(repository: catalogRepository);
-    final historyStore = StoragePlaybackHistoryStore(foundation.storage.playbackHistory);
-    final bindingStore = StorageProviderBindingStore(foundation.storage.providerBinding);
+    final catalogRepository =
+        StorageMediaLibraryCatalogRepository(foundation.storage.mediaLibrary);
+    final importer =
+        StorageMediaBatchImportContract(repository: catalogRepository);
+    final historyStore =
+        StoragePlaybackHistoryStore(foundation.storage.playbackHistory);
+    final bindingStore =
+        StorageProviderBindingStore(foundation.storage.providerBinding);
 
     mediaLibraryRuntime = MediaLibraryRuntime(
       scanner: scanner,
@@ -63,7 +74,7 @@ class AppComposition {
 
     // 4. Video Detail Runtime
     final metadataProvider = DeterministicBangumiProvider(
-      gateway: foundation.gateway,
+      gateway: providerGateway,
     );
 
     videoDetailBootstrap = VideoDetailBootstrap(
@@ -81,10 +92,10 @@ class AppComposition {
     // 5. RSS Engine Runtime
     final transport = HttpFeedHttpTransport();
     final fetcher = HttpFeedFetcher(
-      gateway: foundation.gateway,
+      gateway: providerGateway,
       transport: transport,
     );
-    const parser = XmlFeedParser.rss();
+    const parser = AutoXmlFeedParser();
     const scheduler = PeriodicFeedScheduler();
 
     rssEngineRuntime = RssEngineBootstrap(

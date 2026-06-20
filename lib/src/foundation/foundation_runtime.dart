@@ -138,7 +138,8 @@ final class DeterministicProviderGateway implements ProviderGateway {
     }
 
     try {
-      final T value = await request.load();
+      final T value =
+          await request.executeLoad(const ProviderGatewayRequestContext());
       final ProviderGatewayResponse<T> response = ProviderGatewayResponse<T>(
         value: value,
         source: ProviderGatewayResponseSource.network,
@@ -191,4 +192,3 @@ final class _DedupeEntry {
   final ProviderGatewayResponse<Object?> response;
   final DateTime expiresAt;
 }
-

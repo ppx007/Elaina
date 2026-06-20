@@ -17,8 +17,10 @@ class DownloadsPage extends StatefulWidget {
   State<DownloadsPage> createState() => _DownloadsPageState();
 }
 
-class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntimeObserver {
+class _DownloadsPageState extends State<DownloadsPage>
+    implements DownloadRuntimeObserver {
   late DownloadRuntimeSnapshot _snapshot;
+  bool _isCreatingTask = false;
 
   @override
   void initState() {
@@ -45,6 +47,47 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
 
   Future<void> _refreshTasks() async {
     await widget.downloadRuntime.listTasks();
+  }
+
+  Future<void> _showCreateTaskDialog() async {
+    final String? sourceUri = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) => const _AddDownloadTaskDialog(),
+    );
+    if (sourceUri == null || sourceUri.trim().isEmpty) return;
+
+    setState(() {
+      _isCreatingTask = true;
+    });
+    try {
+      final DownloadCreateResult result =
+          await widget.downloadRuntime.createTaskFromUri(sourceUri);
+      if (!mounted) return;
+      if (!result.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(result.failureMessage ?? 'Create task failed.')),
+        );
+        return;
+      }
+      if (result.hasWarning) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.warningMessage!)),
+        );
+      }
+      await _refreshTasks();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Create task failed: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingTask = false;
+        });
+      }
+    }
   }
 
   Future<void> _pauseTask(DownloadTaskId taskId) async {
@@ -106,10 +149,13 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
         final bool isDone = index < completedBlocks;
         return Container(
           decoration: BoxDecoration(
-            color: isDone ? theme.primary : theme.onBackground.withValues(alpha: 0.05),
+            color: isDone
+                ? theme.primary
+                : theme.onBackground.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: isDone ? theme.primary : theme.border.withValues(alpha: 0.5),
+              color:
+                  isDone ? theme.primary : theme.border.withValues(alpha: 0.5),
               width: 0.5,
             ),
           ),
@@ -137,6 +183,21 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                   color: theme.onSurface,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _isCreatingTask ? null : _showCreateTaskDialog,
+                icon: _isCreatingTask
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_link, size: 18),
+                label: Text(_isCreatingTask ? 'Creating...' : 'Add task'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primary,
+                  foregroundColor: theme.background,
                 ),
               ),
               IconButton(
@@ -177,7 +238,8 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                     itemBuilder: (BuildContext context, int index) {
                       final task = _snapshot.tasks[index];
                       final name = task.name;
-                      final isDownloading = task.state == DownloadLifecycleState.downloading ||
+                      final isDownloading = task.state ==
+                              DownloadLifecycleState.downloading ||
                           task.state == DownloadLifecycleState.fetchingMetadata;
 
                       final double progress = task.progress;
@@ -214,15 +276,21 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                                 ),
                                 const SizedBox(width: 12),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (isDownloading ? theme.primary : theme.secondary).withValues(alpha: 0.1),
+                                    color: (isDownloading
+                                            ? theme.primary
+                                            : theme.secondary)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     task.state.name.toUpperCase(),
                                     style: TextStyle(
-                                      color: isDownloading ? theme.primary : theme.secondary,
+                                      color: isDownloading
+                                          ? theme.primary
+                                          : theme.secondary,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -239,14 +307,16 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                                 Text(
                                   '已完成: ${(progress * 100.0).toStringAsFixed(1)}% (${_formatSize((totalSize * progress).round())} / ${_formatSize(totalSize)})',
                                   style: TextStyle(
-                                    color: theme.onBackground.withValues(alpha: 0.8),
+                                    color: theme.onBackground
+                                        .withValues(alpha: 0.8),
                                     fontSize: 12,
                                   ),
                                 ),
                                 Text(
                                   '速度: ${_formatSpeed(downloadRate)} | 连接对等点 (Peers): $peers',
                                   style: TextStyle(
-                                    color: theme.onBackground.withValues(alpha: 0.8),
+                                    color: theme.onBackground
+                                        .withValues(alpha: 0.8),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -259,7 +329,8 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: progress,
-                                backgroundColor: theme.onBackground.withValues(alpha: 0.05),
+                                backgroundColor:
+                                    theme.onBackground.withValues(alpha: 0.05),
                                 color: theme.primary,
                                 minHeight: 6,
                               ),
@@ -273,12 +344,14 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                                 // Dynamic Piece Map
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: <Widget>[
                                       Text(
                                         '分片文件拼图 (Piece map)',
                                         style: TextStyle(
-                                          color: theme.onBackground.withValues(alpha: 0.6),
+                                          color: theme.onBackground
+                                              .withValues(alpha: 0.6),
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -303,20 +376,24 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
                                           IconButton(
                                             icon: const Icon(Icons.pause),
                                             color: theme.secondary,
-                                            onPressed: () => _pauseTask(task.taskId),
+                                            onPressed: () =>
+                                                _pauseTask(task.taskId),
                                             tooltip: '暂停下载',
                                           )
                                         else
                                           IconButton(
                                             icon: const Icon(Icons.play_arrow),
                                             color: theme.primary,
-                                            onPressed: () => _resumeTask(task.taskId),
+                                            onPressed: () =>
+                                                _resumeTask(task.taskId),
                                             tooltip: '恢复下载',
                                           ),
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline),
+                                          icon:
+                                              const Icon(Icons.delete_outline),
                                           color: theme.accentMagenta,
-                                          onPressed: () => _removeTask(task.taskId),
+                                          onPressed: () =>
+                                              _removeTask(task.taskId),
                                           tooltip: '删除任务',
                                         ),
                                       ],
@@ -333,6 +410,69 @@ class _DownloadsPageState extends State<DownloadsPage> implements DownloadRuntim
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AddDownloadTaskDialog extends StatefulWidget {
+  const _AddDownloadTaskDialog();
+
+  @override
+  State<_AddDownloadTaskDialog> createState() => _AddDownloadTaskDialogState();
+}
+
+class _AddDownloadTaskDialogState extends State<_AddDownloadTaskDialog> {
+  final TextEditingController _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String value = _controller.text.trim();
+    final bool isMagnet = value.startsWith('magnet:?');
+    final Uri? parsed = Uri.tryParse(value);
+    final bool isSupportedFileUri = parsed != null &&
+        (parsed.isScheme('file') ||
+            parsed.isScheme('http') ||
+            parsed.isScheme('https'));
+    if (!isMagnet && !isSupportedFileUri) {
+      setState(() {
+        _errorText = 'Use a magnet link, local file URI, or HTTP(S) URL.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add download task'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 1,
+        maxLines: 3,
+        decoration: InputDecoration(
+          labelText: 'Magnet or file URL',
+          errorText: _errorText,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Create'),
+        ),
+      ],
     );
   }
 }

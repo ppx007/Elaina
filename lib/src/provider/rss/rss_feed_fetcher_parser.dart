@@ -21,11 +21,13 @@ final class FeedHttpRequest {
     required this.method,
     required this.uri,
     this.headers = const <String, String>{},
+    this.proxyUrl,
   });
 
   final String method;
   final Uri uri;
   final Map<String, String> headers;
+  final String? proxyUrl;
 }
 
 final class FeedHttpResponse {
@@ -75,21 +77,47 @@ final class HttpFeedHttpTransport implements FeedHttpTransport {
     if (risk != null) {
       throw FeedHttpRequestBlocked(uri: request.uri, risk: risk);
     }
-    final HttpClientRequest httpRequest =
-        await _httpClient.openUrl(request.method, request.uri);
-    for (final MapEntry<String, String> header in request.headers.entries) {
-      httpRequest.headers.set(header.key, header.value);
+    final HttpClient client = _clientFor(request.proxyUrl);
+    try {
+      final HttpClientRequest httpRequest =
+          await client.openUrl(request.method, request.uri);
+      for (final MapEntry<String, String> header in request.headers.entries) {
+        httpRequest.headers.set(header.key, header.value);
+      }
+      final HttpClientResponse response = await httpRequest.close();
+      final Map<String, String> headers = <String, String>{};
+      response.headers.forEach((String name, List<String> values) {
+        if (values.isNotEmpty) headers[name.toLowerCase()] = values.join(',');
+      });
+      return FeedHttpResponse(
+        statusCode: response.statusCode,
+        body: await response.transform(utf8.decoder).join(),
+        headers: headers,
+      );
+    } finally {
+      if (!identical(client, _httpClient)) client.close(force: true);
     }
-    final HttpClientResponse response = await httpRequest.close();
-    final Map<String, String> headers = <String, String>{};
-    response.headers.forEach((String name, List<String> values) {
-      if (values.isNotEmpty) headers[name.toLowerCase()] = values.join(',');
-    });
-    return FeedHttpResponse(
-      statusCode: response.statusCode,
-      body: await response.transform(utf8.decoder).join(),
-      headers: headers,
-    );
+  }
+
+  HttpClient _clientFor(String? proxyUrl) {
+    if (proxyUrl == null || proxyUrl.trim().isEmpty) return _httpClient;
+    final String? proxyConfig = _proxyConfig(proxyUrl);
+    if (proxyConfig == null) return _httpClient;
+    final HttpClient client = HttpClient();
+    client.findProxy = (_) => proxyConfig;
+    return client;
+  }
+
+  String? _proxyConfig(String proxyUrl) {
+    final String trimmed = proxyUrl.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'direct') return 'DIRECT';
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) {
+      return trimmed.contains(':') ? 'PROXY $trimmed' : null;
+    }
+    final int port = uri.hasPort ? uri.port : 80;
+    return 'PROXY ${uri.host}:$port';
   }
 }
 
@@ -158,11 +186,7 @@ final class HttpFeedFetcher implements FeedFetcher {
   ) async {
     try {
       final ProviderGatewayResponse<FeedFetchResponse> response =
-          await executeGatewayRequest<FeedFetchResponse>(
-        cacheKey: _feedCacheKey(request),
-        cachePolicy: ProviderCachePolicy.networkFirst,
-        load: () => _fetch(request),
-      );
+          await _executeFetchGatewayRequest(request);
       return AcgProviderSuccess<FeedFetchResponse>(response.value);
     } on ProviderFailure catch (failure) {
       return AcgProviderFailure<FeedFetchResponse>(
@@ -172,7 +196,27 @@ final class HttpFeedFetcher implements FeedFetcher {
     }
   }
 
-  Future<FeedFetchResponse> _fetch(FeedFetchRequest request) async {
+  Future<ProviderGatewayResponse<FeedFetchResponse>>
+      _executeFetchGatewayRequest(FeedFetchRequest request) async {
+    await _ensureRegistered();
+    return gateway.execute<FeedFetchResponse>(
+      ProviderGatewayRequest<FeedFetchResponse>(
+        key: requestKey(_feedCacheKey(request)),
+        load: () => _fetch(request),
+        loadWithContext: (ProviderGatewayRequestContext context) =>
+            _fetch(request, proxyUrl: context.proxyUrl),
+        cachePolicy: ProviderCachePolicy.networkFirst,
+        deduplicationWindow: httpFeedFetcherDeduplicationWindow,
+        networkPolicyUri: request.source.uri,
+        networkPolicyProviderScope: _providerId,
+      ),
+    );
+  }
+
+  Future<FeedFetchResponse> _fetch(
+    FeedFetchRequest request, {
+    String? proxyUrl,
+  }) async {
     final Uri uri = request.source.uri;
     if (!uri.isScheme('http') && !uri.isScheme('https')) {
       throw ProviderFailure(
@@ -188,6 +232,7 @@ final class HttpFeedFetcher implements FeedFetcher {
           method: 'GET',
           uri: uri,
           headers: _headers(request),
+          proxyUrl: proxyUrl,
         ),
       );
     } on ProviderFailure {
@@ -266,6 +311,12 @@ base class XmlFeedParser implements FeedParser {
 
   @override
   Future<FeedParseResult> parse(FeedParseRequest request) async {
+    if (request.source.format != format) {
+      throw ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Feed parser format does not match source format.',
+      );
+    }
     final XmlDocument document;
     try {
       document = XmlDocument.parse(request.body);
@@ -288,6 +339,24 @@ final class RssXmlFeedParser extends XmlFeedParser {
 
 final class AtomXmlFeedParser extends XmlFeedParser {
   const AtomXmlFeedParser() : super.atom();
+}
+
+final class AutoXmlFeedParser implements MultiFormatFeedParser {
+  const AutoXmlFeedParser();
+
+  @override
+  FeedFormat get format => FeedFormat.rss;
+
+  @override
+  bool supportsFormat(FeedFormat format) => true;
+
+  @override
+  Future<FeedParseResult> parse(FeedParseRequest request) {
+    return switch (request.source.format) {
+      FeedFormat.rss => const RssXmlFeedParser().parse(request),
+      FeedFormat.atom => const AtomXmlFeedParser().parse(request),
+    };
+  }
 }
 
 FeedParseResult _parseRss(XmlDocument document, FeedParseRequest request) {

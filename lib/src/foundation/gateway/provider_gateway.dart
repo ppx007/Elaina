@@ -31,14 +31,39 @@ final class ProviderGatewayRequest<T> {
   const ProviderGatewayRequest({
     required this.key,
     required this.load,
+    this.loadWithContext,
     this.cachePolicy = ProviderCachePolicy.networkOnly,
     this.deduplicationWindow = Duration.zero,
+    this.networkPolicyUri,
+    this.networkPolicyProviderScope,
+    this.redirectedFrom,
   });
 
   final ProviderRequestKey key;
   final Future<T> Function() load;
+  final Future<T> Function(ProviderGatewayRequestContext context)?
+      loadWithContext;
   final ProviderCachePolicy cachePolicy;
   final Duration deduplicationWindow;
+  final Uri? networkPolicyUri;
+  final String? networkPolicyProviderScope;
+  final Uri? redirectedFrom;
+
+  String get resolvedNetworkPolicyProviderScope =>
+      networkPolicyProviderScope ?? key.providerId.value;
+
+  Future<T> executeLoad(ProviderGatewayRequestContext context) {
+    final Future<T> Function(ProviderGatewayRequestContext context)? loader =
+        loadWithContext;
+    if (loader != null) return loader(context);
+    return load();
+  }
+}
+
+final class ProviderGatewayRequestContext {
+  const ProviderGatewayRequestContext({this.proxyUrl});
+
+  final String? proxyUrl;
 }
 
 final class ProviderGatewayResponse<T> {

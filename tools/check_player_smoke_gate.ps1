@@ -23,6 +23,7 @@ function Resolve-LibMpvDll([string]$Candidate) {
   if (-not [string]::IsNullOrWhiteSpace($env:CELESTERIA_LIBMPV_PATH)) {
     $paths += $env:CELESTERIA_LIBMPV_PATH
   }
+  $paths += Join-Path $root '.cache\native\media-kit-libmpv\extracted'
 
   foreach ($path in $paths) {
     $fullPath = Resolve-FullPath $path

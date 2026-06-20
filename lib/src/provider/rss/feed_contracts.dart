@@ -142,6 +142,15 @@ abstract interface class FeedParser {
   Future<FeedParseResult> parse(FeedParseRequest request);
 }
 
+abstract interface class MultiFormatFeedParser implements FeedParser {
+  bool supportsFormat(FeedFormat format);
+}
+
+bool feedParserSupportsFormat(FeedParser parser, FeedFormat format) {
+  if (parser is MultiFormatFeedParser) return parser.supportsFormat(format);
+  return parser.format == format;
+}
+
 final class FeedScheduleDecision {
   const FeedScheduleDecision({required this.source, required this.dueAt});
 

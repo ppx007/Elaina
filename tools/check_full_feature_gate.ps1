@@ -66,7 +66,7 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($SampleMediaPath)) {
       $playerSmokeArgs += @('-SampleMediaPath', $SampleMediaPath)
     }
-    if ($RequireNativeSmoke) {
+    if (-not $SkipNativePlayerSmoke) {
       $playerSmokeArgs += '-RequireNativeSmoke'
     }
     if ($SkipNativePlayerSmoke) {

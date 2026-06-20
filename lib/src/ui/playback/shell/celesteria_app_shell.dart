@@ -90,7 +90,6 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     }
   }
 
-  // ignore: unused_element  // TODO(ui): wire "open local file" action into the shell toolbar
   Future<void> _pickAndPlayFile() async {
     try {
       final FilePickerResult? result = await FilePicker.pickFiles(
@@ -117,6 +116,12 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
               await widget.playbackController.open(prepared.source!);
           if (openResult.isSuccess) {
             await widget.playbackController.play();
+            if (mounted) {
+              setState(() {
+                _playbackOverlayActive = true;
+                _activeDetailId = null;
+              });
+            }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('打开文件失败: ${openResult.failure?.message}')),
@@ -381,30 +386,52 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    '欢迎回来，指挥官！',
-                    style: TextStyle(
-                      color: theme.onSurface,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '欢迎回来，指挥官！',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatCurrentDate(),
-                    style: TextStyle(
-                      color: theme.onBackground.withValues(alpha: 0.6),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatCurrentDate(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  Tooltip(
+                    message: 'Open file',
+                    child: IconButton(
+                      onPressed: _pickAndPlayFile,
+                      icon: const Icon(Icons.folder_open),
+                      color: theme.primary,
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.primary.withValues(alpha: 0.14),
+                        foregroundColor: theme.primary,
+                        fixedSize: const Size.square(40),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   // Theme Toggle
                   _buildThemeToggle(context),
                   const SizedBox(width: 16),

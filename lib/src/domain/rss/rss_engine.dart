@@ -118,7 +118,7 @@ final class DeterministicRssEngine implements RssEngineContract, FeedEngine {
     }
 
     final FeedSource source = _feedSourceFromRecord(storedSource);
-    if (parser.format != source.format) {
+    if (!feedParserSupportsFormat(parser, source.format)) {
       return RssRefreshOutcome.failure(
         sourceId: source.id,
         failure: const RssRefreshFailure(
