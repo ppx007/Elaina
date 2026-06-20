@@ -15,6 +15,8 @@ import 'foundation/foundation_bootstrap.dart';
 import 'gateway/network_policy_provider_gateway.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
+import 'provider/bangumi/bangumi_api_client.dart';
+import 'provider/bangumi/bangumi_auth.dart';
 import 'provider/bangumi/bangumi_runtime.dart';
 import 'provider/rss/rss_feed_fetcher_parser.dart';
 import 'streaming/bt_task_core_runtime.dart';
@@ -73,12 +75,28 @@ class AppComposition {
     );
 
     // 4. Video Detail Runtime
-    final metadataProvider = DeterministicBangumiProvider(
+    final bangumiApiProvider = BangumiApiProvider(
       gateway: providerGateway,
+      client: BangumiApiClient(transport: HttpBangumiApiTransport()),
+      accessTokenProvider: () async {
+        final String token = (await foundation.storage.settings
+                    .readString(SettingsPreferenceKeys.bangumiAccessToken))
+                ?.trim() ??
+            '';
+        if (token.isEmpty) return null;
+        return BangumiApiAccessToken(value: token);
+      },
     );
 
+    bangumiProviderRuntime = BangumiProviderRuntime(
+      gateway: providerGateway,
+      metadataProvider: bangumiApiProvider,
+      authProvider: bangumiApiProvider,
+    );
+    bangumiAuthProvider = bangumiProviderRuntime.authProvider;
+
     videoDetailBootstrap = VideoDetailBootstrap(
-      metadataProvider: metadataProvider,
+      metadataProvider: bangumiProviderRuntime.metadataProvider,
       bindingStore: bindingStore,
       historyStore: historyStore,
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
@@ -159,6 +177,8 @@ class AppComposition {
   late final BtTaskCoreRuntime btTaskCoreRuntime;
   late final SettingsRuntime settingsRuntime;
   late final DiagnosticsRuntime diagnosticsRuntime;
+  late final BangumiProviderRuntime bangumiProviderRuntime;
+  late final BangumiAuthProvider bangumiAuthProvider;
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
@@ -167,6 +187,7 @@ class AppComposition {
   void dispose() {
     mediaLibraryRuntime.dispose();
     videoDetailBootstrap.dispose();
+    bangumiProviderRuntime.dispose();
     rssEngineRuntime.dispose();
     btTaskCoreRuntime.dispose();
     foundation.dispose();

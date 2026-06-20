@@ -47,13 +47,18 @@ ProviderRequestKey bangumiProgressRequestKey(BangumiProgressUpdate update) {
 ProviderGatewayRequest<T> bangumiGatewayRequest<T>({
   required ProviderRequestKey key,
   required Future<T> Function() load,
+  Future<T> Function(ProviderGatewayRequestContext context)? loadWithContext,
   ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkFirst,
+  Duration deduplicationWindow = bangumiRuntimeDeduplicationWindow,
+  Uri? networkPolicyUri,
 }) {
   return ProviderGatewayRequest<T>(
     key: key,
     load: load,
+    loadWithContext: loadWithContext,
     cachePolicy: cachePolicy,
-    deduplicationWindow: bangumiRuntimeDeduplicationWindow,
+    deduplicationWindow: deduplicationWindow,
+    networkPolicyUri: networkPolicyUri,
   );
 }
 

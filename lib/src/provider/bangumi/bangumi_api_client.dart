@@ -45,12 +45,14 @@ final class BangumiApiRequest {
     required this.uri,
     this.headers = const <String, String>{},
     this.body,
+    this.proxyUrl,
   });
 
   final String method;
   final Uri uri;
   final Map<String, String> headers;
   final String? body;
+  final String? proxyUrl;
 }
 
 final class BangumiApiResponse {
@@ -84,22 +86,48 @@ final class HttpBangumiApiTransport implements BangumiApiTransport {
       throw StateError(
           'Bangumi request blocked by SSRF guard: ${risk.name} ${request.uri}');
     }
-    final HttpClientRequest httpRequest =
-        await _httpClient.openUrl(request.method, request.uri);
-    for (final MapEntry<String, String> header in request.headers.entries) {
-      httpRequest.headers.set(header.key, header.value);
-    }
-    final String? body = request.body;
-    if (body != null) {
-      httpRequest.write(body);
-    }
+    final HttpClient client = _clientFor(request.proxyUrl);
+    try {
+      final HttpClientRequest httpRequest =
+          await client.openUrl(request.method, request.uri);
+      for (final MapEntry<String, String> header in request.headers.entries) {
+        httpRequest.headers.set(header.key, header.value);
+      }
+      final String? body = request.body;
+      if (body != null) {
+        httpRequest.write(body);
+      }
 
-    final HttpClientResponse response = await httpRequest.close();
-    final String responseBody = await response.transform(utf8.decoder).join();
-    return BangumiApiResponse(
-      statusCode: response.statusCode,
-      body: responseBody,
-    );
+      final HttpClientResponse response = await httpRequest.close();
+      final String responseBody = await response.transform(utf8.decoder).join();
+      return BangumiApiResponse(
+        statusCode: response.statusCode,
+        body: responseBody,
+      );
+    } finally {
+      if (!identical(client, _httpClient)) client.close(force: true);
+    }
+  }
+
+  HttpClient _clientFor(String? proxyUrl) {
+    if (proxyUrl == null || proxyUrl.trim().isEmpty) return _httpClient;
+    final String? proxyConfig = _proxyConfig(proxyUrl);
+    if (proxyConfig == null) return _httpClient;
+    final HttpClient client = HttpClient();
+    client.findProxy = (_) => proxyConfig;
+    return client;
+  }
+
+  String? _proxyConfig(String proxyUrl) {
+    final String trimmed = proxyUrl.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'direct') return 'DIRECT';
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) {
+      return trimmed.contains(':') ? 'PROXY $trimmed' : null;
+    }
+    final int port = uri.hasPort ? uri.port : 80;
+    return 'PROXY ${uri.host}:$port';
   }
 }
 
@@ -116,27 +144,58 @@ final class BangumiApiClient {
   final Uri _baseUri;
   final String _userAgent;
 
-  Future<BangumiSubject> lookupSubject(BangumiSubjectId id) async {
+  Uri lookupSubjectRequestUri(BangumiSubjectId id) {
+    return _uri('/v0/subjects/${Uri.encodeComponent(id.value)}');
+  }
+
+  Uri searchSubjectsRequestUri() {
+    return _uri(
+      '/v0/search/subjects',
+      const <String, String>{
+        'limit': '$bangumiApiDefaultSearchLimit',
+        'offset': '$bangumiApiDefaultSearchOffset',
+      },
+    );
+  }
+
+  Uri lookupEpisodeRequestUri(BangumiEpisodeId id) {
+    return _uri('/v0/episodes/${Uri.encodeComponent(id.value)}');
+  }
+
+  Uri currentSessionRequestUri() {
+    return _uri('/v0/me');
+  }
+
+  Uri syncProgressRequestUri(BangumiProgressUpdate update) {
+    return _uri(
+      '/v0/users/-/collections/-/episodes/'
+      '${Uri.encodeComponent(update.episodeId.value)}',
+    );
+  }
+
+  Future<BangumiSubject> lookupSubject(
+    BangumiSubjectId id, {
+    String? proxyUrl,
+  }) async {
     final Object? json = await _sendJson(
       'GET',
-      _uri('/v0/subjects/${Uri.encodeComponent(id.value)}'),
+      lookupSubjectRequestUri(id),
+      proxyUrl: proxyUrl,
     );
     return _subjectFromJson(_jsonObject(json, 'Bangumi subject'));
   }
 
-  Future<List<BangumiSubject>> searchSubjects(String query) async {
+  Future<List<BangumiSubject>> searchSubjects(
+    String query, {
+    String? proxyUrl,
+  }) async {
     final String normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) return const <BangumiSubject>[];
 
     final Object? json = await _sendJson(
       'POST',
-      _uri(
-        '/v0/search/subjects',
-        const <String, String>{
-          'limit': '$bangumiApiDefaultSearchLimit',
-          'offset': '$bangumiApiDefaultSearchOffset',
-        },
-      ),
+      searchSubjectsRequestUri(),
+      proxyUrl: proxyUrl,
       body: <String, Object?>{
         'keyword': normalizedQuery,
         'sort': 'match',
@@ -162,10 +221,14 @@ final class BangumiApiClient {
         .toList(growable: false);
   }
 
-  Future<BangumiEpisode> lookupEpisode(BangumiEpisodeId id) async {
+  Future<BangumiEpisode> lookupEpisode(
+    BangumiEpisodeId id, {
+    String? proxyUrl,
+  }) async {
     final Object? json = await _sendJson(
       'GET',
-      _uri('/v0/episodes/${Uri.encodeComponent(id.value)}'),
+      lookupEpisodeRequestUri(id),
+      proxyUrl: proxyUrl,
     );
     return _episodeFromJson(_jsonObject(json, 'Bangumi episode'));
   }
@@ -173,11 +236,13 @@ final class BangumiApiClient {
   Future<BangumiAuthSession> currentSession({
     required BangumiApiAccessToken token,
     required DateTime now,
+    String? proxyUrl,
   }) async {
     final Object? json = await _sendJson(
       'GET',
-      _uri('/v0/me'),
+      currentSessionRequestUri(),
       token: token,
+      proxyUrl: proxyUrl,
     );
     final Map<String, Object?> object = _jsonObject(json, 'Bangumi user');
     final String userId = _firstNonEmptyString(<Object?>[
@@ -194,20 +259,20 @@ final class BangumiApiClient {
     return BangumiAuthSession(
       userId: userId,
       expiresAt: token.expiresAt ?? now.add(bangumiApiSessionProjectionTtl),
+      avatarUri: _avatarUriFromJson(object['avatar']),
     );
   }
 
   Future<void> syncProgress({
     required BangumiProgressUpdate update,
     required BangumiApiAccessToken token,
+    String? proxyUrl,
   }) async {
     await _sendJson(
       'PUT',
-      _uri(
-        '/v0/users/-/collections/-/episodes/'
-        '${Uri.encodeComponent(update.episodeId.value)}',
-      ),
+      syncProgressRequestUri(update),
       token: token,
+      proxyUrl: proxyUrl,
       body: <String, Object?>{
         'type': _episodeCollectionType(update.state),
       },
@@ -221,6 +286,7 @@ final class BangumiApiClient {
     BangumiApiAccessToken? token,
     Map<String, Object?>? body,
     bool allowEmptySuccessBody = false,
+    String? proxyUrl,
   }) async {
     final String? encodedBody = body == null ? null : jsonEncode(body);
     final BangumiApiResponse response = await _transport.send(
@@ -229,6 +295,7 @@ final class BangumiApiClient {
         uri: uri,
         headers: _headers(token: token, hasBody: encodedBody != null),
         body: encodedBody,
+        proxyUrl: proxyUrl,
       ),
     );
 
@@ -338,7 +405,9 @@ final class BangumiApiProvider
     return _execute<BangumiSubject>(
       key: bangumiSubjectRequestKey(id),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.lookupSubject(id),
+      networkPolicyUri: _client.lookupSubjectRequestUri(id),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.lookupSubject(id, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -349,7 +418,9 @@ final class BangumiApiProvider
     return _execute<List<BangumiSubject>>(
       key: bangumiSubjectSearchRequestKey(query),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.searchSubjects(query),
+      networkPolicyUri: _client.searchSubjectsRequestUri(),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.searchSubjects(query, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -360,7 +431,9 @@ final class BangumiApiProvider
     return _execute<BangumiEpisode>(
       key: bangumiEpisodeRequestKey(id),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.lookupEpisode(id),
+      networkPolicyUri: _client.lookupEpisodeRequestUri(id),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.lookupEpisode(id, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -370,10 +443,13 @@ final class BangumiApiProvider
     if (token == null) return _unauthenticated<BangumiAuthSession>();
     return _execute<BangumiAuthSession>(
       key: bangumiSessionRequestKey(),
-      cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.currentSession(
+      cachePolicy: ProviderCachePolicy.networkOnly,
+      deduplicationWindow: Duration.zero,
+      networkPolicyUri: _client.currentSessionRequestUri(),
+      load: (ProviderGatewayRequestContext context) => _client.currentSession(
         token: token,
         now: (_now ?? DateTime.now)(),
+        proxyUrl: context.proxyUrl,
       ),
     );
   }
@@ -387,21 +463,31 @@ final class BangumiApiProvider
     return _execute<void>(
       key: bangumiProgressRequestKey(update),
       cachePolicy: ProviderCachePolicy.networkOnly,
-      load: () => _client.syncProgress(update: update, token: token),
+      networkPolicyUri: _client.syncProgressRequestUri(update),
+      load: (ProviderGatewayRequestContext context) => _client.syncProgress(
+        update: update,
+        token: token,
+        proxyUrl: context.proxyUrl,
+      ),
     );
   }
 
   Future<AcgProviderResult<T>> _execute<T>({
     required ProviderRequestKey key,
-    required Future<T> Function() load,
+    required Future<T> Function(ProviderGatewayRequestContext context) load,
     required ProviderCachePolicy cachePolicy,
+    required Uri networkPolicyUri,
+    Duration deduplicationWindow = bangumiRuntimeDeduplicationWindow,
   }) async {
     try {
       final ProviderGatewayResponse<T> response = await gateway.execute<T>(
         bangumiGatewayRequest<T>(
           key: key,
-          load: load,
+          load: () => load(const ProviderGatewayRequestContext()),
+          loadWithContext: load,
           cachePolicy: cachePolicy,
+          deduplicationWindow: deduplicationWindow,
+          networkPolicyUri: networkPolicyUri,
         ),
       );
       return AcgProviderSuccess<T>(response.value);
@@ -499,6 +585,30 @@ String _requiredIdString(Object? value, String label) {
 String? _optionalString(Object? value) {
   final String text = _stringValue(value);
   return text.isEmpty ? null : text;
+}
+
+Uri? _avatarUriFromJson(Object? value) {
+  final String text = switch (value) {
+    final String raw => raw.trim(),
+    final Map<String, Object?> object => _firstNonEmptyString(<Object?>[
+        object['large'],
+        object['medium'],
+        object['small'],
+        object['grid'],
+      ]),
+    final Map<Object?, Object?> object => _firstNonEmptyString(<Object?>[
+        object['large'],
+        object['medium'],
+        object['small'],
+        object['grid'],
+      ]),
+    _ => '',
+  };
+  if (text.isEmpty) return null;
+  final Uri? uri = Uri.tryParse(text);
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+  if (uri.scheme != 'https' && uri.scheme != 'http') return null;
+  return uri;
 }
 
 String _firstNonEmptyString(Iterable<Object?> values) {

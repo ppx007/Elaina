@@ -90,15 +90,19 @@ void main() {
     final BangumiProviderRuntime authenticated = BangumiProviderRuntime(
       gateway: _RecordingGateway(),
       session: BangumiAuthSession(
-          userId: 'user-1', expiresAt: now.add(const Duration(days: 1))),
+        userId: 'user-1',
+        expiresAt: now.add(const Duration(days: 1)),
+        avatarUri: Uri.parse('https://img.test/avatar.png'),
+      ),
       now: () => now,
     );
 
     final AcgProviderResult<BangumiAuthSession> sessionResult =
         await authenticated.currentSession();
-    expect(
-        (sessionResult as AcgProviderSuccess<BangumiAuthSession>).value.userId,
-        'user-1');
+    final BangumiAuthSession session =
+        (sessionResult as AcgProviderSuccess<BangumiAuthSession>).value;
+    expect(session.userId, 'user-1');
+    expect(session.avatarUri, Uri.parse('https://img.test/avatar.png'));
 
     final AcgProviderResult<void> syncResult = await authenticated.syncProgress(
       const BangumiProgressUpdate(
@@ -199,7 +203,8 @@ void main() {
 
   test('concrete API provider maps metadata requests through gateway',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     final _FakeBangumiTransport transport = _FakeBangumiTransport(
       responses: <String, BangumiApiResponse>{
         'GET /v0/subjects/42': const BangumiApiResponse(
@@ -238,13 +243,20 @@ void main() {
         'Concrete Title');
     expect(gateway.registeredProviderId, bangumiProviderId.value);
     expect(gateway.lastCacheKey, 'subject:42');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/v0/subjects/42'));
     expect(transport.requests.single.method, 'GET');
     expect(transport.requests.single.uri.path, '/v0/subjects/42');
+    expect(transport.requests.single.proxyUrl, 'http://127.0.0.1:7890');
 
     final AcgProviderResult<List<BangumiSubject>> search =
         await runtime.searchSubjects(' concrete ');
     final BangumiApiRequest searchRequest = transport.requests.last;
     expect(gateway.lastCacheKey, 'subject-search:concrete');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/v0/search/subjects?limit=20&offset=0'),
+    );
     expect(searchRequest.method, 'POST');
     expect(searchRequest.uri.path, '/v0/search/subjects');
     expect(searchRequest.uri.queryParameters['limit'], '20');
@@ -266,6 +278,8 @@ void main() {
     expect(mapped.subjectId.value, '42');
     expect(mapped.index, 1);
     expect(mapped.title, 'Episode Title');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/v0/episodes/7'));
   });
 
   test('concrete API provider maps auth and progress with bearer token',
@@ -276,7 +290,8 @@ void main() {
       responses: <String, BangumiApiResponse>{
         'GET /v0/me': const BangumiApiResponse(
           statusCode: 200,
-          body: '{"username":"alice","nickname":"Alice"}',
+          body:
+              '{"username":"alice","nickname":"Alice","avatar":{"large":"https://img.test/alice-large.jpg","medium":"https://img.test/alice-medium.jpg"}}',
         ),
         'PUT /v0/users/-/collections/-/episodes/7':
             const BangumiApiResponse(statusCode: 204, body: ''),
@@ -299,9 +314,17 @@ void main() {
 
     final AcgProviderResult<BangumiAuthSession> session =
         await provider.currentSession();
-    expect((session as AcgProviderSuccess<BangumiAuthSession>).value.userId,
-        'alice');
+    final BangumiAuthSession mappedSession =
+        (session as AcgProviderSuccess<BangumiAuthSession>).value;
+    expect(mappedSession.userId, 'alice');
+    expect(
+      mappedSession.avatarUri,
+      Uri.parse('https://img.test/alice-large.jpg'),
+    );
     expect(gateway.lastCacheKey, 'auth-session:current');
+    expect(gateway.lastCachePolicy, ProviderCachePolicy.networkOnly);
+    expect(gateway.lastDeduplicationWindow, Duration.zero);
+    expect(gateway.lastNetworkPolicyUri, Uri.parse('https://api.test/v0/me'));
     expect(
       transport.requests.single.headers['authorization'],
       'Bearer token-1',
@@ -404,11 +427,16 @@ void main() {
 }
 
 final class _RecordingGateway implements ProviderGateway {
+  _RecordingGateway({this.proxyUrl});
+
   final DeterministicStorageFoundation _storage =
       DeterministicStorageFoundation();
+  final String? proxyUrl;
   String? registeredProviderId;
   String? lastCacheKey;
   ProviderCachePolicy? lastCachePolicy;
+  Duration? lastDeduplicationWindow;
+  Uri? lastNetworkPolicyUri;
 
   @override
   StorageFoundation get storage => _storage;
@@ -423,8 +451,12 @@ final class _RecordingGateway implements ProviderGateway {
       ProviderGatewayRequest<T> request) async {
     lastCacheKey = request.key.cacheKey;
     lastCachePolicy = request.cachePolicy;
+    lastDeduplicationWindow = request.deduplicationWindow;
+    lastNetworkPolicyUri = request.networkPolicyUri;
     return ProviderGatewayResponse<T>(
-      value: await request.load(),
+      value: await request.executeLoad(
+        ProviderGatewayRequestContext(proxyUrl: proxyUrl),
+      ),
       source: ProviderGatewayResponseSource.network,
     );
   }

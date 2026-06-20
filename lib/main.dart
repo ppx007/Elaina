@@ -9,6 +9,7 @@ import 'src/domain/playback/player_core_bootstrap.dart';
 import 'src/domain/rss/rss_engine_runtime.dart';
 import 'src/domain/settings/settings_domain.dart';
 import 'src/foundation/storage/rss_auto_download_policy_storage_contracts.dart';
+import 'src/provider/bangumi/bangumi_auth.dart';
 import 'src/streaming/bt_task_core_runtime.dart';
 import 'src/ui/detail/video_detail_page_contract.dart';
 import 'src/ui/playback/shell/celesteria_app_shell.dart';
@@ -31,6 +32,7 @@ class MyApp extends StatefulWidget {
     this.policyStore,
     this.settingsRuntime,
     this.diagnosticsRuntime,
+    this.bangumiAuthProvider,
   });
 
   final PlaybackControllerContract? playbackController;
@@ -42,6 +44,7 @@ class MyApp extends StatefulWidget {
   final RssAutoDownloadPolicyStore? policyStore;
   final SettingsRuntime? settingsRuntime;
   final DiagnosticsRuntime? diagnosticsRuntime;
+  final BangumiAuthProvider? bangumiAuthProvider;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -59,6 +62,7 @@ class _MyAppState extends State<MyApp> {
   late final DownloadRuntime _downloadRuntime;
   late final SettingsRuntime _settingsRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
+  late final BangumiAuthProvider? _bangumiAuthProvider;
 
   @override
   void initState() {
@@ -77,7 +81,9 @@ class _MyAppState extends State<MyApp> {
       _rssEngineRuntime = widget.rssEngineRuntime!;
       _btTaskCoreRuntime = widget.btTaskCoreRuntime!;
       _settingsRuntime = widget.settingsRuntime ?? FakeSettingsRuntime();
-      _diagnosticsRuntime = widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
+      _diagnosticsRuntime =
+          widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
+      _bangumiAuthProvider = widget.bangumiAuthProvider;
     } else {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
@@ -91,6 +97,7 @@ class _MyAppState extends State<MyApp> {
       _btTaskCoreRuntime = _composition!.btTaskCoreRuntime;
       _settingsRuntime = _composition!.settingsRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
+      _bangumiAuthProvider = _composition!.bangumiAuthProvider;
     }
     _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
   }
@@ -131,6 +138,7 @@ class _MyAppState extends State<MyApp> {
               downloadRuntime: _downloadRuntime,
               settingsRuntime: _settingsRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
+              bangumiAuthProvider: _bangumiAuthProvider,
             ),
           );
         },

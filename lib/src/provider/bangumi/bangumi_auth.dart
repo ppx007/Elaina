@@ -2,10 +2,15 @@ import '../provider_result.dart';
 import 'bangumi_provider.dart';
 
 final class BangumiAuthSession {
-  const BangumiAuthSession({required this.userId, required this.expiresAt});
+  const BangumiAuthSession({
+    required this.userId,
+    required this.expiresAt,
+    this.avatarUri,
+  });
 
   final String userId;
   final DateTime expiresAt;
+  final Uri? avatarUri;
 
   bool isExpiredAt(DateTime now) => !expiresAt.isAfter(now);
 }

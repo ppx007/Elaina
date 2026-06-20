@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+﻿import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/detail/video_detail.dart';
@@ -11,6 +11,8 @@ import '../../../domain/playback/playback_source_handoff.dart';
 import '../../../domain/playback/playback_state.dart';
 import '../../../domain/rss/rss_engine_runtime.dart';
 import '../../../domain/settings/settings_domain.dart';
+import '../../../provider/bangumi/bangumi_auth.dart';
+import '../../../provider/provider_result.dart';
 import '../../detail/video_detail_page.dart';
 import '../../detail/video_detail_page_contract.dart';
 import '../../diagnostics/diagnostics_page.dart';
@@ -35,6 +37,7 @@ class CelesteriaAppShell extends StatefulWidget {
     required this.downloadRuntime,
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
+    this.bangumiAuthProvider,
     this.carouselAutoScroll = true,
   });
 
@@ -46,6 +49,7 @@ class CelesteriaAppShell extends StatefulWidget {
   final DownloadRuntime downloadRuntime;
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
+  final BangumiAuthProvider? bangumiAuthProvider;
   final bool carouselAutoScroll;
 
   @override
@@ -57,6 +61,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   int _currentIndex = 0;
   bool _playbackOverlayActive = false;
   VideoDetailId? _activeDetailId;
+  int _bangumiAuthRevision = 0;
 
   @override
   void initState() {
@@ -88,6 +93,12 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
         _playbackOverlayActive = active;
       });
     }
+  }
+
+  void _refreshBangumiProfile() {
+    setState(() {
+      _bangumiAuthRevision++;
+    });
   }
 
   Future<void> _pickAndPlayFile() async {
@@ -435,11 +446,10 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                   // Theme Toggle
                   _buildThemeToggle(context),
                   const SizedBox(width: 16),
-                  // Profile Avatar
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: theme.secondary.withValues(alpha: 0.3),
-                    child: Icon(Icons.person, color: theme.primary),
+                  _BangumiProfileAvatar(
+                    authProvider: widget.bangumiAuthProvider,
+                    theme: theme,
+                    refreshRevision: _bangumiAuthRevision,
                   ),
                 ],
               ),
@@ -723,6 +733,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   Widget _buildSettingsPage(CelesteriaThemeData theme) {
     return SettingsPage(
       settingsRuntime: widget.settingsRuntime,
+      onBangumiAuthChanged: _refreshBangumiProfile,
     );
   }
 
@@ -746,6 +757,92 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     ];
     final String weekdayStr = weekdays[now.weekday - 1];
     return '${now.year}年${now.month}月${now.day}日 $weekdayStr';
+  }
+}
+
+class _BangumiProfileAvatar extends StatefulWidget {
+  const _BangumiProfileAvatar({
+    required this.authProvider,
+    required this.theme,
+    required this.refreshRevision,
+  });
+
+  final BangumiAuthProvider? authProvider;
+  final CelesteriaThemeData theme;
+  final int refreshRevision;
+
+  @override
+  State<_BangumiProfileAvatar> createState() => _BangumiProfileAvatarState();
+}
+
+class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
+  static const double _avatarDiameter = 40;
+
+  Future<AcgProviderResult<BangumiAuthSession>>? _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = widget.authProvider?.currentSession();
+  }
+
+  @override
+  void didUpdateWidget(_BangumiProfileAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.authProvider != widget.authProvider ||
+        oldWidget.refreshRevision != widget.refreshRevision) {
+      _sessionFuture = widget.authProvider?.currentSession();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Future<AcgProviderResult<BangumiAuthSession>>? sessionFuture =
+        _sessionFuture;
+    if (sessionFuture == null) {
+      return _buildFallbackAvatar(widget.theme);
+    }
+    return FutureBuilder<AcgProviderResult<BangumiAuthSession>>(
+      future: sessionFuture,
+      builder: (BuildContext context,
+          AsyncSnapshot<AcgProviderResult<BangumiAuthSession>> snapshot) {
+        final AcgProviderResult<BangumiAuthSession>? result = snapshot.data;
+        if (result is! AcgProviderSuccess<BangumiAuthSession>) {
+          return _buildFallbackAvatar(widget.theme);
+        }
+        final Uri? avatarUri = result.value.avatarUri;
+        if (avatarUri == null) {
+          return _buildFallbackAvatar(widget.theme);
+        }
+        return ClipOval(
+          child: SizedBox.square(
+            dimension: _avatarDiameter,
+            child: Image.network(
+              avatarUri.toString(),
+              key: ValueKey<String>(avatarUri.toString()),
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (BuildContext context, Object error,
+                      StackTrace? stackTrace) =>
+                  _buildFallbackAvatar(widget.theme),
+              loadingBuilder: (BuildContext context, Widget child,
+                  ImageChunkEvent? loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildFallbackAvatar(widget.theme);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFallbackAvatar(CelesteriaThemeData theme) {
+    return CircleAvatar(
+      radius: _avatarDiameter / 2,
+      backgroundColor: theme.secondary.withValues(alpha: 0.3),
+      child: Icon(Icons.person, color: theme.primary),
+    );
   }
 }
 

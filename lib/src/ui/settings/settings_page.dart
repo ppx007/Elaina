@@ -1,3 +1,5 @@
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../domain/settings/settings_domain.dart';
@@ -7,9 +9,11 @@ class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
     required this.settingsRuntime,
+    this.onBangumiAuthChanged,
   });
 
   final SettingsRuntime settingsRuntime;
+  final VoidCallback? onBangumiAuthChanged;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -19,6 +23,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _proxyController = TextEditingController();
   final TextEditingController _dnsController = TextEditingController();
   final TextEditingController _cacheController = TextEditingController();
+  final TextEditingController _bangumiTokenController = TextEditingController();
+  Timer? _bangumiAuthRefreshDebounce;
 
   bool _hardwareAcceleration = true;
   String _layoutPreference = 'default';
@@ -35,14 +41,21 @@ class _SettingsPageState extends State<SettingsPage> {
     _proxyController.dispose();
     _dnsController.dispose();
     _cacheController.dispose();
+    _bangumiTokenController.dispose();
+    _bangumiAuthRefreshDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _loadSettings() async {
     try {
-      final String? hwAccStr = await widget.settingsRuntime.getPreference('hardware_acceleration');
-      final String? layoutStr = await widget.settingsRuntime.getPreference('layout_preference');
-      final String? cacheStr = await widget.settingsRuntime.getPreference('cache_size_limit_mb');
+      final String? hwAccStr =
+          await widget.settingsRuntime.getPreference('hardware_acceleration');
+      final String? layoutStr =
+          await widget.settingsRuntime.getPreference('layout_preference');
+      final String? cacheStr =
+          await widget.settingsRuntime.getPreference('cache_size_limit_mb');
+      final String? bangumiTokenStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiAccessToken);
 
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
@@ -52,6 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _hardwareAcceleration = hwAccStr != 'false';
           _layoutPreference = layoutStr ?? 'default';
           _cacheController.text = cacheStr ?? '1024';
+          _bangumiTokenController.text = bangumiTokenStr ?? '';
           _proxyController.text = proxyUrl ?? '';
           _dnsController.text = dnsPolicy ?? '';
           _isLoading = false;
@@ -71,6 +85,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _savePreference(String key, String value) async {
     await widget.settingsRuntime.setPreference(key: key, value: value);
+  }
+
+  Future<void> _saveBangumiToken(String value) async {
+    await _savePreference(
+      SettingsPreferenceKeys.bangumiAccessToken,
+      value.trim(),
+    );
+    _bangumiAuthRefreshDebounce?.cancel();
+    _bangumiAuthRefreshDebounce = Timer(
+      const Duration(milliseconds: 600),
+      () => widget.onBangumiAuthChanged?.call(),
+    );
   }
 
   Future<void> _saveProxy() async {
@@ -120,7 +146,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         setState(() {
                           _hardwareAcceleration = val;
                         });
-                        _savePreference('hardware_acceleration', val.toString());
+                        _savePreference(
+                            'hardware_acceleration', val.toString());
                       },
                       theme: theme,
                     ),
@@ -130,9 +157,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle: '调整播放界面的主要视图布局模式',
                       value: _layoutPreference,
                       options: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem<String>(value: 'default', child: Text('默认')),
-                        DropdownMenuItem<String>(value: 'compact', child: Text('紧凑')),
-                        DropdownMenuItem<String>(value: 'grid', child: Text('网格')),
+                        DropdownMenuItem<String>(
+                            value: 'default', child: Text('默认')),
+                        DropdownMenuItem<String>(
+                            value: 'compact', child: Text('紧凑')),
+                        DropdownMenuItem<String>(
+                            value: 'grid', child: Text('网格')),
                       ],
                       onChanged: (String? val) {
                         if (val != null) {
@@ -141,6 +171,24 @@ class _SettingsPageState extends State<SettingsPage> {
                           });
                           _savePreference('layout_preference', val);
                         }
+                      },
+                      theme: theme,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _buildCardSection(
+                  title: 'Bangumi',
+                  theme: theme,
+                  children: <Widget>[
+                    _buildTextRow(
+                      title: 'Access token',
+                      subtitle:
+                          'Used to load the current Bangumi profile and sync progress.',
+                      controller: _bangumiTokenController,
+                      obscureText: true,
+                      onChanged: (String val) {
+                        _saveBangumiToken(val);
                       },
                       theme: theme,
                     ),
@@ -170,7 +218,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: <Widget>[
                     _buildTextRow(
                       title: '自定义 HTTP 代理',
-                      subtitle: '配置拉取番剧源和订阅时的 HTTP 代理 (例如: http://127.0.0.1:7890)',
+                      subtitle:
+                          '配置拉取番剧源和订阅时的 HTTP 代理 (例如: http://127.0.0.1:7890)',
                       controller: _proxyController,
                       onChanged: (String _) => _saveProxy(),
                       theme: theme,
@@ -178,7 +227,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     const Divider(height: 24, color: Colors.white10),
                     _buildTextRow(
                       title: 'DNS 及解析策略',
-                      subtitle: '设置安全 DNS 或解析通道 (例如: https://dns.google/dns-query 或 direct)',
+                      subtitle:
+                          '设置安全 DNS 或解析通道 (例如: https://dns.google/dns-query 或 direct)',
                       controller: _dnsController,
                       onChanged: (String _) => _saveDns(),
                       theme: theme,
@@ -331,6 +381,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required ValueChanged<String> onChanged,
     required CelesteriaThemeData theme,
     TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,11 +416,13 @@ class _SettingsPageState extends State<SettingsPage> {
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            obscureText: obscureText,
             onChanged: onChanged,
             style: TextStyle(color: theme.onSurface, fontSize: 14),
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
               enabledBorder: OutlineInputBorder(

@@ -3,6 +3,10 @@ import 'dart:async';
 import '../../foundation/constants.dart';
 import '../../foundation/storage/storage_contracts.dart';
 
+abstract final class SettingsPreferenceKeys {
+  static const String bangumiAccessToken = 'bangumi_access_token';
+}
+
 abstract interface class SettingsRuntime {
   Future<String?> getPreference(String key);
   Future<void> setPreference({required String key, required String value});
