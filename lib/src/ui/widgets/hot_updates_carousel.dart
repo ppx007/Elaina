@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import '../theme/celesteria_theme.dart';
 
 class HotUpdatesCarousel extends StatefulWidget {
-  const HotUpdatesCarousel({super.key});
+  const HotUpdatesCarousel({
+    super.key,
+    this.autoScroll = true,
+  });
+
+  final bool autoScroll;
 
   @override
   State<HotUpdatesCarousel> createState() => _HotUpdatesCarouselState();
@@ -13,26 +18,28 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
   final PageController _pageController = PageController();
   Timer? _timer;
   int _currentPage = 0;
-  
+
   final List<Map<String, String>> _items = const [
     {
       'title': '赛博超载',
       'tag': '精选发布',
       'description': '在霓虹灯闪烁的新东京街道上体验终极的高能冒险。同步率正在超出正常参数。网络等待着您的命令。',
-      'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuA_398yqxXiHZMKtuGDMy0PjHpnytlnbYlyn3TgJCvWtRkR87Ts6K7Dqdmko1RQlhAC3WkPInjGIjDTf0EC8G85nJzDqSKppNV8Qs016xvcYbtD1mHqAJ7wbDNQQRZpTf-NKqR5Blq8badUW2wOG5LP3lh_wkEvDQLysFqWb_zn6Y6kGsncyjjuaTNMS-p5UK6iSIhbeKbyGnVr18M2BthwVMZGiBusBhGiCVmpsWXKNcKq5bKa4b3Wv5fXuJd-q9SJbr3ZyeMebM0',
+      'symbol': 'CB',
     },
     {
       'title': '棱镜共鸣',
       'tag': '最新更新',
       'description': '探索光与影的交界处。最新章节现已上线，揭开隐藏在棱镜背后的秘密。同步您的意识，准备迎接挑战。',
-      'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuB-yPS96O588Z7pbu3bx6kFScZOE5xyeSkkqvbhTiJhQBGLU3yw59QwqG_PeNE34X5I1PoTklkOdNifafJuGYvr1gK605k0Bc_u8oqceUlQMn6qIyqRWp9nu-fj3yM3IZcANxmEWTH1ZHdEF62xq2PaW0_A2lrvytVE-BloAlQYOqiKjZ5kQr443RV5q162cebkoGaH8NX852lXG_LwuKtDE1s1MPAcurndQsJWZEE-yyIIFn0HIoFxeKTL-ff7m37FyFoNZUMjE6o',
+      'symbol': 'PR',
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    _startAutoScroll();
+    if (widget.autoScroll) {
+      _startAutoScroll();
+    }
   }
 
   @override
@@ -44,6 +51,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
 
   void _startAutoScroll() {
     _timer = Timer.periodic(const Duration(seconds: 8), (timer) {
+      if (!mounted || !TickerMode.valuesOf(context).enabled) return;
       if (!_pageController.hasClients) return;
       _nextPage();
     });
@@ -78,7 +86,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
   @override
   Widget build(BuildContext context) {
     final theme = CelesteriaTheme.of(context);
-    
+
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -99,7 +107,8 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24.0),
                   color: Colors.white.withValues(alpha: 0.05),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Row(
@@ -107,10 +116,9 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                     // Image Side
                     SizedBox(
                       width: 300,
-                      child: Image.network(
-                        item['image']!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(color: theme.surface),
+                      child: _HotUpdatePlaceholder(
+                        symbol: item['symbol']!,
+                        index: index,
                       ),
                     ),
                     // Content Side
@@ -122,9 +130,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.2)),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
@@ -171,12 +181,14 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFFF2A5F),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 16),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(24),
                                     ),
                                     elevation: 8,
-                                    shadowColor: const Color(0xFFFF2A5F).withValues(alpha: 0.5),
+                                    shadowColor: const Color(0xFFFF2A5F)
+                                        .withValues(alpha: 0.5),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -184,8 +196,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                                   onPressed: () {},
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: theme.primary,
-                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    side: BorderSide(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.2)),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 16),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(24),
                                     ),
@@ -204,7 +219,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
             },
           ),
         ),
-        
+
         // Navigation Arrows
         Positioned(
           left: 20,
@@ -218,19 +233,71 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed, CelesteriaThemeData theme) {
+  Widget _buildNavButton(
+      IconData icon, VoidCallback onPressed, CelesteriaThemeData theme) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.1),
         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: theme.primary.withValues(alpha: 0.1), blurRadius: 10),
+          BoxShadow(
+              color: theme.primary.withValues(alpha: 0.1), blurRadius: 10),
         ],
       ),
       child: IconButton(
         icon: Icon(icon, color: theme.primary),
         onPressed: onPressed,
+      ),
+    );
+  }
+}
+
+class _HotUpdatePlaceholder extends StatelessWidget {
+  const _HotUpdatePlaceholder({
+    required this.symbol,
+    required this.index,
+  });
+
+  final String symbol;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final List<List<Color>> palettes = <List<Color>>[
+      <Color>[const Color(0xFFFF2A5F), theme.primary],
+      <Color>[theme.secondary, const Color(0xFF7C3AED)],
+    ];
+    final List<Color> colors = palettes[index % palettes.length];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          Icon(
+            Icons.auto_awesome,
+            size: 180,
+            color: Colors.white.withValues(alpha: 0.18),
+          ),
+          Center(
+            child: Text(
+              symbol,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 56,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

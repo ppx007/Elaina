@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import '../theme/celesteria_theme.dart';
 
 class HeroCarousel extends StatefulWidget {
-  const HeroCarousel({super.key});
+  const HeroCarousel({
+    super.key,
+    this.autoScroll = true,
+  });
+
+  final bool autoScroll;
 
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
@@ -12,34 +17,34 @@ class HeroCarousel extends StatefulWidget {
 class _HeroCarouselState extends State<HeroCarousel> {
   final ScrollController _scrollController = ScrollController();
   Timer? _timer;
-  // ignore: unused_field  // TODO(ui): wire carousel index to active page indicator
-  int _currentIndex = 0;
   final double _itemWidth = 500.0;
   final double _itemGap = 24.0;
-  
+
   final List<Map<String, String>> _items = const [
     {
       'title': 'Stellar Echoes',
-      'image': 'https://lh3.googleusercontent.com/aida/AP1WRLuYUkwKue-cg5hlpVu5ozGiyPYLJIxf4Ni2fdIxQSZ42vNucwZD80pZHzf5B5iItUWiuatClpPzs3VezAMZ4tIekXoa-A3MpZJeHmGZJVDORzefSzNNQ2qIUXnLWlELcruNMXvXWH0Qei9E5TUOXk3KJuhHKkr5eFEL8lFAZMelgPuVsIJxKXiofDfzlf5y99EHxKaWOEUFL_pu0hxlNEa7B0rjsVHObz5sGHrhBW7bEy7XTpFWPsIeJg',
+      'symbol': 'SE',
     },
     {
       'title': 'Neon Protocol',
-      'image': 'https://lh3.googleusercontent.com/aida/AP1WRLu7xrcR7YrXANCg1uwgBTTDSo4RmoqOC5GdtHBtuX69kX2iKbwUbE5EPhBHy1Zhwjc6X-aTAOXwU0ZxFWkUL108Jfu6Gye5sXpueQCOPXDJV0Z9YFP52FCKSMmx4_22XBePIb1dspPaSGgDxK7gy-mdWleeKVOPuFeSLmWUubLbvyU-of38Gcwf4L8XXQTY3ofG-KKS4B02lzqdegxoTAQhQxdj9USSAQF3rpAmNnOzLiipDrSL2eVYhCg',
+      'symbol': 'NP',
     },
     {
       'title': 'Crimson Horizon',
-      'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuD8CzTs8kOiGnlNeawZZVPOuY2Mr50UQoZTcvvTHbbi24S1aeMMSLsuCPRQRIDtYtpDCk5CVDEkl9_yGa19gk4v-YeoU4msFvHwiIBU-YARuwojSaIo9pqkJz9z6ALapTec5caDkaZLDQZ8DSqJwGl5tRLrbTwBwGR-PLC3L-qq4T2F6CBsoJ7HrGmMj9coNVkUi-klQ1sjopmv4VejXJ-SrWUfU4q_Hn7D3bbsMa-LCTgC7gQl7E6s1QIznUA4dhuOYc6dD11Eopc',
+      'symbol': 'CH',
     },
     {
       'title': 'Prismatic Resonance',
-      'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuB-yPS96O588Z7pbu3bx6kFScZOE5xyeSkkqvbhTiJhQBGLU3yw59QwqG_PeNE34X5I1PoTklkOdNifafJuGYvr1gK605k0Bc_u8oqceUlQMn6qIyqRWp9nu-fj3yM3IZcANxmEWTH1ZHdEF62xq2PaW0_A2lrvytVE-BloAlQYOqiKjZ5kQr443RV5q162cebkoGaH8NX852lXG_LwuKtDE1s1MPAcurndQsJWZEE-yyIIFn0HIoFxeKTL-ff7m37FyFoNZUMjE6o',
+      'symbol': 'PR',
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    _startAutoScroll();
+    if (widget.autoScroll) {
+      _startAutoScroll();
+    }
   }
 
   @override
@@ -51,8 +56,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   void _startAutoScroll() {
     _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted || !TickerMode.valuesOf(context).enabled) return;
       if (!_scrollController.hasClients) return;
-      
+
       final maxScrollExtent = _scrollController.position.maxScrollExtent;
       final currentOffset = _scrollController.offset;
       final advanceAmount = _itemWidth + _itemGap;
@@ -63,9 +69,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
           duration: const Duration(milliseconds: 800),
           curve: Curves.easeInOut,
         );
-        _currentIndex = 0;
       } else {
-        _currentIndex++;
         _scrollController.animateTo(
           currentOffset + advanceAmount,
           duration: const Duration(milliseconds: 800),
@@ -78,7 +82,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
   @override
   Widget build(BuildContext context) {
     final theme = CelesteriaTheme.of(context);
-    
+
     return SizedBox(
       height: 400,
       child: ListView.separated(
@@ -106,10 +110,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  item['image']!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(color: theme.surface),
+                _HeroPosterPlaceholder(
+                  symbol: item['symbol']!,
+                  index: index,
                 ),
                 Container(
                   decoration: BoxDecoration(
@@ -137,7 +140,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
                           color: Colors.white,
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 10)
+                          ],
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -156,6 +161,63 @@ class _HeroCarouselState extends State<HeroCarousel> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _HeroPosterPlaceholder extends StatelessWidget {
+  const _HeroPosterPlaceholder({
+    required this.symbol,
+    required this.index,
+  });
+
+  final String symbol;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final CelesteriaThemeData theme = CelesteriaTheme.of(context);
+    final List<List<Color>> palettes = <List<Color>>[
+      <Color>[theme.primary, theme.accentMagenta],
+      <Color>[theme.secondary, const Color(0xFF5B7CFA)],
+      <Color>[const Color(0xFFFF5A6A), const Color(0xFF2A1845)],
+      <Color>[const Color(0xFF67E8F9), const Color(0xFF312E81)],
+    ];
+    final List<Color> colors = palettes[index % palettes.length];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -48,
+            top: -56,
+            child: Icon(
+              Icons.blur_on,
+              size: 220,
+              color: Colors.white.withValues(alpha: 0.16),
+            ),
+          ),
+          Positioned(
+            left: 32,
+            top: 32,
+            child: Text(
+              symbol,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.22),
+                fontSize: 96,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

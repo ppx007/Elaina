@@ -440,6 +440,10 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
   FeedFormat _selectedFormat = FeedFormat.rss;
+  String? _nameErrorText;
+  String? _urlErrorText;
+  String? _formErrorText;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -474,8 +478,17 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
           TextField(
             controller: _nameController,
             style: TextStyle(color: widget.theme.onSurface),
+            onChanged: (_) {
+              if (_nameErrorText != null || _formErrorText != null) {
+                setState(() {
+                  _nameErrorText = null;
+                  _formErrorText = null;
+                });
+              }
+            },
             decoration: InputDecoration(
               labelText: '订阅源名称',
+              errorText: _nameErrorText,
               labelStyle: TextStyle(
                   color: widget.theme.onBackground.withValues(alpha: 0.6)),
               enabledBorder: UnderlineInputBorder(
@@ -488,8 +501,17 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
           TextField(
             controller: _urlController,
             style: TextStyle(color: widget.theme.onSurface),
+            onChanged: (_) {
+              if (_urlErrorText != null || _formErrorText != null) {
+                setState(() {
+                  _urlErrorText = null;
+                  _formErrorText = null;
+                });
+              }
+            },
             decoration: InputDecoration(
               labelText: 'RSS URL 地址',
+              errorText: _urlErrorText,
               labelStyle: TextStyle(
                   color: widget.theme.onBackground.withValues(alpha: 0.6)),
               enabledBorder: UnderlineInputBorder(
@@ -534,6 +556,16 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
               ),
             ],
           ),
+          if (_formErrorText != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(
+              _formErrorText!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ],
       ),
       actions: <Widget>[
@@ -546,29 +578,75 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
           ),
         ),
         ElevatedButton(
-          onPressed: () async {
-            final String name = _nameController.text.trim();
-            final String url = _urlController.text.trim();
-            if (name.isNotEmpty && url.isNotEmpty) {
-              await widget.rssEngineRuntime.registerSourceParams(
-                id: 'source-${Uri.encodeComponent(url)}',
-                displayName: name,
-                uri: Uri.parse(url),
-                format: _selectedFormat,
-              );
-              await widget.refreshRegistry();
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            }
-          },
+          onPressed: _isSubmitting
+              ? null
+              : () async {
+                  final String name = _nameController.text.trim();
+                  final String url = _urlController.text.trim();
+                  final Uri? parsedUri = _parseFeedUrl(url);
+                  final String? nameError = name.isEmpty ? '请输入订阅源名称' : null;
+                  final String? urlError = _feedUrlError(url, parsedUri);
+                  if (nameError != null ||
+                      urlError != null ||
+                      parsedUri == null) {
+                    setState(() {
+                      _nameErrorText = nameError;
+                      _urlErrorText = urlError;
+                      _formErrorText = null;
+                    });
+                    return;
+                  }
+
+                  setState(() {
+                    _isSubmitting = true;
+                    _nameErrorText = null;
+                    _urlErrorText = null;
+                    _formErrorText = null;
+                  });
+
+                  final result =
+                      await widget.rssEngineRuntime.registerSourceParams(
+                    id: 'source-${Uri.encodeComponent(parsedUri.toString())}',
+                    displayName: name,
+                    uri: parsedUri,
+                    format: _selectedFormat,
+                  );
+                  if (!mounted) return;
+                  setState(() {
+                    _isSubmitting = false;
+                  });
+                  if (!result.isSuccess) {
+                    setState(() {
+                      _formErrorText =
+                          result.failure?.message ?? '订阅源注册失败，请稍后重试。';
+                    });
+                    return;
+                  }
+
+                  await widget.refreshRegistry();
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: widget.theme.primary,
             foregroundColor: widget.theme.background,
           ),
-          child: const Text('订阅'),
+          child: Text(_isSubmitting ? '订阅中…' : '订阅'),
         ),
       ],
     );
+  }
+
+  Uri? _parseFeedUrl(String url) => Uri.tryParse(url);
+
+  String? _feedUrlError(String url, Uri? parsedUri) {
+    if (url.isEmpty) return '请输入 RSS URL 地址';
+    if (parsedUri == null) return '请输入有效的 RSS URL';
+    final String scheme = parsedUri.scheme.toLowerCase();
+    if ((scheme != 'http' && scheme != 'https') || parsedUri.host.isEmpty) {
+      return 'RSS URL 必须是 http 或 https 地址';
+    }
+    return null;
   }
 }

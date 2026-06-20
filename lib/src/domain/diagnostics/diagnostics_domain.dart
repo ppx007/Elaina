@@ -45,7 +45,6 @@ final class DiagnosticsRuntimeAdapter implements DiagnosticsRuntime {
         _capabilityMatrix = capabilityMatrix,
         _avSyncGuardStore = avSyncGuardStore;
 
-  // ignore: unused_field
   final DiagnosticsCenterRuntime _centerRuntime;
   final DiagnosticsStore _store;
   final DiagnosticsCapabilityMatrix _capabilityMatrix;

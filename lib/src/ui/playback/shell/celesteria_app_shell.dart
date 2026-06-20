@@ -35,6 +35,7 @@ class CelesteriaAppShell extends StatefulWidget {
     required this.downloadRuntime,
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
+    this.carouselAutoScroll = true,
   });
 
   final PlaybackControllerContract playbackController;
@@ -45,6 +46,7 @@ class CelesteriaAppShell extends StatefulWidget {
   final DownloadRuntime downloadRuntime;
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
+  final bool carouselAutoScroll;
 
   @override
   State<CelesteriaAppShell> createState() => _CelesteriaAppShellState();
@@ -77,7 +79,8 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 
   void _checkPlaybackState() {
-    final PlaybackLifecycleStatus status = widget.playbackController.currentState.status;
+    final PlaybackLifecycleStatus status =
+        widget.playbackController.currentState.status;
     final bool active = status != PlaybackLifecycleStatus.idle &&
         status != PlaybackLifecycleStatus.ended;
     if (_playbackOverlayActive != active) {
@@ -157,11 +160,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
           Positioned.fill(
             child: Opacity(
               opacity: theme.brightness == Brightness.dark ? 0.4 : 0.2,
-              child: Image.network(
-                'https://lh3.googleusercontent.com/aida/AP1WRLu7xrcR7YrXANCg1uwgBTTDSo4RmoqOC5GdtHBtuX69kX2iKbwUbE5EPhBHy1Zhwjc6X-aTAOXwU0ZxFWkUL108Jfu6Gye5sXpueQCOPXDJV0Z9YFP52FCKSMmx4_22XBePIb1dspPaSGgDxK7gy-mdWleeKVOPuFeSLmWUubLbvyU-of38Gcwf4L8XXQTY3ofG-KKS4B02lzqdegxoTAQhQxdj9USSAQF3rpAmNnOzLiipDrSL2eVYhCg',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(),
-              ),
+              child: _ShellBackdrop(theme: theme),
             ),
           ),
 
@@ -231,7 +230,8 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
         children: <Widget>[
           // Logo & Name
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             child: Row(
               children: <Widget>[
                 Container(
@@ -242,14 +242,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: theme.border),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8.0),
-                    child: Image.network(
-                      'https://lh3.googleusercontent.com/aida/AP1WRLueGvp2-FJcG_HT9i-I7sAGRFKphGV8mfWg2zWxlAZ0Zk9oVg8x7RCm56QNLkYJ3zkDXTAv-2MovcpG8nmGo5s2ymlcd-0j5y2ykOEhHiU9GDH5bFs2oAD_os7VvpP93oB70Vco_wXkHVaOkfObVY7QamOOspPos9e1cUZllucVSSlRM4kxYo1jsRYR9NGaD3TBzVlzsvSorHSMCqB0WDzUcW0vgly-4sYmdZ1ELconfT_g9XzaCNt5uw',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Icon(Icons.blur_on, color: theme.primary, size: 28),
-                    ),
-                  ),
+                  child: Icon(Icons.blur_on, color: theme.primary, size: 28),
                 ),
                 const SizedBox(width: 16.0),
                 Text(
@@ -270,21 +263,28 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               children: <Widget>[
-                _buildSidebarItem(0, Icons.home_outlined, Icons.home, '首页', theme),
-                _buildSidebarItem(1, Icons.video_library_outlined, Icons.video_library, '我的追番', theme),
-                _buildSidebarItem(2, Icons.download_outlined, Icons.download, '下载', theme),
-                _buildSidebarItem(3, Icons.rss_feed, Icons.rss_feed, 'RSS订阅', theme),
+                _buildSidebarItem(
+                    0, Icons.home_outlined, Icons.home, '首页', theme),
+                _buildSidebarItem(1, Icons.video_library_outlined,
+                    Icons.video_library, '我的追番', theme),
+                _buildSidebarItem(
+                    2, Icons.download_outlined, Icons.download, '下载', theme),
+                _buildSidebarItem(
+                    3, Icons.rss_feed, Icons.rss_feed, 'RSS订阅', theme),
               ],
             ),
           ),
 
           // Bottom Items
           Padding(
-            padding: const EdgeInsets.only(bottom: 24.0, left: 16.0, right: 16.0),
+            padding:
+                const EdgeInsets.only(bottom: 24.0, left: 16.0, right: 16.0),
             child: Column(
               children: <Widget>[
-                _buildSidebarItem(4, Icons.settings_outlined, Icons.settings, '设置', theme),
-                _buildSidebarItem(5, Icons.troubleshoot_outlined, Icons.troubleshoot, '诊断', theme),
+                _buildSidebarItem(
+                    4, Icons.settings_outlined, Icons.settings, '设置', theme),
+                _buildSidebarItem(5, Icons.troubleshoot_outlined,
+                    Icons.troubleshoot, '诊断', theme),
               ],
             ),
           ),
@@ -318,9 +318,12 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
             bottomLeft: Radius.circular(4.0),
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             decoration: BoxDecoration(
-              color: isSelected ? theme.primary.withValues(alpha: 0.1) : Colors.transparent,
+              color: isSelected
+                  ? theme.primary.withValues(alpha: 0.1)
+                  : Colors.transparent,
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(24.0),
                 bottomRight: Radius.circular(24.0),
@@ -329,23 +332,33 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
               ),
               border: isSelected
                   ? Border(left: BorderSide(color: theme.primary, width: 4.0))
-                  : const Border(left: BorderSide(color: Colors.transparent, width: 4.0)),
+                  : const Border(
+                      left: BorderSide(color: Colors.transparent, width: 4.0)),
               boxShadow: isSelected
-                  ? [BoxShadow(color: theme.primary.withValues(alpha: 0.3), blurRadius: 12.0)]
+                  ? [
+                      BoxShadow(
+                          color: theme.primary.withValues(alpha: 0.3),
+                          blurRadius: 12.0)
+                    ]
                   : null,
             ),
             child: Row(
               children: <Widget>[
                 Icon(
                   isSelected ? activeIcon : inactiveIcon,
-                  color: isSelected ? theme.primary : theme.onBackground.withValues(alpha: 0.6),
+                  color: isSelected
+                      ? theme.primary
+                      : theme.onBackground.withValues(alpha: 0.6),
                 ),
                 const SizedBox(width: 16.0),
                 Text(
                   label,
                   style: TextStyle(
-                    color: isSelected ? theme.primary : theme.onBackground.withValues(alpha: 0.8),
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? theme.primary
+                        : theme.onBackground.withValues(alpha: 0.8),
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 15,
                   ),
                 ),
@@ -412,7 +425,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
             child: ListView(
               children: <Widget>[
                 // Hero Banner
-                const HeroCarousel(),
+                HeroCarousel(autoScroll: widget.carouselAutoScroll),
                 const SizedBox(height: 32),
 
                 // Hot updates section
@@ -421,7 +434,8 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Icon(Icons.local_fire_department, color: theme.accentMagenta, size: 28),
+                        Icon(Icons.local_fire_department,
+                            color: theme.accentMagenta, size: 28),
                         const SizedBox(width: 8),
                         Text(
                           '热门更新',
@@ -447,7 +461,7 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                   ],
                 ),
                 const SizedBox(height: 16),
-                const HotUpdatesCarousel(),
+                HotUpdatesCarousel(autoScroll: widget.carouselAutoScroll),
                 const SizedBox(height: 32),
 
                 // Recommendations section
@@ -480,7 +494,8 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.0),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.0),
         boxShadow: const [
           BoxShadow(
             color: Color(0x3300FBFB),
@@ -526,7 +541,9 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                     child: Icon(
                       Icons.light_mode,
                       size: 18,
-                      color: !isDark ? theme.data.primary : Colors.white.withValues(alpha: 0.6),
+                      color: !isDark
+                          ? theme.data.primary
+                          : Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -538,7 +555,9 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
                     child: Icon(
                       Icons.dark_mode,
                       size: 18,
-                      color: isDark ? theme.data.primary : Colors.white.withValues(alpha: 0.6),
+                      color: isDark
+                          ? theme.data.primary
+                          : Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -559,9 +578,9 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
       crossAxisSpacing: 24,
       childAspectRatio: 1.5,
       children: <Widget>[
-        _buildRecCard('星际回响', '12 话全', '9.8 ★', 'https://lh3.googleusercontent.com/aida/AP1WRLuYUkwKue-cg5hlpVu5ozGiyPYLJIxf4Ni2fdIxQSZ42vNucwZD80pZHzf5B5iItUWiuatClpPzs3VezAMZ4tIekXoa-A3MpZJeHmGZJVDORzefSzNNQ2qIUXnLWlELcruNMXvXWH0Qei9E5TUOXk3KJuhHKkr5eFEL8lFAZMelgPuVsIJxKXiofDfzlf5y99EHxKaWOEUFL_pu0hxlNEa7B0rjsVHObz5sGHrhBW7bEy7XTpFWPsIeJg', theme),
-        _buildRecCard('霓虹协议', '更新至 08 话', '9.5 ★', 'https://lh3.googleusercontent.com/aida/AP1WRLu7xrcR7YrXANCg1uwgBTTDSo4RmoqOC5GdtHBtuX69kX2iKbwUbE5EPhBHy1Zhwjc6X-aTAOXwU0ZxFWkUL108Jfu6Gye5sXpueQCOPXDJV0Z9YFP52FCKSMmx4_22XBePIb1dspPaSGgDxK7gy-mdWleeKVOPuFeSLmWUubLbvyU-of38Gcwf4L8XXQTY3ofG-KKS4B02lzqdegxoTAQhQxdj9USSAQF3rpAmNnOzLiipDrSL2eVYhCg', theme),
-        _buildRecCard('绯红地平线', '24 话全', '9.2 ★', 'https://lh3.googleusercontent.com/aida-public/AB6AXuD8CzTs8kOiGnlNeawZZVPOuY2Mr50UQoZTcvvTHbbi24S1aeMMSLsuCPRQRIDtYtpDCk5CVDEkl9_yGa19gk4v-YeoU4msFvHwiIBU-YARuwojSaIo9pqkJz9z6ALapTec5caDkaZLDQZ8DSqJwGl5tRLrbTwBwGR-PLC3L-qq4T2F6CBsoJ7HrGmMj9coNVkUi-klQ1sjopmv4VejXJ-SrWUfU4q_Hn7D3bbsMa-LCTgC7gQl7E6s1QIznUA4dhuOYc6dD11Eopc', theme),
+        _buildRecCard('星际回响', '12 话全', '9.8 ★', 'SE', 0, theme),
+        _buildRecCard('霓虹协议', '更新至 08 话', '9.5 ★', 'NP', 1, theme),
+        _buildRecCard('绯红地平线', '24 话全', '9.2 ★', 'CH', 2, theme),
       ],
     );
   }
@@ -570,31 +589,35 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     String title,
     String subtitle,
     String rating,
-    String imageUrl,
+    String symbol,
+    int accentIndex,
     CelesteriaThemeData theme,
   ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            opacity: const AlwaysStoppedAnimation(0.6),
-            errorBuilder: (context, error, stackTrace) => Container(color: theme.surface),
+          _RecommendationBackdrop(
+            symbol: symbol,
+            accentIndex: accentIndex,
+            theme: theme,
           ),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.8)
+                ],
                 stops: const [0.4, 1.0],
               ),
             ),
@@ -683,7 +706,6 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
     );
   }
 
-
   String _formatCurrentDate() {
     final DateTime now = DateTime.now();
     final List<String> weekdays = const <String>[
@@ -700,21 +722,105 @@ class _CelesteriaAppShellState extends State<CelesteriaAppShell>
   }
 }
 
-class _HotUpdateDemoData {
-  const _HotUpdateDemoData({
-    required this.title,
-    required this.status,
-    required this.rating,
-  });
+class _ShellBackdrop extends StatelessWidget {
+  const _ShellBackdrop({required this.theme});
 
-  final String title;
-  final String status;
-  final String rating;
+  final CelesteriaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            theme.background,
+            theme.primary.withValues(alpha: 0.22),
+            theme.accentMagenta.withValues(alpha: 0.16),
+            theme.surface,
+          ],
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -96,
+            top: -80,
+            child: Icon(
+              Icons.blur_on,
+              size: 360,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          Positioned(
+            left: 280,
+            bottom: -120,
+            child: Icon(
+              Icons.auto_awesome,
+              size: 320,
+              color: theme.primary.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// ignore: unused_element  // TODO(ui): replace with real "hot updates" data source
-const List<_HotUpdateDemoData> _hotUpdateDemos = <_HotUpdateDemoData>[
-  _HotUpdateDemoData(title: '棱镜共鸣', status: '第 12 话', rating: '9.8'),
-  _HotUpdateDemoData(title: '星际回响', status: '完结', rating: '9.5'),
-  _HotUpdateDemoData(title: '绯红地平线', status: '第 08 话', rating: '9.2'),
-];
+class _RecommendationBackdrop extends StatelessWidget {
+  const _RecommendationBackdrop({
+    required this.symbol,
+    required this.accentIndex,
+    required this.theme,
+  });
+
+  final String symbol;
+  final int accentIndex;
+  final CelesteriaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<List<Color>> palettes = <List<Color>>[
+      <Color>[theme.primary, theme.accentMagenta],
+      <Color>[theme.secondary, const Color(0xFF4F46E5)],
+      <Color>[const Color(0xFFFF5A6A), const Color(0xFF2D1B69)],
+    ];
+    final List<Color> colors = palettes[accentIndex % palettes.length];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -20,
+            top: -28,
+            child: Icon(
+              Icons.blur_on,
+              size: 140,
+              color: Colors.white.withValues(alpha: 0.14),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            top: 14,
+            child: Text(
+              symbol,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 48,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

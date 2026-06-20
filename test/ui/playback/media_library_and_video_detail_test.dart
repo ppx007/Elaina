@@ -172,7 +172,8 @@ void main() {
       // Verify page titles and folders render
       expect(find.text('本地媒体库'), findsOneWidget);
       expect(find.text('配置的文件夹'), findsOneWidget);
-      expect(find.text('0 个视频'), findsNWidgets(2)); // D:/media and C:/Users/Public/Videos
+      expect(find.text('0 个视频'),
+          findsNWidgets(2)); // D:/media and C:/Users/Public/Videos
 
       // Tap scan button
       await tester.tap(find.text('扫描本地库'));
@@ -260,7 +261,8 @@ void main() {
       await tester.pump();
 
       // Verify layout contents
-      expect(find.text('赛博朋克大冒险'), findsNWidgets(2)); // Header title and content title
+      expect(find.text('赛博朋克大冒险'),
+          findsNWidgets(2)); // Header title and content title
       expect(find.text('这是一个未来赛博世界的硬核故事。'), findsOneWidget);
       expect(find.text('第 1 话'), findsOneWidget);
       expect(find.text('启航之旅'), findsOneWidget);
@@ -277,7 +279,8 @@ void main() {
       repo.update(VideoDetailViewData(
         id: detailId,
         title: '赛博朋克大冒险',
-        summary: '这是一个未来赛博世界的硬核故事.。', // Dot added to avoid exact duplicate data warning
+        summary:
+            '这是一个未来赛博世界的硬核故事.。', // Dot added to avoid exact duplicate data warning
         followState: VideoFollowState.followed,
         actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
         episodes: viewData.episodes,
@@ -299,11 +302,6 @@ void main() {
   });
 
   group('CelesteriaAppShell Integration Tests', () {
-    // SKIP: HeroCarousel uses Timer.periodic for auto-scroll, so pumpAndSettle
-    // never reaches a steady frame and times out. This is a UI-layer defect
-    // tracked separately (see docs review checklist: "HeroCarousel 周期定时器").
-    // Re-enable once the carousel exposes a way to disable auto-scroll in tests
-    // or the test drives it with pump(Duration) instead of pumpAndSettle.
     testWidgets('navigation and detail page overlay toggles successfully',
         (WidgetTester tester) async {
       final DateTime now = DateTime.utc(2026, 6, 19, 12);
@@ -378,7 +376,8 @@ void main() {
       );
       final FakeVideoDetailActionHandler actionHandler =
           FakeVideoDetailActionHandler();
-      final VideoDetailPageContract videoDetailContract = VideoDetailPageContract(
+      final VideoDetailPageContract videoDetailContract =
+          VideoDetailPageContract(
         controller: VideoDetailController(
           repository: detailRepo,
           actions: actionHandler,
@@ -402,7 +401,8 @@ void main() {
         scheduler: _FakeFeedScheduler(),
         policyStore: policyStore,
       );
-      final BtTaskCoreRuntime btTaskCoreRuntime = BtTaskCoreRuntime.unavailable(reason: 'testing');
+      final BtTaskCoreRuntime btTaskCoreRuntime =
+          BtTaskCoreRuntime.unavailable(reason: 'testing');
 
       await tester.pumpWidget(
         _testHost(
@@ -415,13 +415,14 @@ void main() {
             downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
             settingsRuntime: FakeSettingsRuntime(),
             diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            carouselAutoScroll: false,
           ),
         ),
       );
 
       // Navigate to '我的追番' (Library)
       await tester.tap(find.text('我的追番'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       // Expect MediaLibraryPage contents
       expect(find.text('本地媒体库'), findsOneWidget);
@@ -430,14 +431,15 @@ void main() {
       // Tap detail info button
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
       await tester.tap(find.byIcon(Icons.info_outline));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       // Expect VideoDetailPage overlay to render
       expect(find.text('预加载番剧'), findsNWidgets(2));
 
       // Close VideoDetailPage overlay
       await tester.tap(find.byIcon(Icons.arrow_back));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       // Expect overlay is closed and we are back to Library page
       expect(find.text('预加载番剧'), findsNothing);
@@ -445,7 +447,7 @@ void main() {
 
       libraryRuntime.dispose();
       await invalidationBus.close();
-    }, skip: true); // UI defect: HeroCarousel Timer.periodic breaks pumpAndSettle; tracked in UI checklist.
+    });
   });
 }
 

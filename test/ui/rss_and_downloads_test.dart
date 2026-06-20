@@ -72,8 +72,7 @@ BtCapabilityMatrix _supportedCapabilities() {
 }
 
 final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
-  _FakeDownloadEngineAdapter()
-      : capabilities = _supportedCapabilities();
+  _FakeDownloadEngineAdapter() : capabilities = _supportedCapabilities();
 
   @override
   final BtCapabilityMatrix capabilities;
@@ -125,7 +124,8 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
   }
 
   @override
-  Future<void> selectFiles(BtTaskId taskId, Iterable<BtFileIndex> files) async {}
+  Future<void> selectFiles(
+      BtTaskId taskId, Iterable<BtFileIndex> files) async {}
 
   @override
   Stream<BtTaskEvent> watchEvents(BtTaskId taskId) => _eventController.stream;
@@ -162,7 +162,8 @@ void main() {
       fakeEngine.dispose();
     });
 
-    testWidgets('renders RSS Page and shows empty state', (WidgetTester tester) async {
+    testWidgets('renders RSS Page and shows empty state',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         _testHost(
           child: Scaffold(
@@ -173,12 +174,14 @@ void main() {
         ),
       );
 
-      expect(find.text('已订阅 Graves 的 RSS 源', skipOffstage: false), findsNothing);
+      expect(
+          find.text('已订阅 Graves 的 RSS 源', skipOffstage: false), findsNothing);
       expect(find.text('已订阅的 RSS 源'), findsOneWidget);
       expect(find.text('暂无订阅，请点击“添加订阅”按钮。'), findsOneWidget);
     });
 
-    testWidgets('adds a new RSS source via dialog', (WidgetTester tester) async {
+    testWidgets('adds a new RSS source via dialog',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         _testHost(
           child: Scaffold(
@@ -196,8 +199,10 @@ void main() {
       expect(find.text('订阅新 RSS 源'), findsOneWidget);
 
       // Fill in details
-      await tester.enterText(find.widgetWithText(TextField, '订阅源名称'), 'My Anime Feed');
-      await tester.enterText(find.widgetWithText(TextField, 'RSS URL 地址'), 'https://anime.com/feed.xml');
+      await tester.enterText(
+          find.widgetWithText(TextField, '订阅源名称'), 'My Anime Feed');
+      await tester.enterText(find.widgetWithText(TextField, 'RSS URL 地址'),
+          'https://anime.com/feed.xml');
 
       // Click subscribe
       await tester.tap(find.text('订阅'));
@@ -206,7 +211,36 @@ void main() {
       // Check registered feed source in backend fake
       expect(fakeEngine.registered.length, 1);
       expect(fakeEngine.registered.single.displayName, 'My Anime Feed');
-      expect(fakeEngine.registered.single.uri.toString(), 'https://anime.com/feed.xml');
+      expect(fakeEngine.registered.single.uri.toString(),
+          'https://anime.com/feed.xml');
+    });
+
+    testWidgets('shows validation error for invalid RSS URL',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: RssPage(
+              rssEngineRuntime: rssEngineRuntime,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('添加订阅'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.widgetWithText(TextField, '订阅源名称'), 'Invalid Feed');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'RSS URL 地址'), 'not-a-feed-url');
+
+      await tester.tap(find.text('订阅'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('RSS URL 必须是 http 或 https 地址'), findsOneWidget);
+      expect(fakeEngine.registered, isEmpty);
+      expect(find.text('订阅新 RSS 源'), findsOneWidget);
     });
   });
 
@@ -249,7 +283,9 @@ void main() {
       fakeAdapter.dispose();
     });
 
-    testWidgets('renders download task list and responds to pause/resume/remove actions', (WidgetTester tester) async {
+    testWidgets(
+        'renders download task list and responds to pause/resume/remove actions',
+        (WidgetTester tester) async {
       // Start/load the tasks
       await btTaskCoreRuntime.listTasks();
 
@@ -270,7 +306,8 @@ void main() {
 
       // Verify control buttons (Pause icon/tooltip/button)
       expect(find.byIcon(Icons.pause), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow), findsNothing); // It's currently downloading so show pause
+      expect(find.byIcon(Icons.play_arrow),
+          findsNothing); // It's currently downloading so show pause
 
       // Tap Pause
       await tester.tap(find.byIcon(Icons.pause));
