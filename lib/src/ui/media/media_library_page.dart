@@ -43,6 +43,7 @@ class MediaLibraryPage extends StatefulWidget {
 class _MediaLibraryPageState extends State<MediaLibraryPage>
     implements MediaLibraryRuntimeObserver {
   static const String _selectedFileMediaIdPrefix = 'selected-file:';
+  static const double _matchDialogWidth = 420;
 
   late MediaLibraryRuntimeSnapshot _snapshot;
   List<Uri> _configuredFolders = <Uri>[];
@@ -192,6 +193,76 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
         await widget.playbackController.play();
       }
     }
+  }
+
+  Future<void> _matchBangumi(LocalMediaId mediaId) async {
+    final MediaLibraryActionResult<LocalMediaBangumiMatchResult> result =
+        await widget.mediaLibraryRuntime.searchBangumiMatches(mediaId);
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.failure?.message ?? '匹配失败')),
+      );
+      return;
+    }
+
+    final LocalMediaBangumiMatchResult matchResult = result.value!;
+    if (matchResult.candidates.isEmpty) {
+      final String message =
+          matchResult.query.isEmpty ? '无法从文件名生成搜索词' : '未找到匹配候选';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return;
+    }
+
+    final LocalMediaBangumiMatchCandidate? selected =
+        await showDialog<LocalMediaBangumiMatchCandidate>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('选择 Bangumi 条目'),
+          content: SizedBox(
+            width: _matchDialogWidth,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: matchResult.candidates.length,
+              separatorBuilder: (BuildContext context, int index) =>
+                  const Divider(height: 1),
+              itemBuilder: (BuildContext context, int index) {
+                final LocalMediaBangumiMatchCandidate candidate =
+                    matchResult.candidates[index];
+                return ListTile(
+                  title: Text(candidate.title),
+                  subtitle: Text('ID: ${candidate.subjectId.value}'),
+                  mouseCursor: SystemMouseCursors.click,
+                  onTap: () => Navigator.of(dialogContext).pop(candidate),
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        );
+      },
+    );
+    if (selected == null || !mounted) return;
+
+    final MediaLibraryActionResult<ProviderBinding> saved =
+        await widget.mediaLibraryRuntime.confirmBangumiMatch(
+      mediaId: mediaId,
+      candidate: selected,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(saved.isSuccess ? '已关联 Bangumi 条目' : '保存关联失败'),
+      ),
+    );
   }
 
   Future<void> _pickAndPlayFile() async {
@@ -557,10 +628,19 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: <Widget>[
+                                IconButton(
+                                  icon: const Icon(Icons.travel_explore),
+                                  color: theme.onSurface,
+                                  mouseCursor: SystemMouseCursors.click,
+                                  onPressed: () =>
+                                      _matchBangumi(item.identity.id),
+                                  tooltip: '匹配 Bangumi',
+                                ),
                                 if (binding != null)
                                   IconButton(
                                     icon: const Icon(Icons.info_outline),
                                     color: theme.secondary,
+                                    mouseCursor: SystemMouseCursors.click,
                                     onPressed: () => widget.onNavigateToDetail(
                                       binding.subjectId!.value,
                                     ),
@@ -569,6 +649,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                                 IconButton(
                                   icon: const Icon(Icons.play_arrow_rounded),
                                   color: theme.primary,
+                                  mouseCursor: SystemMouseCursors.click,
                                   onPressed: () => _playItem(item.id),
                                   tooltip: '立即播放',
                                 ),

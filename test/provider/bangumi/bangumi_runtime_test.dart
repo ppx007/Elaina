@@ -248,6 +248,12 @@ void main() {
     expect(transport.requests.single.method, 'GET');
     expect(transport.requests.single.uri.path, '/v0/subjects/42');
     expect(transport.requests.single.proxyUrl, 'http://127.0.0.1:7890');
+    expect(
+      transport.requests.single.headers['user-agent'],
+      defaultBangumiApiUserAgent,
+    );
+    expect(defaultBangumiApiUserAgent, contains('ppx007/Elaina'));
+    expect(defaultBangumiApiUserAgent, contains('github.com/ppx007/Elaina'));
 
     final AcgProviderResult<List<BangumiSubject>> search =
         await runtime.searchSubjects(' concrete ');

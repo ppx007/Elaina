@@ -1,6 +1,15 @@
 import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
+import '../../provider/bangumi/bangumi_provider.dart';
+import '../../provider/provider_result.dart';
 import '../playback/playback_source_handoff.dart';
 import 'media_library.dart';
+
+const int bangumiLocalMediaSearchCandidateLimit = 6;
+const int bangumiLocalMediaMatchQueryMinLength = 2;
+const int bangumiLocalMediaMatchQueryMaxLength = 80;
+const double bangumiLocalMediaExactTitleConfidence = 1.0;
+const double bangumiLocalMediaPartialTitleConfidence = 0.6;
+const double bangumiLocalMediaUserConfirmedConfidence = 1.0;
 
 enum MediaLibraryRuntimeStatus {
   idle,
@@ -21,6 +30,7 @@ enum MediaLibraryRuntimeFailureKind {
   catalogFailed,
   historyFailed,
   bindingFailed,
+  matchFailed,
   playbackHandoffFailed,
 }
 
@@ -124,6 +134,148 @@ final class MediaLibraryRuntimeSnapshot {
   final List<MediaLibraryRuntimeFailure> failures;
 }
 
+typedef LocalMediaMatchQueryNormalizer = String Function(String basename);
+
+final class LocalMediaBangumiMatchCandidate {
+  const LocalMediaBangumiMatchCandidate({
+    required this.subjectId,
+    required this.title,
+    required this.confidence,
+  }) : assert(confidence >= 0 && confidence <= 1,
+            'confidence must be between 0 and 1.');
+
+  final ProviderSubjectId subjectId;
+  final String title;
+  final double confidence;
+}
+
+final class LocalMediaBangumiMatchResult {
+  LocalMediaBangumiMatchResult({
+    required this.mediaId,
+    required this.query,
+    Iterable<LocalMediaBangumiMatchCandidate> candidates =
+        const <LocalMediaBangumiMatchCandidate>[],
+  }) : candidates =
+            List<LocalMediaBangumiMatchCandidate>.unmodifiable(candidates);
+
+  final LocalMediaId mediaId;
+  final String query;
+  final List<LocalMediaBangumiMatchCandidate> candidates;
+}
+
+abstract interface class LocalMediaBangumiMatcher {
+  Future<AcgProviderResult<LocalMediaBangumiMatchResult>> search(
+      MediaLibraryItem item);
+}
+
+final class BangumiLocalMediaMatcher implements LocalMediaBangumiMatcher {
+  BangumiLocalMediaMatcher({
+    required BangumiProvider bangumiProvider,
+    LocalMediaMatchQueryNormalizer? queryNormalizer,
+    this.candidateLimit = bangumiLocalMediaSearchCandidateLimit,
+  })  : assert(candidateLimit > 0, 'candidateLimit must be positive.'),
+        _bangumiProvider = bangumiProvider,
+        _queryNormalizer =
+            queryNormalizer ?? defaultBangumiLocalMediaMatchQuery;
+
+  final BangumiProvider _bangumiProvider;
+  final LocalMediaMatchQueryNormalizer _queryNormalizer;
+  final int candidateLimit;
+
+  @override
+  Future<AcgProviderResult<LocalMediaBangumiMatchResult>> search(
+      MediaLibraryItem item) async {
+    final String query = _queryNormalizer(item.identity.basename);
+    if (query.isEmpty) {
+      return AcgProviderSuccess<LocalMediaBangumiMatchResult>(
+        LocalMediaBangumiMatchResult(
+          mediaId: item.identity.id,
+          query: query,
+        ),
+      );
+    }
+
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _bangumiProvider.searchSubjects(query);
+    return switch (result) {
+      AcgProviderFailure<List<BangumiSubject>>(:final kind, :final message) =>
+        AcgProviderFailure<LocalMediaBangumiMatchResult>(
+          kind: kind,
+          message: message,
+        ),
+      AcgProviderSuccess<List<BangumiSubject>>(:final value) =>
+        AcgProviderSuccess<LocalMediaBangumiMatchResult>(
+          LocalMediaBangumiMatchResult(
+            mediaId: item.identity.id,
+            query: query,
+            candidates: <LocalMediaBangumiMatchCandidate>[
+              for (final BangumiSubject subject in value.take(candidateLimit))
+                LocalMediaBangumiMatchCandidate(
+                  subjectId: ProviderSubjectId(subject.id.value),
+                  title: subject.title,
+                  confidence: _confidenceFor(query, subject.title),
+                ),
+            ],
+          ),
+        ),
+    };
+  }
+
+  static double _confidenceFor(String query, String title) {
+    return query.trim().toLowerCase() == title.trim().toLowerCase()
+        ? bangumiLocalMediaExactTitleConfidence
+        : bangumiLocalMediaPartialTitleConfidence;
+  }
+}
+
+String defaultBangumiLocalMediaMatchQuery(String basename) {
+  final String stem = _basenameStem(basename);
+  final String withoutBracketedSegments =
+      stem.replaceAll(_bracketedMediaTokenPattern, ' ');
+  final String withoutQualityTokens = withoutBracketedSegments
+      .replaceAll(_mediaQualityTokenPattern, ' ')
+      .replaceAll(_mediaSeparatorPattern, ' ');
+  final String withoutTrailingEpisode = _compactWhitespace(withoutQualityTokens)
+      .replaceAll(_trailingEpisodeTokenPattern, ' ');
+  final String normalized = _compactWhitespace(withoutTrailingEpisode);
+  if (normalized.length >= bangumiLocalMediaMatchQueryMinLength) {
+    return _boundedBangumiMatchQuery(normalized);
+  }
+  return _boundedBangumiMatchQuery(_compactWhitespace(stem));
+}
+
+final RegExp _bracketedMediaTokenPattern =
+    RegExp(r'[\[\(【（][^\]\)】）]*[\]\)】）]');
+final RegExp _mediaQualityTokenPattern = RegExp(
+  r'\b(?:480p|720p|1080p|2160p|4k|8k|x264|x265|h264|h265|hevc|avc|aac|flac|web-dl|bdrip|bluray|chs|cht|jpn|gb|big5)\b',
+  caseSensitive: false,
+);
+final RegExp _mediaSeparatorPattern = RegExp(r'[._]+');
+final RegExp _pathSeparatorPattern = RegExp(r'[/\\]');
+final RegExp _trailingEpisodeTokenPattern = RegExp(
+  r'(?:[-_\s]+(?:s\d{1,2}e\d{1,3}|e\d{1,3}|ep?\.?\s*\d{1,3}|第\s*\d{1,3}\s*(?:话|集)|\d{1,3}))+$',
+  caseSensitive: false,
+);
+final RegExp _whitespacePattern = RegExp(r'\s+');
+
+String _basenameStem(String basename) {
+  final int separator = basename.lastIndexOf(_pathSeparatorPattern);
+  final String name =
+      separator >= 0 ? basename.substring(separator + 1) : basename;
+  final int dot = name.lastIndexOf('.');
+  if (dot <= 0) return name;
+  return name.substring(0, dot);
+}
+
+String _compactWhitespace(String value) {
+  return value.replaceAll(_whitespacePattern, ' ').trim();
+}
+
+String _boundedBangumiMatchQuery(String query) {
+  if (query.length <= bangumiLocalMediaMatchQueryMaxLength) return query;
+  return query.substring(0, bangumiLocalMediaMatchQueryMaxLength).trim();
+}
+
 abstract interface class MediaLibraryRuntimeObserver {
   void onMediaLibraryRuntimeSnapshot(MediaLibraryRuntimeSnapshot snapshot);
 }
@@ -137,6 +289,7 @@ final class MediaLibraryRuntime {
     required ProviderBindingStore bindingStore,
     required PlaybackSourceHandoffContract playbackSourceHandoff,
     required CacheInvalidationBus invalidationBus,
+    LocalMediaBangumiMatcher? bangumiMatcher,
     DateTime Function()? now,
   })  : _scanner = scanner,
         _catalogRepository = catalogRepository,
@@ -145,6 +298,7 @@ final class MediaLibraryRuntime {
         _bindingStore = bindingStore,
         _playbackSourceHandoff = playbackSourceHandoff,
         _invalidationBus = invalidationBus,
+        _bangumiMatcher = bangumiMatcher,
         _now = now ?? DateTime.now;
 
   final MediaLibraryScanner _scanner;
@@ -154,6 +308,7 @@ final class MediaLibraryRuntime {
   final ProviderBindingStore _bindingStore;
   final PlaybackSourceHandoffContract _playbackSourceHandoff;
   final CacheInvalidationBus _invalidationBus;
+  final LocalMediaBangumiMatcher? _bangumiMatcher;
   final DateTime Function() _now;
   final List<MediaLibraryRuntimeObserver> _observers =
       <MediaLibraryRuntimeObserver>[];
@@ -333,6 +488,62 @@ final class MediaLibraryRuntime {
     return MediaLibraryActionResult<ProviderBinding>.success(saved);
   }
 
+  Future<MediaLibraryActionResult<LocalMediaBangumiMatchResult>>
+      searchBangumiMatches(LocalMediaId mediaId) async {
+    if (_disposed) return _disposedResult();
+    final LocalMediaBangumiMatcher? matcher = _bangumiMatcher;
+    if (matcher == null) {
+      return MediaLibraryActionResult<LocalMediaBangumiMatchResult>.unavailable(
+          'Bangumi media matching is unavailable.');
+    }
+    final MediaLibraryItem? item =
+        await _catalogRepository.findByLocalMediaId(mediaId);
+    if (item == null) {
+      return MediaLibraryActionResult<LocalMediaBangumiMatchResult>.ignored(
+          'Media item was not found.');
+    }
+    final AcgProviderResult<LocalMediaBangumiMatchResult> result =
+        await matcher.search(item);
+    return switch (result) {
+      AcgProviderSuccess<LocalMediaBangumiMatchResult>(:final value) =>
+        MediaLibraryActionResult<LocalMediaBangumiMatchResult>.success(value),
+      AcgProviderFailure<LocalMediaBangumiMatchResult>(
+        :final kind,
+        :final message
+      ) =>
+        MediaLibraryActionResult<LocalMediaBangumiMatchResult>.failed(
+          _matchFailure(kind, message),
+        ),
+    };
+  }
+
+  Future<MediaLibraryActionResult<ProviderBinding>> confirmBangumiMatch({
+    required LocalMediaId mediaId,
+    required LocalMediaBangumiMatchCandidate candidate,
+  }) async {
+    if (_disposed) return _disposedResult();
+    final MediaLibraryItem? item =
+        await _catalogRepository.findByLocalMediaId(mediaId);
+    if (item == null) {
+      return MediaLibraryActionResult<ProviderBinding>.ignored(
+          'Media item was not found.');
+    }
+    return saveUserBinding(
+      ProviderBinding(
+        id: ProviderBindingId(
+          '${mediaId.value}:$bangumiProviderBindingProviderId:'
+          '${candidate.subjectId.value}',
+        ),
+        localMediaId: mediaId,
+        providerId: bangumiProviderBindingProviderId,
+        subjectId: candidate.subjectId,
+        authority: ProviderBindingAuthority.userConfirmed,
+        confidence: bangumiLocalMediaUserConfirmedConfidence,
+        createdAt: _now(),
+      ),
+    );
+  }
+
   Future<MediaLibraryActionResult<PlaybackSourceHandoffResult>> playItem(
       MediaLibraryItemId id) async {
     if (_disposed) return _disposedResult();
@@ -424,6 +635,15 @@ final class MediaLibraryRuntime {
           message: 'MediaLibraryRuntime has been disposed.'),
     );
   }
+
+  MediaLibraryRuntimeFailure _matchFailure(
+      AcgProviderFailureKind kind, String message) {
+    final MediaLibraryRuntimeFailureKind mediaKind =
+        kind == AcgProviderFailureKind.unavailable
+            ? MediaLibraryRuntimeFailureKind.unavailable
+            : MediaLibraryRuntimeFailureKind.matchFailed;
+    return MediaLibraryRuntimeFailure(kind: mediaKind, message: message);
+  }
 }
 
 final class MediaLibraryBootstrap {
@@ -435,6 +655,7 @@ final class MediaLibraryBootstrap {
     required ProviderBindingStore bindingStore,
     required PlaybackSourceHandoffContract playbackSourceHandoff,
     required CacheInvalidationBus invalidationBus,
+    LocalMediaBangumiMatcher? bangumiMatcher,
     DateTime Function()? now,
   }) : runtime = MediaLibraryRuntime(
           scanner: scanner,
@@ -444,6 +665,7 @@ final class MediaLibraryBootstrap {
           bindingStore: bindingStore,
           playbackSourceHandoff: playbackSourceHandoff,
           invalidationBus: invalidationBus,
+          bangumiMatcher: bangumiMatcher,
           now: now,
         );
 

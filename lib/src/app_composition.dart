@@ -66,17 +66,7 @@ class AppComposition {
     final bindingStore =
         StorageProviderBindingStore(foundation.storage.providerBinding);
 
-    mediaLibraryRuntime = MediaLibraryRuntime(
-      scanner: scanner,
-      catalogRepository: catalogRepository,
-      importer: importer,
-      historyStore: historyStore,
-      bindingStore: bindingStore,
-      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
-      invalidationBus: foundation.invalidationBus,
-    );
-
-    // 4. Video Detail Runtime
+    // 4. Bangumi Provider Runtime
     final bangumiApiProvider = BangumiApiProvider(
       gateway: providerGateway,
       client: BangumiApiClient(transport: HttpBangumiApiTransport()),
@@ -98,6 +88,20 @@ class AppComposition {
     bangumiAuthProvider = bangumiProviderRuntime.authProvider;
     profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
 
+    mediaLibraryRuntime = MediaLibraryRuntime(
+      scanner: scanner,
+      catalogRepository: catalogRepository,
+      importer: importer,
+      historyStore: historyStore,
+      bindingStore: bindingStore,
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: foundation.invalidationBus,
+      bangumiMatcher: BangumiLocalMediaMatcher(
+        bangumiProvider: bangumiProviderRuntime.metadataProvider,
+      ),
+    );
+
+    // 5. Video Detail Runtime
     videoDetailBootstrap = VideoDetailBootstrap(
       metadataProvider: bangumiProviderRuntime.metadataProvider,
       bindingStore: bindingStore,
@@ -110,7 +114,7 @@ class AppComposition {
       controller: videoDetailBootstrap.controller,
     );
 
-    // 5. RSS Engine Runtime
+    // 6. RSS Engine Runtime
     final transport = HttpFeedHttpTransport();
     final fetcher = HttpFeedFetcher(
       gateway: providerGateway,

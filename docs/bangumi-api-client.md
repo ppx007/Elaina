@@ -29,9 +29,23 @@ final runtime = BangumiAcgRuntime(
 remain available, while session and progress sync return normalized
 `unauthenticated` results.
 
+The default concrete client User-Agent follows Bangumi's published guidance for
+non-browser API clients:
+
+```text
+ppx007/Elaina/0.1.0 (Windows; Flutter) (https://github.com/ppx007/Elaina)
+```
+
+Do not replace it with a generic library default. OAuth application secrets,
+access tokens, and refresh tokens must remain in local user configuration or a
+secure credential store, never in source-controlled code or docs.
+
 ## Boundary Rules
 
 - Concrete Bangumi HTTP dispatch belongs in `lib/src/provider/bangumi/`.
+- Desktop integration uses the official API and OAuth endpoints. Bangumi garage
+  components are site-local JavaScript/CSS enhancements and are not an Elaina
+  integration surface.
 - Tests must use fake `BangumiApiTransport`; they must not depend on live
   Bangumi service availability.
 - UI, app shell, pages, playback code, storage implementations, streaming

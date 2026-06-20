@@ -117,6 +117,97 @@ MediaScanCandidate _candidate(
   );
 }
 
+final class _FakeBangumiProvider implements BangumiProvider {
+  _FakeBangumiProvider({required this.subjects});
+
+  final List<BangumiSubject> subjects;
+
+  @override
+  String get displayName => 'Fake Bangumi Provider';
+
+  @override
+  ProviderGateway get gateway => _UnsupportedProviderGateway();
+
+  @override
+  String get id => 'fake-bangumi';
+
+  @override
+  ProviderKind get kind => ProviderKind.metadata;
+
+  @override
+  ProviderRegistration get registration => const ProviderRegistration(
+        providerId: ProviderId('fake-bangumi'),
+        ratePolicy:
+            ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+      );
+
+  @override
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
+    required String cacheKey,
+    required Future<T> Function() load,
+    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
+  }) async {
+    return ProviderGatewayResponse<T>(
+      value: await load(),
+      source: ProviderGatewayResponseSource.network,
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
+    return Future<AcgProviderResult<BangumiEpisode>>.value(
+      AcgProviderFailure<BangumiEpisode>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Episode lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
+    return Future<AcgProviderResult<BangumiSubject>>.value(
+      AcgProviderFailure<BangumiSubject>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Subject lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
+  ProviderRequestKey requestKey(String cacheKey) {
+    return ProviderRequestKey(
+      providerId: const ProviderId('fake-bangumi'),
+      cacheKey: cacheKey,
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
+      AcgProviderSuccess<List<BangumiSubject>>(subjects),
+    );
+  }
+}
+
+final class _UnsupportedProviderGateway implements ProviderGateway {
+  @override
+  StorageFoundation get storage =>
+      throw UnsupportedError('Gateway storage is not used by this test.');
+
+  @override
+  Future<void> registerProvider(ProviderRegistration registration) {
+    throw UnsupportedError('Provider registration is not used by this test.');
+  }
+
+  @override
+  Future<ProviderGatewayResponse<T>> execute<T>(
+      ProviderGatewayRequest<T> request) {
+    throw UnsupportedError('Gateway execution is not used by this test.');
+  }
+}
+
 void main() {
   group('MediaLibraryPage Tests', () {
     testWidgets('starts without fixed media folders',
@@ -246,6 +337,86 @@ void main() {
       expect(find.text('已索引内容 (2)'), findsOneWidget);
       expect(find.text('episode-1.mkv'), findsOneWidget);
       expect(find.text('episode-2.mkv'), findsOneWidget);
+
+      runtime.dispose();
+      await invalidationBus.close();
+    });
+
+    testWidgets('confirms Bangumi match from media library item',
+        (WidgetTester tester) async {
+      final DateTime now = DateTime.utc(2026, 6, 20, 22);
+      final MediaScanCandidate candidate =
+          _candidate('media-frieren', '[Fansub] Frieren - 01 [1080p].mkv');
+      final MediaLibraryItem item = MediaLibraryItem(
+        id: const MediaLibraryItemId('item-frieren'),
+        identity: candidate.identity,
+        addedAt: now,
+        duration: candidate.duration,
+      );
+      final DeterministicMediaLibraryCatalogRepository catalogRepo =
+          DeterministicMediaLibraryCatalogRepository(
+        seedItems: <MediaLibraryItem>[item],
+      );
+      final DeterministicProviderBindingStore bindingStore =
+          DeterministicProviderBindingStore();
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime runtime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('match-scan-id'),
+        ),
+        catalogRepository: catalogRepo,
+        importer: DeterministicMediaBatchImportContract(
+          repository: catalogRepo,
+          clock: () => now,
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: bindingStore,
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+        bangumiMatcher: BangumiLocalMediaMatcher(
+          bangumiProvider: _FakeBangumiProvider(
+            subjects: const <BangumiSubject>[
+              BangumiSubject(id: BangumiSubjectId('42'), title: 'Frieren'),
+            ],
+          ),
+        ),
+        now: () => now,
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: MediaLibraryPage(
+              mediaLibraryRuntime: runtime,
+              playbackController: MockPlaybackController(
+                matrix: PlaybackCapabilityMatrix(
+                  capabilities: const <PlaybackCapability, CapabilityStatus>{
+                    PlaybackCapability.localFilePlayback:
+                        CapabilityStatus.supported(),
+                  },
+                ),
+              ),
+              settingsRuntime: FakeSettingsRuntime(),
+              onNavigateToDetail: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.travel_explore));
+      await tester.pumpAndSettle();
+      expect(find.text('选择 Bangumi 条目'), findsOneWidget);
+
+      await tester.tap(find.text('Frieren'));
+      await tester.pumpAndSettle();
+
+      final ProviderBinding? binding =
+          await bindingStore.bindingFor(item.identity.id);
+      expect(binding?.authority, ProviderBindingAuthority.userConfirmed);
+      expect(binding?.subjectId?.value, '42');
+      expect(find.textContaining('42'), findsOneWidget);
 
       runtime.dispose();
       await invalidationBus.close();

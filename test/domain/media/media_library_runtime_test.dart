@@ -164,6 +164,69 @@ void main() {
         contains(MediaLibraryChangeKind.removed));
   });
 
+  test('runtime searches and confirms Bangumi matches for local media',
+      () async {
+    final DateTime now = DateTime.utc(2026, 6, 20, 22);
+    final DeterministicMediaLibraryCatalogRepository repository =
+        DeterministicMediaLibraryCatalogRepository();
+    final DeterministicProviderBindingStore bindingStore =
+        DeterministicProviderBindingStore();
+    final _FakeBangumiProvider bangumiProvider = _FakeBangumiProvider(
+      subjects: const <BangumiSubject>[
+        BangumiSubject(id: BangumiSubjectId('42'), title: 'Frieren'),
+        BangumiSubject(id: BangumiSubjectId('43'), title: 'Frieren Special'),
+      ],
+    );
+    final MediaLibraryRuntime runtime = MediaLibraryRuntime(
+      scanner: const _EmptyScanner(),
+      catalogRepository: repository,
+      importer: DeterministicMediaBatchImportContract(
+          repository: repository, clock: () => now),
+      historyStore: DeterministicPlaybackHistoryStore(),
+      bindingStore: bindingStore,
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: _RecordingCacheInvalidationBus(),
+      bangumiMatcher: BangumiLocalMediaMatcher(
+        bangumiProvider: bangumiProvider,
+      ),
+      now: () => now,
+    );
+    final MediaLibraryItem item = (await runtime.importCandidates(
+      <MediaScanCandidate>[
+        _candidate('media-frieren', '[Fansub] Frieren - 01 [1080p].mkv'),
+      ],
+    ))
+        .value!
+        .imported
+        .single;
+
+    final MediaLibraryActionResult<LocalMediaBangumiMatchResult> matches =
+        await runtime.searchBangumiMatches(item.identity.id);
+    final LocalMediaBangumiMatchCandidate candidate =
+        matches.value!.candidates.first;
+    final MediaLibraryActionResult<ProviderBinding> confirmed =
+        await runtime.confirmBangumiMatch(
+      mediaId: item.identity.id,
+      candidate: candidate,
+    );
+    final MediaLibraryActionResult<MediaLibraryRuntimeSnapshot> snapshot =
+        await runtime.refresh();
+
+    expect(matches.isSuccess, isTrue);
+    expect(matches.value?.query, 'Frieren');
+    expect(bangumiProvider.searchedQueries, <String>['Frieren']);
+    expect(candidate.subjectId.value, '42');
+    expect(candidate.confidence, bangumiLocalMediaExactTitleConfidence);
+    expect(confirmed.value?.authority, ProviderBindingAuthority.userConfirmed);
+    expect(confirmed.value?.providerId, bangumiProviderBindingProviderId);
+    expect(confirmed.value?.subjectId?.value, '42');
+    expect(
+      (await bindingStore.bindingFor(item.identity.id))?.authority,
+      ProviderBindingAuthority.userConfirmed,
+    );
+    expect(snapshot.value?.catalogItems.single.binding?.subjectId?.value, '42');
+  });
+
   test('runtime exposes cancellation failures and disposed outcomes', () async {
     const MediaScanId scanId = MediaScanId('runtime-cancel');
     final DeterministicMediaLibraryCatalogRepository repository =
@@ -284,4 +347,97 @@ final class _EmptyScanner implements MediaLibraryScanner {
   @override
   Stream<MediaScanEvent> watch(MediaScanId scanId) =>
       const Stream<MediaScanEvent>.empty();
+}
+
+final class _FakeBangumiProvider implements BangumiProvider {
+  _FakeBangumiProvider({required this.subjects});
+
+  final List<BangumiSubject> subjects;
+  final List<String> searchedQueries = <String>[];
+
+  @override
+  String get displayName => 'Fake Bangumi Provider';
+
+  @override
+  ProviderGateway get gateway => _UnsupportedProviderGateway();
+
+  @override
+  String get id => 'fake-bangumi';
+
+  @override
+  ProviderKind get kind => ProviderKind.metadata;
+
+  @override
+  ProviderRegistration get registration => const ProviderRegistration(
+        providerId: ProviderId('fake-bangumi'),
+        ratePolicy:
+            ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
+        retryPolicy: ProviderRetryPolicy(
+            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
+      );
+
+  @override
+  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
+    required String cacheKey,
+    required Future<T> Function() load,
+    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
+  }) async {
+    return ProviderGatewayResponse<T>(
+      value: await load(),
+      source: ProviderGatewayResponseSource.network,
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
+    return Future<AcgProviderResult<BangumiEpisode>>.value(
+      AcgProviderFailure<BangumiEpisode>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Episode lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
+    return Future<AcgProviderResult<BangumiSubject>>.value(
+      AcgProviderFailure<BangumiSubject>(
+        kind: AcgProviderFailureKind.unavailable,
+        message: 'Subject lookup is not used by this test.',
+      ),
+    );
+  }
+
+  @override
+  ProviderRequestKey requestKey(String cacheKey) {
+    return ProviderRequestKey(
+      providerId: const ProviderId('fake-bangumi'),
+      cacheKey: cacheKey,
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+    searchedQueries.add(query);
+    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
+      AcgProviderSuccess<List<BangumiSubject>>(subjects),
+    );
+  }
+}
+
+final class _UnsupportedProviderGateway implements ProviderGateway {
+  @override
+  StorageFoundation get storage =>
+      throw UnsupportedError('Gateway storage is not used by this test.');
+
+  @override
+  Future<void> registerProvider(ProviderRegistration registration) {
+    throw UnsupportedError('Provider registration is not used by this test.');
+  }
+
+  @override
+  Future<ProviderGatewayResponse<T>> execute<T>(
+      ProviderGatewayRequest<T> request) {
+    throw UnsupportedError('Gateway execution is not used by this test.');
+  }
 }
