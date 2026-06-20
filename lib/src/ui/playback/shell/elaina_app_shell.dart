@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/detail/video_detail.dart';
 import '../../../domain/diagnostics/diagnostics_domain.dart';
 import '../../../domain/download/download_domain.dart';
+import '../../../domain/home/home_recommendation_domain.dart';
 import '../../../domain/media/media_library.dart';
 import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
@@ -41,6 +42,7 @@ class ElainaAppShell extends StatefulWidget {
     this.profileProvider,
     this.bangumiTrackingProvider,
     this.bangumiLoginController,
+    this.homeRecommendationProvider,
     this.carouselAutoScroll = true,
   });
 
@@ -55,6 +57,7 @@ class ElainaAppShell extends StatefulWidget {
   final UserProfileProvider? profileProvider;
   final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
+  final HomeRecommendationProvider? homeRecommendationProvider;
   final bool carouselAutoScroll;
 
   @override
@@ -77,6 +80,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _trackingGridMaxExtent = 360;
   static const double _trackingGridAspectRatio = 1.55;
   static const double _completedProgressThreshold = 0.98;
+  static const int _homeRecommendationGridLimit = 3;
+  static const double _recommendationThreeColumnWidth = 900;
+  static const double _recommendationTwoColumnWidth = 560;
   static const String _brandLogoAsset =
       'assets/brand/elaina_iconic_character_logo.png';
 
@@ -87,6 +93,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   late MediaLibraryRuntimeSnapshot _librarySnapshot;
   Future<UserProfileSnapshot?>? _profileFuture;
   Future<BangumiTrackingSnapshot>? _trackingFuture;
+  Future<HomeRecommendationSnapshot>? _homeRecommendationFuture;
   _TrackingFilter _trackingFilter = _TrackingFilter.all;
 
   @override
@@ -94,6 +101,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     super.initState();
     _profileFuture = widget.profileProvider?.currentProfile();
     _trackingFuture = widget.bangumiTrackingProvider?.currentAnimeCollection();
+    _homeRecommendationFuture =
+        widget.homeRecommendationProvider?.popularAnime();
     _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.playbackController.addPlaybackStateObserver(this);
     widget.mediaLibraryRuntime.addObserver(this);
@@ -116,6 +125,11 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     if (oldWidget.bangumiTrackingProvider != widget.bangumiTrackingProvider) {
       _trackingFuture =
           widget.bangumiTrackingProvider?.currentAnimeCollection();
+    }
+    if (oldWidget.homeRecommendationProvider !=
+        widget.homeRecommendationProvider) {
+      _homeRecommendationFuture =
+          widget.homeRecommendationProvider?.popularAnime();
     }
   }
 
@@ -515,63 +529,137 @@ class _ElainaAppShellState extends State<ElainaAppShell>
           Expanded(
             child: ListView(
               children: <Widget>[
-                // Hero Banner
-                HeroCarousel(autoScroll: widget.carouselAutoScroll),
-                const SizedBox(height: 32),
-
-                // Hot updates section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(Icons.local_fire_department,
-                            color: theme.accentMagenta, size: 28),
-                        const SizedBox(width: 8),
-                        Text(
-                          '热门更新',
-                          style: TextStyle(
-                            color: theme.primary,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        '查看全部',
-                        style: TextStyle(
-                          color: theme.primary.withValues(alpha: 0.8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                HotUpdatesCarousel(autoScroll: widget.carouselAutoScroll),
-                const SizedBox(height: 32),
-
-                // Recommendations section
-                Text(
-                  '更多推荐',
-                  style: TextStyle(
-                    color: theme.onSurface,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildRecommendationsGrid(theme),
+                _buildBangumiHomeRecommendations(theme),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildBangumiHomeRecommendations(ElainaThemeData theme) {
+    return FutureBuilder<HomeRecommendationSnapshot>(
+      future: _homeRecommendationFuture,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<HomeRecommendationSnapshot> snapshot,
+      ) {
+        final List<HomeRecommendationItem> items =
+            _loadedHomeRecommendationItems(snapshot.data);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            HeroCarousel(
+              autoScroll: widget.carouselAutoScroll,
+              items: _heroItemsFromRecommendations(items),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.local_fire_department,
+                        color: theme.accentMagenta, size: 28),
+                    const SizedBox(width: 8),
+                    Text(
+                      '热门番剧',
+                      style: TextStyle(
+                        color: theme.primary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _homeRecommendationFuture =
+                          widget.homeRecommendationProvider?.popularAnime();
+                    });
+                  },
+                  child: Text(
+                    '刷新排名',
+                    style: TextStyle(
+                      color: theme.primary.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            HotUpdatesCarousel(
+              autoScroll: widget.carouselAutoScroll,
+              items: _hotUpdateItemsFromRecommendations(items),
+              onOpenDetail: _openDetail,
+            ),
+            const SizedBox(height: 32),
+            Text(
+              '更多推荐',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildRecommendationsGrid(theme, items),
+          ],
+        );
+      },
+    );
+  }
+
+  List<HomeRecommendationItem> _loadedHomeRecommendationItems(
+    HomeRecommendationSnapshot? snapshot,
+  ) {
+    if (snapshot?.status != HomeRecommendationLoadStatus.loaded) {
+      return const <HomeRecommendationItem>[];
+    }
+    return snapshot!.items;
+  }
+
+  List<HeroCarouselItem> _heroItemsFromRecommendations(
+    List<HomeRecommendationItem> items,
+  ) {
+    return <HeroCarouselItem>[
+      for (final HomeRecommendationItem item in items)
+        HeroCarouselItem(
+          title: item.title,
+          symbol: _symbolForTitle(item.title),
+          coverUri: item.coverUri,
+          rankingSentence: item.rankingSentence,
+        ),
+    ];
+  }
+
+  List<HotUpdateItem> _hotUpdateItemsFromRecommendations(
+    List<HomeRecommendationItem> items,
+  ) {
+    return <HotUpdateItem>[
+      for (final HomeRecommendationItem item in items)
+        HotUpdateItem(
+          subjectId: item.subjectId,
+          title: item.title,
+          tag: 'Bangumi 排名',
+          description: item.rankingSentence,
+          symbol: _symbolForTitle(item.title),
+          coverUri: item.coverUri,
+        ),
+    ];
+  }
+
+  String _symbolForTitle(String title) {
+    final String normalized = title.trim();
+    if (normalized.isEmpty) return 'BG';
+    final Iterable<String> codeUnits = normalized.runes
+        .take(2)
+        .map((int rune) => String.fromCharCode(rune).toUpperCase());
+    return codeUnits.join();
   }
 
   // Theme selector slider
@@ -666,20 +754,57 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  Widget _buildRecommendationsGrid(ElainaThemeData theme) {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 24,
-      crossAxisSpacing: 24,
-      childAspectRatio: 1.5,
-      children: <Widget>[
-        _buildRecCard('星际回响', '12 话全', '9.8 ★', 'SE', 0, theme),
-        _buildRecCard('霓虹协议', '更新至 08 话', '9.5 ★', 'NP', 1, theme),
-        _buildRecCard('绯红地平线', '24 话全', '9.2 ★', 'CH', 2, theme),
-      ],
+  Widget _buildRecommendationsGrid(
+    ElainaThemeData theme,
+    List<HomeRecommendationItem> items,
+  ) {
+    final List<HomeRecommendationItem> visibleItems =
+        items.take(_homeRecommendationGridLimit).toList(growable: false);
+    final List<Widget> cards = visibleItems.isEmpty
+        ? <Widget>[
+            _buildRecCard(
+                '星际回响', '12 话全', 'Bangumi 热门番剧', 'SE', null, 0, theme),
+            _buildRecCard(
+                '霓虹协议', '更新至 08 话', 'Bangumi 热门番剧', 'NP', null, 1, theme),
+            _buildRecCard(
+                '绯红地平线', '24 话全', 'Bangumi 热门番剧', 'CH', null, 2, theme),
+          ]
+        : <Widget>[
+            for (int index = 0; index < visibleItems.length; index += 1)
+              _buildRecCard(
+                visibleItems[index].title,
+                _episodeLabel(visibleItems[index].episodeCount),
+                visibleItems[index].rankingSentence,
+                _symbolForTitle(visibleItems[index].title),
+                visibleItems[index].coverUri,
+                index,
+                theme,
+              ),
+          ];
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return GridView.count(
+          crossAxisCount: _recommendationColumnCount(constraints.maxWidth),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 24,
+          crossAxisSpacing: 24,
+          childAspectRatio: 1.5,
+          children: cards,
+        );
+      },
     );
+  }
+
+  int _recommendationColumnCount(double width) {
+    if (width >= _recommendationThreeColumnWidth) return 3;
+    if (width >= _recommendationTwoColumnWidth) return 2;
+    return 1;
+  }
+
+  String _episodeLabel(int? episodeCount) {
+    if (episodeCount == null || episodeCount == 0) return '动画条目';
+    return '$episodeCount 话';
   }
 
   Widget _buildRecCard(
@@ -687,6 +812,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     String subtitle,
     String rating,
     String symbol,
+    Uri? coverUri,
     int accentIndex,
     ElainaThemeData theme,
   ) {
@@ -705,6 +831,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             symbol: symbol,
             accentIndex: accentIndex,
             theme: theme,
+            coverUri: coverUri,
           ),
           Container(
             decoration: BoxDecoration(
@@ -727,6 +854,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               children: <Widget>[
                 Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -737,19 +866,29 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 12,
+                    Expanded(
+                      child: Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                    Text(
-                      rating,
-                      style: TextStyle(
-                        color: theme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        rating,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          color: theme.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -1805,11 +1944,13 @@ class _RecommendationBackdrop extends StatelessWidget {
     required this.symbol,
     required this.accentIndex,
     required this.theme,
+    this.coverUri,
   });
 
   final String symbol;
   final int accentIndex;
   final ElainaThemeData theme;
+  final Uri? coverUri;
 
   @override
   Widget build(BuildContext context) {
@@ -1820,6 +1961,8 @@ class _RecommendationBackdrop extends StatelessWidget {
     ];
     final List<Color> colors = palettes[accentIndex % palettes.length];
 
+    final Uri? imageUri = coverUri;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1827,6 +1970,12 @@ class _RecommendationBackdrop extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: colors,
         ),
+        image: imageUri == null
+            ? null
+            : DecorationImage(
+                image: NetworkImage(imageUri.toString()),
+                fit: BoxFit.cover,
+              ),
       ),
       child: Stack(
         children: <Widget>[

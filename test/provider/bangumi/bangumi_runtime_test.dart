@@ -253,6 +253,12 @@ void main() {
           body:
               '{"data":[{"id":43,"name":"Search Fallback","name_cn":"Search Title","summary":"Hit"}]}',
         ),
+        'GET /v0/subjects?type=2&sort=rank&limit=8&offset=0':
+            const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"total":1,"limit":8,"offset":0,"data":[{"id":44,"type":2,"name":"Ranked Anime","name_cn":"","short_summary":"Popular","images":{"large":"https://img.test/ranked.jpg"},"eps":12,"score":9.3,"rank":1,"collection_total":120000}]}',
+        ),
         'GET /v0/episodes/7': const BangumiApiResponse(
           statusCode: 200,
           body:
@@ -318,6 +324,27 @@ void main() {
           .value,
       '43',
     );
+
+    final AcgProviderResult<List<BangumiSubject>> popular =
+        await runtime.popularAnime();
+    final BangumiApiRequest popularRequest = transport.requests.last;
+    expect(gateway.lastCacheKey, 'subject-popular-anime');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse(
+          'https://api.test/v0/subjects?type=2&sort=rank&limit=8&offset=0'),
+    );
+    expect(popularRequest.method, 'GET');
+    expect(popularRequest.uri.path, '/v0/subjects');
+    expect(popularRequest.uri.queryParameters['sort'], 'rank');
+    final BangumiSubject popularSubject =
+        (popular as AcgProviderSuccess<List<BangumiSubject>>).value.single;
+    expect(popularSubject.title, 'Ranked Anime');
+    expect(popularSubject.summary, 'Popular');
+    expect(popularSubject.rank, 1);
+    expect(popularSubject.score, 9.3);
+    expect(popularSubject.collectionTotal, 120000);
+    expect(popularSubject.episodeCount, 12);
 
     final AcgProviderResult<BangumiEpisode> episode =
         await runtime.lookupEpisode(const BangumiEpisodeId('7'));

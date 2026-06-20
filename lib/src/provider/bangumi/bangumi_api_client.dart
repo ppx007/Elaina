@@ -16,6 +16,8 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
+const int bangumiApiPopularAnimeLimit = 8;
+const int bangumiApiPopularAnimeOffset = 0;
 const int bangumiApiEpisodePageLimit = 200;
 const int bangumiApiEpisodeInitialOffset = 0;
 const int bangumiApiCollectionPageLimit = 50;
@@ -171,6 +173,21 @@ final class BangumiApiClient {
     );
   }
 
+  Uri popularAnimeRequestUri({
+    int limit = bangumiApiPopularAnimeLimit,
+    int offset = bangumiApiPopularAnimeOffset,
+  }) {
+    return _uri(
+      '/v0/subjects',
+      <String, String>{
+        'type': '$bangumiAnimeSubjectType',
+        'sort': 'rank',
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
   Uri lookupEpisodeRequestUri(BangumiEpisodeId id) {
     return _uri('/v0/episodes/${Uri.encodeComponent(id.value)}');
   }
@@ -265,6 +282,31 @@ final class BangumiApiClient {
     return data
         .map((Object? value) =>
             _subjectFromJson(_jsonObject(value, 'Bangumi search subject')))
+        .toList(growable: false);
+  }
+
+  Future<List<BangumiSubject>> popularAnime({
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      popularAnimeRequestUri(),
+      proxyUrl: proxyUrl,
+    );
+    final Object? data = switch (json) {
+      final Map<String, Object?> object => object['data'],
+      final List<Object?> list => list,
+      _ => null,
+    };
+    if (data is! List<Object?>) {
+      throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Bangumi popular anime response missing data list.',
+      );
+    }
+    return data
+        .map((Object? value) =>
+            _subjectFromJson(_jsonObject(value, 'Bangumi popular subject')))
         .toList(growable: false);
   }
 
@@ -531,6 +573,7 @@ final class BangumiApiProvider
         BangumiProvider,
         BangumiAuthProvider,
         BangumiCollectionProvider,
+        BangumiDiscoveryProvider,
         GatewayBoundProvider {
   BangumiApiProvider({
     required this.gateway,
@@ -606,6 +649,17 @@ final class BangumiApiProvider
       networkPolicyUri: _client.searchSubjectsRequestUri(),
       load: (ProviderGatewayRequestContext context) =>
           _client.searchSubjects(query, proxyUrl: context.proxyUrl),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() {
+    return _execute<List<BangumiSubject>>(
+      key: bangumiPopularAnimeRequestKey(),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.popularAnimeRequestUri(),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.popularAnime(proxyUrl: context.proxyUrl),
     );
   }
 
@@ -766,8 +820,13 @@ BangumiSubject _subjectFromJson(Map<String, Object?> json) {
   return BangumiSubject(
     id: BangumiSubjectId(id),
     title: title,
-    summary: _optionalString(json['summary']),
+    summary: _optionalString(json['summary'] ?? json['short_summary']),
     coverUri: _avatarUriFromJson(json['images']),
+    rank: _optionalPositiveIntOrNull(json['rank']),
+    score: _optionalNonNegativeDouble(_ratingValue(json, 'score')),
+    collectionTotal: _optionalNonNegativeIntOrNull(json['collection_total']),
+    episodeCount:
+        _optionalNonNegativeIntOrNull(json['eps'] ?? json['total_episodes']),
   );
 }
 
@@ -838,6 +897,13 @@ Map<String, Object?>? _optionalJsonObject(Object? value) {
   return _jsonObject(value, 'Bangumi nested object');
 }
 
+Object? _ratingValue(Map<String, Object?> json, String key) {
+  final Object? directValue = json[key];
+  if (directValue != null) return directValue;
+  final Map<String, Object?>? rating = _optionalJsonObject(json['rating']);
+  return rating?[key];
+}
+
 Uri? _avatarUriFromJson(Object? value) {
   final String text = switch (value) {
     final String raw => raw.trim(),
@@ -903,6 +969,33 @@ int _optionalNonNegativeInt(Object? value, {int fallback = 0}) {
     _ => null,
   };
   if (parsed == null || parsed < 0) return fallback;
+  return parsed;
+}
+
+int? _optionalNonNegativeIntOrNull(Object? value) {
+  final int? parsed = switch (value) {
+    final int number => number,
+    final double number => number.round(),
+    final String text => int.tryParse(text),
+    _ => null,
+  };
+  if (parsed == null || parsed < 0) return null;
+  return parsed;
+}
+
+int? _optionalPositiveIntOrNull(Object? value) {
+  final int? parsed = _optionalNonNegativeIntOrNull(value);
+  return parsed == null || parsed <= 0 ? null : parsed;
+}
+
+double? _optionalNonNegativeDouble(Object? value) {
+  final double? parsed = switch (value) {
+    final int number => number.toDouble(),
+    final double number => number,
+    final String text => double.tryParse(text),
+    _ => null,
+  };
+  if (parsed == null || parsed < 0) return null;
   return parsed;
 }
 

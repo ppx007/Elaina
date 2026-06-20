@@ -6,12 +6,28 @@ class HeroCarousel extends StatefulWidget {
   const HeroCarousel({
     super.key,
     this.autoScroll = true,
+    this.items = const <HeroCarouselItem>[],
   });
 
   final bool autoScroll;
+  final List<HeroCarouselItem> items;
 
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
+}
+
+final class HeroCarouselItem {
+  const HeroCarouselItem({
+    required this.title,
+    required this.symbol,
+    this.coverUri,
+    this.rankingSentence,
+  });
+
+  final String title;
+  final String symbol;
+  final Uri? coverUri;
+  final String? rankingSentence;
 }
 
 class _HeroCarouselState extends State<HeroCarousel> {
@@ -20,23 +36,11 @@ class _HeroCarouselState extends State<HeroCarousel> {
   final double _itemWidth = 500.0;
   final double _itemGap = 24.0;
 
-  final List<Map<String, String>> _items = const [
-    {
-      'title': 'Stellar Echoes',
-      'symbol': 'SE',
-    },
-    {
-      'title': 'Neon Protocol',
-      'symbol': 'NP',
-    },
-    {
-      'title': 'Crimson Horizon',
-      'symbol': 'CH',
-    },
-    {
-      'title': 'Prismatic Resonance',
-      'symbol': 'PR',
-    },
+  static const List<HeroCarouselItem> _fallbackItems = <HeroCarouselItem>[
+    HeroCarouselItem(title: 'Stellar Echoes', symbol: 'SE'),
+    HeroCarouselItem(title: 'Neon Protocol', symbol: 'NP'),
+    HeroCarouselItem(title: 'Crimson Horizon', symbol: 'CH'),
+    HeroCarouselItem(title: 'Prismatic Resonance', symbol: 'PR'),
   ];
 
   @override
@@ -82,6 +86,8 @@ class _HeroCarouselState extends State<HeroCarousel> {
   @override
   Widget build(BuildContext context) {
     final theme = ElainaTheme.of(context);
+    final List<HeroCarouselItem> items =
+        widget.items.isEmpty ? _fallbackItems : widget.items;
 
     return SizedBox(
       height: 400,
@@ -89,10 +95,10 @@ class _HeroCarouselState extends State<HeroCarousel> {
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _items.length,
+        itemCount: items.length,
         separatorBuilder: (context, index) => SizedBox(width: _itemGap),
         itemBuilder: (context, index) {
-          final item = _items[index];
+          final HeroCarouselItem item = items[index];
           return Container(
             width: _itemWidth,
             decoration: BoxDecoration(
@@ -111,8 +117,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
               fit: StackFit.expand,
               children: [
                 _HeroPosterPlaceholder(
-                  symbol: item['symbol']!,
+                  symbol: item.symbol,
                   index: index,
+                  coverUri: item.coverUri,
                 ),
                 Container(
                   decoration: BoxDecoration(
@@ -135,7 +142,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item['title']!,
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 32,
@@ -146,6 +155,22 @@ class _HeroCarouselState extends State<HeroCarousel> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      if (item.rankingSentence != null) ...<Widget>[
+                        Text(
+                          item.rankingSentence!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            shadows: const <Shadow>[
+                              Shadow(color: Colors.black54, blurRadius: 8),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       Container(
                         height: 4,
                         width: 48,
@@ -170,10 +195,12 @@ class _HeroPosterPlaceholder extends StatelessWidget {
   const _HeroPosterPlaceholder({
     required this.symbol,
     required this.index,
+    this.coverUri,
   });
 
   final String symbol;
   final int index;
+  final Uri? coverUri;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +212,7 @@ class _HeroPosterPlaceholder extends StatelessWidget {
       <Color>[const Color(0xFF67E8F9), const Color(0xFF312E81)],
     ];
     final List<Color> colors = palettes[index % palettes.length];
+    final Uri? imageUri = coverUri;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -193,6 +221,12 @@ class _HeroPosterPlaceholder extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: colors,
         ),
+        image: imageUri == null
+            ? null
+            : DecorationImage(
+                image: NetworkImage(imageUri.toString()),
+                fit: BoxFit.cover,
+              ),
       ),
       child: Stack(
         children: <Widget>[

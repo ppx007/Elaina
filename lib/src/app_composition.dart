@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
+import 'domain/home/home_recommendation_domain.dart';
 import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
@@ -23,6 +24,7 @@ import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
 import 'provider/bangumi/bangumi_auth.dart';
+import 'provider/bangumi/bangumi_provider.dart';
 import 'provider/bangumi/bangumi_runtime.dart';
 import 'provider/provider_result.dart';
 import 'provider/rss/rss_feed_fetcher_parser.dart';
@@ -97,6 +99,9 @@ class AppComposition {
     bangumiAuthProvider = bangumiProviderRuntime;
     profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
     trackingProvider = _BangumiTrackingCollectionProvider(
+      bangumiProviderRuntime,
+    );
+    homeRecommendationProvider = _BangumiHomeRecommendationProvider(
       bangumiProviderRuntime,
     );
 
@@ -208,6 +213,7 @@ class AppComposition {
   late final BangumiLoginController bangumiLoginController;
   late final UserProfileProvider profileProvider;
   late final BangumiTrackingProvider trackingProvider;
+  late final HomeRecommendationProvider homeRecommendationProvider;
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
@@ -365,6 +371,43 @@ final class _BangumiTrackingCollectionProvider
     }
     return const BangumiTrackingSnapshot.failed('Bangumi 追番状态未知。');
   }
+}
+
+final class _BangumiHomeRecommendationProvider
+    implements HomeRecommendationProvider {
+  const _BangumiHomeRecommendationProvider(this._discoveryProvider);
+
+  final BangumiDiscoveryProvider _discoveryProvider;
+
+  @override
+  Future<HomeRecommendationSnapshot> popularAnime() async {
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _discoveryProvider.popularAnime();
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.loaded(
+        result.value.map(_homeRecommendationItemFromSubject),
+      );
+    }
+    if (result is AcgProviderFailure<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.failed(result.message);
+    }
+    return const HomeRecommendationSnapshot.failed('Bangumi 热门番剧状态未知。');
+  }
+}
+
+HomeRecommendationItem _homeRecommendationItemFromSubject(
+  BangumiSubject subject,
+) {
+  return HomeRecommendationItem(
+    subjectId: subject.id.value,
+    title: subject.title,
+    summary: subject.summary,
+    coverUri: subject.coverUri,
+    rank: subject.rank,
+    score: subject.score,
+    collectionTotal: subject.collectionTotal,
+    episodeCount: subject.episodeCount,
+  );
 }
 
 BangumiTrackingItem _trackingItemFromCollection(

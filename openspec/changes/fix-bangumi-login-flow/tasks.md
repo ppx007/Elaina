@@ -25,6 +25,8 @@
   subject metadata, cover art, and episode list data.
 - [x] 3.6 Project remote tracking status into video detail state and keep the
   global detail overlay above playback while it is open.
+- [x] 3.7 Show public Bangumi popular anime recommendations on the home page
+  for signed-out users, including concise ranking sentences.
 
 ## 4. Validation
 
@@ -35,3 +37,5 @@
   credential leak scan.
 - [x] 4.3 Add regressions for tracked detail status rendering and detail
   overlay interaction while playback is active.
+- [x] 4.4 Add provider and widget regressions for public Bangumi ranking
+  recommendations on the signed-out home page.

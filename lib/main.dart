@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'src/app_composition.dart';
 import 'src/domain/diagnostics/diagnostics_domain.dart';
 import 'src/domain/download/download_domain.dart';
+import 'src/domain/home/home_recommendation_domain.dart';
 import 'src/domain/media/media_library_runtime.dart';
 import 'src/domain/playback/playback_controller.dart';
 import 'src/domain/playback/player_core_bootstrap.dart';
@@ -37,6 +38,7 @@ class MyApp extends StatefulWidget {
     this.profileProvider,
     this.bangumiTrackingProvider,
     this.bangumiLoginController,
+    this.homeRecommendationProvider,
   });
 
   final PlaybackControllerContract? playbackController;
@@ -51,6 +53,7 @@ class MyApp extends StatefulWidget {
   final UserProfileProvider? profileProvider;
   final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
+  final HomeRecommendationProvider? homeRecommendationProvider;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -71,6 +74,7 @@ class _MyAppState extends State<MyApp> {
   late final UserProfileProvider? _profileProvider;
   late final BangumiTrackingProvider? _bangumiTrackingProvider;
   late final BangumiLoginController? _bangumiLoginController;
+  late final HomeRecommendationProvider? _homeRecommendationProvider;
 
   @override
   void initState() {
@@ -94,6 +98,7 @@ class _MyAppState extends State<MyApp> {
       _profileProvider = widget.profileProvider;
       _bangumiTrackingProvider = widget.bangumiTrackingProvider;
       _bangumiLoginController = widget.bangumiLoginController;
+      _homeRecommendationProvider = widget.homeRecommendationProvider;
     } else {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
@@ -110,6 +115,7 @@ class _MyAppState extends State<MyApp> {
       _profileProvider = _composition!.profileProvider;
       _bangumiTrackingProvider = _composition!.trackingProvider;
       _bangumiLoginController = _composition!.bangumiLoginController;
+      _homeRecommendationProvider = _composition!.homeRecommendationProvider;
     }
     _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
   }
@@ -173,6 +179,7 @@ class _MyAppState extends State<MyApp> {
               profileProvider: _profileProvider,
               bangumiTrackingProvider: _bangumiTrackingProvider,
               bangumiLoginController: _bangumiLoginController,
+              homeRecommendationProvider: _homeRecommendationProvider,
             ),
           );
         },

@@ -22,6 +22,13 @@ ProviderRequestKey bangumiSubjectSearchRequestKey(String query) {
   );
 }
 
+ProviderRequestKey bangumiPopularAnimeRequestKey() {
+  return const ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'subject-popular-anime',
+  );
+}
+
 ProviderRequestKey bangumiEpisodeRequestKey(BangumiEpisodeId id) {
   return ProviderRequestKey(
     providerId: bangumiProviderId,
@@ -76,7 +83,8 @@ ProviderGatewayRequest<T> bangumiGatewayRequest<T>({
   );
 }
 
-final class DeterministicBangumiProvider implements BangumiProvider {
+final class DeterministicBangumiProvider
+    implements BangumiProvider, BangumiDiscoveryProvider {
   DeterministicBangumiProvider({
     required this.gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
@@ -168,6 +176,20 @@ final class DeterministicBangumiProvider implements BangumiProvider {
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() {
+    return _execute(
+      key: bangumiPopularAnimeRequestKey(),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async {
+        final List<BangumiSubject> subjects = <BangumiSubject>[
+          ..._subjects.values,
+        ]..sort(_compareSubjectsByRankThenTitle);
+        return List<BangumiSubject>.unmodifiable(subjects);
+      },
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
     return _execute(
       key: bangumiEpisodeRequestKey(id),
@@ -223,6 +245,17 @@ final class DeterministicBangumiProvider implements BangumiProvider {
       );
     }
   }
+}
+
+int _compareSubjectsByRankThenTitle(BangumiSubject left, BangumiSubject right) {
+  final int? leftRank = left.rank;
+  final int? rightRank = right.rank;
+  if (leftRank != null && rightRank != null && leftRank != rightRank) {
+    return leftRank.compareTo(rightRank);
+  }
+  if (leftRank != null && rightRank == null) return -1;
+  if (leftRank == null && rightRank != null) return 1;
+  return left.title.compareTo(right.title);
 }
 
 final class DeterministicBangumiAuthProvider
@@ -394,7 +427,11 @@ final class DeterministicBangumiAuthProvider
 }
 
 final class BangumiProviderRuntime
-    implements BangumiProvider, BangumiAuthProvider, BangumiCollectionProvider {
+    implements
+        BangumiProvider,
+        BangumiAuthProvider,
+        BangumiCollectionProvider,
+        BangumiDiscoveryProvider {
   BangumiProviderRuntime({
     required ProviderGateway gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
@@ -407,6 +444,7 @@ final class BangumiProviderRuntime
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
     BangumiCollectionProvider? collectionProvider,
+    BangumiDiscoveryProvider? discoveryProvider,
   })  : _gateway = gateway,
         _metadataProvider = metadataProvider ??
             DeterministicBangumiProvider(
@@ -430,12 +468,20 @@ final class BangumiProviderRuntime
               animeCollection: animeCollection,
               progressSyncAvailable: progressSyncAvailable,
               now: now,
+            ),
+        _discoveryProvider = discoveryProvider ??
+            _bangumiDiscoveryProviderFrom(metadataProvider) ??
+            DeterministicBangumiProvider(
+              gateway: gateway,
+              subjects: subjects,
+              episodes: episodes,
             );
 
   final ProviderGateway _gateway;
   final BangumiProvider _metadataProvider;
   final BangumiAuthProvider _authProvider;
   final BangumiCollectionProvider _collectionProvider;
+  final BangumiDiscoveryProvider _discoveryProvider;
   bool _registered = false;
   bool _disposed = false;
 
@@ -444,6 +490,8 @@ final class BangumiProviderRuntime
   BangumiAuthProvider get authProvider => _authProvider;
 
   BangumiCollectionProvider get collectionProvider => _collectionProvider;
+
+  BangumiDiscoveryProvider get discoveryProvider => _discoveryProvider;
 
   bool get isDisposed => _disposed;
 
@@ -508,6 +556,13 @@ final class BangumiProviderRuntime
     if (_disposed) return _disposedFailure<List<BangumiSubject>>();
     await _ensureRegistered();
     return _metadataProvider.searchSubjects(query);
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() async {
+    if (_disposed) return _disposedFailure<List<BangumiSubject>>();
+    await _ensureRegistered();
+    return _discoveryProvider.popularAnime();
   }
 
   @override
@@ -577,6 +632,7 @@ final class BangumiProviderBootstrap {
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
     BangumiCollectionProvider? collectionProvider,
+    BangumiDiscoveryProvider? discoveryProvider,
   }) : runtime = BangumiProviderRuntime(
           gateway: gateway,
           subjects: subjects,
@@ -588,6 +644,7 @@ final class BangumiProviderBootstrap {
           metadataProvider: metadataProvider,
           authProvider: authProvider,
           collectionProvider: collectionProvider,
+          discoveryProvider: discoveryProvider,
         );
 
   final BangumiProviderRuntime runtime;
@@ -597,6 +654,8 @@ final class BangumiProviderBootstrap {
   BangumiAuthProvider get authProvider => runtime;
 
   BangumiCollectionProvider get collectionProvider => runtime;
+
+  BangumiDiscoveryProvider get discoveryProvider => runtime;
 
   Future<void> initialize() => runtime.initialize();
 
@@ -610,5 +669,13 @@ BangumiCollectionProvider? _bangumiCollectionProviderFrom(
 ) {
   return provider is BangumiCollectionProvider
       ? provider as BangumiCollectionProvider
+      : null;
+}
+
+BangumiDiscoveryProvider? _bangumiDiscoveryProviderFrom(
+  BangumiProvider? provider,
+) {
+  return provider is BangumiDiscoveryProvider
+      ? provider as BangumiDiscoveryProvider
       : null;
 }

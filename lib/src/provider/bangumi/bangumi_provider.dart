@@ -22,12 +22,20 @@ final class BangumiSubject {
     required this.title,
     this.summary,
     this.coverUri,
+    this.rank,
+    this.score,
+    this.collectionTotal,
+    this.episodeCount,
   });
 
   final BangumiSubjectId id;
   final String title;
   final String? summary;
   final Uri? coverUri;
+  final int? rank;
+  final double? score;
+  final int? collectionTotal;
+  final int? episodeCount;
 }
 
 final class BangumiEpisode {
@@ -56,4 +64,8 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
   Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
     BangumiSubjectId subjectId,
   );
+}
+
+abstract interface class BangumiDiscoveryProvider {
+  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime();
 }
