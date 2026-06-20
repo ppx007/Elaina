@@ -170,7 +170,8 @@ void main() {
       );
 
       // Verify page titles and folders render
-      expect(find.text('本地媒体库'), findsOneWidget);
+      expect(find.text('本地媒体库'), findsWidgets);
+      expect(find.text('打开文件'), findsOneWidget);
       expect(find.text('配置的文件夹'), findsOneWidget);
       expect(find.text('0 个视频'),
           findsNWidgets(2)); // D:/media and C:/Users/Public/Videos
@@ -356,7 +357,7 @@ void main() {
       await bindingStore.saveUserConfirmed(ProviderBinding(
         id: const ProviderBindingId('binding-1'),
         localMediaId: seededMedia.id,
-        providerId: 'bangumi',
+        providerId: defaultVideoDetailMetadataProviderId,
         subjectId: const ProviderSubjectId('subject-1'),
         authority: ProviderBindingAuthority.userConfirmed,
         confidence: 1.0,
@@ -420,12 +421,17 @@ void main() {
         ),
       );
 
-      // Navigate to '我的追番' (Library)
+      // Navigate to the Bangumi tracking page first.
       await tester.tap(find.text('我的追番'));
       await tester.pump();
+      expect(find.text('Bangumi 追番'), findsOneWidget);
+      expect(find.text('episode-1.mkv'), findsOneWidget);
+      expect(find.text('Bangumi ID: subject-1'), findsOneWidget);
 
-      // Expect MediaLibraryPage contents
-      expect(find.text('本地媒体库'), findsOneWidget);
+      // Navigate to the separate local media library entry.
+      await tester.tap(find.text('本地媒体库'));
+      await tester.pump();
+      expect(find.text('本地媒体库'), findsWidgets);
       expect(find.text('episode-1.mkv'), findsOneWidget);
 
       // Tap detail info button
@@ -443,7 +449,220 @@ void main() {
 
       // Expect overlay is closed and we are back to Library page
       expect(find.text('预加载番剧'), findsNothing);
-      expect(find.text('本地媒体库'), findsOneWidget);
+      expect(find.text('本地媒体库'), findsWidgets);
+
+      libraryRuntime.dispose();
+      await invalidationBus.close();
+    });
+
+    testWidgets('Bangumi login action opens settings access token section',
+        (WidgetTester tester) async {
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: const <MediaScanCandidate>[],
+        ),
+        catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+        importer: DeterministicMediaBatchImportContract(
+          repository: DeterministicMediaLibraryCatalogRepository(),
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+      final VideoDetailPageContract videoDetailContract =
+          VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(
+            initialData: const VideoDetailViewData(
+              id: VideoDetailId('subject-1'),
+              title: '预加载番剧',
+              episodes: <VideoDetailEpisode>[],
+              followState: VideoFollowState.notFollowed,
+              actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+            ),
+          ),
+          actions: FakeVideoDetailActionHandler(),
+        ),
+      );
+      final DeterministicRssAutoDownloadPolicyStore policyStore =
+          DeterministicRssAutoDownloadPolicyStore();
+      final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
+        engine: _FakeRssEngine(),
+        store: DeterministicRssFeedStore(),
+        scheduler: _FakeFeedScheduler(),
+        policyStore: policyStore,
+      );
+      final BtTaskCoreRuntime btTaskCoreRuntime =
+          BtTaskCoreRuntime.unavailable(reason: 'testing');
+
+      await tester.pumpWidget(
+        _testHost(
+          child: ElainaAppShell(
+            playbackController: playbackController,
+            videoSurface: const SizedBox(),
+            mediaLibraryRuntime: libraryRuntime,
+            videoDetailPageContract: videoDetailContract,
+            rssEngineRuntime: rssEngineRuntime,
+            downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            settingsRuntime: FakeSettingsRuntime(),
+            diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            carouselAutoScroll: false,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('我的追番'));
+      await tester.pump();
+      await tester.tap(find.text('登录 Bangumi').first);
+      await tester.pump();
+
+      expect(find.text('Bangumi'), findsOneWidget);
+      expect(find.text('Access token'), findsOneWidget);
+
+      libraryRuntime.dispose();
+      await invalidationBus.close();
+    });
+
+    testWidgets('Bangumi tracking filters update visible list and empty state',
+        (WidgetTester tester) async {
+      final DateTime now = DateTime.utc(2026, 6, 19, 12);
+      final DeterministicPlaybackHistoryStore historyStore =
+          DeterministicPlaybackHistoryStore();
+      final DeterministicProviderBindingStore bindingStore =
+          DeterministicProviderBindingStore();
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final LocalMediaIdentity seededMedia = LocalMediaIdentity(
+        id: const LocalMediaId('media-1'),
+        uri: Uri.parse('file:///D:/media/episode-1.mkv'),
+        basename: 'episode-1.mkv',
+      );
+      final DeterministicMediaLibraryCatalogRepository catalogRepo =
+          DeterministicMediaLibraryCatalogRepository(
+        seedItems: <MediaLibraryItem>[
+          MediaLibraryItem(
+            id: const MediaLibraryItemId('item-1'),
+            identity: seededMedia,
+            addedAt: now,
+          ),
+        ],
+      );
+      await bindingStore.saveUserConfirmed(ProviderBinding(
+        id: const ProviderBindingId('binding-1'),
+        localMediaId: seededMedia.id,
+        providerId: defaultVideoDetailMetadataProviderId,
+        subjectId: const ProviderSubjectId('subject-1'),
+        authority: ProviderBindingAuthority.userConfirmed,
+        confidence: 1.0,
+        createdAt: now,
+      ));
+      await historyStore.record(PlaybackHistoryEntry(
+        id: const PlaybackHistoryEntryId('history-1'),
+        mediaId: seededMedia.id,
+        position: const Duration(minutes: 12),
+        duration: const Duration(minutes: 24),
+        updatedAt: now,
+      ));
+
+      final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: <MediaScanCandidate>[
+            MediaScanCandidate(
+              identity: seededMedia,
+              sizeBytes: 1024,
+              duration: const Duration(minutes: 24),
+            ),
+          ],
+        ),
+        catalogRepository: catalogRepo,
+        importer: DeterministicMediaBatchImportContract(
+          repository: catalogRepo,
+          clock: () => now,
+        ),
+        historyStore: historyStore,
+        bindingStore: bindingStore,
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+        now: () => now,
+      );
+      await libraryRuntime.refresh();
+
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+      final VideoDetailPageContract videoDetailContract =
+          VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(
+            initialData: const VideoDetailViewData(
+              id: VideoDetailId('subject-1'),
+              title: '预加载番剧',
+              episodes: <VideoDetailEpisode>[],
+              followState: VideoFollowState.notFollowed,
+              actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+            ),
+          ),
+          actions: FakeVideoDetailActionHandler(),
+        ),
+      );
+      final DeterministicRssAutoDownloadPolicyStore policyStore =
+          DeterministicRssAutoDownloadPolicyStore();
+      final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
+        engine: _FakeRssEngine(),
+        store: DeterministicRssFeedStore(),
+        scheduler: _FakeFeedScheduler(),
+        policyStore: policyStore,
+      );
+      final BtTaskCoreRuntime btTaskCoreRuntime =
+          BtTaskCoreRuntime.unavailable(reason: 'testing');
+
+      await tester.pumpWidget(
+        _testHost(
+          child: ElainaAppShell(
+            playbackController: playbackController,
+            videoSurface: const SizedBox(),
+            mediaLibraryRuntime: libraryRuntime,
+            videoDetailPageContract: videoDetailContract,
+            rssEngineRuntime: rssEngineRuntime,
+            downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            settingsRuntime: FakeSettingsRuntime(),
+            diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            carouselAutoScroll: false,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('我的追番'));
+      await tester.pump();
+      expect(find.text('episode-1.mkv'), findsOneWidget);
+
+      await tester.tap(find.text('在追 1'));
+      await tester.pump();
+      expect(find.text('episode-1.mkv'), findsOneWidget);
+      expect(find.text('已观看 50%'), findsOneWidget);
+
+      await tester.tap(find.text('抛弃 0'));
+      await tester.pump();
+      expect(find.text('当前没有抛弃条目'), findsOneWidget);
+      expect(find.textContaining('还没有 Bangumi 抛弃收藏状态'), findsOneWidget);
 
       libraryRuntime.dispose();
       await invalidationBus.close();

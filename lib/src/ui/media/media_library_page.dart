@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
 import '../../domain/media/media_library.dart';
 import '../../domain/media/media_library_runtime.dart';
 import '../../domain/playback/playback_controller.dart';
@@ -24,6 +26,8 @@ class MediaLibraryPage extends StatefulWidget {
 
 class _MediaLibraryPageState extends State<MediaLibraryPage>
     implements MediaLibraryRuntimeObserver {
+  static const String _selectedFileMediaIdPrefix = 'selected-file:';
+
   late MediaLibraryRuntimeSnapshot _snapshot;
   final List<Uri> _configuredFolders = AppConstants.defaultMediaLibraryRoots
       .map((String p) => Uri.parse(p))
@@ -87,6 +91,57 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
     }
   }
 
+  Future<void> _pickAndPlayFile() async {
+    try {
+      final FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.video,
+      );
+      final PlatformFile? selectedFile =
+          result == null || result.files.length != 1 ? null : result.files[0];
+      final String? path = selectedFile?.path;
+      if (selectedFile == null || path == null) {
+        return;
+      }
+
+      final Uri fileUri = Uri.file(path);
+      const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
+      final PlaybackSourceHandoffResult prepared = handoff.prepare(
+        PlaybackSourceHandoffInput.localMediaIdentity(
+          LocalMediaIdentity(
+            id: LocalMediaId(
+                '$_selectedFileMediaIdPrefix${fileUri.toString()}'),
+            uri: fileUri,
+            basename: selectedFile.name,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (!prepared.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('解析文件失败: ${prepared.failure?.message}')),
+        );
+        return;
+      }
+
+      final DomainPlaybackCommandResult openResult =
+          await widget.playbackController.open(prepared.source!);
+      if (!mounted) return;
+      if (!openResult.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('打开文件失败: ${openResult.failure?.message}')),
+        );
+        return;
+      }
+      await widget.playbackController.play();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('选择文件出错: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ElainaThemeData theme = ElainaTheme.of(context);
@@ -110,38 +165,66 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text(
-                '本地媒体库',
-                style: TextStyle(
-                  color: theme.onSurface,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  '本地媒体库',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.onSurface,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: isScanning ? null : _triggerScan,
-                icon: isScanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.sync_outlined, size: 18),
-                label: Text(isScanning ? '正在扫描 ($progressCount)...' : '扫描本地库'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primary,
-                  foregroundColor: theme.background,
-                  elevation: 4,
-                  shadowColor: theme.primary.withValues(alpha: 0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              const SizedBox(width: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  OutlinedButton.icon(
+                    onPressed: _pickAndPlayFile,
+                    icon: const Icon(Icons.folder_open, size: 18),
+                    label: const Text('打开文件'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.primary,
+                      side: BorderSide(
+                        color: theme.primary.withValues(alpha: 0.45),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                    ),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: isScanning ? null : _triggerScan,
+                    icon: isScanning
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.sync_outlined, size: 18),
+                    label:
+                        Text(isScanning ? '正在扫描 ($progressCount)...' : '扫描本地库'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primary,
+                      foregroundColor: theme.background,
+                      elevation: 4,
+                      shadowColor: theme.primary.withValues(alpha: 0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

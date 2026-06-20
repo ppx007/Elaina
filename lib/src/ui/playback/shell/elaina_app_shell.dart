@@ -1,4 +1,5 @@
-import 'package:file_picker/file_picker.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../domain/detail/video_detail.dart';
@@ -7,7 +8,6 @@ import '../../../domain/download/download_domain.dart';
 import '../../../domain/media/media_library.dart';
 import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
-import '../../../domain/playback/playback_source_handoff.dart';
 import '../../../domain/playback/playback_state.dart';
 import '../../../domain/profile/profile_domain.dart';
 import '../../../domain/rss/rss_engine_runtime.dart';
@@ -56,24 +56,52 @@ class ElainaAppShell extends StatefulWidget {
 }
 
 class _ElainaAppShellState extends State<ElainaAppShell>
-    implements PlaybackStateObserver {
-  int _currentIndex = 0;
+    implements PlaybackStateObserver, MediaLibraryRuntimeObserver {
+  static const int _homeNavIndex = 0;
+  static const int _trackingNavIndex = 1;
+  static const int _localLibraryNavIndex = 2;
+  static const int _downloadsNavIndex = 3;
+  static const int _rssNavIndex = 4;
+  static const int _settingsNavIndex = 5;
+  static const int _diagnosticsNavIndex = 6;
+
+  static const double _pageInset = 24;
+  static const double _sectionGap = 24;
+  static const double _panelRadius = 16;
+  static const double _trackingGridMaxExtent = 360;
+  static const double _trackingGridAspectRatio = 1.55;
+  static const double _completedProgressThreshold = 0.98;
+  static const String _brandLogoAsset =
+      'assets/brand/elaina_iconic_character_logo.png';
+
+  int _currentIndex = _homeNavIndex;
   bool _playbackOverlayActive = false;
   VideoDetailId? _activeDetailId;
   int _bangumiAuthRevision = 0;
+  late MediaLibraryRuntimeSnapshot _librarySnapshot;
   Future<UserProfileSnapshot?>? _profileFuture;
+  _TrackingFilter _trackingFilter = _TrackingFilter.all;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = widget.profileProvider?.currentProfile();
+    _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.playbackController.addPlaybackStateObserver(this);
+    widget.mediaLibraryRuntime.addObserver(this);
+    _refreshLibrarySnapshot();
     _checkPlaybackState();
   }
 
   @override
   void didUpdateWidget(ElainaAppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.mediaLibraryRuntime != widget.mediaLibraryRuntime) {
+      oldWidget.mediaLibraryRuntime.removeObserver(this);
+      _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
+      widget.mediaLibraryRuntime.addObserver(this);
+      _refreshLibrarySnapshot();
+    }
     if (oldWidget.profileProvider != widget.profileProvider) {
       _profileFuture = widget.profileProvider?.currentProfile();
     }
@@ -81,6 +109,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   @override
   void dispose() {
+    widget.mediaLibraryRuntime.removeObserver(this);
     widget.playbackController.removePlaybackStateObserver(this);
     super.dispose();
   }
@@ -89,6 +118,15 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   void onPlaybackState(PlaybackStateSnapshot snapshot) {
     if (mounted) {
       _checkPlaybackState();
+    }
+  }
+
+  @override
+  void onMediaLibraryRuntimeSnapshot(MediaLibraryRuntimeSnapshot snapshot) {
+    if (mounted) {
+      setState(() {
+        _librarySnapshot = snapshot;
+      });
     }
   }
 
@@ -111,54 +149,14 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     });
   }
 
-  Future<void> _pickAndPlayFile() async {
-    try {
-      final FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.video,
-      );
+  void _refreshLibrarySnapshot() {
+    unawaited(widget.mediaLibraryRuntime.refresh());
+  }
 
-      if (result != null && result.files.single.path != null) {
-        final String path = result.files.single.path!;
-        final Uri fileUri = Uri.file(path);
-
-        const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
-        final PlaybackSourceHandoffResult prepared = handoff.prepare(
-          PlaybackSourceHandoffInput.localMediaIdentity(
-            LocalMediaIdentity(
-              id: LocalMediaId('local-${path.hashCode}'),
-              uri: fileUri,
-              basename: result.files.single.name,
-            ),
-          ),
-        );
-
-        if (prepared.isSuccess) {
-          final DomainPlaybackCommandResult openResult =
-              await widget.playbackController.open(prepared.source!);
-          if (openResult.isSuccess) {
-            await widget.playbackController.play();
-            if (mounted) {
-              setState(() {
-                _playbackOverlayActive = true;
-                _activeDetailId = null;
-              });
-            }
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('打开文件失败: ${openResult.failure?.message}')),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('解析文件失败: ${prepared.failure?.message}')),
-          );
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('选择文件出错: $e')),
-      );
-    }
+  void _openBangumiSettings() {
+    setState(() {
+      _currentIndex = _settingsNavIndex;
+    });
   }
 
   @override
@@ -170,6 +168,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       index: _currentIndex,
       children: <Widget>[
         _buildHomePage(theme),
+        _buildTrackingPage(theme),
         _buildLibraryPage(theme),
         _buildDownloadsPage(theme),
         _buildRssPage(theme),
@@ -268,7 +267,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: theme.border),
                   ),
-                  child: Icon(Icons.blur_on, color: theme.primary, size: 28),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    _brandLogoAsset,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Elaina',
+                  ),
                 ),
                 const SizedBox(width: 16.0),
                 Text(
@@ -289,14 +293,20 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               children: <Widget>[
+                _buildSidebarItem(_homeNavIndex, Icons.home_outlined,
+                    Icons.home, '首页', theme),
+                _buildSidebarItem(_trackingNavIndex, Icons.bookmarks_outlined,
+                    Icons.bookmarks, '我的追番', theme),
                 _buildSidebarItem(
-                    0, Icons.home_outlined, Icons.home, '首页', theme),
-                _buildSidebarItem(1, Icons.video_library_outlined,
-                    Icons.video_library, '我的追番', theme),
-                _buildSidebarItem(
-                    2, Icons.download_outlined, Icons.download, '下载', theme),
-                _buildSidebarItem(
-                    3, Icons.rss_feed, Icons.rss_feed, 'RSS订阅', theme),
+                    _localLibraryNavIndex,
+                    Icons.video_library_outlined,
+                    Icons.video_library,
+                    '本地媒体库',
+                    theme),
+                _buildSidebarItem(_downloadsNavIndex, Icons.download_outlined,
+                    Icons.download, '下载', theme),
+                _buildSidebarItem(_rssNavIndex, Icons.rss_feed, Icons.rss_feed,
+                    'RSS订阅', theme),
               ],
             ),
           ),
@@ -307,10 +317,14 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                 const EdgeInsets.only(bottom: 24.0, left: 16.0, right: 16.0),
             child: Column(
               children: <Widget>[
+                _buildSidebarItem(_settingsNavIndex, Icons.settings_outlined,
+                    Icons.settings, '设置', theme),
                 _buildSidebarItem(
-                    4, Icons.settings_outlined, Icons.settings, '设置', theme),
-                _buildSidebarItem(5, Icons.troubleshoot_outlined,
-                    Icons.troubleshoot, '诊断', theme),
+                    _diagnosticsNavIndex,
+                    Icons.troubleshoot_outlined,
+                    Icons.troubleshoot,
+                    '诊断',
+                    theme),
               ],
             ),
           ),
@@ -434,20 +448,6 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Tooltip(
-                    message: 'Open file',
-                    child: IconButton(
-                      onPressed: _pickAndPlayFile,
-                      icon: const Icon(Icons.folder_open),
-                      color: theme.primary,
-                      style: IconButton.styleFrom(
-                        backgroundColor: theme.primary.withValues(alpha: 0.14),
-                        foregroundColor: theme.primary,
-                        fixedSize: const Size.square(40),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
                   // Theme Toggle
                   _buildThemeToggle(context),
                   const SizedBox(width: 16),
@@ -713,7 +713,246 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  // 2. Library Page
+  // 2. Bangumi tracking page
+  Widget _buildTrackingPage(ElainaThemeData theme) {
+    final List<_TrackedBangumiItem> trackedItems = _trackedBangumiItems();
+    final List<_TrackedBangumiItem> visibleItems =
+        _trackedBangumiItemsFor(_trackingFilter, trackedItems);
+    final int continuingCount = trackedItems
+        .where((_TrackedBangumiItem item) =>
+            item.progress > 0 && item.progress < _completedProgressThreshold)
+        .length;
+    final int completedCount = trackedItems
+        .where((_TrackedBangumiItem item) =>
+            item.progress >= _completedProgressThreshold)
+        .length;
+    final int unboundCount = _librarySnapshot.catalogItems
+        .where((MediaLibraryCatalogItemState item) => item.binding == null)
+        .length;
+
+    return Padding(
+      padding: const EdgeInsets.all(_pageInset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '我的追番',
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Bangumi 账号、追番绑定与本地观看进度',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.6),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _BangumiAccountPill(
+                profileFuture: _profileFuture,
+                theme: theme,
+                onPressed: _openBangumiSettings,
+              ),
+            ],
+          ),
+          const SizedBox(height: _sectionGap),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _TrackingMetricTile(
+                  label: 'Bangumi 追番',
+                  value: trackedItems.length.toString(),
+                  icon: Icons.bookmarks,
+                  theme: theme,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _TrackingMetricTile(
+                  label: '继续观看',
+                  value: continuingCount.toString(),
+                  icon: Icons.play_circle_outline,
+                  theme: theme,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _TrackingMetricTile(
+                  label: '已看完',
+                  value: completedCount.toString(),
+                  icon: Icons.task_alt,
+                  theme: theme,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _TrackingMetricTile(
+                  label: '待关联',
+                  value: unboundCount.toString(),
+                  icon: Icons.link_off,
+                  theme: theme,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: _sectionGap),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.surface,
+                borderRadius: BorderRadius.circular(_panelRadius),
+                border: Border.all(color: theme.border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _TrackingFilterBar(
+                      selected: _trackingFilter,
+                      counts: _trackingFilterCounts(trackedItems),
+                      theme: theme,
+                      onSelected: (_TrackingFilter filter) {
+                        setState(() {
+                          _trackingFilter = filter;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: visibleItems.isEmpty
+                          ? _TrackingEmptyState(
+                              filter: _trackingFilter,
+                              hasAnyTrackedItem: trackedItems.isNotEmpty,
+                              theme: theme,
+                              onOpenLibrary: () {
+                                setState(() {
+                                  _currentIndex = _localLibraryNavIndex;
+                                });
+                              },
+                              onOpenSettings: _openBangumiSettings,
+                            )
+                          : GridView.builder(
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: _trackingGridMaxExtent,
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                childAspectRatio: _trackingGridAspectRatio,
+                              ),
+                              itemCount: visibleItems.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final _TrackedBangumiItem item =
+                                    visibleItems[index];
+                                return _TrackingItemCard(
+                                  item: item,
+                                  theme: theme,
+                                  onOpenDetail: () {
+                                    setState(() {
+                                      _activeDetailId =
+                                          VideoDetailId(item.subjectId);
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_TrackedBangumiItem> _trackedBangumiItems() {
+    final List<_TrackedBangumiItem> items = <_TrackedBangumiItem>[];
+    for (final MediaLibraryCatalogItemState itemState
+        in _librarySnapshot.catalogItems) {
+      final ProviderBinding? binding = itemState.binding;
+      final String? subjectId = binding?.subjectId?.value;
+      if (binding == null ||
+          subjectId == null ||
+          binding.providerId != defaultVideoDetailMetadataProviderId ||
+          binding.authority != ProviderBindingAuthority.userConfirmed) {
+        continue;
+      }
+      items.add(
+        _TrackedBangumiItem(
+          subjectId: subjectId,
+          title: itemState.item.identity.basename,
+          progress: itemState.continueWatching?.progress ?? 0,
+          updatedAt: itemState.continueWatching?.updatedAt,
+        ),
+      );
+    }
+    items.sort(
+      (_TrackedBangumiItem left, _TrackedBangumiItem right) {
+        final DateTime? leftUpdated = left.updatedAt;
+        final DateTime? rightUpdated = right.updatedAt;
+        if (leftUpdated == null && rightUpdated == null) {
+          return left.title.compareTo(right.title);
+        }
+        if (leftUpdated == null) return 1;
+        if (rightUpdated == null) return -1;
+        return rightUpdated.compareTo(leftUpdated);
+      },
+    );
+    return items;
+  }
+
+  Map<_TrackingFilter, int> _trackingFilterCounts(
+    List<_TrackedBangumiItem> items,
+  ) {
+    return <_TrackingFilter, int>{
+      for (final _TrackingFilter filter in _TrackingFilter.values)
+        filter: _trackedBangumiItemsFor(filter, items).length,
+    };
+  }
+
+  List<_TrackedBangumiItem> _trackedBangumiItemsFor(
+    _TrackingFilter filter,
+    List<_TrackedBangumiItem> items,
+  ) {
+    return <_TrackedBangumiItem>[
+      for (final _TrackedBangumiItem item in items)
+        if (_matchesTrackingFilter(filter, item)) item,
+    ];
+  }
+
+  bool _matchesTrackingFilter(
+    _TrackingFilter filter,
+    _TrackedBangumiItem item,
+  ) {
+    return switch (filter) {
+      _TrackingFilter.all => true,
+      _TrackingFilter.watching =>
+        item.progress > 0 && item.progress < _completedProgressThreshold,
+      _TrackingFilter.planned => item.progress == 0,
+      _TrackingFilter.completed => item.progress >= _completedProgressThreshold,
+      _TrackingFilter.onHold => false,
+      _TrackingFilter.dropped => false,
+    };
+  }
+
+  // 3. Library Page
   Widget _buildLibraryPage(ElainaThemeData theme) {
     return MediaLibraryPage(
       mediaLibraryRuntime: widget.mediaLibraryRuntime,
@@ -726,21 +965,21 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  // 3. Downloads Page
+  // 4. Downloads Page
   Widget _buildDownloadsPage(ElainaThemeData theme) {
     return DownloadsPage(
       downloadRuntime: widget.downloadRuntime,
     );
   }
 
-  // 4. RSS Page
+  // 5. RSS Page
   Widget _buildRssPage(ElainaThemeData theme) {
     return RssPage(
       rssEngineRuntime: widget.rssEngineRuntime,
     );
   }
 
-  // 5. Settings Page
+  // 6. Settings Page
   Widget _buildSettingsPage(ElainaThemeData theme) {
     return SettingsPage(
       settingsRuntime: widget.settingsRuntime,
@@ -748,7 +987,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  // 6. Diagnostics Page
+  // 7. Diagnostics Page
   Widget _buildDiagnosticsPage(ElainaThemeData theme) {
     return DiagnosticsPage(
       diagnosticsRuntime: widget.diagnosticsRuntime,
@@ -768,6 +1007,454 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     ];
     final String weekdayStr = weekdays[now.weekday - 1];
     return '${now.year}年${now.month}月${now.day}日 $weekdayStr';
+  }
+}
+
+enum _TrackingFilter {
+  all('全部'),
+  watching('在追'),
+  planned('想看'),
+  completed('已看'),
+  onHold('搁置'),
+  dropped('抛弃');
+
+  const _TrackingFilter(this.label);
+
+  final String label;
+}
+
+final class _TrackedBangumiItem {
+  const _TrackedBangumiItem({
+    required this.subjectId,
+    required this.title,
+    required this.progress,
+    this.updatedAt,
+  });
+
+  final String subjectId;
+  final String title;
+  final double progress;
+  final DateTime? updatedAt;
+
+  bool get hasProgress => progress > 0;
+
+  String get progressLabel {
+    if (!hasProgress) return '未开始';
+    final int percent = (progress * 100).round().clamp(1, 100);
+    return '已观看 $percent%';
+  }
+}
+
+class _BangumiAccountPill extends StatelessWidget {
+  const _BangumiAccountPill({
+    required this.profileFuture,
+    required this.theme,
+    required this.onPressed,
+  });
+
+  static const double _pillRadius = 999;
+
+  final Future<UserProfileSnapshot?>? profileFuture;
+  final ElainaThemeData theme;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Future<UserProfileSnapshot?>? future = profileFuture;
+    if (future == null) {
+      return _buildPill('登录 Bangumi', Icons.login);
+    }
+    return FutureBuilder<UserProfileSnapshot?>(
+      future: future,
+      builder:
+          (BuildContext context, AsyncSnapshot<UserProfileSnapshot?> snapshot) {
+        final String? displayName = snapshot.data?.displayName?.trim();
+        if (displayName == null || displayName.isEmpty) {
+          return _buildPill('登录 Bangumi', Icons.login);
+        }
+        return _buildPill('Bangumi：$displayName', Icons.verified_user);
+      },
+    );
+  }
+
+  Widget _buildPill(String label, IconData icon) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(_pillRadius),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(_pillRadius),
+            border: Border.all(color: theme.primary.withValues(alpha: 0.28)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, size: 16, color: theme.primary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrackingFilterBar extends StatelessWidget {
+  const _TrackingFilterBar({
+    required this.selected,
+    required this.counts,
+    required this.theme,
+    required this.onSelected,
+  });
+
+  static const double _chipGap = 8;
+  static const double _chipRunGap = 8;
+
+  final _TrackingFilter selected;
+  final Map<_TrackingFilter, int> counts;
+  final ElainaThemeData theme;
+  final ValueChanged<_TrackingFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: _chipGap,
+      runSpacing: _chipRunGap,
+      children: <Widget>[
+        for (final _TrackingFilter filter in _TrackingFilter.values)
+          ChoiceChip(
+            label: Text('${filter.label} ${counts[filter] ?? 0}'),
+            selected: selected == filter,
+            onSelected: (_) => onSelected(filter),
+            mouseCursor: SystemMouseCursors.click,
+            showCheckmark: false,
+            labelStyle: TextStyle(
+              color: selected == filter ? theme.background : theme.onSurface,
+              fontWeight:
+                  selected == filter ? FontWeight.bold : FontWeight.w600,
+            ),
+            backgroundColor: theme.background.withValues(alpha: 0.42),
+            selectedColor: theme.primary,
+            side: BorderSide(
+              color: selected == filter
+                  ? theme.primary
+                  : theme.border.withValues(alpha: 0.9),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TrackingMetricTile extends StatelessWidget {
+  const _TrackingMetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.theme,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.surface,
+        borderRadius: BorderRadius.circular(_ElainaAppShellState._panelRadius),
+        border: Border.all(color: theme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: theme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: theme.primary, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.onSurface,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.onBackground.withValues(alpha: 0.58),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrackingEmptyState extends StatelessWidget {
+  const _TrackingEmptyState({
+    required this.filter,
+    required this.hasAnyTrackedItem,
+    required this.theme,
+    required this.onOpenLibrary,
+    required this.onOpenSettings,
+  });
+
+  final _TrackingFilter filter;
+  final bool hasAnyTrackedItem;
+  final ElainaThemeData theme;
+  final VoidCallback onOpenLibrary;
+  final VoidCallback onOpenSettings;
+
+  String get _title {
+    if (!hasAnyTrackedItem) {
+      return '还没有 Bangumi 追番条目';
+    }
+    return switch (filter) {
+      _TrackingFilter.all => '还没有 Bangumi 追番条目',
+      _TrackingFilter.watching => '当前没有在追条目',
+      _TrackingFilter.planned => '当前没有想看条目',
+      _TrackingFilter.completed => '当前没有已看条目',
+      _TrackingFilter.onHold => '当前没有搁置条目',
+      _TrackingFilter.dropped => '当前没有抛弃条目',
+    };
+  }
+
+  String get _description {
+    if (!hasAnyTrackedItem) {
+      return '先在本地媒体库中完成番剧识别或进入详情页加入追番；登录 Bangumi 后可以同步账号资料。';
+    }
+    return switch (filter) {
+      _TrackingFilter.all =>
+        '先在本地媒体库中完成番剧识别或进入详情页加入追番；这里会展示已确认关联 Bangumi 的条目和观看进度。',
+      _TrackingFilter.watching => '在追列表只显示已有本地观看进度、且尚未看完的 Bangumi 关联条目。',
+      _TrackingFilter.planned => '想看列表只显示已关联 Bangumi、但还没有本地观看进度的条目。',
+      _TrackingFilter.completed => '已看列表只显示本地观看进度达到完成阈值的 Bangumi 关联条目。',
+      _TrackingFilter.onHold => '当前本地媒体库快照还没有 Bangumi 搁置收藏状态，后续同步到收藏状态后会显示在这里。',
+      _TrackingFilter.dropped =>
+        '当前本地媒体库快照还没有 Bangumi 抛弃收藏状态，后续同步到收藏状态后会显示在这里。',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      Icons.bookmark_add_outlined,
+                      color: theme.primary.withValues(alpha: 0.7),
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _description,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.62),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: <Widget>[
+                        ElevatedButton.icon(
+                          onPressed: onOpenLibrary,
+                          icon: const Icon(Icons.video_library_outlined),
+                          label: const Text('打开本地媒体库'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primary,
+                            foregroundColor: theme.background,
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onOpenSettings,
+                          icon: const Icon(Icons.login),
+                          label: const Text('登录 Bangumi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.primary,
+                            side: BorderSide(color: theme.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TrackingItemCard extends StatelessWidget {
+  const _TrackingItemCard({
+    required this.item,
+    required this.theme,
+    required this.onOpenDetail,
+  });
+
+  final _TrackedBangumiItem item;
+  final ElainaThemeData theme;
+  final VoidCallback onOpenDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onOpenDetail,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: theme.background.withValues(alpha: 0.48),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Container(
+                      width: 42,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.primary.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.movie_filter_outlined,
+                        color: theme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.onSurface,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Bangumi ID: ${item.subjectId}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.onBackground.withValues(alpha: 0.55),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  item.progressLabel,
+                  style: TextStyle(
+                    color: theme.onBackground.withValues(alpha: 0.7),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: item.progress,
+                    minHeight: 6,
+                    backgroundColor: theme.border.withValues(alpha: 0.5),
+                    valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
