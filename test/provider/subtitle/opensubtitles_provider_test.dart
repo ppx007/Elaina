@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('concrete provider maps subtitle search through gateway', () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     final _FakeOpenSubtitlesTransport transport = _FakeOpenSubtitlesTransport(
       responses: <String, OpenSubtitlesApiResponse>{
         'GET /api/v1/subtitles?query=Frieren&languages=ja&season_number=1&episode_number=2':
@@ -66,18 +67,25 @@ void main() {
     expect(gateway.lastCacheKey, 'opensubtitles-search:frieren:ja:1:2');
     expect(gateway.lastCachePolicy, ProviderCachePolicy.networkFirst);
     expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse(
+          'https://api.test/api/v1/subtitles?query=Frieren&languages=ja&season_number=1&episode_number=2'),
+    );
+    expect(
       gateway.lastDeduplicationWindow,
       opensubtitlesRuntimeDeduplicationWindow,
     );
     expect(transport.requests.single.method, 'GET');
     expect(transport.requests.single.uri.path, opensubtitlesSubtitlesPath);
+    expect(transport.requests.single.proxyUrl, 'http://127.0.0.1:7890');
     expect(transport.requests.single.headers[opensubtitlesApiKeyHeader],
         'api-key-1');
   });
 
   test('concrete provider downloads subtitle files through provider candidate',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     final _FakeOpenSubtitlesTransport transport = _FakeOpenSubtitlesTransport(
       responses: <String, OpenSubtitlesApiResponse>{
         'POST /api/v1/download': const OpenSubtitlesApiResponse(
@@ -112,6 +120,10 @@ void main() {
     expect(file.cachedUri, Uri.parse('https://cdn.test/file/subtitle.srt'));
     expect(gateway.lastCacheKey, 'opensubtitles-file:1001');
     expect(gateway.lastCachePolicy, ProviderCachePolicy.networkFirst);
+    expect(gateway.networkPolicyUris, <Uri>[
+      Uri.parse('https://api.test/api/v1/download'),
+      Uri.parse('https://cdn.test/file/subtitle.srt'),
+    ]);
     expect(
       gateway.lastDeduplicationWindow,
       opensubtitlesRuntimeDeduplicationWindow,
@@ -120,6 +132,7 @@ void main() {
     final OpenSubtitlesApiRequest downloadRequest = transport.requests.first;
     expect(downloadRequest.method, 'POST');
     expect(downloadRequest.uri.path, opensubtitlesDownloadPath);
+    expect(downloadRequest.proxyUrl, 'http://127.0.0.1:7890');
     expect(downloadRequest.headers[opensubtitlesApiKeyHeader], 'api-key-1');
     final Map<String, Object?> downloadBody =
         jsonDecode(downloadRequest.body!) as Map<String, Object?>;
@@ -128,6 +141,7 @@ void main() {
     final OpenSubtitlesApiRequest fileRequest = transport.requests.last;
     expect(fileRequest.method, 'GET');
     expect(fileRequest.uri.host, 'cdn.test');
+    expect(fileRequest.proxyUrl, 'http://127.0.0.1:7890');
     expect(fileRequest.headers.containsKey(opensubtitlesApiKeyHeader), isFalse);
   });
 
@@ -215,11 +229,16 @@ SubtitleProviderCandidate _candidate({required String reference}) {
 }
 
 final class _RecordingGateway implements ProviderGateway {
+  _RecordingGateway({this.proxyUrl});
+
   final DeterministicStorageFoundation _storage =
       DeterministicStorageFoundation();
+  final String? proxyUrl;
   String? lastCacheKey;
   ProviderCachePolicy? lastCachePolicy;
   Duration? lastDeduplicationWindow;
+  Uri? lastNetworkPolicyUri;
+  final List<Uri> networkPolicyUris = <Uri>[];
 
   @override
   StorageFoundation get storage => _storage;
@@ -234,8 +253,13 @@ final class _RecordingGateway implements ProviderGateway {
     lastCacheKey = request.key.cacheKey;
     lastCachePolicy = request.cachePolicy;
     lastDeduplicationWindow = request.deduplicationWindow;
+    lastNetworkPolicyUri = request.networkPolicyUri;
+    final Uri? networkPolicyUri = request.networkPolicyUri;
+    if (networkPolicyUri != null) networkPolicyUris.add(networkPolicyUri);
     return ProviderGatewayResponse<T>(
-      value: await request.load(),
+      value: await request.executeLoad(
+        ProviderGatewayRequestContext(proxyUrl: proxyUrl),
+      ),
       source: ProviderGatewayResponseSource.network,
     );
   }

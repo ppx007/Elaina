@@ -55,12 +55,14 @@ final class OpenSubtitlesApiRequest {
     required this.uri,
     this.headers = const <String, String>{},
     this.body,
+    this.proxyUrl,
   });
 
   final String method;
   final Uri uri;
   final Map<String, String> headers;
   final String? body;
+  final String? proxyUrl;
 }
 
 final class OpenSubtitlesApiResponse {
@@ -96,22 +98,48 @@ final class HttpOpenSubtitlesApiTransport implements OpenSubtitlesApiTransport {
       throw StateError(
           'OpenSubtitles request blocked by SSRF guard: ${risk.name} ${request.uri}');
     }
-    final HttpClientRequest httpRequest =
-        await _httpClient.openUrl(request.method, request.uri);
-    for (final MapEntry<String, String> header in request.headers.entries) {
-      httpRequest.headers.set(header.key, header.value);
-    }
-    final String? body = request.body;
-    if (body != null) {
-      httpRequest.write(body);
-    }
+    final HttpClient client = _clientFor(request.proxyUrl);
+    try {
+      final HttpClientRequest httpRequest =
+          await client.openUrl(request.method, request.uri);
+      for (final MapEntry<String, String> header in request.headers.entries) {
+        httpRequest.headers.set(header.key, header.value);
+      }
+      final String? body = request.body;
+      if (body != null) {
+        httpRequest.write(body);
+      }
 
-    final HttpClientResponse response = await httpRequest.close();
-    final String responseBody = await response.transform(utf8.decoder).join();
-    return OpenSubtitlesApiResponse(
-      statusCode: response.statusCode,
-      body: responseBody,
-    );
+      final HttpClientResponse response = await httpRequest.close();
+      final String responseBody = await response.transform(utf8.decoder).join();
+      return OpenSubtitlesApiResponse(
+        statusCode: response.statusCode,
+        body: responseBody,
+      );
+    } finally {
+      if (!identical(client, _httpClient)) client.close(force: true);
+    }
+  }
+
+  HttpClient _clientFor(String? proxyUrl) {
+    if (proxyUrl == null || proxyUrl.trim().isEmpty) return _httpClient;
+    final String? proxyConfig = _proxyConfig(proxyUrl);
+    if (proxyConfig == null) return _httpClient;
+    final HttpClient client = HttpClient();
+    client.findProxy = (_) => proxyConfig;
+    return client;
+  }
+
+  String? _proxyConfig(String proxyUrl) {
+    final String trimmed = proxyUrl.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'direct') return 'DIRECT';
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) {
+      return trimmed.contains(':') ? 'PROXY $trimmed' : null;
+    }
+    final int port = uri.hasPort ? uri.port : 80;
+    return 'PROXY ${uri.host}:$port';
   }
 }
 
@@ -125,14 +153,24 @@ final class OpenSubtitlesApiClient {
   final OpenSubtitlesApiTransport _transport;
   final Uri _baseUri;
 
+  Uri searchSubtitlesRequestUri(SubtitleSearchQuery query) {
+    return _uri(opensubtitlesSubtitlesPath, _searchQueryParameters(query));
+  }
+
+  Uri retrieveSubtitleRequestUri() {
+    return _uri(opensubtitlesDownloadPath);
+  }
+
   Future<List<SubtitleProviderCandidate>> searchSubtitles({
     required SubtitleSearchQuery query,
     required OpenSubtitlesApiConfig config,
+    String? proxyUrl,
   }) async {
     final Object? json = await _sendJson(
       'GET',
-      _uri(opensubtitlesSubtitlesPath, _searchQueryParameters(query)),
+      searchSubtitlesRequestUri(query),
       config: config,
+      proxyUrl: proxyUrl,
     );
     final Map<String, Object?> object =
         _jsonObject(json, 'OpenSubtitles search');
@@ -150,6 +188,25 @@ final class OpenSubtitlesApiClient {
   Future<RetrievedSubtitleFile> retrieveSubtitle({
     required SubtitleProviderCandidate candidate,
     required OpenSubtitlesApiConfig config,
+    String? proxyUrl,
+  }) async {
+    final Uri fileUri = await retrieveSubtitleFileUri(
+      candidate: candidate,
+      config: config,
+      proxyUrl: proxyUrl,
+    );
+    return retrieveSubtitleFile(
+      candidate: candidate,
+      fileUri: fileUri,
+      config: config,
+      proxyUrl: proxyUrl,
+    );
+  }
+
+  Future<Uri> retrieveSubtitleFileUri({
+    required SubtitleProviderCandidate candidate,
+    required OpenSubtitlesApiConfig config,
+    String? proxyUrl,
   }) async {
     final int? fileId = int.tryParse(candidate.reference);
     if (fileId == null) {
@@ -162,8 +219,9 @@ final class OpenSubtitlesApiClient {
 
     final Object? json = await _sendJson(
       'POST',
-      _uri(opensubtitlesDownloadPath),
+      retrieveSubtitleRequestUri(),
       config: config,
+      proxyUrl: proxyUrl,
       body: <String, Object?>{opensubtitlesFileIdKey: fileId},
     );
     final Map<String, Object?> object =
@@ -176,12 +234,21 @@ final class OpenSubtitlesApiClient {
       );
     }
 
-    final Uri fileUri = Uri.parse(link);
+    return Uri.parse(link);
+  }
+
+  Future<RetrievedSubtitleFile> retrieveSubtitleFile({
+    required SubtitleProviderCandidate candidate,
+    required Uri fileUri,
+    required OpenSubtitlesApiConfig config,
+    String? proxyUrl,
+  }) async {
     final OpenSubtitlesApiResponse fileResponse = await _send(
       OpenSubtitlesApiRequest(
         method: 'GET',
         uri: fileUri,
         headers: _headers(config: config, hasBody: false, includeApiKey: false),
+        proxyUrl: proxyUrl,
       ),
     );
     if (fileResponse.statusCode < HttpStatus.ok ||
@@ -207,6 +274,7 @@ final class OpenSubtitlesApiClient {
     Uri uri, {
     required OpenSubtitlesApiConfig config,
     Map<String, Object?>? body,
+    String? proxyUrl,
   }) async {
     if (!config.hasApiKey) {
       throw const ProviderFailure(
@@ -221,6 +289,7 @@ final class OpenSubtitlesApiClient {
         uri: uri,
         headers: _headers(config: config, hasBody: encodedBody != null),
         body: encodedBody,
+        proxyUrl: proxyUrl,
       ),
     );
     if (response.statusCode < HttpStatus.ok ||
@@ -354,36 +423,66 @@ final class OpenSubtitlesProvider
     return _execute<List<SubtitleProviderCandidate>>(
       key: requestKey(_searchCacheKey(query)),
       cachePolicy: cachePolicy.gatewayPolicy,
-      load: () => _client.searchSubtitles(query: query, config: _config),
+      networkPolicyUri: _client.searchSubtitlesRequestUri(query),
+      load: (ProviderGatewayRequestContext context) => _client.searchSubtitles(
+        query: query,
+        config: _config,
+        proxyUrl: context.proxyUrl,
+      ),
     );
   }
 
   @override
   Future<AcgProviderResult<RetrievedSubtitleFile>> retrieveSubtitle(
     SubtitleProviderCandidate candidate,
-  ) {
+  ) async {
+    final AcgProviderResult<Uri> link = await _execute<Uri>(
+      key: requestKey(_downloadLinkCacheKey(candidate)),
+      cachePolicy: ProviderCachePolicy.networkOnly,
+      networkPolicyUri: _client.retrieveSubtitleRequestUri(),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.retrieveSubtitleFileUri(
+        candidate: candidate,
+        config: _config,
+        proxyUrl: context.proxyUrl,
+      ),
+    );
+    if (link is AcgProviderFailure<Uri>) {
+      return AcgProviderFailure<RetrievedSubtitleFile>(
+        kind: link.kind,
+        message: link.message,
+      );
+    }
+    final Uri fileUri = (link as AcgProviderSuccess<Uri>).value;
     return _execute<RetrievedSubtitleFile>(
       key: requestKey(_retrieveCacheKey(candidate)),
       cachePolicy: cachePolicy.gatewayPolicy,
-      load: () => _client.retrieveSubtitle(
+      networkPolicyUri: fileUri,
+      load: (ProviderGatewayRequestContext context) =>
+          _client.retrieveSubtitleFile(
         candidate: candidate,
+        fileUri: fileUri,
         config: _config,
+        proxyUrl: context.proxyUrl,
       ),
     );
   }
 
   Future<AcgProviderResult<T>> _execute<T>({
     required ProviderRequestKey key,
-    required Future<T> Function() load,
+    required Future<T> Function(ProviderGatewayRequestContext context) load,
     required ProviderCachePolicy cachePolicy,
+    required Uri networkPolicyUri,
   }) async {
     try {
       final ProviderGatewayResponse<T> response =
           await gateway.execute<T>(ProviderGatewayRequest<T>(
         key: key,
-        load: load,
+        load: () => load(const ProviderGatewayRequestContext()),
+        loadWithContext: load,
         cachePolicy: cachePolicy,
         deduplicationWindow: opensubtitlesRuntimeDeduplicationWindow,
+        networkPolicyUri: networkPolicyUri,
       ));
       return AcgProviderSuccess<T>(response.value);
     } on ProviderFailure catch (failure) {
@@ -508,6 +607,10 @@ String _searchCacheKey(SubtitleSearchQuery query) {
 
 String _retrieveCacheKey(SubtitleProviderCandidate candidate) {
   return 'opensubtitles-file:${candidate.reference}';
+}
+
+String _downloadLinkCacheKey(SubtitleProviderCandidate candidate) {
+  return 'opensubtitles-download-link:${candidate.reference}';
 }
 
 void _throwFailureForStatus(int statusCode) {

@@ -6,7 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('runtime registers policy and routes match search comments and post',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     const DandanplayMatchCandidate candidate = DandanplayMatchCandidate(
       animeId: DandanplayAnimeId('anime-1017'),
       episodeId: DandanplayEpisodeId('episode-1'),
@@ -141,7 +142,8 @@ void main() {
 
   test('disposed runtime normalizes operations and rejects direct dispatch',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     final DandanplayProviderRuntime runtime = DandanplayProviderRuntime(
       gateway: gateway,
     );
@@ -287,7 +289,8 @@ void main() {
 
   test('concrete API provider maps match search comments and post via gateway',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final _RecordingGateway gateway =
+        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
     final _FakeDandanplayTransport transport = _FakeDandanplayTransport(
       responses: <String, DandanplayApiResponse>{
         'POST /api/v2/match': const DandanplayApiResponse(
@@ -342,9 +345,12 @@ void main() {
     expect(matched.confidence, dandanplayExactMatchConfidence);
     expect(gateway.registeredProviderId, dandanplayProviderId.value);
     expect(gateway.lastCacheKey, 'match:concrete - 07.mkv');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/api/v2/match'));
     final DandanplayApiRequest matchRequest = transport.requests.single;
     expect(matchRequest.method, 'POST');
     expect(matchRequest.uri.path, '/api/v2/match');
+    expect(matchRequest.proxyUrl, 'http://127.0.0.1:7890');
     final Map<String, Object?> matchBody =
         jsonDecode(matchRequest.body!) as Map<String, Object?>;
     expect(matchBody['fileName'], 'Concrete - 07.mkv');
@@ -360,6 +366,10 @@ void main() {
       'Search Anime - Search Ep',
     );
     expect(gateway.lastCacheKey, 'search:concrete');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/api/v2/search/episodes?anime=Concrete'),
+    );
     expect(transport.requests.last.uri.path, '/api/v2/search/episodes');
 
     final AcgProviderResult<List<DandanplayComment>> comments =
@@ -371,6 +381,11 @@ void main() {
     expect(comment.mode, DandanplayCommentMode.scrolling);
     expect(comment.colorArgb, 16777215);
     expect(gateway.lastCacheKey, 'comments:7');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse(
+          'https://api.test/api/v2/comment/7?from=0&withRelated=true&chConvert=0'),
+    );
 
     final AcgProviderResult<void> post = await runtime.postComment(
       const DandanplayCommentPost(
@@ -385,6 +400,10 @@ void main() {
     );
     expect(post, isA<AcgProviderSuccess<void>>());
     expect(gateway.lastCacheKey, startsWith('post-comment:7:12340:'));
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/api/v2/comment/7'),
+    );
     final DandanplayApiRequest postRequest = transport.requests.last;
     expect(postRequest.headers['authorization'], 'Bearer token-1');
     expect(postRequest.headers['X-AppId'], 'app-1');
@@ -482,11 +501,15 @@ void main() {
 }
 
 final class _RecordingGateway implements ProviderGateway {
+  _RecordingGateway({this.proxyUrl});
+
   final DeterministicStorageFoundation _storage =
       DeterministicStorageFoundation();
+  final String? proxyUrl;
   String? registeredProviderId;
   String? lastCacheKey;
   ProviderCachePolicy? lastCachePolicy;
+  Uri? lastNetworkPolicyUri;
 
   @override
   StorageFoundation get storage => _storage;
@@ -502,8 +525,11 @@ final class _RecordingGateway implements ProviderGateway {
   ) async {
     lastCacheKey = request.key.cacheKey;
     lastCachePolicy = request.cachePolicy;
+    lastNetworkPolicyUri = request.networkPolicyUri;
     return ProviderGatewayResponse<T>(
-      value: await request.load(),
+      value: await request.executeLoad(
+        ProviderGatewayRequestContext(proxyUrl: proxyUrl),
+      ),
       source: ProviderGatewayResponseSource.network,
     );
   }

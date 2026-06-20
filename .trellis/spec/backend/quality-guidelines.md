@@ -54,6 +54,9 @@ Questions to answer:
   `context.proxyUrl` when the transport supports proxying.
 - Auth/profile requests that can change with credentials should not rely on a
   stale deduplication window after credentials change.
+- Multi-hop provider flows must route each outbound URI through the gateway.
+  If an API response returns a CDN/file URL, fetch that URL in a second
+  `ProviderGatewayRequest` with `networkPolicyUri` set to the returned URL.
 
 #### 4. Validation & Error Matrix
 
@@ -63,15 +66,21 @@ Questions to answer:
   but HTTP transport still goes direct.
 - Credential-sensitive session request uses a stale dedupe cache -> user avatar
   or identity can remain from the previous token.
+- Dynamic second-hop URL fetched inside the first loader -> SSRF/network policy
+  cannot evaluate the returned host.
 
 #### 5. Good/Base/Bad Cases
 
 - Good: Bangumi API provider passes `/v0/me` as `networkPolicyUri`, uses
   `loadWithContext`, forwards `proxyUrl`, and disables session dedupe.
+- Good: OpenSubtitles first requests `/api/v1/download` through the gateway,
+  then fetches the returned subtitle file URL through a second gateway request.
 - Base: Deterministic test providers may omit network policy fields when they
   do not perform outbound HTTP.
 - Bad: Production provider executes `load: () => client.fetch()` with no URI
   and no context, because gateway policy cannot see or shape the request.
+- Bad: Production provider downloads a response-provided CDN URL inside the
+  same loader that requested the API metadata.
 
 #### 6. Tests Required
 
@@ -79,6 +88,8 @@ Questions to answer:
 - Assert proxy context reaches the recorded transport request.
 - Assert credential-sensitive session requests use `networkOnly` and
   `Duration.zero` deduplication when immediate refresh is required.
+- For multi-hop flows, assert the gateway sees both the API URI and the
+  response-provided file/CDN URI in order.
 
 #### 7. Wrong vs Correct
 

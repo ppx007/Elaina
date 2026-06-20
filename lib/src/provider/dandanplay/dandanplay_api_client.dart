@@ -58,12 +58,14 @@ final class DandanplayApiRequest {
     required this.uri,
     this.headers = const <String, String>{},
     this.body,
+    this.proxyUrl,
   });
 
   final String method;
   final Uri uri;
   final Map<String, String> headers;
   final String? body;
+  final String? proxyUrl;
 }
 
 final class DandanplayApiResponse {
@@ -97,22 +99,48 @@ final class HttpDandanplayApiTransport implements DandanplayApiTransport {
       throw StateError(
           'Dandanplay request blocked by SSRF guard: ${risk.name} ${request.uri}');
     }
-    final HttpClientRequest httpRequest =
-        await _httpClient.openUrl(request.method, request.uri);
-    for (final MapEntry<String, String> header in request.headers.entries) {
-      httpRequest.headers.set(header.key, header.value);
-    }
-    final String? body = request.body;
-    if (body != null) {
-      httpRequest.write(body);
-    }
+    final HttpClient client = _clientFor(request.proxyUrl);
+    try {
+      final HttpClientRequest httpRequest =
+          await client.openUrl(request.method, request.uri);
+      for (final MapEntry<String, String> header in request.headers.entries) {
+        httpRequest.headers.set(header.key, header.value);
+      }
+      final String? body = request.body;
+      if (body != null) {
+        httpRequest.write(body);
+      }
 
-    final HttpClientResponse response = await httpRequest.close();
-    final String responseBody = await response.transform(utf8.decoder).join();
-    return DandanplayApiResponse(
-      statusCode: response.statusCode,
-      body: responseBody,
-    );
+      final HttpClientResponse response = await httpRequest.close();
+      final String responseBody = await response.transform(utf8.decoder).join();
+      return DandanplayApiResponse(
+        statusCode: response.statusCode,
+        body: responseBody,
+      );
+    } finally {
+      if (!identical(client, _httpClient)) client.close(force: true);
+    }
+  }
+
+  HttpClient _clientFor(String? proxyUrl) {
+    if (proxyUrl == null || proxyUrl.trim().isEmpty) return _httpClient;
+    final String? proxyConfig = _proxyConfig(proxyUrl);
+    if (proxyConfig == null) return _httpClient;
+    final HttpClient client = HttpClient();
+    client.findProxy = (_) => proxyConfig;
+    return client;
+  }
+
+  String? _proxyConfig(String proxyUrl) {
+    final String trimmed = proxyUrl.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'direct') return 'DIRECT';
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) {
+      return trimmed.contains(':') ? 'PROXY $trimmed' : null;
+    }
+    final int port = uri.hasPort ? uri.port : 80;
+    return 'PROXY ${uri.host}:$port';
   }
 }
 
@@ -129,16 +157,42 @@ final class DandanplayApiClient {
   final Uri _baseUri;
   final String _userAgent;
 
+  Uri matchLocalMediaRequestUri() => _uri('/api/v2/match');
+
+  Uri searchRequestUri(String query) {
+    return _uri(
+      '/api/v2/search/episodes',
+      <String, String>{'anime': query.trim()},
+    );
+  }
+
+  Uri commentsForEpisodeRequestUri(DandanplayEpisodeId episodeId) {
+    return _uri(
+      '/api/v2/comment/${Uri.encodeComponent(episodeId.value)}',
+      const <String, String>{
+        'from': '$dandanplayCommentsFromOffset',
+        'withRelated': '$dandanplayCommentsWithRelated',
+        'chConvert': '$dandanplayCommentsChineseConversionNone',
+      },
+    );
+  }
+
+  Uri postCommentRequestUri(DandanplayCommentPost post) {
+    return _uri('/api/v2/comment/${Uri.encodeComponent(post.episodeId.value)}');
+  }
+
   Future<List<DandanplayMatchCandidate>> matchLocalMedia(
-    String filename,
-  ) async {
+    String filename, {
+    String? proxyUrl,
+  }) async {
     final String normalizedFilename = filename.trim();
     if (normalizedFilename.isEmpty) {
       return const <DandanplayMatchCandidate>[];
     }
     final Object? json = await _sendJson(
       'POST',
-      _uri('/api/v2/match'),
+      matchLocalMediaRequestUri(),
+      proxyUrl: proxyUrl,
       body: <String, Object?>{
         'fileName': normalizedFilename,
         'matchMode': dandanplayMatchModeFileNameOnly,
@@ -161,17 +215,18 @@ final class DandanplayApiClient {
         .toList(growable: false);
   }
 
-  Future<List<DandanplayMatchCandidate>> search(String query) async {
+  Future<List<DandanplayMatchCandidate>> search(
+    String query, {
+    String? proxyUrl,
+  }) async {
     final String normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) {
       return const <DandanplayMatchCandidate>[];
     }
     final Object? json = await _sendJson(
       'GET',
-      _uri(
-        '/api/v2/search/episodes',
-        <String, String>{'anime': normalizedQuery},
-      ),
+      searchRequestUri(normalizedQuery),
+      proxyUrl: proxyUrl,
     );
     final Map<String, Object?> object = _jsonObject(json, 'Dandanplay search');
     _throwIfApiFailure(object, 'Dandanplay search');
@@ -207,18 +262,13 @@ final class DandanplayApiClient {
   }
 
   Future<List<DandanplayComment>> commentsForEpisode(
-    DandanplayEpisodeId episodeId,
-  ) async {
+    DandanplayEpisodeId episodeId, {
+    String? proxyUrl,
+  }) async {
     final Object? json = await _sendJson(
       'GET',
-      _uri(
-        '/api/v2/comment/${Uri.encodeComponent(episodeId.value)}',
-        const <String, String>{
-          'from': '$dandanplayCommentsFromOffset',
-          'withRelated': '$dandanplayCommentsWithRelated',
-          'chConvert': '$dandanplayCommentsChineseConversionNone',
-        },
-      ),
+      commentsForEpisodeRequestUri(episodeId),
+      proxyUrl: proxyUrl,
     );
     final Map<String, Object?> object =
         _jsonObject(json, 'Dandanplay comments');
@@ -233,11 +283,13 @@ final class DandanplayApiClient {
   Future<void> postComment({
     required DandanplayCommentPost post,
     required DandanplayApiCredentials credentials,
+    String? proxyUrl,
   }) async {
     await _sendJson(
       'POST',
-      _uri('/api/v2/comment/${Uri.encodeComponent(post.episodeId.value)}'),
+      postCommentRequestUri(post),
       credentials: credentials,
+      proxyUrl: proxyUrl,
       body: <String, Object?>{
         'time': post.comment.timestamp.inMilliseconds /
             dandanplayMillisecondsPerSecond,
@@ -255,6 +307,7 @@ final class DandanplayApiClient {
     DandanplayApiCredentials? credentials,
     Map<String, Object?>? body,
     bool allowEmptySuccessBody = false,
+    String? proxyUrl,
   }) async {
     final String? encodedBody = body == null ? null : jsonEncode(body);
     final DandanplayApiResponse response;
@@ -266,6 +319,7 @@ final class DandanplayApiClient {
           headers:
               _headers(credentials: credentials, hasBody: encodedBody != null),
           body: encodedBody,
+          proxyUrl: proxyUrl,
         ),
       );
     } on ProviderFailure {
@@ -385,7 +439,9 @@ final class DandanplayApiProvider
     return _execute<List<DandanplayMatchCandidate>>(
       key: dandanplayMatchRequestKey(filename),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.matchLocalMedia(filename),
+      networkPolicyUri: _client.matchLocalMediaRequestUri(),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.matchLocalMedia(filename, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -396,7 +452,9 @@ final class DandanplayApiProvider
     return _execute<List<DandanplayMatchCandidate>>(
       key: dandanplaySearchRequestKey(query),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.search(query),
+      networkPolicyUri: _client.searchRequestUri(query),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.search(query, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -407,7 +465,9 @@ final class DandanplayApiProvider
     return _execute<List<DandanplayComment>>(
       key: dandanplayCommentsRequestKey(episodeId),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      load: () => _client.commentsForEpisode(episodeId),
+      networkPolicyUri: _client.commentsForEpisodeRequestUri(episodeId),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.commentsForEpisode(episodeId, proxyUrl: context.proxyUrl),
     );
   }
 
@@ -425,21 +485,29 @@ final class DandanplayApiProvider
     return _execute<void>(
       key: dandanplayPostCommentRequestKey(post),
       cachePolicy: ProviderCachePolicy.networkOnly,
-      load: () => _client.postComment(post: post, credentials: credentials),
+      networkPolicyUri: _client.postCommentRequestUri(post),
+      load: (ProviderGatewayRequestContext context) => _client.postComment(
+        post: post,
+        credentials: credentials,
+        proxyUrl: context.proxyUrl,
+      ),
     );
   }
 
   Future<AcgProviderResult<T>> _execute<T>({
     required ProviderRequestKey key,
-    required Future<T> Function() load,
+    required Future<T> Function(ProviderGatewayRequestContext context) load,
     required ProviderCachePolicy cachePolicy,
+    required Uri networkPolicyUri,
   }) async {
     try {
       final ProviderGatewayResponse<T> response = await gateway.execute<T>(
         dandanplayGatewayRequest<T>(
           key: key,
-          load: load,
+          load: () => load(const ProviderGatewayRequestContext()),
+          loadWithContext: load,
           cachePolicy: cachePolicy,
+          networkPolicyUri: networkPolicyUri,
         ),
       );
       return AcgProviderSuccess<T>(response.value);
