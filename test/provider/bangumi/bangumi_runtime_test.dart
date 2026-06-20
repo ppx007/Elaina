@@ -288,32 +288,18 @@ void main() {
         Uri.parse('https://api.test/v0/episodes/7'));
   });
 
-  test('concrete API client builds official OAuth authorization URI', () {
+  test('concrete API client exposes Bangumi token acquisition URI', () {
     final BangumiApiClient client = BangumiApiClient(
       transport: _FakeBangumiTransport(
           responses: const <String, BangumiApiResponse>{}),
       baseUri: Uri.parse('https://api.test'),
     );
 
-    final Uri uri = client.authorizationRequestUri(
-      oauthBaseUri: Uri.parse('https://bgm.test/base'),
-      redirectUri: Uri.parse('http://127.0.0.1:39117/callback'),
-      state: 'login-state',
-    );
+    final Uri uri = client.accessTokenPageUri();
 
     expect(uri.scheme, 'https');
-    expect(uri.host, 'bgm.test');
-    expect(uri.path, '/base/oauth/authorize');
-    expect(uri.queryParameters['client_id'], defaultBangumiOAuthClientId);
-    expect(
-      uri.queryParameters['response_type'],
-      bangumiOAuthAuthorizationCodeResponseType,
-    );
-    expect(
-      uri.queryParameters['redirect_uri'],
-      'http://127.0.0.1:39117/callback',
-    );
-    expect(uri.queryParameters['state'], 'login-state');
+    expect(uri.host, 'next.bgm.tv');
+    expect(uri.path, '/demo/access-token');
   });
 
   test('concrete API provider maps auth and progress with bearer token',

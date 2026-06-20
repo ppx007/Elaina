@@ -20,13 +20,11 @@ const int bangumiAnimeSubjectType = 2;
 const int bangumiEpisodeCollectionWish = 1;
 const int bangumiEpisodeCollectionDone = 2;
 const int bangumiEpisodeCollectionDropped = 3;
-const String defaultBangumiOAuthClientId = 'bgm63916a369e2af2ca6';
-const String bangumiOAuthAuthorizePath = '/oauth/authorize';
-const String bangumiOAuthAuthorizationCodeResponseType = 'code';
 const Duration bangumiApiSessionProjectionTtl = Duration(minutes: 15);
 
 final Uri defaultBangumiApiBaseUri = Uri.parse('https://api.bgm.tv');
-final Uri defaultBangumiOAuthBaseUri = Uri.parse('https://bgm.tv');
+final Uri defaultBangumiAccessTokenPageUri =
+    Uri.parse('https://next.bgm.tv/demo/access-token');
 
 typedef BangumiAccessTokenProvider = Future<BangumiApiAccessToken?> Function();
 
@@ -172,23 +170,8 @@ final class BangumiApiClient {
     return _uri('/v0/me');
   }
 
-  Uri authorizationRequestUri({
-    String clientId = defaultBangumiOAuthClientId,
-    Uri? oauthBaseUri,
-    Uri? redirectUri,
-    String? state,
-  }) {
-    final Map<String, String> query = <String, String>{
-      'client_id': clientId,
-      'response_type': bangumiOAuthAuthorizationCodeResponseType,
-      if (redirectUri != null) 'redirect_uri': redirectUri.toString(),
-      if (state != null && state.trim().isNotEmpty) 'state': state.trim(),
-    };
-    final Uri baseUri = oauthBaseUri ?? defaultBangumiOAuthBaseUri;
-    return baseUri.replace(
-      path: _joinedPath(baseUri.path, bangumiOAuthAuthorizePath),
-      queryParameters: query,
-    );
+  Uri accessTokenPageUri({Uri? tokenPageUri}) {
+    return tokenPageUri ?? defaultBangumiAccessTokenPageUri;
   }
 
   Uri syncProgressRequestUri(BangumiProgressUpdate update) {

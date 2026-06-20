@@ -171,7 +171,7 @@ final class _RecordingBangumiLoginController implements BangumiLoginController {
   @override
   Future<BangumiLoginStartResult> startLogin() async {
     return BangumiLoginStartResult.opened(
-      Uri.parse('https://bgm.tv/oauth/authorize'),
+      Uri.parse('https://next.bgm.tv/demo/access-token'),
     );
   }
 

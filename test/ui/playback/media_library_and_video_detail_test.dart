@@ -842,7 +842,7 @@ void main() {
       await invalidationBus.close();
     });
 
-    testWidgets('Bangumi login action starts authorization flow',
+    testWidgets('Bangumi login action opens token acquisition page',
         (WidgetTester tester) async {
       final _RecordingCacheInvalidationBus invalidationBus =
           _RecordingCacheInvalidationBus();
@@ -921,9 +921,9 @@ void main() {
       expect(bangumiLoginController.startLoginCalls, 1);
       expect(
         bangumiLoginController.openedUri,
-        Uri.parse('https://bgm.tv/oauth/authorize'),
+        defaultBangumiAccessTokenPageUri,
       );
-      expect(find.text('已打开 Bangumi 登录页面'), findsOneWidget);
+      expect(find.text('已打开 Bangumi token 获取页面'), findsOneWidget);
 
       libraryRuntime.dispose();
       await invalidationBus.close();
@@ -1071,7 +1071,7 @@ final class _RecordingBangumiLoginController implements BangumiLoginController {
   @override
   Future<BangumiLoginStartResult> startLogin() async {
     startLoginCalls++;
-    openedUri = Uri.parse('https://bgm.tv/oauth/authorize');
+    openedUri = defaultBangumiAccessTokenPageUri;
     return BangumiLoginStartResult.opened(openedUri!);
   }
 

@@ -9,33 +9,33 @@ enum BangumiLoginStartStatus {
 final class BangumiLoginStartResult {
   const BangumiLoginStartResult._({
     required this.status,
-    required this.authorizationUri,
+    required this.openedUri,
     required this.message,
   });
 
-  const BangumiLoginStartResult.opened(Uri authorizationUri)
+  const BangumiLoginStartResult.opened(Uri openedUri)
       : this._(
           status: BangumiLoginStartStatus.opened,
-          authorizationUri: authorizationUri,
+          openedUri: openedUri,
           message: null,
         );
 
   const BangumiLoginStartResult.unavailable(String message)
       : this._(
           status: BangumiLoginStartStatus.unavailable,
-          authorizationUri: null,
+          openedUri: null,
           message: message,
         );
 
   const BangumiLoginStartResult.failed(String message)
       : this._(
           status: BangumiLoginStartStatus.failed,
-          authorizationUri: null,
+          openedUri: null,
           message: message,
         );
 
   final BangumiLoginStartStatus status;
-  final Uri? authorizationUri;
+  final Uri? openedUri;
   final String? message;
 }
 

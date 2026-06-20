@@ -155,7 +155,7 @@ class AppComposition {
     bangumiLoginController = _BangumiLoginController(
       settingsRuntime: settingsRuntime,
       authProvider: bangumiAuthProvider,
-      authorizationUri: bangumiApiClient.authorizationRequestUri(),
+      tokenAcquisitionUri: bangumiApiClient.accessTokenPageUri(),
       openExternalUri: const _SystemExternalUriLauncher().open,
     );
 
@@ -222,30 +222,30 @@ final class _BangumiLoginController implements BangumiLoginController {
   const _BangumiLoginController({
     required SettingsRuntime settingsRuntime,
     required BangumiAuthProvider authProvider,
-    required Uri authorizationUri,
+    required Uri tokenAcquisitionUri,
     required _OpenExternalUri openExternalUri,
   })  : _settingsRuntime = settingsRuntime,
         _authProvider = authProvider,
-        _authorizationUri = authorizationUri,
+        _tokenAcquisitionUri = tokenAcquisitionUri,
         _openExternalUri = openExternalUri;
 
   final SettingsRuntime _settingsRuntime;
   final BangumiAuthProvider _authProvider;
-  final Uri _authorizationUri;
+  final Uri _tokenAcquisitionUri;
   final _OpenExternalUri _openExternalUri;
 
   @override
   Future<BangumiLoginStartResult> startLogin() async {
     try {
-      final bool opened = await _openExternalUri(_authorizationUri);
+      final bool opened = await _openExternalUri(_tokenAcquisitionUri);
       if (!opened) {
         return const BangumiLoginStartResult.unavailable(
           '无法打开系统浏览器。',
         );
       }
-      return BangumiLoginStartResult.opened(_authorizationUri);
+      return BangumiLoginStartResult.opened(_tokenAcquisitionUri);
     } catch (error) {
-      return BangumiLoginStartResult.failed('打开 Bangumi 登录页失败: $error');
+      return BangumiLoginStartResult.failed('打开 Bangumi token 获取页失败: $error');
     }
   }
 
