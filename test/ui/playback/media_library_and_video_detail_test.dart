@@ -101,11 +101,15 @@ Widget _testHost({required Widget child}) {
   );
 }
 
-MediaScanCandidate _candidate(String mediaId, String basename) {
+MediaScanCandidate _candidate(
+  String mediaId,
+  String basename, {
+  String directoryPath = 'D:/media',
+}) {
   return MediaScanCandidate(
     identity: LocalMediaIdentity(
       id: LocalMediaId(mediaId),
-      uri: Uri.parse('file:///D:/media/$basename'),
+      uri: Uri.directory(directoryPath).resolve(basename),
       basename: basename,
     ),
     sizeBytes: 1024 * 1024,
@@ -163,6 +167,7 @@ void main() {
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
               playbackController: playbackController,
+              settingsRuntime: FakeSettingsRuntime(),
               onNavigateToDetail: (_) {},
             ),
           ),
@@ -184,6 +189,79 @@ void main() {
       expect(find.text('已索引内容 (2)'), findsOneWidget);
       expect(find.text('episode-1.mkv'), findsOneWidget);
       expect(find.text('episode-2.mkv'), findsOneWidget);
+
+      runtime.dispose();
+      await invalidationBus.close();
+    });
+
+    testWidgets('allows adding media library folder path before scanning',
+        (WidgetTester tester) async {
+      final DateTime now = DateTime.utc(2026, 6, 19, 12);
+      const String selectedFolderPath = 'D:\\anime';
+      final DeterministicMediaLibraryCatalogRepository catalogRepo =
+          DeterministicMediaLibraryCatalogRepository();
+      final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+      final _RecordingCacheInvalidationBus invalidationBus =
+          _RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime runtime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: <MediaScanCandidate>[
+            _candidate(
+              'anime-media-1',
+              'anime-episode-1.mkv',
+              directoryPath: selectedFolderPath,
+            ),
+          ],
+        ),
+        catalogRepository: catalogRepo,
+        importer: DeterministicMediaBatchImportContract(
+          repository: catalogRepo,
+          clock: () => now,
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+        now: () => now,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: MediaLibraryPage(
+              mediaLibraryRuntime: runtime,
+              playbackController: playbackController,
+              settingsRuntime: settingsRuntime,
+              directoryPathPicker: () async => selectedFolderPath,
+              onNavigateToDetail: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('添加文件夹'));
+      await tester.pump();
+      expect(find.textContaining('anime'), findsOneWidget);
+      expect(
+        await settingsRuntime
+            .getPreference(SettingsPreferenceKeys.mediaLibraryRoots),
+        contains('anime'),
+      );
+
+      await tester.tap(find.text('扫描本地库'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已索引内容 (1)'), findsOneWidget);
+      expect(find.text('anime-episode-1.mkv'), findsOneWidget);
 
       runtime.dispose();
       await invalidationBus.close();

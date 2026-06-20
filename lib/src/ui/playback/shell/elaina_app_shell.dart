@@ -947,6 +947,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     return MediaLibraryPage(
       mediaLibraryRuntime: widget.mediaLibraryRuntime,
       playbackController: widget.playbackController,
+      settingsRuntime: widget.settingsRuntime,
       onNavigateToDetail: (String idValue) {
         setState(() {
           _activeDetailId = VideoDetailId(idValue);

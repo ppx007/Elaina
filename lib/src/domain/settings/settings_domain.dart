@@ -5,6 +5,7 @@ import '../../foundation/storage/storage_contracts.dart';
 
 abstract final class SettingsPreferenceKeys {
   static const String bangumiAccessToken = 'bangumi_access_token';
+  static const String mediaLibraryRoots = 'media_library_roots';
 }
 
 abstract interface class SettingsRuntime {

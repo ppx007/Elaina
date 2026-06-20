@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -5,23 +7,37 @@ import '../../domain/media/media_library.dart';
 import '../../domain/media/media_library_runtime.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_source_handoff.dart';
+import '../../domain/settings/settings_domain.dart';
 import '../../foundation/constants.dart';
 import '../theme/elaina_theme.dart';
+
+typedef DirectoryPathPicker = Future<String?> Function();
 
 class MediaLibraryPage extends StatefulWidget {
   const MediaLibraryPage({
     super.key,
     required this.mediaLibraryRuntime,
     required this.playbackController,
+    required this.settingsRuntime,
     required this.onNavigateToDetail,
+    this.directoryPathPicker = _defaultDirectoryPathPicker,
   });
 
   final MediaLibraryRuntime mediaLibraryRuntime;
   final PlaybackControllerContract playbackController;
+  final SettingsRuntime settingsRuntime;
   final ValueChanged<String> onNavigateToDetail;
+  final DirectoryPathPicker directoryPathPicker;
 
   @override
   State<MediaLibraryPage> createState() => _MediaLibraryPageState();
+
+  static Future<String?> _defaultDirectoryPathPicker() {
+    return FilePicker.getDirectoryPath(
+      dialogTitle: '选择媒体库文件夹',
+      lockParentWindow: true,
+    );
+  }
 }
 
 class _MediaLibraryPageState extends State<MediaLibraryPage>
@@ -29,7 +45,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   static const String _selectedFileMediaIdPrefix = 'selected-file:';
 
   late MediaLibraryRuntimeSnapshot _snapshot;
-  final List<Uri> _configuredFolders = AppConstants.defaultMediaLibraryRoots
+  List<Uri> _configuredFolders = AppConstants.defaultMediaLibraryRoots
       .map((String p) => Uri.parse(p))
       .toList();
 
@@ -39,6 +55,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
     _snapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.mediaLibraryRuntime.addObserver(this);
     _refreshLibrary();
+    _loadConfiguredFolders();
   }
 
   @override
@@ -61,6 +78,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   }
 
   Future<void> _triggerScan() async {
+    if (_configuredFolders.isEmpty) {
+      return;
+    }
     final MediaScanScope scope = MediaScanScope(
       roots: _configuredFolders,
       extensions: AppConstants.supportedVideoExtensions,
@@ -68,7 +88,6 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
     final MediaLibraryActionResult<MediaScanResult> result =
         await widget.mediaLibraryRuntime.scan(scope);
     if (result.isSuccess && mounted) {
-      // Auto import newly discovered candidates for demonstration
       final List<MediaScanCandidate> candidates =
           result.value!.candidates.toList();
       if (candidates.isNotEmpty) {
@@ -77,6 +96,68 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
         await _refreshLibrary();
       }
     }
+  }
+
+  Future<void> _loadConfiguredFolders() async {
+    final String? rawValue = await widget.settingsRuntime
+        .getPreference(SettingsPreferenceKeys.mediaLibraryRoots);
+    if (!mounted || rawValue == null || rawValue.trim().isEmpty) {
+      return;
+    }
+    final List<Uri>? loadedFolders = _decodeConfiguredFolders(rawValue);
+    if (loadedFolders == null) {
+      return;
+    }
+    setState(() {
+      _configuredFolders = loadedFolders;
+    });
+  }
+
+  Future<void> _persistConfiguredFolders() {
+    return widget.settingsRuntime.setPreference(
+      key: SettingsPreferenceKeys.mediaLibraryRoots,
+      value: jsonEncode(<String>[
+        for (final Uri folder in _configuredFolders) folder.toString(),
+      ]),
+    );
+  }
+
+  Future<void> _pickAndAddFolder() async {
+    try {
+      final String? selectedPath = await widget.directoryPathPicker();
+      final Uri? selectedFolder = _directoryUriFromPath(selectedPath);
+      if (selectedFolder == null || _containsConfiguredFolder(selectedFolder)) {
+        return;
+      }
+      setState(() {
+        _configuredFolders = <Uri>[..._configuredFolders, selectedFolder];
+      });
+      await _persistConfiguredFolders();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('选择文件夹出错: $error')),
+      );
+    }
+  }
+
+  Future<void> _removeConfiguredFolder(Uri folder) async {
+    setState(() {
+      _configuredFolders = <Uri>[
+        for (final Uri configuredFolder in _configuredFolders)
+          if (!_sameFolder(configuredFolder, folder)) configuredFolder,
+      ];
+    });
+    await _persistConfiguredFolders();
+  }
+
+  bool _containsConfiguredFolder(Uri folder) {
+    for (final Uri configuredFolder in _configuredFolders) {
+      if (_sameFolder(configuredFolder, folder)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _playItem(MediaLibraryItemId id) async {
@@ -147,6 +228,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
     final ElainaThemeData theme = ElainaTheme.of(context);
     final bool isScanning =
         _snapshot.status == MediaLibraryRuntimeStatus.scanning;
+    final bool canScan = !isScanning && _configuredFolders.isNotEmpty;
 
     // Get scanned count from progress changed events
     int progressCount = 0;
@@ -199,7 +281,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed: isScanning ? null : _triggerScan,
+                    onPressed: canScan ? _triggerScan : null,
                     icon: isScanning
                         ? const SizedBox(
                             width: 16,
@@ -241,18 +323,46 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  '配置的文件夹',
-                  style: TextStyle(
-                    color: theme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '配置的文件夹',
+                        style: TextStyle(
+                          color: theme.onSurface,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _pickAndAddFolder,
+                      icon: const Icon(Icons.create_new_folder_outlined),
+                      label: const Text('添加文件夹'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.primary,
+                        side: BorderSide(
+                          color: theme.primary.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const Divider(height: 24, color: Colors.white10),
+                if (_configuredFolders.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      '暂无文件夹',
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.58),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ..._configuredFolders.map((Uri root) {
                   final String displayPath = root.toFilePath();
-                  // Count matches starting with this root
                   final int itemsCount =
                       _snapshot.catalogItems.where((itemState) {
                     return itemState.item.identity.uri
@@ -291,21 +401,33 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: theme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$itemsCount 个视频',
-                            style: TextStyle(
-                              color: theme.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: theme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$itemsCount 个视频',
+                                style: TextStyle(
+                                  color: theme.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => _removeConfiguredFolder(root),
+                              icon: const Icon(Icons.delete_outline),
+                              color: theme.onBackground.withValues(alpha: 0.62),
+                              tooltip: '移除文件夹',
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -433,4 +555,43 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
       ),
     );
   }
+}
+
+List<Uri>? _decodeConfiguredFolders(String rawValue) {
+  try {
+    final Object? decoded = jsonDecode(rawValue);
+    if (decoded is! List<Object?>) {
+      return null;
+    }
+    final List<Uri> folders = <Uri>[];
+    for (final Object? value in decoded) {
+      if (value is! String) {
+        return null;
+      }
+      final Uri? uri = Uri.tryParse(value);
+      if (uri == null || !uri.isScheme('file')) {
+        return null;
+      }
+      folders.add(uri);
+    }
+    return folders;
+  } on FormatException {
+    return null;
+  }
+}
+
+Uri? _directoryUriFromPath(String? path) {
+  final String? trimmedPath = path?.trim();
+  if (trimmedPath == null || trimmedPath.isEmpty) {
+    return null;
+  }
+  return Uri.directory(trimmedPath);
+}
+
+bool _sameFolder(Uri left, Uri right) {
+  return _folderKey(left) == _folderKey(right);
+}
+
+String _folderKey(Uri uri) {
+  return uri.toString().toLowerCase();
 }
