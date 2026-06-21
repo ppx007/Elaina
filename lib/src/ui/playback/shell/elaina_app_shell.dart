@@ -80,9 +80,17 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _trackingGridMaxExtent = 360;
   static const double _trackingGridAspectRatio = 1.55;
   static const double _completedProgressThreshold = 0.98;
-  static const int _homeRecommendationGridLimit = 3;
+  static const int _homeHeroRecommendationLimit = 7;
   static const double _recommendationThreeColumnWidth = 900;
   static const double _recommendationTwoColumnWidth = 560;
+  static const double _recommendationWaterfallGap = 24;
+  static const List<double> _recommendationWaterfallCardHeights = <double>[
+    220,
+    280,
+    248,
+    312,
+  ];
+  static const double _recentWatchingPanelHeight = 400;
   static const String _brandLogoAsset =
       'assets/brand/elaina_iconic_character_logo.png';
 
@@ -553,50 +561,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             HeroCarousel(
               autoScroll: widget.carouselAutoScroll,
               items: _heroItemsFromRecommendations(items),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(Icons.local_fire_department,
-                        color: theme.accentMagenta, size: 28),
-                    const SizedBox(width: 8),
-                    Text(
-                      '热门番剧',
-                      style: TextStyle(
-                        color: theme.primary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _homeRecommendationFuture =
-                          widget.homeRecommendationProvider?.popularAnime();
-                    });
-                  },
-                  child: Text(
-                    '刷新排名',
-                    style: TextStyle(
-                      color: theme.primary.withValues(alpha: 0.8),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2.0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            HotUpdatesCarousel(
-              autoScroll: widget.carouselAutoScroll,
-              items: _hotUpdateItemsFromRecommendations(items),
               onOpenDetail: _openDetail,
             ),
+            const SizedBox(height: 32),
+            _buildRecentWatchingSection(theme),
             const SizedBox(height: 32),
             Text(
               '更多推荐',
@@ -607,11 +575,202 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               ),
             ),
             const SizedBox(height: 12),
-            _buildRecommendationsGrid(theme, items),
+            _buildRecommendationsWaterfall(theme, items),
           ],
         );
       },
     );
+  }
+
+  Widget _buildRecentWatchingSection(ElainaThemeData theme) {
+    return FutureBuilder<BangumiTrackingSnapshot>(
+      future: _trackingFuture,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<BangumiTrackingSnapshot> snapshot,
+      ) {
+        final BangumiTrackingSnapshot? trackingSnapshot = snapshot.data;
+        final bool isRefreshing =
+            snapshot.connectionState == ConnectionState.waiting;
+        final List<_TrackedBangumiItem> recentItems =
+            _recentWatchingItems(trackingSnapshot);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.history, color: theme.accentMagenta, size: 28),
+                    const SizedBox(width: 8),
+                    Text(
+                      '最近观看',
+                      style: TextStyle(
+                        color: theme.primary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: isRefreshing ? null : _refreshBangumiTracking,
+                  child: Text(
+                    '刷新',
+                    style: TextStyle(
+                      color: theme.primary.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildRecentWatchingContent(
+              theme,
+              trackingSnapshot,
+              recentItems,
+              isRefreshing: isRefreshing,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentWatchingContent(
+    ElainaThemeData theme,
+    BangumiTrackingSnapshot? trackingSnapshot,
+    List<_TrackedBangumiItem> recentItems, {
+    required bool isRefreshing,
+  }) {
+    if (isRefreshing && trackingSnapshot == null) {
+      return _buildRecentWatchingPanel(
+        theme,
+        child: CircularProgressIndicator(color: theme.primary),
+      );
+    }
+    if (_recentWatchingNeedsLogin(trackingSnapshot)) {
+      return _buildRecentWatchingPanel(
+        theme,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.login, color: theme.primary, size: 42),
+            const SizedBox(height: 12),
+            Text(
+              '请登录',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: _startBangumiLogin,
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('登录'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primary,
+                foregroundColor: theme.background,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (trackingSnapshot?.status == BangumiTrackingLoadStatus.failed) {
+      return _buildRecentWatchingPanel(
+        theme,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.sync_problem, color: theme.primary, size: 42),
+            const SizedBox(height: 12),
+            Text(
+              trackingSnapshot?.message ?? '最近观看同步失败',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (recentItems.isEmpty) {
+      return _buildRecentWatchingPanel(
+        theme,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.history_toggle_off, color: theme.primary, size: 42),
+            const SizedBox(height: 12),
+            Text(
+              '暂无最近观看',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return HotUpdatesCarousel(
+      autoScroll: widget.carouselAutoScroll,
+      items: _hotUpdateItemsFromRecentWatching(recentItems),
+      useFallbackItems: false,
+      onOpenDetail: _openDetail,
+    );
+  }
+
+  Widget _buildRecentWatchingPanel(
+    ElainaThemeData theme, {
+    required Widget child,
+  }) {
+    return SizedBox(
+      height: _recentWatchingPanelHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
+
+  bool _recentWatchingNeedsLogin(BangumiTrackingSnapshot? snapshot) {
+    return _trackingFuture == null ||
+        snapshot?.status == BangumiTrackingLoadStatus.unauthenticated;
+  }
+
+  List<_TrackedBangumiItem> _recentWatchingItems(
+    BangumiTrackingSnapshot? snapshot,
+  ) {
+    if (snapshot?.status != BangumiTrackingLoadStatus.loaded) {
+      return const <_TrackedBangumiItem>[];
+    }
+    return <_TrackedBangumiItem>[
+      for (final _TrackedBangumiItem item
+          in _remoteTrackedBangumiItems(snapshot!.items))
+        if (_isRecentWatchingCandidate(item)) item,
+    ];
+  }
+
+  bool _isRecentWatchingCandidate(_TrackedBangumiItem item) {
+    return item.hasProgress ||
+        item.watchedEpisodes > 0 ||
+        item.status == BangumiTrackingStatus.watching ||
+        item.status == BangumiTrackingStatus.completed;
   }
 
   List<HomeRecommendationItem> _loadedHomeRecommendationItems(
@@ -627,30 +786,45 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     List<HomeRecommendationItem> items,
   ) {
     return <HeroCarouselItem>[
-      for (final HomeRecommendationItem item in items)
+      for (final HomeRecommendationItem item
+          in items.take(_homeHeroRecommendationLimit))
         HeroCarouselItem(
+          subjectId: item.subjectId,
           title: item.title,
           symbol: _symbolForTitle(item.title),
           coverUri: item.coverUri,
-          rankingSentence: item.rankingSentence,
+          popularitySentence: item.popularitySentence,
         ),
     ];
   }
 
-  List<HotUpdateItem> _hotUpdateItemsFromRecommendations(
-    List<HomeRecommendationItem> items,
+  List<HotUpdateItem> _hotUpdateItemsFromRecentWatching(
+    List<_TrackedBangumiItem> items,
   ) {
     return <HotUpdateItem>[
-      for (final HomeRecommendationItem item in items)
+      for (final _TrackedBangumiItem item in items)
         HotUpdateItem(
           subjectId: item.subjectId,
           title: item.title,
-          tag: 'Bangumi 排名',
-          description: item.rankingSentence,
+          tag: item.statusLabel,
+          description: _recentWatchingDescription(item),
           symbol: _symbolForTitle(item.title),
           coverUri: item.coverUri,
         ),
     ];
+  }
+
+  String _recentWatchingDescription(_TrackedBangumiItem item) {
+    final DateTime? updatedAt = item.updatedAt;
+    if (updatedAt == null) return '进度 ${item.progressLabel}';
+    return '进度 ${item.progressLabel}，更新于 ${_formatShortDate(updatedAt)}';
+  }
+
+  String _formatShortDate(DateTime value) {
+    final DateTime localValue = value.toLocal();
+    final String month = localValue.month.toString().padLeft(2, '0');
+    final String day = localValue.day.toString().padLeft(2, '0');
+    return '$month-$day';
   }
 
   String _symbolForTitle(String title) {
@@ -754,45 +928,148 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
-  Widget _buildRecommendationsGrid(
+  Widget _buildRecommendationsWaterfall(
     ElainaThemeData theme,
     List<HomeRecommendationItem> items,
   ) {
-    final List<HomeRecommendationItem> visibleItems =
-        items.take(_homeRecommendationGridLimit).toList(growable: false);
-    final List<Widget> cards = visibleItems.isEmpty
-        ? <Widget>[
-            _buildRecCard(
-                '星际回响', '12 话全', 'Bangumi 热门番剧', 'SE', null, 0, theme),
-            _buildRecCard(
-                '霓虹协议', '更新至 08 话', 'Bangumi 热门番剧', 'NP', null, 1, theme),
-            _buildRecCard(
-                '绯红地平线', '24 话全', 'Bangumi 热门番剧', 'CH', null, 2, theme),
-          ]
-        : <Widget>[
-            for (int index = 0; index < visibleItems.length; index += 1)
-              _buildRecCard(
-                visibleItems[index].title,
-                _episodeLabel(visibleItems[index].episodeCount),
-                visibleItems[index].rankingSentence,
-                _symbolForTitle(visibleItems[index].title),
-                visibleItems[index].coverUri,
-                index,
-                theme,
-              ),
-          ];
+    final List<_RecommendationCardModel> cards =
+        _recommendationCardsFromItems(items);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        return GridView.count(
-          crossAxisCount: _recommendationColumnCount(constraints.maxWidth),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 24,
-          crossAxisSpacing: 24,
-          childAspectRatio: 1.5,
-          children: cards,
+        final int columnCount =
+            _recommendationColumnCount(constraints.maxWidth);
+        final List<List<int>> columns =
+            _recommendationWaterfallColumns(cards.length, columnCount);
+        return KeyedSubtree(
+          key: const ValueKey<String>('home-recommendation-waterfall'),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (int columnIndex = 0;
+                  columnIndex < columns.length;
+                  columnIndex += 1) ...<Widget>[
+                if (columnIndex > 0)
+                  const SizedBox(width: _recommendationWaterfallGap),
+                Expanded(
+                  child: Column(
+                    children: <Widget>[
+                      for (final int cardIndex in columns[columnIndex])
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: cardIndex == columns[columnIndex].last
+                                ? 0
+                                : _recommendationWaterfallGap,
+                          ),
+                          child: SizedBox(
+                            height: _recommendationWaterfallCardHeight(
+                              cardIndex,
+                            ),
+                            child: _buildRecommendationWaterfallCard(
+                              cards[cardIndex],
+                              cardIndex,
+                              theme,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         );
       },
+    );
+  }
+
+  List<_RecommendationCardModel> _recommendationCardsFromItems(
+    List<HomeRecommendationItem> items,
+  ) {
+    if (items.isEmpty) {
+      return const <_RecommendationCardModel>[
+        _RecommendationCardModel(
+          title: '星际回响',
+          subtitle: '12 话全',
+          rating: 'Bangumi 近期热门',
+          symbol: 'SE',
+        ),
+        _RecommendationCardModel(
+          title: '霓虹协议',
+          subtitle: '更新至 08 话',
+          rating: 'Bangumi 近期热门',
+          symbol: 'NP',
+        ),
+        _RecommendationCardModel(
+          title: '绯红地平线',
+          subtitle: '24 话全',
+          rating: 'Bangumi 近期热门',
+          symbol: 'CH',
+        ),
+      ];
+    }
+    return <_RecommendationCardModel>[
+      for (final HomeRecommendationItem item in items)
+        _RecommendationCardModel(
+          title: item.title,
+          subtitle: _episodeLabel(item.episodeCount),
+          rating: item.popularitySentence,
+          symbol: _symbolForTitle(item.title),
+          coverUri: item.coverUri,
+          subjectId: item.subjectId,
+        ),
+    ];
+  }
+
+  List<List<int>> _recommendationWaterfallColumns(
+    int cardCount,
+    int columnCount,
+  ) {
+    final List<List<int>> columns = <List<int>>[
+      for (int index = 0; index < columnCount; index += 1) <int>[],
+    ];
+    final List<double> columnHeights = List<double>.filled(columnCount, 0);
+    for (int cardIndex = 0; cardIndex < cardCount; cardIndex += 1) {
+      final int columnIndex = _shortestRecommendationColumn(columnHeights);
+      columns[columnIndex].add(cardIndex);
+      columnHeights[columnIndex] +=
+          _recommendationWaterfallCardHeight(cardIndex) +
+              _recommendationWaterfallGap;
+    }
+    return columns;
+  }
+
+  int _shortestRecommendationColumn(List<double> columnHeights) {
+    int shortestIndex = 0;
+    double shortestHeight = columnHeights.first;
+    for (int index = 1; index < columnHeights.length; index += 1) {
+      final double height = columnHeights[index];
+      if (height < shortestHeight) {
+        shortestIndex = index;
+        shortestHeight = height;
+      }
+    }
+    return shortestIndex;
+  }
+
+  double _recommendationWaterfallCardHeight(int index) {
+    return _recommendationWaterfallCardHeights[
+        index % _recommendationWaterfallCardHeights.length];
+  }
+
+  Widget _buildRecommendationWaterfallCard(
+    _RecommendationCardModel card,
+    int index,
+    ElainaThemeData theme,
+  ) {
+    return _buildRecCard(
+      title: card.title,
+      subtitle: card.subtitle,
+      rating: card.rating,
+      symbol: card.symbol,
+      coverUri: card.coverUri,
+      accentIndex: index,
+      theme: theme,
+      subjectId: card.subjectId,
     );
   }
 
@@ -808,95 +1085,105 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   }
 
   Widget _buildRecCard(
-    String title,
-    String subtitle,
-    String rating,
-    String symbol,
-    Uri? coverUri,
-    int accentIndex,
-    ElainaThemeData theme,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16.0),
-        border:
-            Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0),
-      ),
+      {required String title,
+      required String subtitle,
+      required String rating,
+      required String symbol,
+      required Uri? coverUri,
+      required int accentIndex,
+      required ElainaThemeData theme,
+      String? subjectId}) {
+    final bool canOpenDetail = subjectId != null;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16.0),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _RecommendationBackdrop(
-            symbol: symbol,
-            accentIndex: accentIndex,
-            theme: theme,
-            coverUri: coverUri,
+      child: InkWell(
+        mouseCursor:
+            canOpenDetail ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onTap: canOpenDetail ? () => _openDetail(subjectId) : null,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2), width: 1.0),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.8)
-                ],
-                stops: const [0.4, 1.0],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _RecommendationBackdrop(
+                symbol: symbol,
+                accentIndex: accentIndex,
+                theme: theme,
+                coverUri: coverUri,
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8)
+                    ],
+                    stops: const [0.4, 1.0],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 12,
-                        ),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        rating,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          color: theme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            rating,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: theme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1347,12 +1634,12 @@ final class _TrackedBangumiItem {
 
   String get progressLabel {
     if (totalEpisodes > 0) return '$watchedEpisodes / $totalEpisodes';
-    if (!hasProgress) return _statusLabel;
+    if (!hasProgress) return statusLabel;
     final int percent = (progress * 100).round().clamp(1, 100);
     return '已观看 $percent%';
   }
 
-  String get _statusLabel {
+  String get statusLabel {
     return switch (status) {
       BangumiTrackingStatus.planned => '想看',
       BangumiTrackingStatus.completed => '已看',
@@ -1371,6 +1658,24 @@ final class _LocalTrackingProgress {
 
   final double progress;
   final DateTime? updatedAt;
+}
+
+final class _RecommendationCardModel {
+  const _RecommendationCardModel({
+    required this.title,
+    required this.subtitle,
+    required this.rating,
+    required this.symbol,
+    this.coverUri,
+    this.subjectId,
+  });
+
+  final String title;
+  final String subtitle;
+  final String rating;
+  final String symbol;
+  final Uri? coverUri;
+  final String? subjectId;
 }
 
 class _BangumiAccountPill extends StatelessWidget {

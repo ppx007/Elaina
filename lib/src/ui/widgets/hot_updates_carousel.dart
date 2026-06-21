@@ -7,11 +7,13 @@ class HotUpdatesCarousel extends StatefulWidget {
     super.key,
     this.autoScroll = true,
     this.items = const <HotUpdateItem>[],
+    this.useFallbackItems = true,
     this.onOpenDetail,
   });
 
   final bool autoScroll;
   final List<HotUpdateItem> items;
+  final bool useFallbackItems;
   final ValueChanged<String>? onOpenDetail;
 
   @override
@@ -37,6 +39,7 @@ final class HotUpdateItem {
 }
 
 class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
+  static const double _carouselHeight = 400;
   static const double _compactWidthBreakpoint = 640;
   static const double _regularImageWidth = 300;
   static const double _compactImageWidth = 160;
@@ -70,8 +73,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
     ),
   ];
 
-  List<HotUpdateItem> get _items =>
-      widget.items.isEmpty ? _fallbackItems : widget.items;
+  List<HotUpdateItem> get _items => widget.items.isEmpty
+      ? widget.useFallbackItems
+          ? _fallbackItems
+          : const <HotUpdateItem>[]
+      : widget.items;
 
   @override
   void initState() {
@@ -132,11 +138,15 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
     final List<HotUpdateItem> items = _items;
     final bool hasProvidedItems = widget.items.isNotEmpty;
 
+    if (items.isEmpty) {
+      return const SizedBox(height: _carouselHeight);
+    }
+
     return Stack(
       alignment: Alignment.center,
       children: [
         SizedBox(
-          height: 400,
+          height: _carouselHeight,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -280,7 +290,7 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                                               BorderRadius.circular(24),
                                         ),
                                       ),
-                                      child: const Text('Bangumi 排名'),
+                                      child: const Text('Bangumi 热度'),
                                     ),
                                   ],
                                 ),

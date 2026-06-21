@@ -16,8 +16,9 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
-const int bangumiApiPopularAnimeLimit = 8;
+const int bangumiApiPopularAnimeLimit = 7;
 const int bangumiApiPopularAnimeOffset = 0;
+const String bangumiApiPopularAnimeSort = 'heat';
 const int bangumiApiEpisodePageLimit = 200;
 const int bangumiApiEpisodeInitialOffset = 0;
 const int bangumiApiCollectionPageLimit = 50;
@@ -181,7 +182,7 @@ final class BangumiApiClient {
       '/v0/subjects',
       <String, String>{
         'type': '$bangumiAnimeSubjectType',
-        'sort': 'rank',
+        'sort': bangumiApiPopularAnimeSort,
         'limit': '$limit',
         'offset': '$offset',
       },

@@ -7,10 +7,12 @@ class HeroCarousel extends StatefulWidget {
     super.key,
     this.autoScroll = true,
     this.items = const <HeroCarouselItem>[],
+    this.onOpenDetail,
   });
 
   final bool autoScroll;
   final List<HeroCarouselItem> items;
+  final ValueChanged<String>? onOpenDetail;
 
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
@@ -20,14 +22,16 @@ final class HeroCarouselItem {
   const HeroCarouselItem({
     required this.title,
     required this.symbol,
+    this.subjectId,
     this.coverUri,
-    this.rankingSentence,
+    this.popularitySentence,
   });
 
   final String title;
   final String symbol;
+  final String? subjectId;
   final Uri? coverUri;
-  final String? rankingSentence;
+  final String? popularitySentence;
 }
 
 class _HeroCarouselState extends State<HeroCarousel> {
@@ -99,90 +103,106 @@ class _HeroCarouselState extends State<HeroCarousel> {
         separatorBuilder: (context, index) => SizedBox(width: _itemGap),
         itemBuilder: (context, index) {
           final HeroCarouselItem item = items[index];
-          return Container(
+          final String? subjectId = item.subjectId;
+          final ValueChanged<String>? onOpenDetail = widget.onOpenDetail;
+          final bool canOpenDetail = subjectId != null && onOpenDetail != null;
+          return SizedBox(
             width: _itemWidth,
-            decoration: BoxDecoration(
+            child: Material(
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(16.0),
-              color: theme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _HeroPosterPlaceholder(
-                  symbol: item.symbol,
-                  index: index,
-                  coverUri: item.coverUri,
-                ),
-                Container(
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                mouseCursor: canOpenDetail
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                onTap: canOpenDetail ? () => onOpenDetail(subjectId) : null,
+                child: Ink(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.8),
-                      ],
-                      stops: const [0.5, 1.0],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 24,
-                  left: 24,
-                  right: 24,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(color: Colors.black54, blurRadius: 10)
-                          ],
-                        ),
+                    borderRadius: BorderRadius.circular(16.0),
+                    color: theme.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
-                      const SizedBox(height: 8),
-                      if (item.rankingSentence != null) ...<Widget>[
-                        Text(
-                          item.rankingSentence!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.78),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            shadows: const <Shadow>[
-                              Shadow(color: Colors.black54, blurRadius: 8),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _HeroPosterPlaceholder(
+                        symbol: item.symbol,
+                        index: index,
+                        coverUri: item.coverUri,
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.8),
                             ],
+                            stops: const [0.5, 1.0],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                      ],
-                      Container(
-                        height: 4,
-                        width: 48,
-                        decoration: BoxDecoration(
-                          color: theme.primary,
-                          borderRadius: BorderRadius.circular(2),
+                      ),
+                      Positioned(
+                        bottom: 24,
+                        left: 24,
+                        right: 24,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(color: Colors.black54, blurRadius: 10)
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (item.popularitySentence != null) ...<Widget>[
+                              Text(
+                                item.popularitySentence!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.78),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  shadows: const <Shadow>[
+                                    Shadow(
+                                        color: Colors.black54, blurRadius: 8),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            Container(
+                              height: 4,
+                              width: 48,
+                              decoration: BoxDecoration(
+                                color: theme.primary,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           );
         },

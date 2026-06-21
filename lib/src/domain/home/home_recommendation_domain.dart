@@ -46,10 +46,8 @@ final class HomeRecommendationItem {
   final int? collectionTotal;
   final int? episodeCount;
 
-  String get rankingSentence {
+  String get popularitySentence {
     final List<String> parts = <String>[];
-    final int? valueRank = rank;
-    if (valueRank != null) parts.add('Bangumi 排名 #$valueRank');
     final double? valueScore = score;
     if (valueScore != null) {
       parts.add('评分 ${valueScore.toStringAsFixed(1)}');
@@ -58,8 +56,8 @@ final class HomeRecommendationItem {
     if (valueCollectionTotal != null) {
       parts.add('$valueCollectionTotal 人收藏');
     }
-    if (parts.isEmpty) return 'Bangumi 热门番剧';
-    return '${parts.join('，')}。';
+    if (parts.isEmpty) return 'Bangumi 近期热门';
+    return 'Bangumi 近期热门，${parts.join('，')}。';
   }
 }
 

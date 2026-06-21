@@ -391,7 +391,7 @@ final class _BangumiHomeRecommendationProvider
     if (result is AcgProviderFailure<List<BangumiSubject>>) {
       return HomeRecommendationSnapshot.failed(result.message);
     }
-    return const HomeRecommendationSnapshot.failed('Bangumi 热门番剧状态未知。');
+    return const HomeRecommendationSnapshot.failed('Bangumi 近期热门状态未知。');
   }
 }
 

@@ -183,7 +183,7 @@ final class DeterministicBangumiProvider
       load: () async {
         final List<BangumiSubject> subjects = <BangumiSubject>[
           ..._subjects.values,
-        ]..sort(_compareSubjectsByRankThenTitle);
+        ]..sort(_compareSubjectsByPopularityThenTitle);
         return List<BangumiSubject>.unmodifiable(subjects);
       },
     );
@@ -247,14 +247,26 @@ final class DeterministicBangumiProvider
   }
 }
 
-int _compareSubjectsByRankThenTitle(BangumiSubject left, BangumiSubject right) {
-  final int? leftRank = left.rank;
-  final int? rightRank = right.rank;
-  if (leftRank != null && rightRank != null && leftRank != rightRank) {
-    return leftRank.compareTo(rightRank);
+int _compareSubjectsByPopularityThenTitle(
+  BangumiSubject left,
+  BangumiSubject right,
+) {
+  final int? leftCollections = left.collectionTotal;
+  final int? rightCollections = right.collectionTotal;
+  if (leftCollections != null &&
+      rightCollections != null &&
+      leftCollections != rightCollections) {
+    return rightCollections.compareTo(leftCollections);
   }
-  if (leftRank != null && rightRank == null) return -1;
-  if (leftRank == null && rightRank != null) return 1;
+  if (leftCollections != null && rightCollections == null) return -1;
+  if (leftCollections == null && rightCollections != null) return 1;
+  final double? leftScore = left.score;
+  final double? rightScore = right.score;
+  if (leftScore != null && rightScore != null && leftScore != rightScore) {
+    return rightScore.compareTo(leftScore);
+  }
+  if (leftScore != null && rightScore == null) return -1;
+  if (leftScore == null && rightScore != null) return 1;
   return left.title.compareTo(right.title);
 }
 
