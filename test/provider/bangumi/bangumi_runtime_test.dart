@@ -560,6 +560,113 @@ void main() {
     expect(uri.path, '/demo/access-token');
   });
 
+  test('concrete API provider uses Bangumi mirror API and image rewrite',
+      () async {
+    final DateTime now = DateTime.utc(2026, 6, 21);
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final FakeBangumiTransport transport = FakeBangumiTransport(
+      responses: <String, BangumiApiResponse>{
+        'GET /api/v0/subjects/42': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"id":42,"name":"Mirror","name_cn":"Mirror Title","images":{"large":"https://lain.bgm.tv/pic/cover/l/42.jpg"}}',
+        ),
+        'POST /api/v0/search/subjects?limit=20&offset=0':
+            const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"data":[{"id":43,"name":"External Image","images":{"large":"https://img.test/not-bangumi.jpg"}}]}',
+        ),
+        'GET /api/v0/me': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"username":"alice","nickname":"Alice","avatar":{"large":"https://lain.bgm.tv/pic/user/l/1.jpg"}}',
+        ),
+      },
+    );
+    final BangumiApiProvider provider = BangumiApiProvider(
+      gateway: gateway,
+      client: BangumiApiClient(
+        transport: transport,
+        mirrorConfigProvider: () async => BangumiApiMirrorConfig.enabled(
+          apiBaseUri: Uri.parse('https://mirror.test/api'),
+          imageBaseUri: Uri.parse('https://mirror.test/image'),
+        ),
+      ),
+      accessTokenProvider: () async => BangumiApiAccessToken(
+        value: 'token-1',
+        expiresAt: now.add(const Duration(hours: 1)),
+      ),
+      now: () => now,
+    );
+
+    final AcgProviderResult<BangumiSubject> subject =
+        await provider.lookupSubject(const BangumiSubjectId('42'));
+    final BangumiSubject mappedSubject =
+        (subject as AcgProviderSuccess<BangumiSubject>).value;
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://mirror.test/api/v0/subjects/42'),
+    );
+    expect(transport.requests.single.uri.host, 'mirror.test');
+    expect(transport.requests.single.uri.path, '/api/v0/subjects/42');
+    expect(
+      mappedSubject.coverUri,
+      Uri.https('mirror.test', '/image', <String, String>{
+        bangumiMirrorImageUrlParameter:
+            'https://lain.bgm.tv/pic/cover/l/42.jpg',
+      }),
+    );
+
+    final AcgProviderResult<List<BangumiSubject>> search =
+        await provider.searchSubjects('external');
+    final BangumiSubject searchItem =
+        (search as AcgProviderSuccess<List<BangumiSubject>>).value.single;
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://mirror.test/api/v0/search/subjects?limit=20&offset=0'),
+    );
+    expect(searchItem.coverUri, Uri.parse('https://img.test/not-bangumi.jpg'));
+
+    final AcgProviderResult<BangumiAuthSession> session =
+        await provider.currentSession();
+    final BangumiAuthSession mappedSession =
+        (session as AcgProviderSuccess<BangumiAuthSession>).value;
+    expect(transport.requests.last.headers['authorization'], 'Bearer token-1');
+    expect(
+      mappedSession.avatarUri,
+      Uri.https('mirror.test', '/image', <String, String>{
+        bangumiMirrorImageUrlParameter: 'https://lain.bgm.tv/pic/user/l/1.jpg',
+      }),
+    );
+  });
+
+  test('invalid Bangumi mirror config fails before dispatch', () async {
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final FakeBangumiTransport transport = FakeBangumiTransport(
+      responses: const <String, BangumiApiResponse>{},
+    );
+    final BangumiApiProvider provider = BangumiApiProvider(
+      gateway: gateway,
+      client: BangumiApiClient(
+        transport: transport,
+        mirrorConfigProvider: () async => BangumiApiMirrorConfig.enabled(
+          apiBaseUri: Uri.parse('file:///api'),
+          imageBaseUri: Uri.parse('https://mirror.test/image?bad=1'),
+        ),
+      ),
+    );
+
+    final AcgProviderResult<BangumiSubject> result =
+        await provider.lookupSubject(const BangumiSubjectId('42'));
+
+    expect((result as AcgProviderFailure<BangumiSubject>).kind,
+        AcgProviderFailureKind.terminal);
+    expect(result.message, contains('Bangumi mirror configuration is invalid'));
+    expect(gateway.lastCacheKey, isNull);
+    expect(transport.requests, isEmpty);
+  });
+
   test('concrete API provider maps auth and progress with bearer token',
       () async {
     final DateTime now = DateTime.utc(2026, 6, 16);

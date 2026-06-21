@@ -25,12 +25,18 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _dnsController = TextEditingController();
   final TextEditingController _cacheController = TextEditingController();
   final TextEditingController _bangumiTokenController = TextEditingController();
+  final TextEditingController _bangumiMirrorApiController =
+      TextEditingController();
+  final TextEditingController _bangumiMirrorImageController =
+      TextEditingController();
 
   bool _hardwareAcceleration = true;
+  bool _bangumiMirrorEnabled = false;
   String _layoutPreference = 'default';
   bool _isLoading = true;
   bool _isBangumiTokenSaving = false;
   String? _bangumiAuthMessage;
+  String? _bangumiMirrorMessage;
 
   @override
   void initState() {
@@ -44,6 +50,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _dnsController.dispose();
     _cacheController.dispose();
     _bangumiTokenController.dispose();
+    _bangumiMirrorApiController.dispose();
+    _bangumiMirrorImageController.dispose();
     super.dispose();
   }
 
@@ -57,6 +65,12 @@ class _SettingsPageState extends State<SettingsPage> {
           await widget.settingsRuntime.getPreference('cache_size_limit_mb');
       final String? bangumiTokenStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.bangumiAccessToken);
+      final String? bangumiMirrorEnabledStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorEnabled);
+      final String? bangumiMirrorApiStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorApiBaseUrl);
+      final String? bangumiMirrorImageStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorImageBaseUrl);
 
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
@@ -67,6 +81,10 @@ class _SettingsPageState extends State<SettingsPage> {
           _layoutPreference = layoutStr ?? 'default';
           _cacheController.text = cacheStr ?? '1024';
           _bangumiTokenController.text = bangumiTokenStr ?? '';
+          _bangumiMirrorEnabled =
+              BangumiMirrorSettings.isEnabled(bangumiMirrorEnabledStr);
+          _bangumiMirrorApiController.text = bangumiMirrorApiStr ?? '';
+          _bangumiMirrorImageController.text = bangumiMirrorImageStr ?? '';
           _proxyController.text = proxyUrl ?? '';
           _dnsController.text = dnsPolicy ?? '';
           _isLoading = false;
@@ -149,6 +167,66 @@ class _SettingsPageState extends State<SettingsPage> {
     await widget.settingsRuntime.saveDnsPolicy(dnsPolicy);
   }
 
+  Future<void> _saveBangumiMirrorUrl(String key, String value) async {
+    await _savePreference(key, value.trim());
+    if (_bangumiMirrorMessage == null) return;
+    setState(() {
+      _bangumiMirrorMessage = null;
+    });
+  }
+
+  Future<void> _setBangumiMirrorEnabled(bool value) async {
+    if (!value) {
+      setState(() {
+        _bangumiMirrorEnabled = false;
+        _bangumiMirrorMessage = null;
+      });
+      await _savePreference(
+        SettingsPreferenceKeys.bangumiMirrorEnabled,
+        BangumiMirrorSettings.disabledValue,
+      );
+      return;
+    }
+
+    final String? validationMessage = _bangumiMirrorValidationMessage();
+    if (validationMessage != null) {
+      setState(() {
+        _bangumiMirrorEnabled = false;
+        _bangumiMirrorMessage = validationMessage;
+      });
+      await _savePreference(
+        SettingsPreferenceKeys.bangumiMirrorEnabled,
+        BangumiMirrorSettings.disabledValue,
+      );
+      return;
+    }
+
+    setState(() {
+      _bangumiMirrorEnabled = true;
+      _bangumiMirrorMessage = 'Bangumi 镜像已开启';
+    });
+    await _savePreference(
+      SettingsPreferenceKeys.bangumiMirrorEnabled,
+      BangumiMirrorSettings.enabledValue,
+    );
+  }
+
+  String? _bangumiMirrorValidationMessage() {
+    try {
+      BangumiMirrorSettings.parseBaseUri(
+        _bangumiMirrorApiController.text,
+        fieldName: 'Bangumi API 镜像地址',
+      );
+      BangumiMirrorSettings.parseBaseUri(
+        _bangumiMirrorImageController.text,
+        fieldName: 'Bangumi 图片镜像地址',
+      );
+      return null;
+    } on FormatException catch (error) {
+      return error.message;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ElainaThemeData theme = ElainaTheme.of(context);
@@ -182,6 +260,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       title: '硬件加速',
                       subtitle: '启用 GPU 硬件加速以获得更流畅的播放效果',
                       value: _hardwareAcceleration,
+                      switchKey: const ValueKey<String>(
+                          'settings-hardware-acceleration'),
                       onChanged: (bool val) {
                         setState(() {
                           _hardwareAcceleration = val;
@@ -252,6 +332,45 @@ class _SettingsPageState extends State<SettingsPage> {
                         label: const Text('保存并登录'),
                       ),
                       statusText: _bangumiAuthMessage,
+                    ),
+                    const Divider(height: 24, color: Colors.white10),
+                    _buildSwitchRow(
+                      title: '使用 Bangumi 镜像',
+                      subtitle: '开启后 Bangumi API 与图片请求会走下方自建镜像地址',
+                      value: _bangumiMirrorEnabled,
+                      switchKey:
+                          const ValueKey<String>('settings-bangumi-mirror'),
+                      onChanged: _setBangumiMirrorEnabled,
+                      theme: theme,
+                    ),
+                    const Divider(height: 24, color: Colors.white10),
+                    _buildTextRow(
+                      title: 'API 镜像地址',
+                      subtitle:
+                          'Cloudflare Worker API 路由，例如 https://example.workers.dev/api',
+                      controller: _bangumiMirrorApiController,
+                      fieldKey: const ValueKey<String>(
+                          'settings-bangumi-mirror-api-url'),
+                      onChanged: (String value) => _saveBangumiMirrorUrl(
+                        SettingsPreferenceKeys.bangumiMirrorApiBaseUrl,
+                        value,
+                      ),
+                      theme: theme,
+                    ),
+                    const Divider(height: 24, color: Colors.white10),
+                    _buildTextRow(
+                      title: '图片镜像地址',
+                      subtitle:
+                          'Cloudflare Worker 图片路由，例如 https://example.workers.dev/image',
+                      controller: _bangumiMirrorImageController,
+                      fieldKey: const ValueKey<String>(
+                          'settings-bangumi-mirror-image-url'),
+                      onChanged: (String value) => _saveBangumiMirrorUrl(
+                        SettingsPreferenceKeys.bangumiMirrorImageBaseUrl,
+                        value,
+                      ),
+                      theme: theme,
+                      statusText: _bangumiMirrorMessage,
                     ),
                   ],
                 ),
@@ -344,6 +463,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required bool value,
     required ValueChanged<bool> onChanged,
     required ElainaThemeData theme,
+    Key? switchKey,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -372,6 +492,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         Switch(
+          key: switchKey,
           value: value,
           onChanged: onChanged,
           // ignore: deprecated_member_use

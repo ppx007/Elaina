@@ -44,6 +44,13 @@ final Uri defaultBangumiAccessTokenPageUri =
     Uri.parse('https://next.bgm.tv/demo/access-token');
 
 typedef BangumiAccessTokenProvider = Future<BangumiApiAccessToken?> Function();
+typedef BangumiMirrorConfigProvider = Future<BangumiApiMirrorConfig> Function();
+typedef BangumiImageUriRewriter = Uri Function(Uri uri);
+
+const String bangumiMirrorImageUrlParameter = 'url';
+const Set<String> bangumiMirrorImageHosts = <String>{
+  'lain.bgm.tv',
+};
 
 final class BangumiApiAccessToken {
   const BangumiApiAccessToken({
@@ -58,6 +65,31 @@ final class BangumiApiAccessToken {
     final DateTime? expiry = expiresAt;
     return expiry != null && !expiry.isAfter(now);
   }
+}
+
+final class BangumiApiMirrorConfig {
+  const BangumiApiMirrorConfig({
+    required this.enabled,
+    this.apiBaseUri,
+    this.imageBaseUri,
+  }) : assert(
+          !enabled || (apiBaseUri != null && imageBaseUri != null),
+          'Enabled Bangumi mirror requires API and image base URIs.',
+        );
+
+  const BangumiApiMirrorConfig.disabled()
+      : enabled = false,
+        apiBaseUri = null,
+        imageBaseUri = null;
+
+  const BangumiApiMirrorConfig.enabled({
+    required this.apiBaseUri,
+    required this.imageBaseUri,
+  }) : enabled = true;
+
+  final bool enabled;
+  final Uri? apiBaseUri;
+  final Uri? imageBaseUri;
 }
 
 final class BangumiApiRequest {
@@ -161,22 +193,39 @@ final class BangumiApiClient {
   BangumiApiClient({
     required BangumiApiTransport transport,
     Uri? baseUri,
+    BangumiMirrorConfigProvider? mirrorConfigProvider,
     String userAgent = defaultBangumiApiUserAgent,
   })  : _transport = transport,
         _baseUri = baseUri ?? defaultBangumiApiBaseUri,
+        _mirrorConfigProvider = mirrorConfigProvider,
         _userAgent = userAgent;
 
   final BangumiApiTransport _transport;
   final Uri _baseUri;
+  final BangumiMirrorConfigProvider? _mirrorConfigProvider;
   final String _userAgent;
 
   Uri lookupSubjectRequestUri(BangumiSubjectId id) {
-    return _uri('/v0/subjects/${Uri.encodeComponent(id.value)}');
+    return _uri(_lookupSubjectPath(id));
+  }
+
+  Future<Uri> lookupSubjectNetworkPolicyUri(BangumiSubjectId id) {
+    return _effectiveUri(_lookupSubjectPath(id));
   }
 
   Uri searchSubjectsRequestUri() {
     return _uri(
-      '/v0/search/subjects',
+      _subjectSearchPath,
+      const <String, String>{
+        'limit': '$bangumiApiDefaultSearchLimit',
+        'offset': '$bangumiApiDefaultSearchOffset',
+      },
+    );
+  }
+
+  Future<Uri> searchSubjectsNetworkPolicyUri() {
+    return _effectiveUri(
+      _subjectSearchPath,
       const <String, String>{
         'limit': '$bangumiApiDefaultSearchLimit',
         'offset': '$bangumiApiDefaultSearchOffset',
@@ -189,7 +238,20 @@ final class BangumiApiClient {
     int offset = bangumiApiPopularAnimeOffset,
   }) {
     return _uri(
-      '/v0/search/subjects',
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Future<Uri> popularAnimeNetworkPolicyUri({
+    int limit = bangumiApiPopularAnimeLimit,
+    int offset = bangumiApiPopularAnimeOffset,
+  }) {
+    return _effectiveUri(
+      _subjectSearchPath,
       <String, String>{
         'limit': '$limit',
         'offset': '$offset',
@@ -202,7 +264,20 @@ final class BangumiApiClient {
     int offset = bangumiApiRecentPopularAnimeOffset,
   }) {
     return _uri(
-      '/v0/search/subjects',
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Future<Uri> recentPopularAnimeNetworkPolicyUri({
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+  }) {
+    return _effectiveUri(
+      _subjectSearchPath,
       <String, String>{
         'limit': '$limit',
         'offset': '$offset',
@@ -211,7 +286,11 @@ final class BangumiApiClient {
   }
 
   Uri lookupEpisodeRequestUri(BangumiEpisodeId id) {
-    return _uri('/v0/episodes/${Uri.encodeComponent(id.value)}');
+    return _uri(_lookupEpisodePath(id));
+  }
+
+  Future<Uri> lookupEpisodeNetworkPolicyUri(BangumiEpisodeId id) {
+    return _effectiveUri(_lookupEpisodePath(id));
   }
 
   Uri listEpisodesRequestUri({
@@ -220,7 +299,22 @@ final class BangumiApiClient {
     int offset = bangumiApiEpisodeInitialOffset,
   }) {
     return _uri(
-      '/v0/episodes',
+      _episodeListPath,
+      <String, String>{
+        'subject_id': subjectId.value,
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Future<Uri> listEpisodesNetworkPolicyUri({
+    required BangumiSubjectId subjectId,
+    int limit = bangumiApiEpisodePageLimit,
+    int offset = bangumiApiEpisodeInitialOffset,
+  }) {
+    return _effectiveUri(
+      _episodeListPath,
       <String, String>{
         'subject_id': subjectId.value,
         'limit': '$limit',
@@ -230,21 +324,41 @@ final class BangumiApiClient {
   }
 
   Uri listSubjectPersonsRequestUri(BangumiSubjectId subjectId) {
-    return _uri('/v0/subjects/${Uri.encodeComponent(subjectId.value)}/persons');
+    return _uri(_subjectPersonsPath(subjectId));
+  }
+
+  Future<Uri> listSubjectPersonsNetworkPolicyUri(
+    BangumiSubjectId subjectId,
+  ) {
+    return _effectiveUri(_subjectPersonsPath(subjectId));
   }
 
   Uri listSubjectCharactersRequestUri(BangumiSubjectId subjectId) {
-    return _uri(
-        '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/characters');
+    return _uri(_subjectCharactersPath(subjectId));
+  }
+
+  Future<Uri> listSubjectCharactersNetworkPolicyUri(
+    BangumiSubjectId subjectId,
+  ) {
+    return _effectiveUri(_subjectCharactersPath(subjectId));
   }
 
   Uri listSubjectRelationsRequestUri(BangumiSubjectId subjectId) {
-    return _uri(
-        '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/subjects');
+    return _uri(_subjectRelationsPath(subjectId));
+  }
+
+  Future<Uri> listSubjectRelationsNetworkPolicyUri(
+    BangumiSubjectId subjectId,
+  ) {
+    return _effectiveUri(_subjectRelationsPath(subjectId));
   }
 
   Uri currentSessionRequestUri() {
-    return _uri('/v0/me');
+    return _uri(_currentSessionPath);
+  }
+
+  Future<Uri> currentSessionNetworkPolicyUri() {
+    return _effectiveUri(_currentSessionPath);
   }
 
   Uri currentAnimeCollectionRequestUri({
@@ -253,7 +367,22 @@ final class BangumiApiClient {
     int offset = bangumiApiCollectionInitialOffset,
   }) {
     return _uri(
-      '/v0/users/${Uri.encodeComponent(username)}/collections',
+      _currentAnimeCollectionPath(username),
+      <String, String>{
+        'subject_type': '$bangumiAnimeSubjectType',
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Future<Uri> currentAnimeCollectionNetworkPolicyUri({
+    required String username,
+    int limit = bangumiApiCollectionPageLimit,
+    int offset = bangumiApiCollectionInitialOffset,
+  }) {
+    return _effectiveUri(
+      _currentAnimeCollectionPath(username),
       <String, String>{
         'subject_type': '$bangumiAnimeSubjectType',
         'limit': '$limit',
@@ -267,29 +396,38 @@ final class BangumiApiClient {
   }
 
   Uri syncProgressRequestUri(BangumiProgressUpdate update) {
-    return _uri(
-      '/v0/users/-/collections/-/episodes/'
-      '${Uri.encodeComponent(update.episodeId.value)}',
-    );
+    return _uri(_syncProgressPath(update));
+  }
+
+  Future<Uri> syncProgressNetworkPolicyUri(BangumiProgressUpdate update) {
+    return _effectiveUri(_syncProgressPath(update));
   }
 
   Uri syncSubjectCollectionRequestUri(BangumiSubjectCollectionUpdate update) {
-    return _uri(
-      '/v0/users/-/collections/'
-      '${Uri.encodeComponent(update.subjectId.value)}',
-    );
+    return _uri(_syncSubjectCollectionPath(update));
+  }
+
+  Future<Uri> syncSubjectCollectionNetworkPolicyUri(
+    BangumiSubjectCollectionUpdate update,
+  ) {
+    return _effectiveUri(_syncSubjectCollectionPath(update));
   }
 
   Future<BangumiSubject> lookupSubject(
     BangumiSubjectId id, {
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_lookupSubjectPath(id));
     final Object? json = await _sendJson(
       'GET',
-      lookupSubjectRequestUri(id),
+      request.uri,
       proxyUrl: proxyUrl,
     );
-    return _subjectFromJson(_jsonObject(json, 'Bangumi subject'));
+    return _subjectFromJson(
+      _jsonObject(json, 'Bangumi subject'),
+      imageUriRewriter: request.rewriteImageUri,
+    );
   }
 
   Future<List<BangumiSubject>> searchSubjects(
@@ -299,9 +437,14 @@ final class BangumiApiClient {
     final String normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) return const <BangumiSubject>[];
 
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_subjectSearchPath, const <String, String>{
+      'limit': '$bangumiApiDefaultSearchLimit',
+      'offset': '$bangumiApiDefaultSearchOffset',
+    });
     final Object? json = await _sendJson(
       'POST',
-      searchSubjectsRequestUri(),
+      request.uri,
       proxyUrl: proxyUrl,
       body: _animeSubjectSearchBody(
         keyword: normalizedQuery,
@@ -312,6 +455,7 @@ final class BangumiApiClient {
       json,
       missingDataMessage: 'Bangumi subject search response missing data list.',
       itemLabel: 'Bangumi search subject',
+      imageUriRewriter: request.rewriteImageUri,
     );
   }
 
@@ -320,9 +464,16 @@ final class BangumiApiClient {
     String? proxyUrl,
   }) async {
     final _BangumiAirDateRange airDateRange = _popularAnimeAirDateRange(now);
+    final _BangumiResolvedRequest request = await _resolvedRequest(
+      _subjectSearchPath,
+      const <String, String>{
+        'limit': '$bangumiApiPopularAnimeLimit',
+        'offset': '$bangumiApiPopularAnimeOffset',
+      },
+    );
     final Object? json = await _sendJson(
       'POST',
-      popularAnimeRequestUri(),
+      request.uri,
       proxyUrl: proxyUrl,
       body: _animeSubjectSearchBody(
         sort: bangumiApiPopularAnimeSort,
@@ -333,6 +484,7 @@ final class BangumiApiClient {
       json,
       missingDataMessage: 'Bangumi popular anime response missing data list.',
       itemLabel: 'Bangumi popular subject',
+      imageUriRewriter: request.rewriteImageUri,
     );
   }
 
@@ -344,9 +496,16 @@ final class BangumiApiClient {
   }) async {
     final _BangumiAirDateRange airDateRange =
         _recentPopularAnimeAirDateRange(now);
+    final _BangumiResolvedRequest request = await _resolvedRequest(
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
     final Object? json = await _sendJson(
       'POST',
-      recentPopularAnimeRequestUri(limit: limit, offset: offset),
+      request.uri,
       proxyUrl: proxyUrl,
       body: _animeSubjectSearchBody(
         sort: bangumiApiPopularAnimeSort,
@@ -358,6 +517,7 @@ final class BangumiApiClient {
       missingDataMessage:
           'Bangumi recent popular anime response missing data list.',
       itemLabel: 'Bangumi recent popular subject',
+      imageUriRewriter: request.rewriteImageUri,
     );
   }
 
@@ -365,9 +525,11 @@ final class BangumiApiClient {
     BangumiEpisodeId id, {
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_lookupEpisodePath(id));
     final Object? json = await _sendJson(
       'GET',
-      lookupEpisodeRequestUri(id),
+      request.uri,
       proxyUrl: proxyUrl,
     );
     return _episodeFromJson(_jsonObject(json, 'Bangumi episode'));
@@ -402,36 +564,51 @@ final class BangumiApiClient {
     BangumiSubjectId subjectId, {
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_subjectPersonsPath(subjectId));
     final Object? json = await _sendJson(
       'GET',
-      listSubjectPersonsRequestUri(subjectId),
+      request.uri,
       proxyUrl: proxyUrl,
     );
-    return _relatedPersonsFromJson(json);
+    return _relatedPersonsFromJson(
+      json,
+      imageUriRewriter: request.rewriteImageUri,
+    );
   }
 
   Future<List<BangumiRelatedCharacter>> listSubjectCharacters(
     BangumiSubjectId subjectId, {
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_subjectCharactersPath(subjectId));
     final Object? json = await _sendJson(
       'GET',
-      listSubjectCharactersRequestUri(subjectId),
+      request.uri,
       proxyUrl: proxyUrl,
     );
-    return _relatedCharactersFromJson(json);
+    return _relatedCharactersFromJson(
+      json,
+      imageUriRewriter: request.rewriteImageUri,
+    );
   }
 
   Future<List<BangumiRelatedSubject>> listSubjectRelations(
     BangumiSubjectId subjectId, {
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_subjectRelationsPath(subjectId));
     final Object? json = await _sendJson(
       'GET',
-      listSubjectRelationsRequestUri(subjectId),
+      request.uri,
       proxyUrl: proxyUrl,
     );
-    return _relatedSubjectsFromJson(json);
+    return _relatedSubjectsFromJson(
+      json,
+      imageUriRewriter: request.rewriteImageUri,
+    );
   }
 
   Future<_BangumiEpisodePage> _episodePage({
@@ -439,9 +616,17 @@ final class BangumiApiClient {
     required int offset,
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request = await _resolvedRequest(
+      _episodeListPath,
+      <String, String>{
+        'subject_id': subjectId.value,
+        'limit': '$bangumiApiEpisodePageLimit',
+        'offset': '$offset',
+      },
+    );
     final Object? json = await _sendJson(
       'GET',
-      listEpisodesRequestUri(subjectId: subjectId, offset: offset),
+      request.uri,
       proxyUrl: proxyUrl,
     );
     final Map<String, Object?> object =
@@ -473,9 +658,11 @@ final class BangumiApiClient {
     required DateTime now,
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_currentSessionPath);
     final Object? json = await _sendJson(
       'GET',
-      currentSessionRequestUri(),
+      request.uri,
       token: token,
       proxyUrl: proxyUrl,
     );
@@ -499,7 +686,10 @@ final class BangumiApiClient {
         object['username'],
         object['id'],
       ]),
-      avatarUri: _avatarUriFromJson(object['avatar']),
+      avatarUri: _avatarUriFromJson(
+        object['avatar'],
+        imageUriRewriter: request.rewriteImageUri,
+      ),
     );
   }
 
@@ -538,9 +728,17 @@ final class BangumiApiClient {
     required int offset,
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request = await _resolvedRequest(
+      _currentAnimeCollectionPath(username),
+      <String, String>{
+        'subject_type': '$bangumiAnimeSubjectType',
+        'limit': '$bangumiApiCollectionPageLimit',
+        'offset': '$offset',
+      },
+    );
     final Object? json = await _sendJson(
       'GET',
-      currentAnimeCollectionRequestUri(username: username, offset: offset),
+      request.uri,
       token: token,
       proxyUrl: proxyUrl,
     );
@@ -563,6 +761,7 @@ final class BangumiApiClient {
           .map(
             (Object? value) => _collectionItemFromJson(
               _jsonObject(value, 'Bangumi collection item'),
+              imageUriRewriter: request.rewriteImageUri,
             ),
           )
           .toList(growable: false),
@@ -574,9 +773,11 @@ final class BangumiApiClient {
     required BangumiApiAccessToken token,
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_syncProgressPath(update));
     await _sendJson(
       'PUT',
-      syncProgressRequestUri(update),
+      request.uri,
       token: token,
       proxyUrl: proxyUrl,
       body: <String, Object?>{
@@ -591,9 +792,11 @@ final class BangumiApiClient {
     required BangumiApiAccessToken token,
     String? proxyUrl,
   }) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(_syncSubjectCollectionPath(update));
     await _sendJson(
       'POST',
-      syncSubjectCollectionRequestUri(update),
+      request.uri,
       token: token,
       proxyUrl: proxyUrl,
       body: <String, Object?>{
@@ -658,11 +861,126 @@ final class BangumiApiClient {
   }
 
   Uri _uri(String path, [Map<String, String> queryParameters = const {}]) {
-    return _baseUri.replace(
-      path: _joinedPath(_baseUri.path, path),
-      queryParameters: queryParameters.isEmpty ? null : queryParameters,
+    return _uriFromBase(_baseUri, path, queryParameters);
+  }
+
+  Future<Uri> _effectiveUri(
+    String path, [
+    Map<String, String> queryParameters = const {},
+  ]) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedRequest(path, queryParameters);
+    return request.uri;
+  }
+
+  Future<_BangumiResolvedRequest> _resolvedRequest(
+    String path, [
+    Map<String, String> queryParameters = const {},
+  ]) async {
+    final BangumiApiMirrorConfig config = await _activeMirrorConfig();
+    final Uri apiBaseUri = config.enabled ? config.apiBaseUri! : _baseUri;
+    return _BangumiResolvedRequest(
+      uri: _uriFromBase(apiBaseUri, path, queryParameters),
+      imageBaseUri: config.enabled ? config.imageBaseUri : null,
     );
   }
+
+  Future<BangumiApiMirrorConfig> _activeMirrorConfig() async {
+    final BangumiMirrorConfigProvider? provider = _mirrorConfigProvider;
+    if (provider == null) return const BangumiApiMirrorConfig.disabled();
+
+    final BangumiApiMirrorConfig config = await provider();
+    if (!config.enabled) return const BangumiApiMirrorConfig.disabled();
+
+    final Uri? apiBaseUri = config.apiBaseUri;
+    final Uri? imageBaseUri = config.imageBaseUri;
+    if (!_isMirrorBaseUri(apiBaseUri) || !_isMirrorBaseUri(imageBaseUri)) {
+      throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message:
+            'Bangumi mirror configuration is invalid: mirror URLs must be absolute http or https URLs without query or fragment.',
+      );
+    }
+    return config;
+  }
+}
+
+final class _BangumiResolvedRequest {
+  const _BangumiResolvedRequest({
+    required this.uri,
+    required this.imageBaseUri,
+  });
+
+  final Uri uri;
+  final Uri? imageBaseUri;
+
+  Uri rewriteImageUri(Uri original) {
+    final Uri? baseUri = imageBaseUri;
+    final String originalHost = original.host.toLowerCase();
+    if (baseUri == null || !bangumiMirrorImageHosts.contains(originalHost)) {
+      return original;
+    }
+    return baseUri.replace(
+      queryParameters: <String, String>{
+        bangumiMirrorImageUrlParameter: original.toString(),
+      },
+    );
+  }
+}
+
+Uri _uriFromBase(
+  Uri baseUri,
+  String path, [
+  Map<String, String> queryParameters = const {},
+]) {
+  return baseUri.replace(
+    path: _joinedPath(baseUri.path, path),
+    queryParameters: queryParameters.isEmpty ? null : queryParameters,
+  );
+}
+
+bool _isMirrorBaseUri(Uri? uri) {
+  if (uri == null) return false;
+  final bool isHttp = uri.scheme == 'https' || uri.scheme == 'http';
+  return isHttp && uri.host.isNotEmpty && !uri.hasQuery && !uri.hasFragment;
+}
+
+const String _subjectSearchPath = '/v0/search/subjects';
+const String _episodeListPath = '/v0/episodes';
+const String _currentSessionPath = '/v0/me';
+
+String _lookupSubjectPath(BangumiSubjectId id) {
+  return '/v0/subjects/${Uri.encodeComponent(id.value)}';
+}
+
+String _lookupEpisodePath(BangumiEpisodeId id) {
+  return '/v0/episodes/${Uri.encodeComponent(id.value)}';
+}
+
+String _subjectPersonsPath(BangumiSubjectId subjectId) {
+  return '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/persons';
+}
+
+String _subjectCharactersPath(BangumiSubjectId subjectId) {
+  return '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/characters';
+}
+
+String _subjectRelationsPath(BangumiSubjectId subjectId) {
+  return '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/subjects';
+}
+
+String _currentAnimeCollectionPath(String username) {
+  return '/v0/users/${Uri.encodeComponent(username)}/collections';
+}
+
+String _syncProgressPath(BangumiProgressUpdate update) {
+  return '/v0/users/-/collections/-/episodes/'
+      '${Uri.encodeComponent(update.episodeId.value)}';
+}
+
+String _syncSubjectCollectionPath(BangumiSubjectCollectionUpdate update) {
+  return '/v0/users/-/collections/'
+      '${Uri.encodeComponent(update.subjectId.value)}';
 }
 
 String _joinedPath(String basePath, String path) {
@@ -740,7 +1058,7 @@ final class BangumiApiProvider
         await _execute<BangumiSubject>(
       key: bangumiSubjectRequestKey(id),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.lookupSubjectRequestUri(id),
+      networkPolicyUri: _client.lookupSubjectNetworkPolicyUri(id),
       load: (ProviderGatewayRequestContext context) =>
           _client.lookupSubject(id, proxyUrl: context.proxyUrl),
     );
@@ -764,7 +1082,7 @@ final class BangumiApiProvider
         await _execute<List<BangumiSubject>>(
       key: bangumiSubjectSearchRequestKey(query),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.searchSubjectsRequestUri(),
+      networkPolicyUri: _client.searchSubjectsNetworkPolicyUri(),
       load: (ProviderGatewayRequestContext context) =>
           _client.searchSubjects(query, proxyUrl: context.proxyUrl),
     );
@@ -781,7 +1099,7 @@ final class BangumiApiProvider
         await _execute<List<BangumiSubject>>(
       key: bangumiPopularAnimeRequestKey(now: now),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.popularAnimeRequestUri(),
+      networkPolicyUri: _client.popularAnimeNetworkPolicyUri(),
       load: (ProviderGatewayRequestContext context) => _client.popularAnime(
         now: now,
         proxyUrl: context.proxyUrl,
@@ -807,7 +1125,7 @@ final class BangumiApiProvider
         offset: offset,
       ),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.recentPopularAnimeRequestUri(
+      networkPolicyUri: _client.recentPopularAnimeNetworkPolicyUri(
         limit: limit,
         offset: offset,
       ),
@@ -828,11 +1146,11 @@ final class BangumiApiProvider
   @override
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(
     BangumiEpisodeId id,
-  ) {
+  ) async {
     return _execute<BangumiEpisode>(
       key: bangumiEpisodeRequestKey(id),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.lookupEpisodeRequestUri(id),
+      networkPolicyUri: _client.lookupEpisodeNetworkPolicyUri(id),
       load: (ProviderGatewayRequestContext context) =>
           _client.lookupEpisode(id, proxyUrl: context.proxyUrl),
     );
@@ -841,11 +1159,12 @@ final class BangumiApiProvider
   @override
   Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
     BangumiSubjectId subjectId,
-  ) {
+  ) async {
     return _execute<List<BangumiEpisode>>(
       key: bangumiEpisodeListRequestKey(subjectId),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.listEpisodesRequestUri(subjectId: subjectId),
+      networkPolicyUri:
+          _client.listEpisodesNetworkPolicyUri(subjectId: subjectId),
       load: (ProviderGatewayRequestContext context) =>
           _client.listEpisodes(subjectId, proxyUrl: context.proxyUrl),
     );
@@ -854,11 +1173,11 @@ final class BangumiApiProvider
   @override
   Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
     BangumiSubjectId subjectId,
-  ) {
+  ) async {
     return _execute<List<BangumiRelatedPerson>>(
       key: bangumiSubjectPersonsRequestKey(subjectId),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.listSubjectPersonsRequestUri(subjectId),
+      networkPolicyUri: _client.listSubjectPersonsNetworkPolicyUri(subjectId),
       load: (ProviderGatewayRequestContext context) =>
           _client.listSubjectPersons(subjectId, proxyUrl: context.proxyUrl),
     );
@@ -868,11 +1187,12 @@ final class BangumiApiProvider
   Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
       listSubjectCharacters(
     BangumiSubjectId subjectId,
-  ) {
+  ) async {
     return _execute<List<BangumiRelatedCharacter>>(
       key: bangumiSubjectCharactersRequestKey(subjectId),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.listSubjectCharactersRequestUri(subjectId),
+      networkPolicyUri:
+          _client.listSubjectCharactersNetworkPolicyUri(subjectId),
       load: (ProviderGatewayRequestContext context) =>
           _client.listSubjectCharacters(subjectId, proxyUrl: context.proxyUrl),
     );
@@ -881,11 +1201,11 @@ final class BangumiApiProvider
   @override
   Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
     BangumiSubjectId subjectId,
-  ) {
+  ) async {
     return _execute<List<BangumiRelatedSubject>>(
       key: bangumiSubjectRelationsRequestKey(subjectId),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.listSubjectRelationsRequestUri(subjectId),
+      networkPolicyUri: _client.listSubjectRelationsNetworkPolicyUri(subjectId),
       load: (ProviderGatewayRequestContext context) =>
           _client.listSubjectRelations(subjectId, proxyUrl: context.proxyUrl),
     );
@@ -899,7 +1219,7 @@ final class BangumiApiProvider
       key: bangumiSessionRequestKey(),
       cachePolicy: ProviderCachePolicy.networkOnly,
       deduplicationWindow: Duration.zero,
-      networkPolicyUri: _client.currentSessionRequestUri(),
+      networkPolicyUri: _client.currentSessionNetworkPolicyUri(),
       load: (ProviderGatewayRequestContext context) => _client.currentSession(
         token: token,
         now: (_now ?? DateTime.now)(),
@@ -920,7 +1240,8 @@ final class BangumiApiProvider
       key: bangumiAnimeCollectionRequestKey(),
       cachePolicy: ProviderCachePolicy.networkOnly,
       deduplicationWindow: Duration.zero,
-      networkPolicyUri: _client.currentAnimeCollectionRequestUri(username: '-'),
+      networkPolicyUri:
+          _client.currentAnimeCollectionNetworkPolicyUri(username: '-'),
       load: (ProviderGatewayRequestContext context) =>
           _client.currentAnimeCollection(
         token: token,
@@ -943,7 +1264,7 @@ final class BangumiApiProvider
     return _execute<void>(
       key: bangumiProgressRequestKey(update),
       cachePolicy: ProviderCachePolicy.networkOnly,
-      networkPolicyUri: _client.syncProgressRequestUri(update),
+      networkPolicyUri: _client.syncProgressNetworkPolicyUri(update),
       load: (ProviderGatewayRequestContext context) => _client.syncProgress(
         update: update,
         token: token,
@@ -961,7 +1282,7 @@ final class BangumiApiProvider
     return _execute<void>(
       key: bangumiSubjectCollectionSyncRequestKey(update),
       cachePolicy: ProviderCachePolicy.networkOnly,
-      networkPolicyUri: _client.syncSubjectCollectionRequestUri(update),
+      networkPolicyUri: _client.syncSubjectCollectionNetworkPolicyUri(update),
       load: (ProviderGatewayRequestContext context) =>
           _client.syncSubjectCollection(
         update: update,
@@ -975,10 +1296,11 @@ final class BangumiApiProvider
     required ProviderRequestKey key,
     required Future<T> Function(ProviderGatewayRequestContext context) load,
     required ProviderCachePolicy cachePolicy,
-    required Uri networkPolicyUri,
+    required Future<Uri> networkPolicyUri,
     Duration deduplicationWindow = bangumiRuntimeDeduplicationWindow,
   }) async {
     try {
+      final Uri resolvedNetworkPolicyUri = await networkPolicyUri;
       final ProviderGatewayResponse<T> response = await gateway.execute<T>(
         bangumiGatewayRequest<T>(
           key: key,
@@ -986,7 +1308,7 @@ final class BangumiApiProvider
           loadWithContext: load,
           cachePolicy: cachePolicy,
           deduplicationWindow: deduplicationWindow,
-          networkPolicyUri: networkPolicyUri,
+          networkPolicyUri: resolvedNetworkPolicyUri,
         ),
       );
       return AcgProviderSuccess<T>(response.value);
@@ -1092,6 +1414,7 @@ List<BangumiSubject> _subjectsFromJsonList(
   Object? json, {
   required String missingDataMessage,
   required String itemLabel,
+  BangumiImageUriRewriter? imageUriRewriter,
 }) {
   final Object? data = switch (json) {
     final Map<String, Object?> object => object['data'],
@@ -1105,40 +1428,58 @@ List<BangumiSubject> _subjectsFromJsonList(
     );
   }
   return data
-      .map((Object? value) => _subjectFromJson(_jsonObject(value, itemLabel)))
+      .map(
+        (Object? value) => _subjectFromJson(
+          _jsonObject(value, itemLabel),
+          imageUriRewriter: imageUriRewriter,
+        ),
+      )
       .toList(growable: false);
 }
 
-List<BangumiRelatedPerson> _relatedPersonsFromJson(Object? json) {
+List<BangumiRelatedPerson> _relatedPersonsFromJson(
+  Object? json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final List<Object?> data =
       _jsonArray(json, 'Bangumi subject persons response');
   return data
       .map(
         (Object? value) => _relatedPersonFromJson(
-            _jsonObject(value, 'Bangumi related person')),
+          _jsonObject(value, 'Bangumi related person'),
+          imageUriRewriter: imageUriRewriter,
+        ),
       )
       .toList(growable: false);
 }
 
-List<BangumiRelatedCharacter> _relatedCharactersFromJson(Object? json) {
+List<BangumiRelatedCharacter> _relatedCharactersFromJson(
+  Object? json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final List<Object?> data =
       _jsonArray(json, 'Bangumi subject characters response');
   return data
       .map(
         (Object? value) => _relatedCharacterFromJson(
           _jsonObject(value, 'Bangumi related character'),
+          imageUriRewriter: imageUriRewriter,
         ),
       )
       .toList(growable: false);
 }
 
-List<BangumiRelatedSubject> _relatedSubjectsFromJson(Object? json) {
+List<BangumiRelatedSubject> _relatedSubjectsFromJson(
+  Object? json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final List<Object?> data =
       _jsonArray(json, 'Bangumi subject relations response');
   return data
       .map(
         (Object? value) => _relatedSubjectFromJson(
           _jsonObject(value, 'Bangumi related subject'),
+          imageUriRewriter: imageUriRewriter,
         ),
       )
       .toList(growable: false);
@@ -1211,7 +1552,10 @@ String _bangumiDate(DateTime value) {
   return '$year-$month-$day';
 }
 
-BangumiRelatedPerson _relatedPersonFromJson(Map<String, Object?> json) {
+BangumiRelatedPerson _relatedPersonFromJson(
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id = _requiredIdString(json['id'], 'Bangumi related person id');
   final String name = _firstNonEmptyString(<Object?>[
     json['name'],
@@ -1225,13 +1569,19 @@ BangumiRelatedPerson _relatedPersonFromJson(Map<String, Object?> json) {
     id: BangumiPersonId(id),
     name: name,
     relation: relation,
-    imageUri: _avatarUriFromJson(json['images']),
+    imageUri: _avatarUriFromJson(
+      json['images'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     careers: _stringList(json['career']),
     episodeRange: _optionalString(json['eps']),
   );
 }
 
-BangumiRelatedCharacter _relatedCharacterFromJson(Map<String, Object?> json) {
+BangumiRelatedCharacter _relatedCharacterFromJson(
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id =
       _requiredIdString(json['id'], 'Bangumi related character id');
   final String name = _firstNonEmptyString(<Object?>[
@@ -1248,17 +1598,25 @@ BangumiRelatedCharacter _relatedCharacterFromJson(Map<String, Object?> json) {
     name: name,
     relation: relation,
     summary: _optionalString(json['summary']),
-    imageUri: _avatarUriFromJson(json['images']),
+    imageUri: _avatarUriFromJson(
+      json['images'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     actors: actors
         .map(
-          (Object? value) =>
-              _voiceActorFromJson(_jsonObject(value, 'Bangumi voice actor')),
+          (Object? value) => _voiceActorFromJson(
+            _jsonObject(value, 'Bangumi voice actor'),
+            imageUriRewriter: imageUriRewriter,
+          ),
         )
         .toList(growable: false),
   );
 }
 
-BangumiVoiceActor _voiceActorFromJson(Map<String, Object?> json) {
+BangumiVoiceActor _voiceActorFromJson(
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id = _requiredIdString(json['id'], 'Bangumi voice actor id');
   final String name = _firstNonEmptyString(<Object?>[
     json['name'],
@@ -1267,12 +1625,18 @@ BangumiVoiceActor _voiceActorFromJson(Map<String, Object?> json) {
   return BangumiVoiceActor(
     id: BangumiPersonId(id),
     name: name,
-    imageUri: _avatarUriFromJson(json['images']),
+    imageUri: _avatarUriFromJson(
+      json['images'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     careers: _stringList(json['career']),
   );
 }
 
-BangumiRelatedSubject _relatedSubjectFromJson(Map<String, Object?> json) {
+BangumiRelatedSubject _relatedSubjectFromJson(
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id = _requiredIdString(json['id'], 'Bangumi related subject id');
   final String title = _firstNonEmptyString(<Object?>[
     json['name_cn'],
@@ -1287,12 +1651,18 @@ BangumiRelatedSubject _relatedSubjectFromJson(Map<String, Object?> json) {
     id: BangumiSubjectId(id),
     title: title,
     relation: relation,
-    coverUri: _avatarUriFromJson(json['images']),
+    coverUri: _avatarUriFromJson(
+      json['images'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     type: _optionalPositiveIntOrNull(json['type']),
   );
 }
 
-BangumiSubject _subjectFromJson(Map<String, Object?> json) {
+BangumiSubject _subjectFromJson(
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id = _requiredIdString(json['id'], 'Bangumi subject id');
   final String title = _firstNonEmptyString(<Object?>[
     json['name_cn'],
@@ -1308,7 +1678,10 @@ BangumiSubject _subjectFromJson(Map<String, Object?> json) {
     id: BangumiSubjectId(id),
     title: title,
     summary: _optionalString(json['summary'] ?? json['short_summary']),
-    coverUri: _avatarUriFromJson(json['images'] ?? json['image']),
+    coverUri: _avatarUriFromJson(
+      json['images'] ?? json['image'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     rank:
         _optionalPositiveIntOrNull(json['rank'] ?? _ratingValue(json, 'rank')),
     score: _optionalNonNegativeDouble(_ratingValue(json, 'score')),
@@ -1339,8 +1712,9 @@ BangumiEpisode _episodeFromJson(Map<String, Object?> json) {
 }
 
 BangumiAnimeCollectionItem _collectionItemFromJson(
-  Map<String, Object?> json,
-) {
+  Map<String, Object?> json, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String id =
       _requiredIdString(json['subject_id'], 'Bangumi collection subject id');
   final Map<String, Object?>? subject = _optionalJsonObject(json['subject']);
@@ -1359,7 +1733,10 @@ BangumiAnimeCollectionItem _collectionItemFromJson(
     totalEpisodes: _optionalNonNegativeInt(
       subject?['eps'] ?? subject?['total_episodes'],
     ),
-    coverUri: _avatarUriFromJson(subject?['images']),
+    coverUri: _avatarUriFromJson(
+      subject?['images'],
+      imageUriRewriter: imageUriRewriter,
+    ),
     updatedAt: _optionalDateTime(json['updated_at']),
   );
 }
@@ -1439,7 +1816,10 @@ int? _subjectCollectionTotal(Map<String, Object?> json) {
   return hasCount ? total : null;
 }
 
-Uri? _avatarUriFromJson(Object? value) {
+Uri? _avatarUriFromJson(
+  Object? value, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
   final String text = switch (value) {
     final String raw => raw.trim(),
     final Map<String, Object?> object => _firstNonEmptyString(<Object?>[
@@ -1462,7 +1842,7 @@ Uri? _avatarUriFromJson(Object? value) {
   final Uri? uri = Uri.tryParse(text);
   if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
   if (uri.scheme != 'https' && uri.scheme != 'http') return null;
-  return uri;
+  return imageUriRewriter?.call(uri) ?? uri;
 }
 
 String _firstNonEmptyString(Iterable<Object?> values) {

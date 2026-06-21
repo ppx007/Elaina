@@ -91,7 +91,8 @@ void main() {
     expect(find.text('硬件加速'), findsOneWidget);
 
     // Toggle hardware acceleration
-    final switchFinder = find.byType(Switch);
+    final switchFinder =
+        find.byKey(const ValueKey<String>('settings-hardware-acceleration'));
     expect(switchFinder, findsOneWidget);
     await tester.tap(switchFinder);
     await tester.pumpAndSettle();
@@ -137,6 +138,59 @@ void main() {
     expect(bangumiLoginController.submittedToken, 'token-1');
     expect(authRefreshes, 1);
     expect(find.text('Bangumi 已登录：Alice'), findsWidgets);
+  });
+
+  testWidgets('SettingsPage stores valid Bangumi mirror settings',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+
+    await tester.pumpWidget(_testHost(
+      child: SettingsPage(settingsRuntime: settingsRuntime),
+    ));
+    await tester.pumpAndSettle();
+
+    final Finder mirrorSwitch =
+        find.byKey(const ValueKey<String>('settings-bangumi-mirror'));
+    await tester.ensureVisible(mirrorSwitch);
+    tester.widget<Switch>(mirrorSwitch).onChanged!(true);
+    await tester.pumpAndSettle();
+
+    expect(
+      await settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorEnabled),
+      BangumiMirrorSettings.disabledValue,
+    );
+    expect(find.textContaining('required'), findsWidgets);
+
+    final Finder apiField =
+        find.byKey(const ValueKey<String>('settings-bangumi-mirror-api-url'));
+    final Finder imageField =
+        find.byKey(const ValueKey<String>('settings-bangumi-mirror-image-url'));
+    await tester.ensureVisible(apiField);
+    await tester.enterText(apiField, ' https://mirror.test/api ');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(imageField);
+    await tester.enterText(imageField, 'https://mirror.test/image');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(mirrorSwitch);
+    tester.widget<Switch>(mirrorSwitch).onChanged!(true);
+    await tester.pumpAndSettle();
+
+    expect(
+      await settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorApiBaseUrl),
+      'https://mirror.test/api',
+    );
+    expect(
+      await settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorImageBaseUrl),
+      'https://mirror.test/image',
+    );
+    expect(
+      await settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiMirrorEnabled),
+      BangumiMirrorSettings.enabledValue,
+    );
   });
 
   testWidgets(

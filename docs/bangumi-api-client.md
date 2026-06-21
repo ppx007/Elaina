@@ -40,12 +40,25 @@ Do not replace it with a generic library default. OAuth application secrets,
 access tokens, and refresh tokens must remain in local user configuration or a
 secure credential store, never in source-controlled code or docs.
 
+## Optional Mirror
+
+Elaina defaults to the official Bangumi API and image URLs. Users may enable a
+self-hosted mirror from Settings by providing both:
+
+- an API mirror base URL, for example `https://bangumi.example.com/api`
+- an image mirror base URL, for example `https://bangumi.example.com/image`
+
+The recommended deployment template lives in `deploy/bangumi-worker/`. The
+mirror setting changes the effective provider request URL and rewrites Bangumi
+image URLs; it does not mirror the OAuth/token acquisition page.
+
 ## Boundary Rules
 
 - Concrete Bangumi HTTP dispatch belongs in `lib/src/provider/bangumi/`.
-- Desktop integration uses the official API and OAuth endpoints. Bangumi garage
-  components are site-local JavaScript/CSS enhancements and are not an Elaina
-  integration surface.
+- Desktop integration defaults to official API and OAuth endpoints. Optional
+  API/image mirrors must be self-hosted and configured by the user. Bangumi
+  garage components are site-local JavaScript/CSS enhancements and are not an
+  Elaina integration surface.
 - Tests must use fake `BangumiApiTransport`; they must not depend on live
   Bangumi service availability.
 - UI, app shell, pages, playback code, storage implementations, streaming

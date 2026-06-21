@@ -5,7 +5,44 @@ import '../../foundation/storage/storage_contracts.dart';
 
 abstract final class SettingsPreferenceKeys {
   static const String bangumiAccessToken = 'bangumi_access_token';
+  static const String bangumiMirrorEnabled = 'bangumi_mirror_enabled';
+  static const String bangumiMirrorApiBaseUrl = 'bangumi_mirror_api_base_url';
+  static const String bangumiMirrorImageBaseUrl =
+      'bangumi_mirror_image_base_url';
   static const String mediaLibraryRoots = 'media_library_roots';
+}
+
+abstract final class BangumiMirrorSettings {
+  static const String enabledValue = 'true';
+  static const String disabledValue = 'false';
+
+  static bool isEnabled(String? value) => value == enabledValue;
+
+  static Uri parseBaseUri(String value, {required String fieldName}) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      throw FormatException('$fieldName is required.');
+    }
+
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null || !_isHttpUri(uri) || uri.host.isEmpty) {
+      throw FormatException(
+          '$fieldName must be an absolute http or https URL.');
+    }
+    if (uri.hasQuery || uri.hasFragment) {
+      throw FormatException('$fieldName must not include query or fragment.');
+    }
+    return uri.replace(path: _trimTrailingSlash(uri.path));
+  }
+
+  static bool _isHttpUri(Uri uri) {
+    return uri.scheme == 'https' || uri.scheme == 'http';
+  }
+
+  static String _trimTrailingSlash(String path) {
+    if (path.length <= 1 || !path.endsWith('/')) return path;
+    return path.substring(0, path.length - 1);
+  }
 }
 
 abstract interface class SettingsRuntime {

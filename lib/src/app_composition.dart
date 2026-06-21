@@ -21,6 +21,7 @@ import 'foundation/constants.dart';
 import 'foundation/diagnostics/diagnostics_center.dart';
 import 'foundation/diagnostics/diagnostics_center_runtime.dart';
 import 'foundation/foundation_bootstrap.dart';
+import 'foundation/provider_contracts.dart';
 import 'gateway/network_policy_provider_gateway.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
@@ -33,6 +34,9 @@ import 'provider/rss/rss_feed_fetcher_parser.dart';
 import 'streaming/bt_task_core_runtime.dart';
 import 'streaming/libtorrent_download_engine_adapter.dart';
 import 'ui/detail/video_detail_page_contract.dart';
+
+const String _bangumiMirrorApiUrlFieldName = 'Bangumi API mirror URL';
+const String _bangumiMirrorImageUrlFieldName = 'Bangumi image mirror URL';
 
 final class PeriodicFeedScheduler implements FeedScheduler {
   const PeriodicFeedScheduler(
@@ -78,6 +82,38 @@ class AppComposition {
     // 4. Bangumi Provider Runtime
     final BangumiApiClient bangumiApiClient = BangumiApiClient(
       transport: HttpBangumiApiTransport(),
+      mirrorConfigProvider: () async {
+        final settings = foundation.storage.settings;
+        final String? enabled = await settings
+            .readString(SettingsPreferenceKeys.bangumiMirrorEnabled);
+        if (!BangumiMirrorSettings.isEnabled(enabled)) {
+          return const BangumiApiMirrorConfig.disabled();
+        }
+        try {
+          return BangumiApiMirrorConfig.enabled(
+            apiBaseUri: BangumiMirrorSettings.parseBaseUri(
+              await settings.readString(
+                    SettingsPreferenceKeys.bangumiMirrorApiBaseUrl,
+                  ) ??
+                  '',
+              fieldName: _bangumiMirrorApiUrlFieldName,
+            ),
+            imageBaseUri: BangumiMirrorSettings.parseBaseUri(
+              await settings.readString(
+                    SettingsPreferenceKeys.bangumiMirrorImageBaseUrl,
+                  ) ??
+                  '',
+              fieldName: _bangumiMirrorImageUrlFieldName,
+            ),
+          );
+        } on FormatException catch (error) {
+          throw ProviderFailure(
+            kind: ProviderFailureKind.terminal,
+            message: 'Bangumi mirror configuration is invalid: '
+                '${error.message}',
+          );
+        }
+      },
     );
     final bangumiApiProvider = BangumiApiProvider(
       gateway: providerGateway,
