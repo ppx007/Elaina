@@ -22,12 +22,17 @@ openspec.cmd validate --all
 openspec.cmd archive "<change-name>" -y
 ```
 
-Run local validation before reporting a baseline as ready:
+Use focused validation while iterating. Small changes should start with the
+fast changed-path gate instead of a repository-wide Flutter test run:
 
 ```powershell
-openspec.cmd validate --all
-dart analyze
-powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
+powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Fast
+```
+
+Use the module scope when a change crosses related UI/domain/provider files:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Module
 ```
 
 Tooling-only Dart tests intentionally live under `test/tools` and can run with
@@ -38,18 +43,30 @@ powershell -ExecutionPolicy Bypass -File "tools\check_runtime_check_base.ps1"
 dart test test\tools
 ```
 
-Project tests that import `flutter_test` require the Flutter test runner; do not
-use repository-wide `dart test` as a full-project substitute:
+Runtime check modules are registered in `tools\module_checks.json`. New modules
+should add a registry entry first, then expose any stable public wrapper through
+`tools\check_*.ps1` or `tools\*_runtime_check.dart` only when humans or CI need
+that named entry. The generic Dart entrypoint is:
 
 ```powershell
-flutter test
+dart run tools\runtime_check.dart --module bangumi_runtime
 ```
 
-Run the full non-UI release-readiness gate before treating the current core
-runtime baseline as complete:
+Project tests that import `flutter_test` require the Flutter test runner; do not
+use repository-wide `dart test` as a full-project substitute. Run focused
+Flutter tests by path during normal development:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1"
+flutter test test\ui\hero_carousel_test.dart test\widget_test.dart
+```
+
+Run the full release-readiness gate before treating the current baseline as
+complete. This scope delegates to `tools\check_full_feature_gate.ps1`, which
+already includes OpenSpec validation, analysis, full Flutter tests, and module
+checks:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Full
 ```
 
 Frontend implementation should start from the handoff document:

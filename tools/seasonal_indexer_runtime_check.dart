@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class SeasonalIndexerRuntimeCheck extends BaseRuntimeCheck {
-  const SeasonalIndexerRuntimeCheck();
-
-  @override
-  String get moduleName => 'seasonal_indexer_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const SeasonalIndexerRuntimeCheck().run(args);
+    runModuleRuntimeCheck('seasonal_indexer_runtime', args);

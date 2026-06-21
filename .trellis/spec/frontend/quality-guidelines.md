@@ -38,9 +38,37 @@ Questions to answer:
 
 ## Testing Requirements
 
-<!-- What level of testing is expected -->
+### Widget Test Waiting
 
-(To be filled by the team)
+Widget tests must wait for observable UI state instead of sleeping for a fixed
+duration. Use `test/support/widget_test_waiters.dart` helpers such as
+`pumpUntilFound` and `pumpUntilGone` when async UI work needs another frame.
+
+```dart
+// Good: waits for the state the test actually needs.
+await tester.pumpUntilFound(find.text('Remote Anime'));
+
+// Bad: guesses timing and can hide slow or broken async work.
+await tester.pump(const Duration(milliseconds: 100));
+```
+
+### Network Images In Widget Tests
+
+Tests that need `NetworkImage` decoding must use
+`test/support/network_image_test_overrides.dart`. Do not hand-roll
+`HttpClient`, `noSuchMethod`, or image byte mocks inside individual widget test
+files.
+
+### Validation Tiers
+
+Use focused validation while iterating:
+
+- `tools/check_changed_tests.ps1 -Scope Fast` for normal small changes.
+- `tools/check_changed_tests.ps1 -Scope Module` when UI/domain/provider files
+  change together.
+- `tools/check_changed_tests.ps1 -Scope Full` only for release-readiness or
+  broad refactors.
+
 
 ---
 

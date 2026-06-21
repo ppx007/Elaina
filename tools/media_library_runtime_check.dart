@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class MediaLibraryRuntimeCheck extends BaseRuntimeCheck {
-  const MediaLibraryRuntimeCheck();
-
-  @override
-  String get moduleName => 'media_library_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const MediaLibraryRuntimeCheck().run(args);
+    runModuleRuntimeCheck('media_library_runtime', args);

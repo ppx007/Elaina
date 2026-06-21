@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class AcgExperienceRuntimeCheck extends BaseRuntimeCheck {
-  const AcgExperienceRuntimeCheck();
-
-  @override
-  String get moduleName => 'acg_data_experience';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const AcgExperienceRuntimeCheck().run(args);
+    runModuleRuntimeCheck('acg_data_experience', args);

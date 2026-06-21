@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class AdvancedCaptionRenderingRuntimeCheck extends BaseRuntimeCheck {
-  const AdvancedCaptionRenderingRuntimeCheck();
-
-  @override
-  String get moduleName => 'advanced_caption_rendering_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const AdvancedCaptionRenderingRuntimeCheck().run(args);
+    runModuleRuntimeCheck('advanced_caption_rendering_runtime', args);

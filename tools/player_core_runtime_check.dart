@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class PlayerCoreRuntimeCheck extends BaseRuntimeCheck {
-  const PlayerCoreRuntimeCheck();
-
-  @override
-  String get moduleName => 'player_core';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const PlayerCoreRuntimeCheck().run(args);
+    runModuleRuntimeCheck('player_core', args);

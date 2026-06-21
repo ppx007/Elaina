@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:mocktail/mocktail.dart';
@@ -159,7 +160,25 @@ void main() {
     verifyNever(() => runner(any(), any()));
   });
 
-  test('runtime check entrypoints resolve to module proxies and contracts', () {
+  test('runtime check entrypoints resolve through the module registry', () {
+    final File registryFile = File(
+      'tools${Platform.pathSeparator}module_checks.json',
+    );
+    expect(registryFile.existsSync(), isTrue);
+    final Map<String, Object?> registry =
+        jsonDecode(registryFile.readAsStringSync()) as Map<String, Object?>;
+    final Map<String, Object?> modules =
+        registry['modules']! as Map<String, Object?>;
+    expect(modules.containsKey('runtime_check_base'), isTrue);
+    expect(
+        File('tools${Platform.pathSeparator}runtime_check.dart').existsSync(),
+        isTrue);
+    expect(
+      File('tools${Platform.pathSeparator}runtime_check_proxy.dart')
+          .existsSync(),
+      isTrue,
+    );
+
     final Directory toolsDirectory = Directory('tools');
     final List<File> entrypoints = toolsDirectory
         .listSync(followLinks: false)
@@ -175,37 +194,58 @@ void main() {
       final String entrypointName = _fileName(entrypoint.path);
       final String source = entrypoint.readAsStringSync();
       final RegExpMatch? moduleNameMatch = RegExp(
-        r"String get moduleName => '([A-Za-z0-9_.-]+)';",
+        r"runModuleRuntimeCheck\('([A-Za-z0-9_.-]+)', args\);",
       ).firstMatch(source);
       expect(
         moduleNameMatch,
         isNotNull,
-        reason: '$entrypointName must expose a literal moduleName getter.',
+        reason: '$entrypointName must delegate to the shared runtime proxy.',
       );
       final String moduleName = moduleNameMatch!.group(1)!;
-      final File moduleProxy = File(
-        'tools${Platform.pathSeparator}check_$moduleName.ps1',
-      );
       expect(
-        moduleProxy.existsSync(),
+        modules.containsKey(moduleName),
         isTrue,
-        reason: '$entrypointName points at missing module proxy $moduleName.',
+        reason: '$entrypointName points at unregistered module $moduleName.',
       );
 
-      final String contractName = entrypointName.replaceFirst(
-        '_runtime_check.dart',
-        '_runtime_contract.dart',
+      final Map<String, Object?> module =
+          modules[moduleName]! as Map<String, Object?>;
+      final List<String> dartEntrypoints =
+          _stringList(module['dartEntrypoints']);
+      expect(
+        dartEntrypoints.contains(_registryPath(entrypoint.path)),
+        isTrue,
+        reason: '$entrypointName is missing from registry module $moduleName.',
       );
-      final File contractFile = File(
-        'tools${Platform.pathSeparator}runtime_checks'
-        '${Platform.pathSeparator}$contractName',
+
+      final String? publicCheckScript = module['publicCheckScript'] as String?;
+      expect(publicCheckScript, isNotNull);
+      expect(File(_platformPath(publicCheckScript!)).existsSync(), isTrue);
+
+      final bool legacyRequired = module['legacyRequired'] as bool? ?? true;
+      final String? legacyScriptPath = module['legacyScriptPath'] as String?;
+      if (legacyRequired) {
+        expect(
+          legacyScriptPath,
+          isNotNull,
+          reason: '$moduleName requires a concrete legacy script path.',
+        );
+        expect(File(_platformPath(legacyScriptPath!)).existsSync(), isTrue);
+      }
+
+      final List<String> contracts = _stringList(module['contracts']);
+      final String expectedContract = _registryPath(
+        'tools/runtime_checks/${entrypointName.replaceFirst(
+          '_runtime_check.dart',
+          '_runtime_contract.dart',
+        )}',
       );
       expect(
-        contractFile.existsSync(),
+        contracts.contains(expectedContract),
         isTrue,
-        reason: '$entrypointName must keep its implementation in '
-            'tools/runtime_checks/$contractName.',
+        reason: '$entrypointName contract is missing from registry.',
       );
+      expect(File(_platformPath(expectedContract)).existsSync(), isTrue);
     }
   });
 }
@@ -236,4 +276,17 @@ Future<Directory> _createProjectRoot() async {
 
 String _fileName(String path) {
   return path.split(Platform.pathSeparator).last;
+}
+
+List<String> _stringList(Object? value) {
+  if (value == null) {
+    return const <String>[];
+  }
+  return (value as List<Object?>).cast<String>();
+}
+
+String _registryPath(String path) => path.replaceAll(r'\', '/');
+
+String _platformPath(String path) {
+  return path.replaceAll('/', Platform.pathSeparator);
 }

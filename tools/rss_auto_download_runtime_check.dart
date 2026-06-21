@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class RssAutoDownloadRuntimeCheck extends BaseRuntimeCheck {
-  const RssAutoDownloadRuntimeCheck();
-
-  @override
-  String get moduleName => 'rss_auto_download_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const RssAutoDownloadRuntimeCheck().run(args);
+    runModuleRuntimeCheck('rss_auto_download_runtime', args);

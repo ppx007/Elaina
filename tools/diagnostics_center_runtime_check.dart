@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class DiagnosticsCenterRuntimeCheck extends BaseRuntimeCheck {
-  const DiagnosticsCenterRuntimeCheck();
-
-  @override
-  String get moduleName => 'diagnostics_center_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const DiagnosticsCenterRuntimeCheck().run(args);
+    runModuleRuntimeCheck('diagnostics_center_runtime', args);

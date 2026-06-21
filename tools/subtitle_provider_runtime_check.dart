@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class SubtitleProviderRuntimeCheck extends BaseRuntimeCheck {
-  const SubtitleProviderRuntimeCheck();
-
-  @override
-  String get moduleName => 'subtitle_provider_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const SubtitleProviderRuntimeCheck().run(args);
+    runModuleRuntimeCheck('subtitle_provider_runtime', args);

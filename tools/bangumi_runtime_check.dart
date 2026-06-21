@@ -1,10 +1,4 @@
-import 'runtime_check_base.dart';
+import 'runtime_check_proxy.dart';
 
-final class BangumiRuntimeCheck extends BaseRuntimeCheck {
-  const BangumiRuntimeCheck();
-
-  @override
-  String get moduleName => 'bangumi_runtime';
-}
-
-Future<void> main(List<String> args) => const BangumiRuntimeCheck().run(args);
+Future<void> main(List<String> args) =>
+    runModuleRuntimeCheck('bangumi_runtime', args);

@@ -1,10 +1,4 @@
-import 'runtime_check_base.dart';
+import 'runtime_check_proxy.dart';
 
-final class DanmakuRuntimeCheck extends BaseRuntimeCheck {
-  const DanmakuRuntimeCheck();
-
-  @override
-  String get moduleName => 'danmaku_runtime';
-}
-
-Future<void> main(List<String> args) => const DanmakuRuntimeCheck().run(args);
+Future<void> main(List<String> args) =>
+    runModuleRuntimeCheck('danmaku_runtime', args);

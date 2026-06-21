@@ -1,10 +1,4 @@
-import 'runtime_check_base.dart';
+import 'runtime_check_proxy.dart';
 
-final class RssEngineRuntimeCheck extends BaseRuntimeCheck {
-  const RssEngineRuntimeCheck();
-
-  @override
-  String get moduleName => 'rss_engine_runtime';
-}
-
-Future<void> main(List<String> args) => const RssEngineRuntimeCheck().run(args);
+Future<void> main(List<String> args) =>
+    runModuleRuntimeCheck('rss_engine_runtime', args);

@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class PiecePrioritySchedulerRuntimeCheck extends BaseRuntimeCheck {
-  const PiecePrioritySchedulerRuntimeCheck();
-
-  @override
-  String get moduleName => 'piece_priority_scheduler_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const PiecePrioritySchedulerRuntimeCheck().run(args);
+    runModuleRuntimeCheck('piece_priority_scheduler_runtime', args);

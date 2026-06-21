@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class VideoEnhancementPipelineRuntimeCheck extends BaseRuntimeCheck {
-  const VideoEnhancementPipelineRuntimeCheck();
-
-  @override
-  String get moduleName => 'video_enhancement_pipeline_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const VideoEnhancementPipelineRuntimeCheck().run(args);
+    runModuleRuntimeCheck('video_enhancement_pipeline_runtime', args);

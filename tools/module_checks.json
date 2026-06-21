@@ -1,0 +1,358 @@
+{
+    "version":  1,
+    "modules":  {
+                    "acg_data_experience":  {
+                                                "publicCheckScript":  "tools/check_acg_data_experience.ps1",
+                                                "legacyScriptPath":  "tools/module-checks/legacy/check_acg_data_experience.ps1",
+                                                "legacyRequired":  true,
+                                                "dartEntrypoints":  [
+                                                                        "tools/acg_experience_runtime_check.dart",
+                                                                        "tools/playback_metadata_bridge_runtime_check.dart"
+                                                                    ],
+                                                "contracts":  [
+                                                                  "tools/runtime_checks/acg_experience_runtime_contract.dart",
+                                                                  "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
+                                                              ],
+                                                "dartCheckScripts":  [
+                                                                         "tools/runtime_checks/acg_experience_runtime_contract.dart",
+                                                                         "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
+                                                                     ]
+                                            },
+                    "advanced_caption_rendering_runtime":  {
+                                                               "publicCheckScript":  "tools/check_advanced_caption_rendering_runtime.ps1",
+                                                               "legacyScriptPath":  "tools/module-checks/legacy/check_advanced_caption_rendering_runtime.ps1",
+                                                               "legacyRequired":  true,
+                                                               "dartEntrypoints":  [
+                                                                                       "tools/advanced_caption_rendering_runtime_check.dart"
+                                                                                   ],
+                                                               "contracts":  [
+                                                                                 "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
+                                                                             ],
+                                                               "dartCheckScripts":  [
+                                                                                        "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
+                                                                                    ]
+                                                           },
+                    "av_sync_guard_runtime":  {
+                                                  "publicCheckScript":  "tools/check_av_sync_guard_runtime.ps1",
+                                                  "legacyScriptPath":  "tools/module-checks/legacy/check_av_sync_guard_runtime.ps1",
+                                                  "legacyRequired":  true,
+                                                  "dartEntrypoints":  [
+                                                                          "tools/av_sync_guard_runtime_check.dart"
+                                                                      ],
+                                                  "contracts":  [
+                                                                    "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
+                                                                ],
+                                                  "dartCheckScripts":  [
+                                                                           "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
+                                                                       ]
+                                              },
+                    "bangumi_runtime":  {
+                                            "publicCheckScript":  "tools/check_bangumi_runtime.ps1",
+                                            "legacyScriptPath":  "tools/module-checks/legacy/check_bangumi_runtime.ps1",
+                                            "legacyRequired":  true,
+                                            "dartEntrypoints":  [
+                                                                    "tools/bangumi_runtime_check.dart"
+                                                                ],
+                                            "contracts":  [
+                                                              "tools/runtime_checks/bangumi_runtime_contract.dart"
+                                                          ],
+                                            "dartCheckScripts":  [
+                                                                     "tools/runtime_checks/bangumi_runtime_contract.dart"
+                                                                 ]
+                                        },
+                    "bt_task_core_runtime":  {
+                                                 "publicCheckScript":  "tools/check_bt_task_core_runtime.ps1",
+                                                 "legacyScriptPath":  "tools/module-checks/legacy/check_bt_task_core_runtime.ps1",
+                                                 "legacyRequired":  true,
+                                                 "dartEntrypoints":  [
+                                                                         "tools/bt_task_core_runtime_check.dart"
+                                                                     ],
+                                                 "contracts":  [
+                                                                   "tools/runtime_checks/bt_task_core_runtime_contract.dart"
+                                                               ],
+                                                 "dartCheckScripts":  [
+                                                                          "tools/runtime_checks/bt_task_core_runtime_contract.dart"
+                                                                      ]
+                                             },
+                    "dandanplay_runtime":  {
+                                               "publicCheckScript":  "tools/check_dandanplay_runtime.ps1",
+                                               "legacyScriptPath":  "tools/module-checks/legacy/check_dandanplay_runtime.ps1",
+                                               "legacyRequired":  true,
+                                               "dartEntrypoints":  [
+                                                                       "tools/dandanplay_runtime_check.dart"
+                                                                   ],
+                                               "contracts":  [
+                                                                 "tools/runtime_checks/dandanplay_runtime_contract.dart"
+                                                             ],
+                                               "dartCheckScripts":  [
+                                                                        "tools/runtime_checks/dandanplay_runtime_contract.dart"
+                                                                    ]
+                                           },
+                    "danmaku_runtime":  {
+                                            "publicCheckScript":  "tools/check_danmaku_runtime.ps1",
+                                            "legacyScriptPath":  "tools/module-checks/legacy/check_danmaku_runtime.ps1",
+                                            "legacyRequired":  true,
+                                            "dartEntrypoints":  [
+                                                                    "tools/danmaku_runtime_check.dart"
+                                                                ],
+                                            "contracts":  [
+                                                              "tools/runtime_checks/danmaku_runtime_contract.dart"
+                                                          ],
+                                            "dartCheckScripts":  [
+                                                                     "tools/runtime_checks/danmaku_runtime_contract.dart"
+                                                                 ]
+                                        },
+                    "diagnostics_center_runtime":  {
+                                                       "publicCheckScript":  "tools/check_diagnostics_center_runtime.ps1",
+                                                       "legacyScriptPath":  "tools/module-checks/legacy/check_diagnostics_center_runtime.ps1",
+                                                       "legacyRequired":  true,
+                                                       "dartEntrypoints":  [
+                                                                               "tools/diagnostics_center_runtime_check.dart"
+                                                                           ],
+                                                       "contracts":  [
+                                                                         "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
+                                                                     ],
+                                                       "dartCheckScripts":  [
+                                                                                "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
+                                                                            ]
+                                                   },
+                    "fallback_adapter_runtime":  {
+                                                     "publicCheckScript":  "tools/check_fallback_adapter_runtime.ps1",
+                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_fallback_adapter_runtime.ps1",
+                                                     "legacyRequired":  true,
+                                                     "dartEntrypoints":  [
+                                                                             "tools/fallback_adapter_runtime_check.dart"
+                                                                         ],
+                                                     "contracts":  [
+                                                                       "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
+                                                                   ],
+                                                     "dartCheckScripts":  [
+                                                                              "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
+                                                                          ]
+                                                 },
+                    "media_library_runtime":  {
+                                                  "publicCheckScript":  "tools/check_media_library_runtime.ps1",
+                                                  "legacyScriptPath":  "tools/module-checks/legacy/check_media_library_runtime.ps1",
+                                                  "legacyRequired":  true,
+                                                  "dartEntrypoints":  [
+                                                                          "tools/media_library_runtime_check.dart"
+                                                                      ],
+                                                  "contracts":  [
+                                                                    "tools/runtime_checks/media_library_runtime_contract.dart"
+                                                                ],
+                                                  "dartCheckScripts":  [
+                                                                           "tools/runtime_checks/media_library_runtime_contract.dart"
+                                                                       ]
+                                              },
+                    "network_policy_runtime":  {
+                                                   "publicCheckScript":  "tools/check_network_policy_runtime.ps1",
+                                                   "legacyScriptPath":  "tools/module-checks/legacy/check_network_policy_runtime.ps1",
+                                                   "legacyRequired":  true,
+                                                   "dartEntrypoints":  [
+                                                                           "tools/network_policy_runtime_check.dart"
+                                                                       ],
+                                                   "contracts":  [
+                                                                     "tools/runtime_checks/network_policy_runtime_contract.dart"
+                                                                 ],
+                                                   "dartCheckScripts":  [
+                                                                            "tools/runtime_checks/network_policy_runtime_contract.dart"
+                                                                        ]
+                                               },
+                    "online_rule_source_runtime":  {
+                                                       "publicCheckScript":  "tools/check_online_rule_source_runtime.ps1",
+                                                       "legacyScriptPath":  "tools/module-checks/legacy/check_online_rule_source_runtime.ps1",
+                                                       "legacyRequired":  true,
+                                                       "dartEntrypoints":  [
+                                                                               "tools/online_rule_source_runtime_check.dart"
+                                                                           ],
+                                                       "contracts":  [
+                                                                         "tools/runtime_checks/online_rule_source_runtime_contract.dart"
+                                                                     ],
+                                                       "dartCheckScripts":  [
+                                                                                "tools/runtime_checks/online_rule_source_runtime_contract.dart"
+                                                                            ]
+                                                   },
+                    "piece_priority_scheduler_runtime":  {
+                                                             "publicCheckScript":  "tools/check_piece_priority_scheduler_runtime.ps1",
+                                                             "legacyScriptPath":  "tools/module-checks/legacy/check_piece_priority_scheduler_runtime.ps1",
+                                                             "legacyRequired":  true,
+                                                             "dartEntrypoints":  [
+                                                                                     "tools/piece_priority_scheduler_runtime_check.dart"
+                                                                                 ],
+                                                             "contracts":  [
+                                                                               "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
+                                                                           ],
+                                                             "dartCheckScripts":  [
+                                                                                      "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
+                                                                                  ]
+                                                         },
+                    "player_core":  {
+                                        "publicCheckScript":  "tools/check_player_core.ps1",
+                                        "legacyScriptPath":  "tools/module-checks/legacy/check_player_core.ps1",
+                                        "legacyRequired":  true,
+                                        "dartEntrypoints":  [
+                                                                "tools/player_core_runtime_check.dart"
+                                                            ],
+                                        "contracts":  [
+                                                          "tools/runtime_checks/player_core_runtime_contract.dart"
+                                                      ],
+                                        "dartCheckScripts":  [
+                                                                 "tools/runtime_checks/player_core_runtime_contract.dart"
+                                                             ]
+                                    },
+                    "rss_auto_download_runtime":  {
+                                                      "publicCheckScript":  "tools/check_rss_auto_download_runtime.ps1",
+                                                      "legacyScriptPath":  "tools/module-checks/legacy/check_rss_auto_download_runtime.ps1",
+                                                      "legacyRequired":  true,
+                                                      "dartEntrypoints":  [
+                                                                              "tools/rss_auto_download_runtime_check.dart"
+                                                                          ],
+                                                      "contracts":  [
+                                                                        "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
+                                                                    ],
+                                                      "dartCheckScripts":  [
+                                                                               "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
+                                                                           ]
+                                                  },
+                    "rss_engine_runtime":  {
+                                               "publicCheckScript":  "tools/check_rss_engine_runtime.ps1",
+                                               "legacyScriptPath":  "tools/module-checks/legacy/check_rss_engine_runtime.ps1",
+                                               "legacyRequired":  true,
+                                               "dartEntrypoints":  [
+                                                                       "tools/rss_engine_runtime_check.dart"
+                                                                   ],
+                                               "contracts":  [
+                                                                 "tools/runtime_checks/rss_engine_runtime_contract.dart"
+                                                             ],
+                                               "dartCheckScripts":  [
+                                                                        "tools/runtime_checks/rss_engine_runtime_contract.dart"
+                                                                    ]
+                                           },
+                    "runtime_check_base":  {
+                                               "publicCheckScript":  "tools/check_runtime_check_base.ps1",
+                                               "legacyRequired":  false,
+                                               "requiredFiles":  [
+                                                                     "tools/runtime_check_base.dart",
+                                                                     "tools/runtime_check_proxy.dart",
+                                                                     "tools/runtime_check.dart",
+                                                                     "test/tools/base_runtime_check_test.dart",
+                                                                     "tools/module_checks.json"
+                                                                 ],
+                                               "dartTestPaths":  [
+                                                                     "test/tools"
+                                                                 ]
+                                           },
+                    "seasonal_indexer_runtime":  {
+                                                     "publicCheckScript":  "tools/check_seasonal_indexer_runtime.ps1",
+                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_seasonal_indexer_runtime.ps1",
+                                                     "legacyRequired":  true,
+                                                     "dartEntrypoints":  [
+                                                                             "tools/seasonal_indexer_runtime_check.dart"
+                                                                         ],
+                                                     "contracts":  [
+                                                                       "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
+                                                                   ],
+                                                     "dartCheckScripts":  [
+                                                                              "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
+                                                                          ]
+                                                 },
+                    "subtitle_provider_runtime":  {
+                                                      "publicCheckScript":  "tools/check_subtitle_provider_runtime.ps1",
+                                                      "legacyScriptPath":  "tools/module-checks/legacy/check_subtitle_provider_runtime.ps1",
+                                                      "legacyRequired":  true,
+                                                      "dartEntrypoints":  [
+                                                                              "tools/subtitle_provider_runtime_check.dart"
+                                                                          ],
+                                                      "contracts":  [
+                                                                        "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
+                                                                    ],
+                                                      "dartCheckScripts":  [
+                                                                               "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
+                                                                           ]
+                                                  },
+                    "subtitle_runtime":  {
+                                             "publicCheckScript":  "tools/check_subtitle_runtime.ps1",
+                                             "legacyScriptPath":  "tools/module-checks/legacy/check_subtitle_runtime.ps1",
+                                             "legacyRequired":  true,
+                                             "dartEntrypoints":  [
+                                                                     "tools/subtitle_runtime_check.dart"
+                                                                 ],
+                                             "contracts":  [
+                                                               "tools/runtime_checks/subtitle_runtime_contract.dart"
+                                                           ],
+                                             "dartCheckScripts":  [
+                                                                      "tools/runtime_checks/subtitle_runtime_contract.dart"
+                                                                  ]
+                                         },
+                    "timeline_overlay_runtime":  {
+                                                     "publicCheckScript":  "tools/check_timeline_overlay_runtime.ps1",
+                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_timeline_overlay_runtime.ps1",
+                                                     "legacyRequired":  true,
+                                                     "dartEntrypoints":  [
+                                                                             "tools/timeline_overlay_runtime_check.dart"
+                                                                         ],
+                                                     "contracts":  [
+                                                                       "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
+                                                                   ],
+                                                     "dartCheckScripts":  [
+                                                                              "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
+                                                                          ]
+                                                 },
+                    "video_detail_runtime":  {
+                                                 "publicCheckScript":  "tools/check_video_detail_runtime.ps1",
+                                                 "legacyScriptPath":  "tools/module-checks/legacy/check_video_detail_runtime.ps1",
+                                                 "legacyRequired":  true,
+                                                 "dartEntrypoints":  [
+                                                                         "tools/video_detail_runtime_check.dart"
+                                                                     ],
+                                                 "contracts":  [
+                                                                   "tools/runtime_checks/video_detail_runtime_contract.dart"
+                                                               ],
+                                                 "dartCheckScripts":  [
+                                                                          "tools/runtime_checks/video_detail_runtime_contract.dart"
+                                                                      ]
+                                             },
+                    "video_enhancement_pipeline_runtime":  {
+                                                               "publicCheckScript":  "tools/check_video_enhancement_pipeline_runtime.ps1",
+                                                               "legacyScriptPath":  "tools/module-checks/legacy/check_video_enhancement_pipeline_runtime.ps1",
+                                                               "legacyRequired":  true,
+                                                               "dartEntrypoints":  [
+                                                                                       "tools/video_enhancement_pipeline_runtime_check.dart"
+                                                                                   ],
+                                                               "contracts":  [
+                                                                                 "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
+                                                                             ],
+                                                               "dartCheckScripts":  [
+                                                                                        "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
+                                                                                    ]
+                                                           },
+                    "virtual_media_stream_runtime":  {
+                                                         "publicCheckScript":  "tools/check_virtual_media_stream_runtime.ps1",
+                                                         "legacyScriptPath":  "tools/module-checks/legacy/check_virtual_media_stream_runtime.ps1",
+                                                         "legacyRequired":  true,
+                                                         "dartEntrypoints":  [
+                                                                                 "tools/virtual_media_stream_runtime_check.dart"
+                                                                             ],
+                                                         "contracts":  [
+                                                                           "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
+                                                                       ],
+                                                         "dartCheckScripts":  [
+                                                                                  "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
+                                                                              ]
+                                                     },
+                    "webview_session_backfill_runtime":  {
+                                                             "publicCheckScript":  "tools/check_webview_session_backfill_runtime.ps1",
+                                                             "legacyScriptPath":  "tools/module-checks/legacy/check_webview_session_backfill_runtime.ps1",
+                                                             "legacyRequired":  true,
+                                                             "dartEntrypoints":  [
+                                                                                     "tools/webview_session_backfill_runtime_check.dart"
+                                                                                 ],
+                                                             "contracts":  [
+                                                                               "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
+                                                                           ],
+                                                             "dartCheckScripts":  [
+                                                                                      "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
+                                                                                  ]
+                                                         }
+                }
+}

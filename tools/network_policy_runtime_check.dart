@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class NetworkPolicyRuntimeCheck extends BaseRuntimeCheck {
-  const NetworkPolicyRuntimeCheck();
-
-  @override
-  String get moduleName => 'network_policy_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const NetworkPolicyRuntimeCheck().run(args);
+    runModuleRuntimeCheck('network_policy_runtime', args);

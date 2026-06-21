@@ -1,11 +1,4 @@
-import 'runtime_check_base.dart';
-
-final class VideoDetailRuntimeCheck extends BaseRuntimeCheck {
-  const VideoDetailRuntimeCheck();
-
-  @override
-  String get moduleName => 'video_detail_runtime';
-}
+import 'runtime_check_proxy.dart';
 
 Future<void> main(List<String> args) =>
-    const VideoDetailRuntimeCheck().run(args);
+    runModuleRuntimeCheck('video_detail_runtime', args);

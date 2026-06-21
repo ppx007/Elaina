@@ -35,6 +35,10 @@ param(
 
   [Parameter()]
   [ValidateNotNullOrEmpty()]
+  [string]$ModuleRegistryPath = 'tools/module_checks.json',
+
+  [Parameter()]
+  [ValidateNotNullOrEmpty()]
   [string]$CheckScriptPath,
 
   [Parameter()]
@@ -138,6 +142,32 @@ function ConvertFrom-CheckScriptArgumentsBase64 {
   }
 
   return @(ConvertTo-CheckStringList -Value $decoded)
+}
+
+function ConvertTo-CheckHashtable {
+  [CmdletBinding()]
+  param(
+    [Parameter()]
+    [AllowNull()]
+    [object]$Value
+  )
+
+  if ($null -eq $Value) {
+    return @{}
+  }
+  if ($Value -is [hashtable]) {
+    return $Value
+  }
+
+  $table = @{}
+  if ($Value -is [pscustomobject]) {
+    foreach ($property in $Value.PSObject.Properties) {
+      $table[$property.Name] = $property.Value
+    }
+    return $table
+  }
+
+  throw "Expected a JSON object or hashtable, but received '$($Value.GetType().FullName)'."
 }
 
 function ConvertTo-CheckModuleToken {
@@ -318,6 +348,134 @@ function Get-ModuleCheckScriptPath {
     throw "Module check script was not found: $(Get-CheckRelativePath -RootPath $RootPath -Path $scriptPath)"
   }
   return $scriptPath
+}
+
+function Get-ModuleCheckDefinition {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$RootPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$RegistryPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Name
+  )
+
+  $path = Resolve-CheckPath -RootPath $RootPath -Path $RegistryPath
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    return $null
+  }
+
+  $registry = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+  if ($null -eq $registry.modules) {
+    throw "Module check registry is missing a 'modules' object: $(Get-CheckRelativePath -RootPath $RootPath -Path $path)"
+  }
+
+  $moduleTable = ConvertTo-CheckHashtable -Value $registry.modules
+  $token = ConvertTo-CheckModuleToken -Name $Name
+  if ($moduleTable.ContainsKey($Name)) {
+    return $moduleTable[$Name]
+  }
+  if ($moduleTable.ContainsKey($token)) {
+    return $moduleTable[$token]
+  }
+  return $null
+}
+
+function Get-ModuleCheckDefinitionStringList {
+  [CmdletBinding()]
+  param(
+    [Parameter()]
+    [AllowNull()]
+    [object]$Definition,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$PropertyName
+  )
+
+  if ($null -eq $Definition) {
+    return @()
+  }
+  $property = $Definition.PSObject.Properties[$PropertyName]
+  if ($null -eq $property) {
+    return @()
+  }
+  return @(ConvertTo-CheckStringList -Value $property.Value)
+}
+
+function Get-ModuleCheckDefinitionHashtable {
+  [CmdletBinding()]
+  param(
+    [Parameter()]
+    [AllowNull()]
+    [object]$Definition,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$PropertyName
+  )
+
+  if ($null -eq $Definition) {
+    return @{}
+  }
+  $property = $Definition.PSObject.Properties[$PropertyName]
+  if ($null -eq $property) {
+    return @{}
+  }
+  return ConvertTo-CheckHashtable -Value $property.Value
+}
+
+function Get-ModuleCheckDefinitionBool {
+  [CmdletBinding()]
+  param(
+    [Parameter()]
+    [AllowNull()]
+    [object]$Definition,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$PropertyName,
+
+    [Parameter()]
+    [bool]$DefaultValue = $false
+  )
+
+  if ($null -eq $Definition) {
+    return $DefaultValue
+  }
+  $property = $Definition.PSObject.Properties[$PropertyName]
+  if ($null -eq $property -or $null -eq $property.Value) {
+    return $DefaultValue
+  }
+  return [bool]$property.Value
+}
+
+function Get-ModuleCheckDefinitionString {
+  [CmdletBinding()]
+  param(
+    [Parameter()]
+    [AllowNull()]
+    [object]$Definition,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$PropertyName
+  )
+
+  if ($null -eq $Definition) {
+    return $null
+  }
+  $property = $Definition.PSObject.Properties[$PropertyName]
+  if ($null -eq $property -or $null -eq $property.Value) {
+    return $null
+  }
+  return [string]$property.Value
 }
 
 function Assert-RequiredCheckFiles {
@@ -653,10 +811,62 @@ try {
     $effectiveScriptArguments = ConvertFrom-CheckScriptArgumentsBase64 -Value $ScriptArgumentsBase64
   }
 
+  $moduleDefinition = Get-ModuleCheckDefinition -RootPath $resolvedRoot -RegistryPath $ModuleRegistryPath -Name $ModuleName
+  $definitionRequiredFiles = @()
+  $definitionRequiredFiles += @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'requiredFiles')
+  $definitionRequiredFiles += @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'dartEntrypoints')
+  $definitionRequiredFiles += @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'contracts')
+
+  $effectiveDependsOnChecks = @($DependsOnChecks)
+  if ($effectiveDependsOnChecks.Count -eq 0) {
+    $effectiveDependsOnChecks = @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'dependsOnChecks')
+  }
+
+  $effectiveRequiredFiles = @($RequiredFiles)
+  if ($effectiveRequiredFiles.Count -eq 0) {
+    $effectiveRequiredFiles = @($definitionRequiredFiles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  }
+
+  $effectiveRequiredTermsByFile = $RequiredTermsByFile
+  if ($effectiveRequiredTermsByFile.Count -eq 0) {
+    $effectiveRequiredTermsByFile = Get-ModuleCheckDefinitionHashtable -Definition $moduleDefinition -PropertyName 'requiredTermsByFile'
+  }
+
+  $effectiveForbiddenTermsByFile = $ForbiddenTermsByFile
+  if ($effectiveForbiddenTermsByFile.Count -eq 0) {
+    $effectiveForbiddenTermsByFile = Get-ModuleCheckDefinitionHashtable -Definition $moduleDefinition -PropertyName 'forbiddenTermsByFile'
+  }
+
+  $effectiveRecursiveForbiddenTermsByPath = $RecursiveForbiddenTermsByPath
+  if ($effectiveRecursiveForbiddenTermsByPath.Count -eq 0) {
+    $effectiveRecursiveForbiddenTermsByPath = Get-ModuleCheckDefinitionHashtable -Definition $moduleDefinition -PropertyName 'recursiveForbiddenTermsByPath'
+  }
+
+  $effectiveDartCheckScripts = @($DartCheckScripts)
+  if ($effectiveDartCheckScripts.Count -eq 0) {
+    $effectiveDartCheckScripts = @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'dartCheckScripts')
+  }
+
+  $effectiveDartTestPaths = @($DartTestPaths)
+  if ($effectiveDartTestPaths.Count -eq 0) {
+    $effectiveDartTestPaths = @(Get-ModuleCheckDefinitionStringList -Definition $moduleDefinition -PropertyName 'dartTestPaths')
+  }
+
+  $effectiveSkipLegacyScript = [bool]$SkipLegacyScript
+  if (-not $effectiveSkipLegacyScript -and $null -ne $moduleDefinition) {
+    $legacyRequired = Get-ModuleCheckDefinitionBool -Definition $moduleDefinition -PropertyName 'legacyRequired' -DefaultValue $true
+    $effectiveSkipLegacyScript = -not $legacyRequired
+  }
+
   $resolvedLegacyScript = $null
-  if (-not $SkipLegacyScript) {
+  if (-not $effectiveSkipLegacyScript) {
     if ([string]::IsNullOrWhiteSpace($CheckScriptPath)) {
-      $resolvedLegacyScript = Get-ModuleCheckScriptPath -RootPath $resolvedRoot -ToolRootPath $resolvedTools -Name $ModuleName
+      $definitionLegacyScript = Get-ModuleCheckDefinitionString -Definition $moduleDefinition -PropertyName 'legacyScriptPath'
+      if ([string]::IsNullOrWhiteSpace($definitionLegacyScript)) {
+        $resolvedLegacyScript = Get-ModuleCheckScriptPath -RootPath $resolvedRoot -ToolRootPath $resolvedTools -Name $ModuleName
+      } else {
+        $resolvedLegacyScript = Resolve-CheckPath -RootPath $resolvedRoot -Path $definitionLegacyScript -MustExist
+      }
     } else {
       $resolvedLegacyScript = Resolve-CheckPath -RootPath $resolvedRoot -Path $CheckScriptPath -MustExist
     }
@@ -667,16 +877,16 @@ try {
     -RootPath $resolvedRoot `
     -ToolRootPath $resolvedTools `
     -LegacyScriptPath $resolvedLegacyScript `
-    -DependencyChecks $DependsOnChecks `
-    -Files $RequiredFiles `
-    -RequiredTermMap $RequiredTermsByFile `
-    -ForbiddenTermMap $ForbiddenTermsByFile `
-    -RecursiveForbiddenTermMap $RecursiveForbiddenTermsByPath `
+    -DependencyChecks $effectiveDependsOnChecks `
+    -Files $effectiveRequiredFiles `
+    -RequiredTermMap $effectiveRequiredTermsByFile `
+    -ForbiddenTermMap $effectiveForbiddenTermsByFile `
+    -RecursiveForbiddenTermMap $effectiveRecursiveForbiddenTermsByPath `
     -TreeFileExtension $RecursiveFileExtension `
-    -DartScripts $DartCheckScripts `
-    -DartTests $DartTestPaths `
+    -DartScripts $effectiveDartCheckScripts `
+    -DartTests $effectiveDartTestPaths `
     -LegacyScriptArguments $effectiveScriptArguments `
-    -DoNotInvokeLegacyScript:$SkipLegacyScript
+    -DoNotInvokeLegacyScript:$effectiveSkipLegacyScript
 
   if ($PassThru) {
     $result
