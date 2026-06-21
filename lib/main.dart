@@ -135,38 +135,11 @@ class _MyAppState extends State<MyApp> {
       child: Builder(
         builder: (BuildContext context) {
           final ElainaThemeData theme = ElainaTheme.of(context);
-          const WidgetStateMouseCursor clickCursor =
-              WidgetStateMouseCursor.clickable;
           return MaterialApp(
             title: 'Elaina ACG Player',
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              brightness: theme.brightness,
-              scaffoldBackgroundColor: theme.background,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: theme.primary,
-                brightness: theme.brightness,
-              ),
-              useMaterial3: true,
-              iconButtonTheme: IconButtonThemeData(
-                style: ButtonStyle(mouseCursor: clickCursor),
-              ),
-              textButtonTheme: TextButtonThemeData(
-                style: ButtonStyle(mouseCursor: clickCursor),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ButtonStyle(mouseCursor: clickCursor),
-              ),
-              outlinedButtonTheme: OutlinedButtonThemeData(
-                style: ButtonStyle(mouseCursor: clickCursor),
-              ),
-              filledButtonTheme: FilledButtonThemeData(
-                style: ButtonStyle(mouseCursor: clickCursor),
-              ),
-              switchTheme: SwitchThemeData(mouseCursor: clickCursor),
-              checkboxTheme: CheckboxThemeData(mouseCursor: clickCursor),
-              radioTheme: RadioThemeData(mouseCursor: clickCursor),
-            ),
+            theme: elainaMaterialThemeFor(theme),
+            themeAnimationDuration: Duration.zero,
             home: ElainaAppShell(
               playbackController: _playbackController,
               videoSurface: _videoSurface,

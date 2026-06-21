@@ -16,6 +16,20 @@ final class BangumiEpisodeId {
   final String value;
 }
 
+final class BangumiPersonId {
+  const BangumiPersonId(this.value)
+      : assert(value != '', 'Bangumi person id must not be empty.');
+
+  final String value;
+}
+
+final class BangumiCharacterId {
+  const BangumiCharacterId(this.value)
+      : assert(value != '', 'Bangumi character id must not be empty.');
+
+  final String value;
+}
+
 final class BangumiSubject {
   const BangumiSubject({
     required this.id,
@@ -36,6 +50,78 @@ final class BangumiSubject {
   final double? score;
   final int? collectionTotal;
   final int? episodeCount;
+}
+
+final class BangumiRelatedPerson {
+  const BangumiRelatedPerson({
+    required this.id,
+    required this.name,
+    required this.relation,
+    this.imageUri,
+    this.careers = const <String>[],
+    this.episodeRange,
+  })  : assert(name != '', 'Bangumi related person name must not be empty.'),
+        assert(relation != '',
+            'Bangumi related person relation must not be empty.');
+
+  final BangumiPersonId id;
+  final String name;
+  final String relation;
+  final Uri? imageUri;
+  final List<String> careers;
+  final String? episodeRange;
+}
+
+final class BangumiVoiceActor {
+  const BangumiVoiceActor({
+    required this.id,
+    required this.name,
+    this.imageUri,
+    this.careers = const <String>[],
+  }) : assert(name != '', 'Bangumi voice actor name must not be empty.');
+
+  final BangumiPersonId id;
+  final String name;
+  final Uri? imageUri;
+  final List<String> careers;
+}
+
+final class BangumiRelatedCharacter {
+  const BangumiRelatedCharacter({
+    required this.id,
+    required this.name,
+    required this.relation,
+    this.summary,
+    this.imageUri,
+    this.actors = const <BangumiVoiceActor>[],
+  })  : assert(name != '', 'Bangumi related character name must not be empty.'),
+        assert(relation != '',
+            'Bangumi related character relation must not be empty.');
+
+  final BangumiCharacterId id;
+  final String name;
+  final String relation;
+  final String? summary;
+  final Uri? imageUri;
+  final List<BangumiVoiceActor> actors;
+}
+
+final class BangumiRelatedSubject {
+  const BangumiRelatedSubject({
+    required this.id,
+    required this.title,
+    required this.relation,
+    this.coverUri,
+    this.type,
+  })  : assert(title != '', 'Bangumi related subject title must not be empty.'),
+        assert(relation != '',
+            'Bangumi related subject relation must not be empty.');
+
+  final BangumiSubjectId id;
+  final String title;
+  final String relation;
+  final Uri? coverUri;
+  final int? type;
 }
 
 final class BangumiEpisode {
@@ -62,6 +148,19 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id);
 
   Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
+    BangumiSubjectId subjectId,
+  );
+
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  );
+
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  );
+
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
     BangumiSubjectId subjectId,
   );
 }

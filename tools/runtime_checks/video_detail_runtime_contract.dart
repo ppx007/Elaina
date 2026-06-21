@@ -51,6 +51,9 @@ Future<void> verifyVideoDetailRuntimeContract() async {
     historyStore: historyStore,
     playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
     invalidationBus: StreamCacheInvalidationBus(),
+    localTrackingStore: SettingsBangumiLocalTrackingStore(
+      DeterministicSettingsStore(),
+    ),
     seeds: <BangumiVideoDetailSeed>[
       BangumiVideoDetailSeed(
         subject: subject,
@@ -258,6 +261,64 @@ final class _CheckBangumiProvider implements BangumiProvider {
             subjectId: subjectId,
             index: 1,
             title: 'Episode 1',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiRelatedPerson>>>.value(
+      const AcgProviderSuccess<List<BangumiRelatedPerson>>(
+        <BangumiRelatedPerson>[
+          BangumiRelatedPerson(
+            id: BangumiPersonId('detail-check-person'),
+            name: 'Check Director',
+            relation: '导演',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiRelatedCharacter>>>.value(
+      const AcgProviderSuccess<List<BangumiRelatedCharacter>>(
+        <BangumiRelatedCharacter>[
+          BangumiRelatedCharacter(
+            id: BangumiCharacterId('detail-check-character'),
+            name: 'Check Character',
+            relation: '主角',
+            actors: <BangumiVoiceActor>[
+              BangumiVoiceActor(
+                id: BangumiPersonId('detail-check-actor'),
+                name: 'Check Actor',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
+    BangumiSubjectId subjectId,
+  ) {
+    return Future<AcgProviderResult<List<BangumiRelatedSubject>>>.value(
+      const AcgProviderSuccess<List<BangumiRelatedSubject>>(
+        <BangumiRelatedSubject>[
+          BangumiRelatedSubject(
+            id: BangumiSubjectId('detail-check-related'),
+            title: 'Check Related Subject',
+            relation: '续集',
           ),
         ],
       ),

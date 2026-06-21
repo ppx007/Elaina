@@ -423,7 +423,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                 id: _activeDetailId!,
                 videoDetailPageContract: widget.videoDetailPageContract,
                 playbackController: widget.playbackController,
-                onPlaybackStarted: () {},
+                onPlaybackStarted: () {
+                  setState(() {
+                    _activeDetailId = null;
+                  });
+                  _checkPlaybackState();
+                },
                 onClose: () {
                   setState(() {
                     _activeDetailId = null;
@@ -2169,38 +2174,40 @@ class _TrackingItemCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Container(
-                      width: 42,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: theme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: theme.primary.withValues(alpha: 0.22),
+                    RepaintBoundary(
+                      child: Container(
+                        width: 42,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: theme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: theme.primary.withValues(alpha: 0.22),
+                          ),
                         ),
+                        clipBehavior: Clip.antiAlias,
+                        child: item.coverUri == null
+                            ? Icon(
+                                Icons.movie_filter_outlined,
+                                color: theme.primary,
+                                size: 22,
+                              )
+                            : Image.network(
+                                item.coverUri.toString(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (
+                                  BuildContext context,
+                                  Object error,
+                                  StackTrace? stackTrace,
+                                ) {
+                                  return Icon(
+                                    Icons.movie_filter_outlined,
+                                    color: theme.primary,
+                                    size: 22,
+                                  );
+                                },
+                              ),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: item.coverUri == null
-                          ? Icon(
-                              Icons.movie_filter_outlined,
-                              color: theme.primary,
-                              size: 22,
-                            )
-                          : Image.network(
-                              item.coverUri.toString(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (
-                                BuildContext context,
-                                Object error,
-                                StackTrace? stackTrace,
-                              ) {
-                                return Icon(
-                                  Icons.movie_filter_outlined,
-                                  color: theme.primary,
-                                  size: 22,
-                                );
-                              },
-                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2335,22 +2342,24 @@ class _BangumiProfileAvatarState extends State<_BangumiProfileAvatar> {
         if (avatarUri == null) {
           return _buildFallbackAvatar(widget.theme);
         }
-        return ClipOval(
-          child: SizedBox.square(
-            dimension: _BangumiProfileAvatar._avatarDiameter,
-            child: Image.network(
-              avatarUri.toString(),
-              key: ValueKey<String>(avatarUri.toString()),
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder: (BuildContext context, Object error,
-                      StackTrace? stackTrace) =>
-                  _buildFallbackAvatar(widget.theme),
-              loadingBuilder: (BuildContext context, Widget child,
-                  ImageChunkEvent? loadingProgress) {
-                if (loadingProgress == null) return child;
-                return _buildFallbackAvatar(widget.theme);
-              },
+        return RepaintBoundary(
+          child: ClipOval(
+            child: SizedBox.square(
+              dimension: _BangumiProfileAvatar._avatarDiameter,
+              child: Image.network(
+                avatarUri.toString(),
+                key: ValueKey<String>(avatarUri.toString()),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (BuildContext context, Object error,
+                        StackTrace? stackTrace) =>
+                    _buildFallbackAvatar(widget.theme),
+                loadingBuilder: (BuildContext context, Widget child,
+                    ImageChunkEvent? loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _buildFallbackAvatar(widget.theme);
+                },
+              ),
             ),
           ),
         );
@@ -2451,23 +2460,28 @@ class _RecommendationBackdrop extends StatelessWidget {
           if (imageUri == null)
             _buildFallbackPoster()
           else
-            Image.network(
-              imageUri.toString(),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              gaplessPlayback: true,
-              errorBuilder:
-                  (BuildContext context, Object error, StackTrace? stackTrace) {
-                return _buildFallbackPoster();
-              },
-              loadingBuilder: (
-                BuildContext context,
-                Widget child,
-                ImageChunkEvent? loadingProgress,
-              ) {
-                if (loadingProgress == null) return child;
-                return _buildFallbackPoster();
-              },
+            RepaintBoundary(
+              child: Image.network(
+                imageUri.toString(),
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                gaplessPlayback: true,
+                errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) {
+                  return _buildFallbackPoster();
+                },
+                loadingBuilder: (
+                  BuildContext context,
+                  Widget child,
+                  ImageChunkEvent? loadingProgress,
+                ) {
+                  if (loadingProgress == null) return child;
+                  return _buildFallbackPoster();
+                },
+              ),
             ),
         ],
       ),

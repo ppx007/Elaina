@@ -1,7 +1,8 @@
-import 'dart:async';
-
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/provider_test_fakes.dart';
+import '../../support/runtime_test_fakes.dart';
 
 void main() {
   test('runtime scans imports projects catalog state and publishes events',
@@ -26,8 +27,8 @@ void main() {
         ProviderBindingAuthority.automatic,
         0.7,
         now));
-    final _RecordingCacheInvalidationBus invalidationBus =
-        _RecordingCacheInvalidationBus();
+    final RecordingCacheInvalidationBus invalidationBus =
+        RecordingCacheInvalidationBus();
     final MediaLibraryRuntime runtime = MediaLibraryRuntime(
       scanner: DeterministicMediaLibraryScanner(
           scanId: scanId,
@@ -89,10 +90,10 @@ void main() {
         DeterministicMediaLibraryCatalogRepository();
     final DeterministicProviderBindingStore bindingStore =
         DeterministicProviderBindingStore();
-    final _RecordingCacheInvalidationBus invalidationBus =
-        _RecordingCacheInvalidationBus();
+    final RecordingCacheInvalidationBus invalidationBus =
+        RecordingCacheInvalidationBus();
     final MediaLibraryRuntime runtime = MediaLibraryRuntime(
-      scanner: const _EmptyScanner(),
+      scanner: const EmptyMediaLibraryScanner(),
       catalogRepository: repository,
       importer: DeterministicMediaBatchImportContract(
           repository: repository, clock: () => now),
@@ -171,21 +172,21 @@ void main() {
         DeterministicMediaLibraryCatalogRepository();
     final DeterministicProviderBindingStore bindingStore =
         DeterministicProviderBindingStore();
-    final _FakeBangumiProvider bangumiProvider = _FakeBangumiProvider(
+    final FakeBangumiProvider bangumiProvider = FakeBangumiProvider(
       subjects: const <BangumiSubject>[
         BangumiSubject(id: BangumiSubjectId('42'), title: 'Frieren'),
         BangumiSubject(id: BangumiSubjectId('43'), title: 'Frieren Special'),
       ],
     );
     final MediaLibraryRuntime runtime = MediaLibraryRuntime(
-      scanner: const _EmptyScanner(),
+      scanner: const EmptyMediaLibraryScanner(),
       catalogRepository: repository,
       importer: DeterministicMediaBatchImportContract(
           repository: repository, clock: () => now),
       historyStore: DeterministicPlaybackHistoryStore(),
       bindingStore: bindingStore,
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
-      invalidationBus: _RecordingCacheInvalidationBus(),
+      invalidationBus: RecordingCacheInvalidationBus(),
       bangumiMatcher: BangumiLocalMediaMatcher(
         bangumiProvider: bangumiProvider,
       ),
@@ -238,7 +239,7 @@ void main() {
       historyStore: DeterministicPlaybackHistoryStore(),
       bindingStore: DeterministicProviderBindingStore(),
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
-      invalidationBus: _RecordingCacheInvalidationBus(),
+      invalidationBus: RecordingCacheInvalidationBus(),
     );
 
     await runtime.cancelScan(scanId);
@@ -311,145 +312,5 @@ final class _RuntimeObserver implements MediaLibraryRuntimeObserver {
   @override
   void onMediaLibraryRuntimeSnapshot(MediaLibraryRuntimeSnapshot snapshot) {
     snapshots.add(snapshot);
-  }
-}
-
-final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
-  final StreamController<CacheInvalidationEvent> _controller =
-      StreamController<CacheInvalidationEvent>.broadcast(sync: true);
-  final List<CacheInvalidationEvent> publishedEvents =
-      <CacheInvalidationEvent>[];
-
-  @override
-  Stream<CacheInvalidationEvent> get events => _controller.stream;
-
-  @override
-  void publish(CacheInvalidationEvent event) {
-    publishedEvents.add(event);
-    _controller.add(event);
-  }
-
-  @override
-  Future<void> close() => _controller.close();
-}
-
-final class _EmptyScanner implements MediaLibraryScanner {
-  const _EmptyScanner();
-
-  @override
-  Future<void> cancel(MediaScanId scanId) => Future<void>.value();
-
-  @override
-  Future<MediaScanResult> scan(MediaScanScope scope) =>
-      Future<MediaScanResult>.value(const MediaScanResult(
-          scanId: MediaScanId('empty'), candidates: <MediaScanCandidate>[]));
-
-  @override
-  Stream<MediaScanEvent> watch(MediaScanId scanId) =>
-      const Stream<MediaScanEvent>.empty();
-}
-
-final class _FakeBangumiProvider implements BangumiProvider {
-  _FakeBangumiProvider({required this.subjects});
-
-  final List<BangumiSubject> subjects;
-  final List<String> searchedQueries = <String>[];
-
-  @override
-  String get displayName => 'Fake Bangumi Provider';
-
-  @override
-  ProviderGateway get gateway => _UnsupportedProviderGateway();
-
-  @override
-  String get id => 'fake-bangumi';
-
-  @override
-  ProviderKind get kind => ProviderKind.metadata;
-
-  @override
-  ProviderRegistration get registration => const ProviderRegistration(
-        providerId: ProviderId('fake-bangumi'),
-        ratePolicy:
-            ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
-        retryPolicy: ProviderRetryPolicy(
-            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
-      );
-
-  @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
-    required String cacheKey,
-    required Future<T> Function() load,
-    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
-  }) async {
-    return ProviderGatewayResponse<T>(
-      value: await load(),
-      source: ProviderGatewayResponseSource.network,
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
-    return Future<AcgProviderResult<BangumiEpisode>>.value(
-      AcgProviderFailure<BangumiEpisode>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Episode lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
-    BangumiSubjectId subjectId,
-  ) {
-    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
-      AcgProviderFailure<List<BangumiEpisode>>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Episode list lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
-    return Future<AcgProviderResult<BangumiSubject>>.value(
-      AcgProviderFailure<BangumiSubject>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Subject lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  ProviderRequestKey requestKey(String cacheKey) {
-    return ProviderRequestKey(
-      providerId: const ProviderId('fake-bangumi'),
-      cacheKey: cacheKey,
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
-    searchedQueries.add(query);
-    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-      AcgProviderSuccess<List<BangumiSubject>>(subjects),
-    );
-  }
-}
-
-final class _UnsupportedProviderGateway implements ProviderGateway {
-  @override
-  StorageFoundation get storage =>
-      throw UnsupportedError('Gateway storage is not used by this test.');
-
-  @override
-  Future<void> registerProvider(ProviderRegistration registration) {
-    throw UnsupportedError('Provider registration is not used by this test.');
-  }
-
-  @override
-  Future<ProviderGatewayResponse<T>> execute<T>(
-      ProviderGatewayRequest<T> request) {
-    throw UnsupportedError('Gateway execution is not used by this test.');
   }
 }

@@ -1,8 +1,10 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/provider_test_fakes.dart';
+import '../../support/runtime_test_fakes.dart';
 
 void main() {
   test('runtime assembles ordered metadata continue state binding and actions',
@@ -80,7 +82,7 @@ void main() {
         VideoDetailActionKind.continuePlayback);
     expect(
         detail.actions.secondary.map((VideoDetailAction action) => action.kind),
-        contains(VideoDetailActionKind.unfollow));
+        contains(VideoDetailActionKind.refreshMetadata));
     expect(watched.title, detail.title);
     expect(runtime.currentSnapshot.status, VideoDetailRuntimeStatus.ready);
     expect(observer.snapshots.single.activeDetail?.id.value, 'subject-1');
@@ -138,6 +140,126 @@ void main() {
     runtime.dispose();
   });
 
+  test('runtime projects Bangumi stats credits characters and relations',
+      () async {
+    const BangumiSubjectId subjectId = BangumiSubjectId('subject-rich');
+    final BangumiSubject subject = BangumiSubject(
+      id: subjectId,
+      title: 'Rich Subject',
+      summary: 'Rich summary',
+      coverUri: Uri.parse('https://metadata.example/rich-cover.jpg'),
+      rank: 12,
+      score: 8.7,
+      collectionTotal: 34567,
+      episodeCount: 13,
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      personsBySubjectId: <String, List<BangumiRelatedPerson>>{
+        subjectId.value: <BangumiRelatedPerson>[
+          BangumiRelatedPerson(
+            id: const BangumiPersonId('person-1'),
+            name: 'Series Director',
+            relation: '导演',
+            imageUri: Uri.parse('https://metadata.example/person.jpg'),
+            careers: const <String>['director'],
+            episodeRange: '1-13',
+          ),
+        ],
+      },
+      charactersBySubjectId: <String, List<BangumiRelatedCharacter>>{
+        subjectId.value: <BangumiRelatedCharacter>[
+          BangumiRelatedCharacter(
+            id: const BangumiCharacterId('character-1'),
+            name: 'Lead Character',
+            relation: '主角',
+            summary: 'Lead summary',
+            imageUri: Uri.parse('https://metadata.example/character.jpg'),
+            actors: <BangumiVoiceActor>[
+              BangumiVoiceActor(
+                id: const BangumiPersonId('actor-1'),
+                name: 'Lead Voice',
+                imageUri: Uri.parse('https://metadata.example/actor.jpg'),
+                careers: const <String>['seiyu'],
+              ),
+            ],
+          ),
+        ],
+      },
+      relationsBySubjectId: <String, List<BangumiRelatedSubject>>{
+        subjectId.value: <BangumiRelatedSubject>[
+          BangumiRelatedSubject(
+            id: const BangumiSubjectId('subject-related'),
+            title: 'Rich Related',
+            relation: '续集',
+            coverUri: Uri.parse('https://metadata.example/related.jpg'),
+            type: bangumiAnimeSubjectType,
+          ),
+        ],
+      },
+    );
+
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-rich'));
+
+    expect(detail.metadataStats.score, 8.7);
+    expect(detail.metadataStats.rank, 12);
+    expect(detail.metadataStats.collectionTotal, 34567);
+    expect(detail.metadataStats.episodeCount, 13);
+    expect(
+        detail.coverUri, Uri.parse('https://metadata.example/rich-cover.jpg'));
+    expect(detail.credits.single.name, 'Series Director');
+    expect(detail.credits.single.role, '导演');
+    expect(detail.credits.single.careers, <String>['director']);
+    expect(detail.characters.single.name, 'Lead Character');
+    expect(detail.characters.single.voiceActors.single.name, 'Lead Voice');
+    expect(
+        detail.characters.single.voiceActors.single.careers, <String>['seiyu']);
+    expect(detail.relations.single.title, 'Rich Related');
+    expect(detail.relations.single.relation, '续集');
+    expect(detail.metadataFailures, isEmpty);
+
+    runtime.dispose();
+  });
+
+  test('runtime isolates optional Bangumi metadata table failures', () async {
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-partial'),
+      title: 'Partial Subject',
+      summary: 'Partial summary',
+      coverUri: Uri.parse('https://metadata.example/partial-cover.jpg'),
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      personsBySubjectId: const <String, List<BangumiRelatedPerson>>{
+        'subject-partial': <BangumiRelatedPerson>[
+          BangumiRelatedPerson(
+            id: BangumiPersonId('person-partial'),
+            name: 'Partial Director',
+            relation: '导演',
+          ),
+        ],
+      },
+      failCharacters: true,
+    );
+
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-partial'));
+
+    expect(detail.title, 'Partial Subject');
+    expect(detail.credits.single.name, 'Partial Director');
+    expect(detail.characters, isEmpty);
+    expect(detail.relations, isEmpty);
+    expect(detail.metadataFailures, hasLength(1));
+    expect(
+      detail.metadataFailures.single.section,
+      VideoDetailMetadataSection.characters,
+    );
+    expect(detail.metadataFailures.single.message, 'Characters failed.');
+
+    runtime.dispose();
+  });
+
   test('runtime consumes remote Bangumi tracking status for detail state',
       () async {
     final BangumiSubject subject = BangumiSubject(
@@ -148,7 +270,7 @@ void main() {
     );
     final VideoDetailRuntime runtime = _runtime(
       subject: subject,
-      trackingProvider: _FakeBangumiTrackingProvider(
+      trackingProvider: FakeBangumiTrackingProvider(
         BangumiTrackingSnapshot.loaded(
           const <BangumiTrackingItem>[
             BangumiTrackingItem(
@@ -166,18 +288,190 @@ void main() {
     final VideoDetailViewData detail =
         await runtime.load(const VideoDetailId('subject-tracked'));
 
-    expect(detail.followState, VideoFollowState.notFollowed);
+    expect(detail.followState, VideoFollowState.followed);
     expect(detail.trackingStatus, VideoTrackingStatus.watching);
     expect(
       detail.actions.actions.map((VideoDetailAction action) => action.kind),
       isNot(contains(VideoDetailActionKind.follow)),
     );
+
+    runtime.dispose();
+  });
+
+  test('tracking actions persist remote-only detail locally while offline',
+      () async {
+    final DateTime now = DateTime.utc(2026, 6, 21, 10);
+    final SettingsBangumiLocalTrackingStore localTrackingStore =
+        SettingsBangumiLocalTrackingStore(DeterministicSettingsStore());
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-offline'),
+      title: 'Offline Subject',
+      summary: 'Remote-only summary',
+      coverUri: Uri.parse('https://metadata.example/offline-cover.jpg'),
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      localTrackingStore: localTrackingStore,
+      trackingProvider: CloudFirstBangumiTrackingProvider(
+        localStore: localTrackingStore,
+        remoteProvider: const FakeBangumiTrackingProvider(
+          BangumiTrackingSnapshot.unauthenticated('missing token'),
+        ),
+      ),
+      now: () => now,
+    );
+
+    final VideoDetailActionResult result = await runtime.controller
+        .setTrackingStatus(const VideoDetailId('subject-offline'),
+            VideoTrackingStatus.dropped);
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-offline'));
+    final BangumiLocalTrackingRecord? record =
+        await localTrackingStore.findBySubjectId('subject-offline');
+
+    expect(result.isSuccess, isTrue);
+    expect(detail.trackingStatus, VideoTrackingStatus.dropped);
+    expect(detail.followState, VideoFollowState.followed);
+    expect(record?.status, BangumiTrackingStatus.dropped);
+    expect(record?.syncState, BangumiLocalTrackingSyncState.pending);
+    expect(record?.coverUri,
+        Uri.parse('https://metadata.example/offline-cover.jpg'));
+
+    runtime.dispose();
+  });
+
+  test('remote tracking is primary and exposes local conflict details',
+      () async {
+    final SettingsBangumiLocalTrackingStore localTrackingStore =
+        SettingsBangumiLocalTrackingStore(DeterministicSettingsStore());
+    await localTrackingStore.save(BangumiLocalTrackingRecord(
+      subjectId: 'subject-conflict',
+      title: 'Local Conflict Subject',
+      status: BangumiTrackingStatus.dropped,
+      updatedAt: DateTime.utc(2026, 6, 21, 9),
+      syncState: BangumiLocalTrackingSyncState.pending,
+    ));
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-conflict'),
+      title: 'Remote Conflict Subject',
+      summary: 'Remote summary',
+      coverUri: Uri.parse('https://metadata.example/conflict-cover.jpg'),
+    );
+    final VideoDetailRuntime runtime = _runtime(
+      subject: subject,
+      localTrackingStore: localTrackingStore,
+      trackingProvider: FakeBangumiTrackingProvider(
+        BangumiTrackingSnapshot.loaded(
+          <BangumiTrackingItem>[
+            BangumiTrackingItem(
+              subjectId: 'subject-conflict',
+              title: 'Remote Conflict Subject',
+              status: BangumiTrackingStatus.watching,
+              watchedEpisodes: 4,
+              totalEpisodes: 12,
+              updatedAt: DateTime.utc(2026, 6, 21, 12),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final VideoDetailViewData detail =
+        await runtime.load(const VideoDetailId('subject-conflict'));
+
+    expect(detail.trackingStatus, VideoTrackingStatus.watching);
+    expect(detail.followState, VideoFollowState.followed);
+    expect(detail.trackingConflict?.localStatus, VideoTrackingStatus.dropped);
+    expect(detail.trackingConflict?.remoteStatus, VideoTrackingStatus.watching);
     expect(
-      detail.actions.actions.map((VideoDetailAction action) => action.kind),
-      isNot(contains(VideoDetailActionKind.unfollow)),
+      detail.trackingConflict?.remoteUpdatedAt,
+      DateTime.utc(2026, 6, 21, 12),
     );
 
     runtime.dispose();
+  });
+
+  test('tracking conflict resolution syncs the selected source', () async {
+    final SettingsBangumiLocalTrackingStore localToRemoteStore =
+        SettingsBangumiLocalTrackingStore(DeterministicSettingsStore());
+    await localToRemoteStore.save(BangumiLocalTrackingRecord(
+      subjectId: 'subject-conflict',
+      title: 'Local Conflict Subject',
+      status: BangumiTrackingStatus.dropped,
+      updatedAt: DateTime.utc(2026, 6, 21, 9),
+      syncState: BangumiLocalTrackingSyncState.pending,
+    ));
+    final RecordingBangumiTrackingSyncProvider syncProvider =
+        RecordingBangumiTrackingSyncProvider();
+    final BangumiSubject subject = BangumiSubject(
+      id: const BangumiSubjectId('subject-conflict'),
+      title: 'Remote Conflict Subject',
+      summary: 'Remote summary',
+      coverUri: Uri.parse('https://metadata.example/conflict-cover.jpg'),
+    );
+    final BangumiTrackingProvider remoteWatching = FakeBangumiTrackingProvider(
+      BangumiTrackingSnapshot.loaded(
+        <BangumiTrackingItem>[
+          BangumiTrackingItem(
+            subjectId: 'subject-conflict',
+            title: 'Remote Conflict Subject',
+            status: BangumiTrackingStatus.watching,
+            watchedEpisodes: 4,
+            totalEpisodes: 12,
+            updatedAt: DateTime.utc(2026, 6, 21, 12),
+          ),
+        ],
+      ),
+    );
+    final VideoDetailRuntime localToRemoteRuntime = _runtime(
+      subject: subject,
+      localTrackingStore: localToRemoteStore,
+      trackingProvider: remoteWatching,
+      trackingSyncProvider: syncProvider,
+    );
+
+    final VideoDetailActionResult localToRemoteResult =
+        await localToRemoteRuntime.controller.resolveTrackingConflict(
+      const VideoDetailId('subject-conflict'),
+      VideoTrackingConflictResolution.localToRemote,
+    );
+
+    expect(localToRemoteResult.isSuccess, isTrue);
+    expect(syncProvider.calls, <String>['subject-conflict:dropped']);
+    expect(
+      (await localToRemoteStore.findBySubjectId('subject-conflict'))?.syncState,
+      BangumiLocalTrackingSyncState.synced,
+    );
+    localToRemoteRuntime.dispose();
+
+    final SettingsBangumiLocalTrackingStore remoteToLocalStore =
+        SettingsBangumiLocalTrackingStore(DeterministicSettingsStore());
+    await remoteToLocalStore.save(BangumiLocalTrackingRecord(
+      subjectId: 'subject-conflict',
+      title: 'Local Conflict Subject',
+      status: BangumiTrackingStatus.dropped,
+      updatedAt: DateTime.utc(2026, 6, 21, 9),
+      syncState: BangumiLocalTrackingSyncState.pending,
+    ));
+    final VideoDetailRuntime remoteToLocalRuntime = _runtime(
+      subject: subject,
+      localTrackingStore: remoteToLocalStore,
+      trackingProvider: remoteWatching,
+    );
+
+    final VideoDetailActionResult remoteToLocalResult =
+        await remoteToLocalRuntime.controller.resolveTrackingConflict(
+      const VideoDetailId('subject-conflict'),
+      VideoTrackingConflictResolution.remoteToLocal,
+    );
+    final BangumiLocalTrackingRecord? remoteToLocalRecord =
+        await remoteToLocalStore.findBySubjectId('subject-conflict');
+
+    expect(remoteToLocalResult.isSuccess, isTrue);
+    expect(remoteToLocalRecord?.status, BangumiTrackingStatus.watching);
+    expect(
+        remoteToLocalRecord?.syncState, BangumiLocalTrackingSyncState.synced);
+    remoteToLocalRuntime.dispose();
   });
 
   test('actions route playback through handoff and publish invalidation events',
@@ -198,15 +492,18 @@ void main() {
     ));
     final DeterministicProviderBindingStore bindingStore =
         DeterministicProviderBindingStore();
-    final _RecordingCacheInvalidationBus invalidationBus =
-        _RecordingCacheInvalidationBus();
-    final _RecordingPlaybackSourceHandoff handoff =
-        _RecordingPlaybackSourceHandoff();
+    final RecordingCacheInvalidationBus invalidationBus =
+        RecordingCacheInvalidationBus();
+    final RecordingPlaybackSourceHandoff handoff =
+        RecordingPlaybackSourceHandoff();
+    final RecordingBangumiTrackingSyncProvider syncProvider =
+        RecordingBangumiTrackingSyncProvider();
     final VideoDetailRuntime runtime = _runtime(
       bindingStore: bindingStore,
       historyStore: historyStore,
       invalidationBus: invalidationBus,
       handoff: handoff,
+      trackingSyncProvider: syncProvider,
       now: () => now,
       subject: _subject(),
       seed: BangumiVideoDetailSeed(
@@ -238,16 +535,12 @@ void main() {
     );
     final VideoDetailViewData followed =
         await runtime.load(const VideoDetailId('subject-1'));
-    final VideoDetailActionResult unfollowResult =
-        await runtime.controller.unfollow(const VideoDetailId('subject-1'));
-    final VideoDetailViewData unfollowed =
-        await runtime.load(const VideoDetailId('subject-1'));
 
     expect(continueResult.isSuccess, isTrue);
     expect(selectResult.isSuccess, isTrue);
     expect(followResult.isSuccess, isTrue);
     expect(refreshResult.isSuccess, isTrue);
-    expect(unfollowResult.isSuccess, isTrue);
+    expect(syncProvider.calls, <String>['subject-1:watching']);
     expect(
         handoff.inputs.map(
             (LocalMediaIdentity identity) => identity.uri.pathSegments.last),
@@ -255,9 +548,8 @@ void main() {
     expect(invalidationBus.publishedEvents.whereType<HistoryRecorded>(),
         hasLength(2));
     expect(invalidationBus.publishedEvents.whereType<BindingChanged>(),
-        hasLength(3));
+        hasLength(2));
     expect(followed.followState, VideoFollowState.followed);
-    expect(unfollowed.followState, VideoFollowState.notFollowed);
 
     runtime.dispose();
     final VideoDetailActionResult disposed =
@@ -307,12 +599,14 @@ void main() {
 
   test('actions return typed failure when detail data cannot load', () async {
     final VideoDetailRuntime runtime = VideoDetailRuntime(
-      metadataProvider:
-          const _FakeBangumiProvider(subjects: <String, BangumiSubject>{}),
+      metadataProvider: FakeBangumiProvider(
+        subjectsById: const <String, BangumiSubject>{},
+        providerId: defaultVideoDetailMetadataProviderId,
+      ),
       bindingStore: DeterministicProviderBindingStore(),
       historyStore: DeterministicPlaybackHistoryStore(),
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
-      invalidationBus: _RecordingCacheInvalidationBus(),
+      invalidationBus: RecordingCacheInvalidationBus(),
     );
 
     final VideoDetailActionResult result =
@@ -371,14 +665,18 @@ void main() {
     final SqliteStorageFoundation second =
         SqliteStorageFoundation.open(databaseFile.path);
     addTearDown(second.dispose);
-    final _RecordingCacheInvalidationBus invalidationBus =
-        _RecordingCacheInvalidationBus();
+    final RecordingCacheInvalidationBus invalidationBus =
+        RecordingCacheInvalidationBus();
+    final SettingsBangumiLocalTrackingStore localTrackingStore =
+        SettingsBangumiLocalTrackingStore(second.settings);
     final VideoDetailBootstrap bootstrap = storageBackedVideoDetailBootstrap(
       storage: second,
-      metadataProvider: _FakeBangumiProvider(
-        subjects: <String, BangumiSubject>{'subject-1': _subject()},
+      metadataProvider: FakeBangumiProvider(
+        subjectsById: <String, BangumiSubject>{'subject-1': _subject()},
+        providerId: defaultVideoDetailMetadataProviderId,
       ),
       invalidationBus: invalidationBus,
+      localTrackingStore: localTrackingStore,
       now: () => now,
     );
     addTearDown(bootstrap.dispose);
@@ -418,24 +716,46 @@ VideoDetailRuntime _runtime({
   BangumiVideoDetailSeed? seed,
   Map<String, List<BangumiEpisode>> episodesBySubjectId =
       const <String, List<BangumiEpisode>>{},
+  Map<String, List<BangumiRelatedPerson>> personsBySubjectId =
+      const <String, List<BangumiRelatedPerson>>{},
+  Map<String, List<BangumiRelatedCharacter>> charactersBySubjectId =
+      const <String, List<BangumiRelatedCharacter>>{},
+  Map<String, List<BangumiRelatedSubject>> relationsBySubjectId =
+      const <String, List<BangumiRelatedSubject>>{},
+  bool failPersons = false,
+  bool failCharacters = false,
+  bool failRelations = false,
   ProviderBindingStore? bindingStore,
   PlaybackHistoryStore? historyStore,
   CacheInvalidationBus? invalidationBus,
   PlaybackSourceHandoffContract? handoff,
   BangumiTrackingProvider? trackingProvider,
+  BangumiLocalTrackingStore? localTrackingStore,
+  BangumiTrackingSyncProvider? trackingSyncProvider,
   DateTime Function()? now,
 }) {
   final BangumiSubject value = subject ?? _subject();
   return VideoDetailRuntime(
-    metadataProvider: _FakeBangumiProvider(
-      subjects: <String, BangumiSubject>{value.id.value: value},
+    metadataProvider: FakeBangumiProvider(
+      subjectsById: <String, BangumiSubject>{value.id.value: value},
+      providerId: defaultVideoDetailMetadataProviderId,
       episodesBySubjectId: episodesBySubjectId,
+      personsBySubjectId: personsBySubjectId,
+      charactersBySubjectId: charactersBySubjectId,
+      relationsBySubjectId: relationsBySubjectId,
+      personsFailureKind: failPersons ? AcgProviderFailureKind.retryable : null,
+      charactersFailureKind:
+          failCharacters ? AcgProviderFailureKind.retryable : null,
+      relationsFailureKind:
+          failRelations ? AcgProviderFailureKind.retryable : null,
     ),
     bindingStore: bindingStore ?? DeterministicProviderBindingStore(),
     historyStore: historyStore ?? DeterministicPlaybackHistoryStore(),
     playbackSourceHandoff: handoff ?? const LocalPlaybackSourceHandoff(),
-    invalidationBus: invalidationBus ?? _RecordingCacheInvalidationBus(),
+    invalidationBus: invalidationBus ?? RecordingCacheInvalidationBus(),
     trackingProvider: trackingProvider,
+    localTrackingStore: localTrackingStore,
+    trackingSyncProvider: trackingSyncProvider,
     seeds: seed == null
         ? const <BangumiVideoDetailSeed>[]
         : <BangumiVideoDetailSeed>[seed],
@@ -511,134 +831,5 @@ final class _RuntimeObserver implements VideoDetailRuntimeObserver {
   @override
   void onVideoDetailRuntimeSnapshot(VideoDetailRuntimeSnapshot snapshot) {
     snapshots.add(snapshot);
-  }
-}
-
-final class _RecordingPlaybackSourceHandoff
-    implements PlaybackSourceHandoffContract {
-  final List<LocalMediaIdentity> inputs = <LocalMediaIdentity>[];
-
-  @override
-  PlaybackSourceHandoffResult prepare(PlaybackSourceHandoffInput input) {
-    if (input case LocalMediaIdentityHandoffInput(:final identity)) {
-      inputs.add(identity);
-    }
-    return const LocalPlaybackSourceHandoff().prepare(input);
-  }
-}
-
-final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
-  final StreamController<CacheInvalidationEvent> _controller =
-      StreamController<CacheInvalidationEvent>.broadcast(sync: true);
-  final List<CacheInvalidationEvent> publishedEvents =
-      <CacheInvalidationEvent>[];
-
-  @override
-  Stream<CacheInvalidationEvent> get events => _controller.stream;
-
-  @override
-  void publish(CacheInvalidationEvent event) {
-    publishedEvents.add(event);
-    _controller.add(event);
-  }
-
-  @override
-  Future<void> close() => _controller.close();
-}
-
-final class _FakeBangumiTrackingProvider implements BangumiTrackingProvider {
-  const _FakeBangumiTrackingProvider(this.snapshot);
-
-  final BangumiTrackingSnapshot snapshot;
-
-  @override
-  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
-    return snapshot;
-  }
-}
-
-final class _FakeBangumiProvider implements BangumiProvider {
-  const _FakeBangumiProvider({
-    required Map<String, BangumiSubject> subjects,
-    Map<String, List<BangumiEpisode>> episodesBySubjectId =
-        const <String, List<BangumiEpisode>>{},
-  })  : _subjects = subjects,
-        _episodesBySubjectId = episodesBySubjectId;
-
-  final Map<String, BangumiSubject> _subjects;
-  final Map<String, List<BangumiEpisode>> _episodesBySubjectId;
-
-  @override
-  String get id => defaultVideoDetailMetadataProviderId;
-
-  @override
-  String get displayName => 'Fake Bangumi';
-
-  @override
-  ProviderKind get kind => ProviderKind.metadata;
-
-  @override
-  ProviderGateway get gateway =>
-      throw UnsupportedError('Fake provider does not expose a gateway.');
-
-  @override
-  ProviderRegistration get registration => const ProviderRegistration(
-        providerId: ProviderId(defaultVideoDetailMetadataProviderId),
-        ratePolicy:
-            ProviderRatePolicy(maxRequests: 1, window: Duration(seconds: 1)),
-        retryPolicy:
-            ProviderRetryPolicy(maxAttempts: 1, initialBackoff: Duration.zero),
-      );
-
-  @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
-    required String cacheKey,
-    required Future<T> Function() load,
-    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
-  }) {
-    throw UnsupportedError('Fake provider does not execute gateway requests.');
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
-    return Future<AcgProviderResult<BangumiEpisode>>.value(
-        const AcgProviderFailure<BangumiEpisode>(
-            kind: AcgProviderFailureKind.terminal,
-            message: 'Episode lookup is not part of this test.'));
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
-    BangumiSubjectId subjectId,
-  ) {
-    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
-      AcgProviderSuccess<List<BangumiEpisode>>(
-        _episodesBySubjectId[subjectId.value] ?? const <BangumiEpisode>[],
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
-    final BangumiSubject? subject = _subjects[id.value];
-    if (subject == null)
-      return Future<AcgProviderResult<BangumiSubject>>.value(
-          const AcgProviderFailure<BangumiSubject>(
-              kind: AcgProviderFailureKind.notFound,
-              message: 'Missing subject.'));
-    return Future<AcgProviderResult<BangumiSubject>>.value(
-        AcgProviderSuccess<BangumiSubject>(subject));
-  }
-
-  @override
-  ProviderRequestKey requestKey(String cacheKey) => ProviderRequestKey(
-      providerId: const ProviderId(defaultVideoDetailMetadataProviderId),
-      cacheKey: cacheKey);
-
-  @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
-    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-        AcgProviderSuccess<List<BangumiSubject>>(
-            <BangumiSubject>[..._subjects.values]));
   }
 }

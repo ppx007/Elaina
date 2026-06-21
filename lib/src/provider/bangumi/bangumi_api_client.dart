@@ -19,6 +19,7 @@ const int bangumiApiDefaultSearchOffset = 0;
 const int bangumiApiPopularAnimeLimit = 7;
 const int bangumiApiPopularAnimeOffset = 0;
 const String bangumiApiPopularAnimeSort = 'heat';
+const int bangumiApiPopularAnimeWindowMonths = 1;
 const int bangumiApiRecentPopularAnimeWindowMonths = 6;
 const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
 const int bangumiApiRecentPopularAnimeOffset = 0;
@@ -124,6 +125,11 @@ final class HttpBangumiApiTransport implements BangumiApiTransport {
         statusCode: response.statusCode,
         body: responseBody,
       );
+    } on IOException catch (error) {
+      throw ProviderFailure(
+        kind: ProviderFailureKind.retryable,
+        message: 'Bangumi API network request failed: $error',
+      );
     } finally {
       if (!identical(client, _httpClient)) client.close(force: true);
     }
@@ -223,6 +229,19 @@ final class BangumiApiClient {
     );
   }
 
+  Uri listSubjectPersonsRequestUri(BangumiSubjectId subjectId) {
+    return _uri('/v0/subjects/${Uri.encodeComponent(subjectId.value)}/persons');
+  }
+
+  Uri listSubjectCharactersRequestUri(BangumiSubjectId subjectId) {
+    return _uri(
+        '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/characters');
+  }
+
+  Uri listSubjectRelationsRequestUri(BangumiSubjectId subjectId) {
+    return _uri('/v0/subjects/${Uri.encodeComponent(subjectId.value)}/subjects');
+  }
+
   Uri currentSessionRequestUri() {
     return _uri('/v0/me');
   }
@@ -250,6 +269,13 @@ final class BangumiApiClient {
     return _uri(
       '/v0/users/-/collections/-/episodes/'
       '${Uri.encodeComponent(update.episodeId.value)}',
+    );
+  }
+
+  Uri syncSubjectCollectionRequestUri(BangumiSubjectCollectionUpdate update) {
+    return _uri(
+      '/v0/users/-/collections/'
+      '${Uri.encodeComponent(update.subjectId.value)}',
     );
   }
 
@@ -289,13 +315,18 @@ final class BangumiApiClient {
   }
 
   Future<List<BangumiSubject>> popularAnime({
+    required DateTime now,
     String? proxyUrl,
   }) async {
+    final _BangumiAirDateRange airDateRange = _popularAnimeAirDateRange(now);
     final Object? json = await _sendJson(
       'POST',
       popularAnimeRequestUri(),
       proxyUrl: proxyUrl,
-      body: _animeSubjectSearchBody(sort: bangumiApiPopularAnimeSort),
+      body: _animeSubjectSearchBody(
+        sort: bangumiApiPopularAnimeSort,
+        airDateFilters: airDateRange.filters,
+      ),
     );
     return _subjectsFromJsonList(
       json,
@@ -364,6 +395,42 @@ final class BangumiApiClient {
           left.index.compareTo(right.index),
     );
     return List<BangumiEpisode>.unmodifiable(episodes);
+  }
+
+  Future<List<BangumiRelatedPerson>> listSubjectPersons(
+    BangumiSubjectId subjectId, {
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      listSubjectPersonsRequestUri(subjectId),
+      proxyUrl: proxyUrl,
+    );
+    return _relatedPersonsFromJson(json);
+  }
+
+  Future<List<BangumiRelatedCharacter>> listSubjectCharacters(
+    BangumiSubjectId subjectId, {
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      listSubjectCharactersRequestUri(subjectId),
+      proxyUrl: proxyUrl,
+    );
+    return _relatedCharactersFromJson(json);
+  }
+
+  Future<List<BangumiRelatedSubject>> listSubjectRelations(
+    BangumiSubjectId subjectId, {
+    String? proxyUrl,
+  }) async {
+    final Object? json = await _sendJson(
+      'GET',
+      listSubjectRelationsRequestUri(subjectId),
+      proxyUrl: proxyUrl,
+    );
+    return _relatedSubjectsFromJson(json);
   }
 
   Future<_BangumiEpisodePage> _episodePage({
@@ -518,6 +585,23 @@ final class BangumiApiClient {
     );
   }
 
+  Future<void> syncSubjectCollection({
+    required BangumiSubjectCollectionUpdate update,
+    required BangumiApiAccessToken token,
+    String? proxyUrl,
+  }) async {
+    await _sendJson(
+      'POST',
+      syncSubjectCollectionRequestUri(update),
+      token: token,
+      proxyUrl: proxyUrl,
+      body: <String, Object?>{
+        'type': _subjectCollectionType(update.status),
+      },
+      allowEmptySuccessBody: true,
+    );
+  }
+
   Future<Object?> _sendJson(
     String method,
     Uri uri, {
@@ -591,6 +675,7 @@ final class BangumiApiProvider
     implements
         BangumiProvider,
         BangumiAuthProvider,
+        BangumiSubjectCollectionSyncProvider,
         BangumiCollectionProvider,
         BangumiDiscoveryProvider,
         GatewayBoundProvider {
@@ -606,6 +691,7 @@ final class BangumiApiProvider
   final BangumiApiClient _client;
   final BangumiAccessTokenProvider? _accessTokenProvider;
   final DateTime Function()? _now;
+  final Map<String, BangumiSubject> _subjectCache = <String, BangumiSubject>{};
 
   @override
   final ProviderGateway gateway;
@@ -648,38 +734,61 @@ final class BangumiApiProvider
   @override
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(
     BangumiSubjectId id,
-  ) {
-    return _execute<BangumiSubject>(
+  ) async {
+    final AcgProviderResult<BangumiSubject> result =
+        await _execute<BangumiSubject>(
       key: bangumiSubjectRequestKey(id),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.lookupSubjectRequestUri(id),
       load: (ProviderGatewayRequestContext context) =>
           _client.lookupSubject(id, proxyUrl: context.proxyUrl),
     );
+    if (result is AcgProviderSuccess<BangumiSubject>) {
+      _rememberSubject(result.value);
+      return result;
+    }
+    if (result is AcgProviderFailure<BangumiSubject> &&
+        _canFallbackToCachedSubject(result.kind)) {
+      final BangumiSubject? cached = _subjectCache[id.value];
+      if (cached != null) return AcgProviderSuccess<BangumiSubject>(cached);
+    }
+    return result;
   }
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
     String query,
-  ) {
-    return _execute<List<BangumiSubject>>(
+  ) async {
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _execute<List<BangumiSubject>>(
       key: bangumiSubjectSearchRequestKey(query),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.searchSubjectsRequestUri(),
       load: (ProviderGatewayRequestContext context) =>
           _client.searchSubjects(query, proxyUrl: context.proxyUrl),
     );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      _rememberSubjects(result.value);
+    }
+    return result;
   }
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() {
-    return _execute<List<BangumiSubject>>(
+  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() async {
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _execute<List<BangumiSubject>>(
       key: bangumiPopularAnimeRequestKey(),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.popularAnimeRequestUri(),
-      load: (ProviderGatewayRequestContext context) =>
-          _client.popularAnime(proxyUrl: context.proxyUrl),
+      load: (ProviderGatewayRequestContext context) => _client.popularAnime(
+        now: (_now ?? DateTime.now)(),
+        proxyUrl: context.proxyUrl,
+      ),
     );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      _rememberSubjects(result.value);
+    }
+    return result;
   }
 
   @override
@@ -687,8 +796,9 @@ final class BangumiApiProvider
     required DateTime now,
     required int limit,
     required int offset,
-  }) {
-    return _execute<List<BangumiSubject>>(
+  }) async {
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _execute<List<BangumiSubject>>(
       key: bangumiRecentPopularAnimeRequestKey(
         now: now,
         limit: limit,
@@ -707,6 +817,10 @@ final class BangumiApiProvider
         proxyUrl: context.proxyUrl,
       ),
     );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      _rememberSubjects(result.value);
+    }
+    return result;
   }
 
   @override
@@ -736,6 +850,46 @@ final class BangumiApiProvider
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute<List<BangumiRelatedPerson>>(
+      key: bangumiSubjectPersonsRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.listSubjectPersonsRequestUri(subjectId),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.listSubjectPersons(subjectId, proxyUrl: context.proxyUrl),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute<List<BangumiRelatedCharacter>>(
+      key: bangumiSubjectCharactersRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.listSubjectCharactersRequestUri(subjectId),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.listSubjectCharacters(subjectId, proxyUrl: context.proxyUrl),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute<List<BangumiRelatedSubject>>(
+      key: bangumiSubjectRelationsRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.listSubjectRelationsRequestUri(subjectId),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.listSubjectRelations(subjectId, proxyUrl: context.proxyUrl),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiAuthSession>> currentSession() async {
     final BangumiApiAccessToken? token = await _activeToken();
     if (token == null) return _unauthenticated<BangumiAuthSession>();
@@ -759,7 +913,8 @@ final class BangumiApiProvider
     if (token == null) {
       return _unauthenticated<List<BangumiAnimeCollectionItem>>();
     }
-    return _execute<List<BangumiAnimeCollectionItem>>(
+    final AcgProviderResult<List<BangumiAnimeCollectionItem>> result =
+        await _execute<List<BangumiAnimeCollectionItem>>(
       key: bangumiAnimeCollectionRequestKey(),
       cachePolicy: ProviderCachePolicy.networkOnly,
       deduplicationWindow: Duration.zero,
@@ -771,6 +926,10 @@ final class BangumiApiProvider
         proxyUrl: context.proxyUrl,
       ),
     );
+    if (result is AcgProviderSuccess<List<BangumiAnimeCollectionItem>>) {
+      _rememberCollectionItems(result.value);
+    }
+    return result;
   }
 
   @override
@@ -784,6 +943,25 @@ final class BangumiApiProvider
       cachePolicy: ProviderCachePolicy.networkOnly,
       networkPolicyUri: _client.syncProgressRequestUri(update),
       load: (ProviderGatewayRequestContext context) => _client.syncProgress(
+        update: update,
+        token: token,
+        proxyUrl: context.proxyUrl,
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<void>> syncSubjectCollection(
+    BangumiSubjectCollectionUpdate update,
+  ) async {
+    final BangumiApiAccessToken? token = await _activeToken();
+    if (token == null) return _unauthenticated<void>();
+    return _execute<void>(
+      key: bangumiSubjectCollectionSyncRequestKey(update),
+      cachePolicy: ProviderCachePolicy.networkOnly,
+      networkPolicyUri: _client.syncSubjectCollectionRequestUri(update),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.syncSubjectCollection(
         update: update,
         token: token,
         proxyUrl: context.proxyUrl,
@@ -820,7 +998,49 @@ final class BangumiApiProvider
         kind: acgFailureKindFromGateway(failure.kind),
         message: failure.message,
       );
+    } on IOException catch (failure) {
+      return AcgProviderFailure<T>(
+        kind: AcgProviderFailureKind.retryable,
+        message: 'Bangumi API network request failed: $failure',
+      );
     }
+  }
+
+  void _rememberSubject(BangumiSubject subject) {
+    _subjectCache[subject.id.value] = subject;
+  }
+
+  void _rememberSubjects(Iterable<BangumiSubject> subjects) {
+    for (final BangumiSubject subject in subjects) {
+      _rememberSubject(subject);
+    }
+  }
+
+  void _rememberCollectionItems(Iterable<BangumiAnimeCollectionItem> items) {
+    for (final BangumiAnimeCollectionItem item in items) {
+      _rememberSubject(
+        BangumiSubject(
+          id: item.subjectId,
+          title: item.title,
+          coverUri: item.coverUri,
+          episodeCount: item.totalEpisodes,
+        ),
+      );
+    }
+  }
+
+  bool _canFallbackToCachedSubject(AcgProviderFailureKind kind) {
+    return switch (kind) {
+      AcgProviderFailureKind.retryable ||
+      AcgProviderFailureKind.throttled ||
+      AcgProviderFailureKind.unavailable =>
+        true,
+      AcgProviderFailureKind.unauthenticated ||
+      AcgProviderFailureKind.cachedMiss ||
+      AcgProviderFailureKind.notFound ||
+      AcgProviderFailureKind.terminal =>
+        false,
+    };
   }
 
   Future<BangumiApiAccessToken?> _activeToken() async {
@@ -887,11 +1107,63 @@ List<BangumiSubject> _subjectsFromJsonList(
       .toList(growable: false);
 }
 
+List<BangumiRelatedPerson> _relatedPersonsFromJson(Object? json) {
+  final List<Object?> data =
+      _jsonArray(json, 'Bangumi subject persons response');
+  return data
+      .map(
+        (Object? value) =>
+            _relatedPersonFromJson(_jsonObject(value, 'Bangumi related person')),
+      )
+      .toList(growable: false);
+}
+
+List<BangumiRelatedCharacter> _relatedCharactersFromJson(Object? json) {
+  final List<Object?> data =
+      _jsonArray(json, 'Bangumi subject characters response');
+  return data
+      .map(
+        (Object? value) => _relatedCharacterFromJson(
+          _jsonObject(value, 'Bangumi related character'),
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<BangumiRelatedSubject> _relatedSubjectsFromJson(Object? json) {
+  final List<Object?> data =
+      _jsonArray(json, 'Bangumi subject relations response');
+  return data
+      .map(
+        (Object? value) => _relatedSubjectFromJson(
+          _jsonObject(value, 'Bangumi related subject'),
+        ),
+      )
+      .toList(growable: false);
+}
+
+_BangumiAirDateRange _popularAnimeAirDateRange(DateTime now) {
+  return _animeAirDateRange(
+    now: now,
+    windowMonths: bangumiApiPopularAnimeWindowMonths,
+  );
+}
+
 _BangumiAirDateRange _recentPopularAnimeAirDateRange(DateTime now) {
+  return _animeAirDateRange(
+    now: now,
+    windowMonths: bangumiApiRecentPopularAnimeWindowMonths,
+  );
+}
+
+_BangumiAirDateRange _animeAirDateRange({
+  required DateTime now,
+  required int windowMonths,
+}) {
   final DateTime today = DateTime(now.year, now.month, now.day);
   final DateTime start = _subtractCalendarMonths(
     today,
-    bangumiApiRecentPopularAnimeWindowMonths,
+    windowMonths,
   );
   final DateTime endExclusive = today.add(const Duration(days: 1));
   return _BangumiAirDateRange(
@@ -921,6 +1193,87 @@ String _bangumiDate(DateTime value) {
   final String month = value.month.toString().padLeft(2, '0');
   final String day = value.day.toString().padLeft(2, '0');
   return '$year-$month-$day';
+}
+
+BangumiRelatedPerson _relatedPersonFromJson(Map<String, Object?> json) {
+  final String id = _requiredIdString(json['id'], 'Bangumi related person id');
+  final String name = _firstNonEmptyString(<Object?>[
+    json['name'],
+    id,
+  ]);
+  final String relation = _firstNonEmptyString(<Object?>[
+    json['relation'],
+    'Staff',
+  ]);
+  return BangumiRelatedPerson(
+    id: BangumiPersonId(id),
+    name: name,
+    relation: relation,
+    imageUri: _avatarUriFromJson(json['images']),
+    careers: _stringList(json['career']),
+    episodeRange: _optionalString(json['eps']),
+  );
+}
+
+BangumiRelatedCharacter _relatedCharacterFromJson(Map<String, Object?> json) {
+  final String id =
+      _requiredIdString(json['id'], 'Bangumi related character id');
+  final String name = _firstNonEmptyString(<Object?>[
+    json['name'],
+    id,
+  ]);
+  final String relation = _firstNonEmptyString(<Object?>[
+    json['relation'],
+    '角色',
+  ]);
+  final List<Object?> actors = _optionalArray(json['actors']);
+  return BangumiRelatedCharacter(
+    id: BangumiCharacterId(id),
+    name: name,
+    relation: relation,
+    summary: _optionalString(json['summary']),
+    imageUri: _avatarUriFromJson(json['images']),
+    actors: actors
+        .map(
+          (Object? value) =>
+              _voiceActorFromJson(_jsonObject(value, 'Bangumi voice actor')),
+        )
+        .toList(growable: false),
+  );
+}
+
+BangumiVoiceActor _voiceActorFromJson(Map<String, Object?> json) {
+  final String id = _requiredIdString(json['id'], 'Bangumi voice actor id');
+  final String name = _firstNonEmptyString(<Object?>[
+    json['name'],
+    id,
+  ]);
+  return BangumiVoiceActor(
+    id: BangumiPersonId(id),
+    name: name,
+    imageUri: _avatarUriFromJson(json['images']),
+    careers: _stringList(json['career']),
+  );
+}
+
+BangumiRelatedSubject _relatedSubjectFromJson(Map<String, Object?> json) {
+  final String id = _requiredIdString(json['id'], 'Bangumi related subject id');
+  final String title = _firstNonEmptyString(<Object?>[
+    json['name_cn'],
+    json['name'],
+    id,
+  ]);
+  final String relation = _firstNonEmptyString(<Object?>[
+    json['relation'],
+    '关联条目',
+  ]);
+  return BangumiRelatedSubject(
+    id: BangumiSubjectId(id),
+    title: title,
+    relation: relation,
+    coverUri: _avatarUriFromJson(json['images']),
+    type: _optionalPositiveIntOrNull(json['type']),
+  );
 }
 
 BangumiSubject _subjectFromJson(Map<String, Object?> json) {
@@ -1014,6 +1367,28 @@ String? _optionalString(Object? value) {
 Map<String, Object?>? _optionalJsonObject(Object? value) {
   if (value == null) return null;
   return _jsonObject(value, 'Bangumi nested object');
+}
+
+List<Object?> _jsonArray(Object? value, String label) {
+  if (value is List<Object?>) return value;
+  if (value is List) return value.cast<Object?>();
+  throw ProviderFailure(
+    kind: ProviderFailureKind.terminal,
+    message: '$label was not a JSON array.',
+  );
+}
+
+List<Object?> _optionalArray(Object? value) {
+  if (value == null) return const <Object?>[];
+  return _jsonArray(value, 'Bangumi optional nested array');
+}
+
+List<String> _stringList(Object? value) {
+  final List<Object?> values = _optionalArray(value);
+  return values
+      .map(_stringValue)
+      .where((String text) => text.isNotEmpty)
+      .toList(growable: false);
 }
 
 Object? _ratingValue(Map<String, Object?> json, String key) {
@@ -1167,6 +1542,16 @@ BangumiSubjectCollectionStatus _subjectCollectionStatus(Object? value) {
         kind: ProviderFailureKind.terminal,
         message: 'Bangumi collection item has unknown collection type.',
       ),
+  };
+}
+
+int _subjectCollectionType(BangumiSubjectCollectionStatus status) {
+  return switch (status) {
+    BangumiSubjectCollectionStatus.planned => bangumiSubjectCollectionWish,
+    BangumiSubjectCollectionStatus.completed => bangumiSubjectCollectionDone,
+    BangumiSubjectCollectionStatus.watching => bangumiSubjectCollectionDoing,
+    BangumiSubjectCollectionStatus.onHold => bangumiSubjectCollectionOnHold,
+    BangumiSubjectCollectionStatus.dropped => bangumiSubjectCollectionDropped,
   };
 }
 

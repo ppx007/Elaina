@@ -12,6 +12,7 @@ import 'domain/media/media_library_storage_adapters.dart';
 import 'domain/playback/playback_source_handoff.dart';
 import 'domain/profile/bangumi_login_domain.dart';
 import 'domain/profile/bangumi_tracking_domain.dart';
+import 'domain/profile/bangumi_tracking_local_store.dart';
 import 'domain/profile/profile_domain.dart';
 import 'domain/rss/rss_engine_runtime.dart';
 import 'domain/settings/settings_domain.dart';
@@ -98,8 +99,18 @@ class AppComposition {
     );
     bangumiAuthProvider = bangumiProviderRuntime;
     profileProvider = _BangumiUserProfileProvider(bangumiAuthProvider);
-    trackingProvider = _BangumiTrackingCollectionProvider(
+    localTrackingStore =
+        SettingsBangumiLocalTrackingStore(foundation.storage.settings);
+    final BangumiTrackingProvider remoteTrackingProvider =
+        _BangumiTrackingCollectionProvider(
       bangumiProviderRuntime,
+    );
+    trackingSyncProvider = _BangumiTrackingStatusSyncProvider(
+      bangumiProviderRuntime,
+    );
+    trackingProvider = CloudFirstBangumiTrackingProvider(
+      localStore: localTrackingStore,
+      remoteProvider: remoteTrackingProvider,
     );
     homeRecommendationProvider = _BangumiHomeRecommendationProvider(
       bangumiProviderRuntime,
@@ -126,6 +137,8 @@ class AppComposition {
       playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
       invalidationBus: foundation.invalidationBus,
       trackingProvider: trackingProvider,
+      localTrackingStore: localTrackingStore,
+      trackingSyncProvider: trackingSyncProvider,
     );
 
     videoDetailPageContract = VideoDetailPageContract(
@@ -212,6 +225,8 @@ class AppComposition {
   late final BangumiAuthProvider bangumiAuthProvider;
   late final BangumiLoginController bangumiLoginController;
   late final UserProfileProvider profileProvider;
+  late final BangumiLocalTrackingStore localTrackingStore;
+  late final BangumiTrackingSyncProvider trackingSyncProvider;
   late final BangumiTrackingProvider trackingProvider;
   late final HomeRecommendationProvider homeRecommendationProvider;
 
@@ -373,6 +388,39 @@ final class _BangumiTrackingCollectionProvider
   }
 }
 
+final class _BangumiTrackingStatusSyncProvider
+    implements BangumiTrackingSyncProvider {
+  const _BangumiTrackingStatusSyncProvider(this._syncProvider);
+
+  final BangumiSubjectCollectionSyncProvider _syncProvider;
+
+  @override
+  Future<BangumiTrackingSyncResult> syncTrackingStatus({
+    required String subjectId,
+    required BangumiTrackingStatus status,
+  }) async {
+    final AcgProviderResult<void> result =
+        await _syncProvider.syncSubjectCollection(
+      BangumiSubjectCollectionUpdate(
+        subjectId: BangumiSubjectId(subjectId),
+        status: _subjectCollectionStatusFromTracking(status),
+      ),
+    );
+    if (result is AcgProviderSuccess<void>) {
+      return const BangumiTrackingSyncResult.success();
+    }
+    if (result is AcgProviderFailure<void>) {
+      if (result.kind == AcgProviderFailureKind.unauthenticated) {
+        return BangumiTrackingSyncResult.unauthenticated(result.message);
+      }
+      return BangumiTrackingSyncResult.failed(result.message);
+    }
+    return const BangumiTrackingSyncResult.failed(
+      'Bangumi tracking sync state is unknown.',
+    );
+  }
+}
+
 final class _BangumiHomeRecommendationProvider
     implements HomeRecommendationProvider {
   _BangumiHomeRecommendationProvider(
@@ -464,5 +512,17 @@ BangumiTrackingStatus _trackingStatusFromCollection(
     BangumiSubjectCollectionStatus.watching => BangumiTrackingStatus.watching,
     BangumiSubjectCollectionStatus.onHold => BangumiTrackingStatus.onHold,
     BangumiSubjectCollectionStatus.dropped => BangumiTrackingStatus.dropped,
+  };
+}
+
+BangumiSubjectCollectionStatus _subjectCollectionStatusFromTracking(
+  BangumiTrackingStatus status,
+) {
+  return switch (status) {
+    BangumiTrackingStatus.planned => BangumiSubjectCollectionStatus.planned,
+    BangumiTrackingStatus.completed => BangumiSubjectCollectionStatus.completed,
+    BangumiTrackingStatus.watching => BangumiSubjectCollectionStatus.watching,
+    BangumiTrackingStatus.onHold => BangumiSubjectCollectionStatus.onHold,
+    BangumiTrackingStatus.dropped => BangumiSubjectCollectionStatus.dropped,
   };
 }

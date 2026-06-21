@@ -75,6 +75,48 @@ class ElainaThemeData {
       );
 }
 
+final ThemeData _elainaDarkMaterialTheme =
+    _buildElainaMaterialTheme(ElainaThemeData.dark);
+final ThemeData _elainaLightMaterialTheme =
+    _buildElainaMaterialTheme(ElainaThemeData.light);
+
+ThemeData elainaMaterialThemeFor(ElainaThemeData theme) {
+  return theme.brightness == Brightness.dark
+      ? _elainaDarkMaterialTheme
+      : _elainaLightMaterialTheme;
+}
+
+ThemeData _buildElainaMaterialTheme(ElainaThemeData theme) {
+  const WidgetStateMouseCursor clickCursor = WidgetStateMouseCursor.clickable;
+  return ThemeData(
+    brightness: theme.brightness,
+    scaffoldBackgroundColor: theme.background,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: theme.primary,
+      brightness: theme.brightness,
+    ),
+    useMaterial3: true,
+    iconButtonTheme: const IconButtonThemeData(
+      style: ButtonStyle(mouseCursor: clickCursor),
+    ),
+    textButtonTheme: const TextButtonThemeData(
+      style: ButtonStyle(mouseCursor: clickCursor),
+    ),
+    elevatedButtonTheme: const ElevatedButtonThemeData(
+      style: ButtonStyle(mouseCursor: clickCursor),
+    ),
+    outlinedButtonTheme: const OutlinedButtonThemeData(
+      style: ButtonStyle(mouseCursor: clickCursor),
+    ),
+    filledButtonTheme: const FilledButtonThemeData(
+      style: ButtonStyle(mouseCursor: clickCursor),
+    ),
+    switchTheme: const SwitchThemeData(mouseCursor: clickCursor),
+    checkboxTheme: const CheckboxThemeData(mouseCursor: clickCursor),
+    radioTheme: const RadioThemeData(mouseCursor: clickCursor),
+  );
+}
+
 class ElainaTheme extends InheritedWidget {
   final ElainaThemeData data;
   final ElainaThemeMode mode;

@@ -5,6 +5,8 @@ import 'package:elaina/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/widget_test_waiters.dart';
+
 class _MockCacheInvalidationBus implements CacheInvalidationBus {
   @override
   Stream<CacheInvalidationEvent> get events => const Stream.empty();
@@ -58,15 +60,21 @@ class _FakeHomeRecommendationProvider implements HomeRecommendationProvider {
   final HomeRecommendationSnapshot popularSnapshot;
   final List<HomeRecommendationItem> _recentItems;
   final int? recentPageLimit;
+  int popularCalls = 0;
+  int recentPopularCalls = 0;
 
   @override
-  Future<HomeRecommendationSnapshot> popularAnime() async => popularSnapshot;
+  Future<HomeRecommendationSnapshot> popularAnime() async {
+    popularCalls++;
+    return popularSnapshot;
+  }
 
   @override
   Future<HomeRecommendationSnapshot> recentPopularAnime({
     required int limit,
     required int offset,
   }) async {
+    recentPopularCalls++;
     final int effectiveLimit = recentPageLimit ?? limit;
     return HomeRecommendationSnapshot.loaded(
       _recentItems.skip(offset).take(effectiveLimit),
@@ -75,12 +83,16 @@ class _FakeHomeRecommendationProvider implements HomeRecommendationProvider {
 }
 
 class _FakeBangumiTrackingProvider implements BangumiTrackingProvider {
-  const _FakeBangumiTrackingProvider(this.snapshot);
+  _FakeBangumiTrackingProvider(this.snapshot);
 
   final BangumiTrackingSnapshot snapshot;
+  int currentAnimeCollectionCalls = 0;
 
   @override
-  Future<BangumiTrackingSnapshot> currentAnimeCollection() async => snapshot;
+  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
+    currentAnimeCollectionCalls++;
+    return snapshot;
+  }
 }
 
 class _FakeVideoDetailActionHandler implements VideoDetailActionHandler {
@@ -95,7 +107,12 @@ class _FakeVideoDetailActionHandler implements VideoDetailActionHandler {
   Future<VideoDetailActionResult> follow(VideoDetailId id) async =>
       const VideoDetailActionResult.success();
   @override
-  Future<VideoDetailActionResult> unfollow(VideoDetailId id) async =>
+  Future<VideoDetailActionResult> setTrackingStatus(
+          VideoDetailId id, VideoTrackingStatus status) async =>
+      const VideoDetailActionResult.success();
+  @override
+  Future<VideoDetailActionResult> resolveTrackingConflict(
+          VideoDetailId id, VideoTrackingConflictResolution resolution) async =>
       const VideoDetailActionResult.success();
   @override
   Future<VideoDetailActionResult> perform(
@@ -300,7 +317,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.textContaining('Alice'));
 
     expect(find.text('欢迎回来，Alice'), findsOneWidget);
     expect(find.text('欢迎回来'), findsNothing);
@@ -399,7 +416,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.text('Six Month Hot Anime'));
 
     expect(find.text('欢迎回来'), findsOneWidget);
     expect(find.text('最近观看'), findsOneWidget);
@@ -415,7 +432,7 @@ void main() {
 
     await tester.tap(find.text('Recent Hot Anime').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.text('Mock Title'));
     expect(find.text('Mock Title'), findsNWidgets(2));
 
     await tester.tap(find.byKey(const ValueKey<String>('video-detail-close')));
@@ -430,7 +447,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Six Month Hot Anime'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.text('Mock Title'));
     expect(find.text('Mock Title'), findsNWidgets(2));
 
     libraryRuntime.dispose();
@@ -520,7 +537,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.text('Recently Watched Anime'));
 
     expect(find.text('最近观看'), findsOneWidget);
     expect(find.text('Recently Watched Anime'), findsOneWidget);
@@ -532,8 +549,121 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('查看详情'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpUntilFound(find.text('Mock Title'));
     expect(find.text('Mock Title'), findsNWidgets(2));
+
+    libraryRuntime.dispose();
+  });
+
+  testWidgets('theme switching does not reload home or tracking providers',
+      (WidgetTester tester) async {
+    final mockController = MockPlaybackController(
+      matrix: PlaybackCapabilityMatrix(
+        capabilities: const <PlaybackCapability, CapabilityStatus>{
+          PlaybackCapability.playPause: CapabilityStatus.supported(),
+          PlaybackCapability.seek: CapabilityStatus.supported(),
+          PlaybackCapability.stop: CapabilityStatus.supported(),
+        },
+      ),
+    );
+    final libraryRuntime = MediaLibraryRuntime(
+      scanner: DeterministicMediaLibraryScanner(
+        scanId: const MediaScanId('theme-switch-scan'),
+        candidates: const [],
+      ),
+      catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+      importer: DeterministicMediaBatchImportContract(
+        repository: DeterministicMediaLibraryCatalogRepository(),
+      ),
+      historyStore: DeterministicPlaybackHistoryStore(),
+      bindingStore: DeterministicProviderBindingStore(),
+      playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+      invalidationBus: _MockCacheInvalidationBus(),
+    );
+    final detailContract = VideoDetailPageContract(
+      controller: VideoDetailController(
+        repository: _FakeVideoDetailRepository(),
+        actions: _FakeVideoDetailActionHandler(),
+      ),
+    );
+    final policyStore = DeterministicRssAutoDownloadPolicyStore();
+    final rssEngineRuntime = RssEngineRuntime(
+      engine: _FakeRssEngine(),
+      store: DeterministicRssFeedStore(),
+      scheduler: _FakeFeedScheduler(),
+      policyStore: policyStore,
+    );
+    final btTaskCoreRuntime = BtTaskCoreRuntime.withDependencies(
+      adapter: _FakeDownloadEngineAdapter(),
+      store: DeterministicBtTaskStore(),
+    );
+    final _FakeHomeRecommendationProvider homeProvider =
+        _FakeHomeRecommendationProvider(
+      popularSnapshot: HomeRecommendationSnapshot.loaded(
+        const <HomeRecommendationItem>[
+          HomeRecommendationItem(
+            subjectId: 'theme-hero',
+            title: 'Theme Hero Anime',
+            score: 8.8,
+          ),
+        ],
+      ),
+      recentItems: const <HomeRecommendationItem>[
+        HomeRecommendationItem(
+          subjectId: 'theme-more',
+          title: 'Theme More Anime',
+          score: 8.1,
+        ),
+      ],
+      recentPageLimit: 1,
+    );
+    final _FakeBangumiTrackingProvider trackingProvider =
+        _FakeBangumiTrackingProvider(
+      BangumiTrackingSnapshot.loaded(
+        <BangumiTrackingItem>[
+          BangumiTrackingItem(
+            subjectId: 'theme-tracking',
+            title: 'Theme Tracking Anime',
+            status: BangumiTrackingStatus.watching,
+            watchedEpisodes: 2,
+            totalEpisodes: 12,
+            updatedAt: DateTime.utc(2026, 6, 21),
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MyApp(
+        playbackController: mockController,
+        videoSurface: const SizedBox(),
+        mediaLibraryRuntime: libraryRuntime,
+        videoDetailPageContract: detailContract,
+        rssEngineRuntime: rssEngineRuntime,
+        btTaskCoreRuntime: btTaskCoreRuntime,
+        policyStore: policyStore,
+        homeRecommendationProvider: homeProvider,
+        bangumiTrackingProvider: trackingProvider,
+      ),
+    );
+    await tester.pump();
+    await tester.pumpUntilFound(find.text('Theme Tracking Anime'));
+
+    final int popularCalls = homeProvider.popularCalls;
+    final int recentPopularCalls = homeProvider.recentPopularCalls;
+    final int trackingCalls = trackingProvider.currentAnimeCollectionCalls;
+
+    await tester.tap(find.byIcon(Icons.dark_mode));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.light_mode));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.dark_mode));
+    await tester.pump();
+
+    expect(homeProvider.popularCalls, popularCalls);
+    expect(homeProvider.recentPopularCalls, recentPopularCalls);
+    expect(trackingProvider.currentAnimeCollectionCalls, trackingCalls);
+    expect(find.text('Theme Tracking Anime'), findsOneWidget);
 
     libraryRuntime.dispose();
   });

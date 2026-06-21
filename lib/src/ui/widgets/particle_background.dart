@@ -33,11 +33,21 @@ class _ParticleBackgroundState extends State<ParticleBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
-    )..addListener(() {
-        _updateParticles();
-        setState(() {}); // Trigger repaint
-      });
+    );
     _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(ParticleBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.particleCount != widget.particleCount &&
+        !_lastSize.isEmpty) {
+      _initParticles(_lastSize);
+      return;
+    }
+    if (!_sameColors(oldWidget.colors, widget.colors)) {
+      _remapParticleColors();
+    }
   }
 
   @override
@@ -53,6 +63,12 @@ class _ParticleBackgroundState extends State<ParticleBackground>
     }
   }
 
+  void _remapParticleColors() {
+    for (final _Particle particle in _particles) {
+      particle.color = _nextParticleColor();
+    }
+  }
+
   _Particle _createParticle(Size size) {
     return _Particle(
       x: _random.nextDouble() * size.width,
@@ -60,13 +76,18 @@ class _ParticleBackgroundState extends State<ParticleBackground>
       size: _random.nextDouble() * 3 + 1,
       speedX: _random.nextDouble() * 1 - 0.5,
       speedY: _random.nextDouble() * 1 - 0.5,
-      color: widget.colors[_random.nextInt(widget.colors.length)],
+      color: _nextParticleColor(),
       opacity: _random.nextDouble() * 0.5 + 0.1,
     );
   }
 
-  void _updateParticles() {
-    if (_lastSize.isEmpty) return;
+  Color _nextParticleColor() {
+    if (widget.colors.isEmpty) return Colors.transparent;
+    return widget.colors[_random.nextInt(widget.colors.length)];
+  }
+
+  void _updateParticles(Size size) {
+    if (size.isEmpty) return;
 
     for (int i = 0; i < _particles.length; i++) {
       final _Particle p = _particles[i];
@@ -79,11 +100,11 @@ class _ParticleBackgroundState extends State<ParticleBackground>
 
       // Respawn
       if (p.x < 0 ||
-          p.x > _lastSize.width ||
+          p.x > size.width ||
           p.y < 0 ||
-          p.y > _lastSize.height ||
+          p.y > size.height ||
           p.size <= 0.2) {
-        _particles[i] = _createParticle(_lastSize);
+        _particles[i] = _createParticle(size);
       }
     }
   }
@@ -102,12 +123,24 @@ class _ParticleBackgroundState extends State<ParticleBackground>
         return RepaintBoundary(
           child: CustomPaint(
             size: Size.infinite,
-            painter: _ParticlePainter(particles: _particles),
+            painter: _ParticlePainter(
+              particles: _particles,
+              updateParticles: _updateParticles,
+              repaint: _controller,
+            ),
           ),
         );
       },
     );
   }
+}
+
+bool _sameColors(List<Color> left, List<Color> right) {
+  if (left.length != right.length) return false;
+  for (int index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 class _Particle {
@@ -131,12 +164,18 @@ class _Particle {
 }
 
 class _ParticlePainter extends CustomPainter {
-  _ParticlePainter({required this.particles});
+  _ParticlePainter({
+    required this.particles,
+    required this.updateParticles,
+    required Listenable repaint,
+  }) : super(repaint: repaint);
 
   final List<_Particle> particles;
+  final ValueChanged<Size> updateParticles;
 
   @override
   void paint(Canvas canvas, Size size) {
+    updateParticles(size);
     for (final _Particle p in particles) {
       final Paint paint = Paint()
         ..color = p.color.withValues(alpha: p.opacity)
@@ -146,5 +185,8 @@ class _ParticlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ParticlePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ParticlePainter oldDelegate) {
+    return oldDelegate.particles != particles ||
+        oldDelegate.updateParticles != updateParticles;
+  }
 }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
@@ -10,116 +8,15 @@ import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class FakeVideoDetailRepository implements VideoDetailRepository {
-  FakeVideoDetailRepository({required this.initialData}) {
-    _controller = StreamController<VideoDetailViewData>.broadcast();
-  }
+import '../../support/provider_test_fakes.dart';
+import '../../support/runtime_test_fakes.dart';
+import '../../support/ui_test_host.dart';
+import '../../support/widget_test_waiters.dart';
 
-  VideoDetailViewData initialData;
-  late final StreamController<VideoDetailViewData> _controller;
-
-  void update(VideoDetailViewData data) {
-    initialData = data;
-    _controller.add(data);
-  }
-
-  @override
-  Future<VideoDetailViewData> load(VideoDetailId id) async {
-    return initialData;
-  }
-
-  @override
-  Stream<VideoDetailViewData> watch(VideoDetailId id) async* {
-    yield initialData;
-    yield* _controller.stream;
-  }
-}
-
-final class _MappedVideoDetailRepository implements VideoDetailRepository {
-  const _MappedVideoDetailRepository(this._dataById);
-
-  final Map<String, VideoDetailViewData> _dataById;
-
-  @override
-  Future<VideoDetailViewData> load(VideoDetailId id) async => _dataFor(id);
-
-  @override
-  Stream<VideoDetailViewData> watch(VideoDetailId id) async* {
-    yield _dataFor(id);
-  }
-
-  VideoDetailViewData _dataFor(VideoDetailId id) {
-    final VideoDetailViewData? data = _dataById[id.value];
-    if (data == null) {
-      throw StateError('Missing detail fixture for ${id.value}.');
-    }
-    return data;
-  }
-}
-
-class FakeVideoDetailActionHandler implements VideoDetailActionHandler {
-  final List<String> calls = <String>[];
-
-  @override
-  Future<VideoDetailActionResult> continuePlayback(VideoDetailId id) async {
-    calls.add('continuePlayback');
-    return const VideoDetailActionResult.success();
-  }
-
-  @override
-  Future<VideoDetailActionResult> selectEpisode(
-      VideoDetailId id, VideoEpisodeId episodeId) async {
-    calls.add('selectEpisode:${episodeId.value}');
-    return const VideoDetailActionResult.success();
-  }
-
-  @override
-  Future<VideoDetailActionResult> follow(VideoDetailId id) async {
-    calls.add('follow');
-    return const VideoDetailActionResult.success();
-  }
-
-  @override
-  Future<VideoDetailActionResult> unfollow(VideoDetailId id) async {
-    calls.add('unfollow');
-    return const VideoDetailActionResult.success();
-  }
-
-  @override
-  Future<VideoDetailActionResult> perform(
-      VideoDetailId id, VideoDetailAction action) async {
-    calls.add('perform:${action.kind}');
-    return const VideoDetailActionResult.success();
-  }
-}
-
-final class _RecordingCacheInvalidationBus implements CacheInvalidationBus {
-  final StreamController<CacheInvalidationEvent> _controller =
-      StreamController<CacheInvalidationEvent>.broadcast(sync: true);
-  final List<CacheInvalidationEvent> publishedEvents =
-      <CacheInvalidationEvent>[];
-
-  @override
-  Stream<CacheInvalidationEvent> get events => _controller.stream;
-
-  @override
-  void publish(CacheInvalidationEvent event) {
-    publishedEvents.add(event);
-    _controller.add(event);
-  }
-
-  @override
-  Future<void> close() => _controller.close();
-}
-
-Widget _testHost({required Widget child}) {
-  return MaterialApp(
-    home: ElainaTheme(
-      data: ElainaThemeData.dark,
-      mode: ElainaThemeMode.dark,
-      onModeChanged: (_) {},
-      child: child,
-    ),
+Finder _richTextContaining(String text) {
+  return find.byWidgetPredicate(
+    (Widget widget) =>
+        widget is RichText && widget.text.toPlainText().contains(text),
   );
 }
 
@@ -139,115 +36,12 @@ MediaScanCandidate _candidate(
   );
 }
 
-final class _FakeBangumiProvider implements BangumiProvider {
-  _FakeBangumiProvider({required this.subjects});
-
-  final List<BangumiSubject> subjects;
-
-  @override
-  String get displayName => 'Fake Bangumi Provider';
-
-  @override
-  ProviderGateway get gateway => _UnsupportedProviderGateway();
-
-  @override
-  String get id => 'fake-bangumi';
-
-  @override
-  ProviderKind get kind => ProviderKind.metadata;
-
-  @override
-  ProviderRegistration get registration => const ProviderRegistration(
-        providerId: ProviderId('fake-bangumi'),
-        ratePolicy:
-            ProviderRatePolicy(maxRequests: 12, window: Duration(minutes: 1)),
-        retryPolicy: ProviderRetryPolicy(
-            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
-      );
-
-  @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
-    required String cacheKey,
-    required Future<T> Function() load,
-    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
-  }) async {
-    return ProviderGatewayResponse<T>(
-      value: await load(),
-      source: ProviderGatewayResponseSource.network,
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
-    return Future<AcgProviderResult<BangumiEpisode>>.value(
-      AcgProviderFailure<BangumiEpisode>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Episode lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
-    BangumiSubjectId subjectId,
-  ) {
-    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
-      AcgProviderFailure<List<BangumiEpisode>>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Episode list lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
-    return Future<AcgProviderResult<BangumiSubject>>.value(
-      AcgProviderFailure<BangumiSubject>(
-        kind: AcgProviderFailureKind.unavailable,
-        message: 'Subject lookup is not used by this test.',
-      ),
-    );
-  }
-
-  @override
-  ProviderRequestKey requestKey(String cacheKey) {
-    return ProviderRequestKey(
-      providerId: const ProviderId('fake-bangumi'),
-      cacheKey: cacheKey,
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
-    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-      AcgProviderSuccess<List<BangumiSubject>>(subjects),
-    );
-  }
-}
-
-final class _UnsupportedProviderGateway implements ProviderGateway {
-  @override
-  StorageFoundation get storage =>
-      throw UnsupportedError('Gateway storage is not used by this test.');
-
-  @override
-  Future<void> registerProvider(ProviderRegistration registration) {
-    throw UnsupportedError('Provider registration is not used by this test.');
-  }
-
-  @override
-  Future<ProviderGatewayResponse<T>> execute<T>(
-      ProviderGatewayRequest<T> request) {
-    throw UnsupportedError('Gateway execution is not used by this test.');
-  }
-}
-
 void main() {
   group('MediaLibraryPage Tests', () {
     testWidgets('starts without fixed media folders',
         (WidgetTester tester) async {
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime runtime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('test-scan-id'),
@@ -272,7 +66,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: Scaffold(
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
@@ -306,8 +100,8 @@ void main() {
           DeterministicPlaybackHistoryStore();
       final DeterministicProviderBindingStore bindingStore =
           DeterministicProviderBindingStore();
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
       await settingsRuntime.setPreference(
         key: SettingsPreferenceKeys.mediaLibraryRoots,
@@ -344,7 +138,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: Scaffold(
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
@@ -393,8 +187,8 @@ void main() {
       );
       final DeterministicProviderBindingStore bindingStore =
           DeterministicProviderBindingStore();
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime runtime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('match-scan-id'),
@@ -409,7 +203,7 @@ void main() {
         playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
         invalidationBus: invalidationBus,
         bangumiMatcher: BangumiLocalMediaMatcher(
-          bangumiProvider: _FakeBangumiProvider(
+          bangumiProvider: FakeBangumiProvider(
             subjects: const <BangumiSubject>[
               BangumiSubject(id: BangumiSubjectId('42'), title: 'Frieren'),
             ],
@@ -419,7 +213,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: Scaffold(
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
@@ -463,8 +257,8 @@ void main() {
       final DeterministicMediaLibraryCatalogRepository catalogRepo =
           DeterministicMediaLibraryCatalogRepository();
       final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime runtime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('test-scan-id'),
@@ -497,7 +291,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: Scaffold(
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
@@ -540,8 +334,8 @@ void main() {
         key: SettingsPreferenceKeys.mediaLibraryRoots,
         value: '["file:///D:/media/"]',
       );
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime runtime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('test-scan-id'),
@@ -574,7 +368,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: Scaffold(
             body: MediaLibraryPage(
               mediaLibraryRuntime: runtime,
@@ -620,6 +414,45 @@ void main() {
         id: detailId,
         title: '赛博朋克大冒险',
         summary: '这是一个未来赛博世界的硬核故事。',
+        metadataStats: const VideoDetailMetadataStats(
+          score: 9.1,
+          rank: 8,
+          collectionTotal: 12345,
+          episodeCount: 12,
+        ),
+        credits: const <VideoDetailCredit>[
+          VideoDetailCredit(
+            id: 'staff-1',
+            name: '今敏',
+            role: '导演',
+            careers: <String>['director'],
+            episodeRange: '全话',
+          ),
+          VideoDetailCredit(
+            id: 'staff-2',
+            name: '虚渊玄',
+            role: '脚本',
+            careers: <String>['writer'],
+          ),
+        ],
+        characters: const <VideoDetailCharacter>[
+          VideoDetailCharacter(
+            id: 'character-1',
+            name: '艾蕾娜',
+            role: '主角',
+            voiceActors: <VideoDetailVoiceActor>[
+              VideoDetailVoiceActor(id: 'actor-1', name: '本渡枫'),
+            ],
+          ),
+        ],
+        relations: const <VideoDetailRelatedSubject>[
+          VideoDetailRelatedSubject(
+            id: 'related-1',
+            title: '赛博朋克大冒险 第二季',
+            relation: '续集',
+            type: bangumiAnimeSubjectType,
+          ),
+        ],
         followState: VideoFollowState.notFollowed,
         actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
         episodes: <VideoDetailEpisode>[
@@ -665,7 +498,7 @@ void main() {
       bool closeCalled = false;
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: VideoDetailPage(
             id: detailId,
             videoDetailPageContract: contract,
@@ -692,12 +525,42 @@ void main() {
       expect(find.text('启航之旅'), findsOneWidget);
       expect(find.text('第 2 话'), findsOneWidget);
       expect(find.text('未知前路 (暂无本地文件)'), findsOneWidget);
-
-      // Verify follow state changes
-      expect(find.text('加入追番'), findsOneWidget);
-      await tester.tap(find.text('加入追番'));
+      expect(find.text('评分 9.1'), findsOneWidget);
+      expect(find.text('排名 #8'), findsOneWidget);
+      expect(find.text('收藏 12345'), findsOneWidget);
+      expect(find.text('话数 12'), findsOneWidget);
+      expect(find.text('制作人员'), findsOneWidget);
+      expect(find.text('导演 1'), findsOneWidget);
+      expect(find.text('脚本 1'), findsOneWidget);
+      expect(find.text('导演'), findsOneWidget);
+      expect(find.text('今敏'), findsOneWidget);
+      expect(find.text('director · 全话'), findsOneWidget);
+      expect(find.text('虚渊玄'), findsNothing);
+      await tester.ensureVisible(find.text('脚本 1'));
       await tester.pump();
-      expect(actionHandler.calls, contains('follow'));
+      await tester.tap(find.text('脚本 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('今敏'), findsNothing);
+      expect(find.text('脚本'), findsOneWidget);
+      expect(find.text('虚渊玄'), findsOneWidget);
+      expect(find.text('writer'), findsOneWidget);
+      expect(find.text('角色与声优'), findsOneWidget);
+      expect(find.text('主角'), findsOneWidget);
+      expect(find.text('艾蕾娜'), findsOneWidget);
+      expect(find.text('声优: 本渡枫'), findsOneWidget);
+      expect(find.text('关联条目'), findsOneWidget);
+      expect(find.text('续集'), findsOneWidget);
+      expect(find.text('赛博朋克大冒险 第二季'), findsOneWidget);
+
+      // Verify tracking state changes
+      expect(find.text('加入追番'), findsOneWidget);
+      await tester.ensureVisible(find.text('加入追番'));
+      await tester.pump();
+      await tester.tap(find.text('加入追番'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('在追').last);
+      await tester.pumpAndSettle();
+      expect(actionHandler.calls, contains('setTrackingStatus:watching'));
 
       // Mock follow state change
       repo.update(VideoDetailViewData(
@@ -709,13 +572,19 @@ void main() {
         actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
         episodes: viewData.episodes,
       ));
-      await tester.pump();
-      expect(find.text('在追'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('在追'), findsWidgets);
 
       // Tap Episode 1 (available)
+      await tester.ensureVisible(find.text('第 1 话'));
+      await tester.pump();
       await tester.tap(find.text('第 1 话'));
       await tester.pump();
       expect(actionHandler.calls, contains('selectEpisode:ep-1'));
+      expect(playbackController.currentState.status,
+          PlaybackLifecycleStatus.playing);
+      expect(playbackController.currentState.sourceUri.toString(),
+          'file:///D:/media/episode-1.mkv');
       expect(playbackStartedCalled, isTrue);
 
       // Tap close/back button
@@ -725,7 +594,68 @@ void main() {
       expect(closeCalled, isTrue);
     });
 
-    testWidgets('renders remote tracking status without local follow mutation',
+    testWidgets('renders optional metadata empty and failure states',
+        (WidgetTester tester) async {
+      const VideoDetailId detailId = VideoDetailId('subject-metadata-failure');
+      const VideoDetailViewData viewData = VideoDetailViewData(
+        id: detailId,
+        title: 'Metadata Failure Anime',
+        summary: 'Metadata failure summary.',
+        followState: VideoFollowState.notFollowed,
+        actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+        episodes: <VideoDetailEpisode>[],
+        metadataFailures: <VideoDetailMetadataFailure>[
+          VideoDetailMetadataFailure(
+            section: VideoDetailMetadataSection.staff,
+            message: 'Staff offline',
+          ),
+          VideoDetailMetadataFailure(
+            section: VideoDetailMetadataSection.characters,
+            message: 'Characters offline',
+          ),
+          VideoDetailMetadataFailure(
+            section: VideoDetailMetadataSection.relations,
+            message: 'Relations offline',
+          ),
+        ],
+      );
+      final VideoDetailPageContract contract = VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(initialData: viewData),
+          actions: FakeVideoDetailActionHandler(),
+        ),
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        elainaTestHost(
+          child: VideoDetailPage(
+            id: detailId,
+            videoDetailPageContract: contract,
+            playbackController: playbackController,
+            onPlaybackStarted: () {},
+            onClose: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Metadata Failure Anime'), findsNWidgets(2));
+      expect(find.text('Bangumi 暂无评分与收藏统计'), findsOneWidget);
+      expect(find.text('暂无剧集'), findsOneWidget);
+      expect(find.text('制作人员加载失败: Staff offline'), findsOneWidget);
+      expect(find.text('角色与声优加载失败: Characters offline'), findsOneWidget);
+      expect(find.text('关联条目加载失败: Relations offline'), findsOneWidget);
+    });
+
+    testWidgets('updates remote-only tracking status through status menu',
         (WidgetTester tester) async {
       const VideoDetailId detailId = VideoDetailId('subject-dropped');
       const VideoDetailViewData viewData = VideoDetailViewData(
@@ -761,7 +691,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: VideoDetailPage(
             id: detailId,
             videoDetailPageContract: contract,
@@ -773,12 +703,78 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('抛弃'), findsOneWidget);
+      expect(find.text('抛弃'), findsWidgets);
       expect(find.text('加入追番'), findsNothing);
 
-      await tester.tap(find.text('抛弃'));
+      await tester.tap(find.text('抛弃').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('搁置').last);
+      await tester.pumpAndSettle();
+      expect(actionHandler.calls, contains('setTrackingStatus:onHold'));
+    });
+
+    testWidgets('prompts when local and remote tracking status conflict',
+        (WidgetTester tester) async {
+      const VideoDetailId detailId = VideoDetailId('subject-conflict');
+      final VideoDetailViewData viewData = VideoDetailViewData(
+        id: detailId,
+        title: 'Conflict Anime',
+        summary: 'Conflict detail summary.',
+        followState: VideoFollowState.followed,
+        trackingStatus: VideoTrackingStatus.watching,
+        trackingConflict: VideoTrackingConflict(
+          subjectId: detailId.value,
+          title: 'Conflict Anime',
+          localStatus: VideoTrackingStatus.dropped,
+          remoteStatus: VideoTrackingStatus.watching,
+          localUpdatedAt: DateTime.utc(2026, 6, 21, 9),
+          remoteUpdatedAt: DateTime.utc(2026, 6, 21, 12),
+        ),
+        actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
+        episodes: const <VideoDetailEpisode>[],
+      );
+      final FakeVideoDetailActionHandler actionHandler =
+          FakeVideoDetailActionHandler();
+      final VideoDetailPageContract contract = VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(initialData: viewData),
+          actions: actionHandler,
+        ),
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        elainaTestHost(
+          child: VideoDetailPage(
+            id: detailId,
+            videoDetailPageContract: contract,
+            playbackController: playbackController,
+            onPlaybackStarted: () {},
+            onClose: () {},
+          ),
+        ),
+      );
       await tester.pump();
-      expect(actionHandler.calls, isEmpty);
+      await tester.pumpAndSettle();
+
+      expect(find.text('追番状态冲突'), findsOneWidget);
+      expect(_richTextContaining('本地状态: 抛弃'), findsOneWidget);
+      expect(_richTextContaining('云端状态: 在追'), findsOneWidget);
+
+      await tester.tap(find.text('云端同步到本地'));
+      await tester.pumpAndSettle();
+
+      expect(
+        actionHandler.calls,
+        contains('resolveTrackingConflict:remoteToLocal'),
+      );
     });
 
     testWidgets('reloads detail stream and tracking state when id changes',
@@ -807,7 +803,7 @@ void main() {
           FakeVideoDetailActionHandler();
       final VideoDetailPageContract contract = VideoDetailPageContract(
         controller: VideoDetailController(
-          repository: const _MappedVideoDetailRepository(
+          repository: const MappedVideoDetailRepository(
             <String, VideoDetailViewData>{
               'subject-planned': plannedData,
               'subject-dropped': droppedData,
@@ -827,7 +823,7 @@ void main() {
 
       Future<void> pumpDetail(VideoDetailId id) {
         return tester.pumpWidget(
-          _testHost(
+          elainaTestHost(
             child: VideoDetailPage(
               id: id,
               videoDetailPageContract: contract,
@@ -842,7 +838,7 @@ void main() {
       await pumpDetail(plannedId);
       await tester.pump();
       expect(find.text('Planned Remote Anime'), findsNWidgets(2));
-      expect(find.text('想看'), findsOneWidget);
+      expect(find.text('想看'), findsWidgets);
       expect(find.text('加入追番'), findsNothing);
 
       await pumpDetail(droppedId);
@@ -851,7 +847,7 @@ void main() {
       expect(find.text('Planned Remote Anime'), findsNothing);
       expect(find.text('想看'), findsNothing);
       expect(find.text('Dropped Remote Anime'), findsNWidgets(2));
-      expect(find.text('抛弃'), findsOneWidget);
+      expect(find.text('抛弃'), findsWidgets);
       expect(find.text('加入追番'), findsNothing);
     });
   });
@@ -865,8 +861,8 @@ void main() {
           DeterministicPlaybackHistoryStore();
       final DeterministicProviderBindingStore bindingStore =
           DeterministicProviderBindingStore();
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
 
       // Pre-seed catalog & binding to allow detail page navigation from info button
       final LocalMediaIdentity seededMedia = LocalMediaIdentity(
@@ -951,16 +947,16 @@ void main() {
       final DeterministicRssAutoDownloadPolicyStore policyStore =
           DeterministicRssAutoDownloadPolicyStore();
       final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
-        engine: _FakeRssEngine(),
+        engine: FakeRssEngine(),
         store: DeterministicRssFeedStore(),
-        scheduler: _FakeFeedScheduler(),
+        scheduler: FakeFeedScheduler(),
         policyStore: policyStore,
       );
       final BtTaskCoreRuntime btTaskCoreRuntime =
           BtTaskCoreRuntime.unavailable(reason: 'testing');
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: ElainaAppShell(
             playbackController: playbackController,
             videoSurface: const SizedBox(),
@@ -992,7 +988,7 @@ void main() {
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
       await tester.tap(find.byIcon(Icons.info_outline));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpUntilFound(find.text('预加载番剧'));
 
       // Expect VideoDetailPage overlay to render
       expect(find.text('预加载番剧'), findsNWidgets(2));
@@ -1009,10 +1005,127 @@ void main() {
       await invalidationBus.close();
     });
 
+    testWidgets('detail episode playback closes detail and shows player',
+        (WidgetTester tester) async {
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
+      final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
+        scanner: DeterministicMediaLibraryScanner(
+          scanId: const MediaScanId('test-scan-id'),
+          candidates: const <MediaScanCandidate>[],
+        ),
+        catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+        importer: DeterministicMediaBatchImportContract(
+          repository: DeterministicMediaLibraryCatalogRepository(),
+        ),
+        historyStore: DeterministicPlaybackHistoryStore(),
+        bindingStore: DeterministicProviderBindingStore(),
+        playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+        invalidationBus: invalidationBus,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+      final LocalMediaIdentity playableMedia = LocalMediaIdentity(
+        id: const LocalMediaId('media-playable-1'),
+        uri: Uri.parse('file:///D:/media/episode-1.mkv'),
+        basename: 'episode-1.mkv',
+      );
+      final VideoDetailPageContract videoDetailContract =
+          VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: FakeVideoDetailRepository(
+            initialData: VideoDetailViewData(
+              id: const VideoDetailId('subject-playable'),
+              title: 'Playable Anime',
+              episodes: <VideoDetailEpisode>[
+                VideoDetailEpisode(
+                  id: const VideoEpisodeId('playable-ep-1'),
+                  index: 1,
+                  title: 'episode-1.mkv',
+                  localMedia: playableMedia,
+                  localMediaId: playableMedia.id,
+                ),
+              ],
+              followState: VideoFollowState.followed,
+              trackingStatus: VideoTrackingStatus.watching,
+              actions:
+                  const VideoDetailActionSet(actions: <VideoDetailAction>[]),
+            ),
+          ),
+          actions: FakeVideoDetailActionHandler(),
+        ),
+      );
+      final DeterministicRssAutoDownloadPolicyStore policyStore =
+          DeterministicRssAutoDownloadPolicyStore();
+      final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
+        engine: FakeRssEngine(),
+        store: DeterministicRssFeedStore(),
+        scheduler: FakeFeedScheduler(),
+        policyStore: policyStore,
+      );
+      final BtTaskCoreRuntime btTaskCoreRuntime =
+          BtTaskCoreRuntime.unavailable(reason: 'testing');
+
+      await tester.pumpWidget(
+        elainaTestHost(
+          child: ElainaAppShell(
+            playbackController: playbackController,
+            videoSurface: const SizedBox(),
+            mediaLibraryRuntime: libraryRuntime,
+            videoDetailPageContract: videoDetailContract,
+            rssEngineRuntime: rssEngineRuntime,
+            downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            settingsRuntime: FakeSettingsRuntime(),
+            diagnosticsRuntime: FakeDiagnosticsRuntime(),
+            bangumiTrackingProvider: MutableBangumiTrackingProvider(
+              BangumiTrackingSnapshot.loaded(
+                const <BangumiTrackingItem>[
+                  BangumiTrackingItem(
+                    subjectId: 'subject-playable',
+                    title: 'Playable Anime',
+                    status: BangumiTrackingStatus.watching,
+                    watchedEpisodes: 1,
+                    totalEpisodes: 12,
+                  ),
+                ],
+              ),
+            ),
+            carouselAutoScroll: false,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('我的追番'));
+      await tester.pump();
+      await tester.tap(find.text('Playable Anime'));
+      await tester.pump();
+      await tester.pumpUntilFound(find.text('播放第 1 话'));
+      expect(find.text('播放第 1 话'), findsWidgets);
+
+      await tester.tap(find.text('播放第 1 话').first);
+      await tester.pump();
+      await tester.pumpUntilFound(find.text('episode-1.mkv'));
+
+      expect(playbackController.currentState.status,
+          PlaybackLifecycleStatus.playing);
+      expect(playbackController.currentState.sourceUri.toString(),
+          'file:///D:/media/episode-1.mkv');
+      expect(find.text('episode-1.mkv'), findsOneWidget);
+
+      libraryRuntime.dispose();
+      await invalidationBus.close();
+    });
+
     testWidgets('Bangumi login action opens token acquisition page',
         (WidgetTester tester) async {
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('test-scan-id'),
@@ -1053,18 +1166,18 @@ void main() {
       final DeterministicRssAutoDownloadPolicyStore policyStore =
           DeterministicRssAutoDownloadPolicyStore();
       final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
-        engine: _FakeRssEngine(),
+        engine: FakeRssEngine(),
         store: DeterministicRssFeedStore(),
-        scheduler: _FakeFeedScheduler(),
+        scheduler: FakeFeedScheduler(),
         policyStore: policyStore,
       );
       final BtTaskCoreRuntime btTaskCoreRuntime =
           BtTaskCoreRuntime.unavailable(reason: 'testing');
-      final _RecordingBangumiLoginController bangumiLoginController =
-          _RecordingBangumiLoginController();
+      final RecordingBangumiLoginController bangumiLoginController =
+          RecordingBangumiLoginController();
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: ElainaAppShell(
             playbackController: playbackController,
             videoSurface: const SizedBox(),
@@ -1098,8 +1211,8 @@ void main() {
 
     testWidgets('Bangumi token login refreshes remote tracking collection',
         (WidgetTester tester) async {
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final MediaLibraryRuntime libraryRuntime = MediaLibraryRuntime(
         scanner: DeterministicMediaLibraryScanner(
           scanId: const MediaScanId('test-scan-id'),
@@ -1141,19 +1254,19 @@ void main() {
       final DeterministicRssAutoDownloadPolicyStore policyStore =
           DeterministicRssAutoDownloadPolicyStore();
       final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
-        engine: _FakeRssEngine(),
+        engine: FakeRssEngine(),
         store: DeterministicRssFeedStore(),
-        scheduler: _FakeFeedScheduler(),
+        scheduler: FakeFeedScheduler(),
         policyStore: policyStore,
       );
       final BtTaskCoreRuntime btTaskCoreRuntime =
           BtTaskCoreRuntime.unavailable(reason: 'testing');
-      final _MutableBangumiTrackingProvider trackingProvider =
-          _MutableBangumiTrackingProvider(
+      final MutableBangumiTrackingProvider trackingProvider =
+          MutableBangumiTrackingProvider(
         const BangumiTrackingSnapshot.unauthenticated('missing token'),
       );
-      final _RecordingBangumiLoginController bangumiLoginController =
-          _RecordingBangumiLoginController(
+      final RecordingBangumiLoginController bangumiLoginController =
+          RecordingBangumiLoginController(
         onSignIn: (_) {
           trackingProvider.snapshot = BangumiTrackingSnapshot.loaded(
             const <BangumiTrackingItem>[
@@ -1170,7 +1283,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: ElainaAppShell(
             playbackController: playbackController,
             videoSurface: const SizedBox(),
@@ -1198,11 +1311,11 @@ void main() {
         find.byKey(const ValueKey<String>('settings-bangumi-login')),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
 
       await tester.tap(find.text('我的追番'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpUntilFound(find.text('Remote Anime'));
 
       expect(trackingProvider.calls, greaterThanOrEqualTo(2));
       expect(bangumiLoginController.submittedToken, 'token-1');
@@ -1212,7 +1325,7 @@ void main() {
 
       await tester.tap(find.text('Remote Anime'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpUntilFound(find.text('Remote detail summary'));
       expect(find.text('Remote detail summary'), findsOneWidget);
 
       await playbackController.open(
@@ -1220,7 +1333,7 @@ void main() {
       );
       await playbackController.play();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
       await tester
           .tap(find.byKey(const ValueKey<String>('video-detail-close')));
       await tester.pump();
@@ -1243,8 +1356,8 @@ void main() {
           DeterministicPlaybackHistoryStore();
       final DeterministicProviderBindingStore bindingStore =
           DeterministicProviderBindingStore();
-      final _RecordingCacheInvalidationBus invalidationBus =
-          _RecordingCacheInvalidationBus();
+      final RecordingCacheInvalidationBus invalidationBus =
+          RecordingCacheInvalidationBus();
       final LocalMediaIdentity seededMedia = LocalMediaIdentity(
         id: const LocalMediaId('media-1'),
         uri: Uri.parse('file:///D:/media/episode-1.mkv'),
@@ -1327,16 +1440,16 @@ void main() {
       final DeterministicRssAutoDownloadPolicyStore policyStore =
           DeterministicRssAutoDownloadPolicyStore();
       final RssEngineRuntime rssEngineRuntime = RssEngineRuntime(
-        engine: _FakeRssEngine(),
+        engine: FakeRssEngine(),
         store: DeterministicRssFeedStore(),
-        scheduler: _FakeFeedScheduler(),
+        scheduler: FakeFeedScheduler(),
         policyStore: policyStore,
       );
       final BtTaskCoreRuntime btTaskCoreRuntime =
           BtTaskCoreRuntime.unavailable(reason: 'testing');
 
       await tester.pumpWidget(
-        _testHost(
+        elainaTestHost(
           child: ElainaAppShell(
             playbackController: playbackController,
             videoSurface: const SizedBox(),
@@ -1368,66 +1481,4 @@ void main() {
       await invalidationBus.close();
     });
   });
-}
-
-final class _RecordingBangumiLoginController implements BangumiLoginController {
-  _RecordingBangumiLoginController({this.onSignIn});
-
-  final void Function(String token)? onSignIn;
-  int startLoginCalls = 0;
-  Uri? openedUri;
-  String? submittedToken;
-
-  @override
-  Future<BangumiLoginStartResult> startLogin() async {
-    startLoginCalls++;
-    openedUri = defaultBangumiAccessTokenPageUri;
-    return BangumiLoginStartResult.opened(openedUri!);
-  }
-
-  @override
-  Future<BangumiTokenSignInResult> signInWithAccessToken(
-    String accessToken,
-  ) async {
-    submittedToken = accessToken;
-    onSignIn?.call(submittedToken!);
-    return const BangumiTokenSignInResult.signedIn(
-      UserProfileSnapshot(displayName: 'Alice'),
-    );
-  }
-}
-
-final class _MutableBangumiTrackingProvider implements BangumiTrackingProvider {
-  _MutableBangumiTrackingProvider(this.snapshot);
-
-  BangumiTrackingSnapshot snapshot;
-  int calls = 0;
-
-  @override
-  Future<BangumiTrackingSnapshot> currentAnimeCollection() async {
-    calls++;
-    return snapshot;
-  }
-}
-
-class _FakeRssEngine implements RssEngineContract {
-  @override
-  Future<void> registerSource(FeedSource source) async {}
-
-  @override
-  Future<RssRefreshOutcome> refreshSource(RssRefreshRequest request) async {
-    return RssRefreshOutcome.success(
-      sourceId: request.sourceId,
-      newItems: const <FeedItem>[],
-    );
-  }
-
-  @override
-  Stream<FeedItem> get updates => const Stream<FeedItem>.empty();
-}
-
-class _FakeFeedScheduler implements FeedScheduler {
-  @override
-  Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) =>
-      const Stream<FeedScheduleDecision>.empty();
 }

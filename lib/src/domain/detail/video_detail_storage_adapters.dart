@@ -6,6 +6,7 @@ import '../media/media_library.dart';
 import '../media/media_library_storage_adapters.dart';
 import '../playback/playback_source_handoff.dart';
 import '../profile/bangumi_tracking_domain.dart';
+import '../profile/bangumi_tracking_local_store.dart';
 import 'video_detail.dart';
 import 'video_detail_bootstrap.dart';
 import 'video_detail_runtime.dart';
@@ -18,6 +19,7 @@ final class StorageBackedVideoDetailRepository
     required ProviderBindingStore bindingStore,
     required PlaybackHistoryStore historyStore,
     BangumiTrackingProvider? trackingProvider,
+    BangumiLocalTrackingStore? localTrackingStore,
     Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
     String providerId = defaultVideoDetailMetadataProviderId,
     MediaLibraryQuery catalogQuery = const MediaLibraryQuery(),
@@ -27,6 +29,7 @@ final class StorageBackedVideoDetailRepository
         _bindingStore = bindingStore,
         _historyStore = historyStore,
         _trackingProvider = trackingProvider,
+        _localTrackingStore = localTrackingStore,
         _providerId = providerId,
         _catalogQuery = catalogQuery,
         _seedsBySubjectId = <String, BangumiVideoDetailSeed>{
@@ -39,6 +42,7 @@ final class StorageBackedVideoDetailRepository
   final ProviderBindingStore _bindingStore;
   final PlaybackHistoryStore _historyStore;
   final BangumiTrackingProvider? _trackingProvider;
+  final BangumiLocalTrackingStore? _localTrackingStore;
   final String _providerId;
   final MediaLibraryQuery _catalogQuery;
   final Map<String, BangumiVideoDetailSeed> _seedsBySubjectId;
@@ -55,15 +59,23 @@ final class StorageBackedVideoDetailRepository
     _checkNotDisposed();
     final BangumiSubject subject = await _lookupSubject(id);
     final BangumiVideoDetailSeed? seed = _seedsBySubjectId[subject.id.value];
+    final VideoDetailMetadataProjection metadataProjection =
+        await videoDetailMetadataProjectionForSubject(
+      metadataProvider: _metadataProvider,
+      subjectId: subject.id,
+      seed: seed,
+    );
     final List<MediaLibraryItem> boundItems =
         await _boundCatalogItemsFor(subject.id.value);
     final ProviderBinding? binding =
         await _strongestBindingFor(subject.id.value, boundItems, seed);
-    final VideoTrackingStatus trackingStatus =
-        await videoTrackingStatusForSubject(
+    final VideoTrackingProjection trackingProjection =
+        await videoTrackingProjectionForSubject(
       subjectId: subject.id.value,
+      title: subject.title,
       binding: binding,
       trackingProvider: _trackingProvider,
+      localTrackingStore: _localTrackingStore,
     );
     final List<VideoDetailEpisode> episodes =
         seed != null && seed.episodes.isNotEmpty
@@ -73,12 +85,20 @@ final class StorageBackedVideoDetailRepository
     final VideoDetailViewData partial = VideoDetailViewData(
       id: VideoDetailId(subject.id.value),
       title: subject.title,
-      coverUri: seed?.coverUri,
+      coverUri: seed?.coverUri ?? subject.coverUri,
       summary: subject.summary,
+      metadataStats: videoDetailMetadataStatsFromBangumiSubject(subject),
+      credits: metadataProjection.credits,
+      characters: metadataProjection.characters,
+      relations: metadataProjection.relations,
+      metadataFailures: metadataProjection.failures,
       episodes: List<VideoDetailEpisode>.unmodifiable(episodes),
       continueWatching: latestContinue,
-      followState: videoFollowStateFromBinding(binding),
-      trackingStatus: trackingStatus,
+      followState: videoFollowStateFromTrackingStatus(
+        trackingProjection.status,
+      ),
+      trackingStatus: trackingProjection.status,
+      trackingConflict: trackingProjection.conflict,
       binding: binding,
       actions: const VideoDetailActionSet(actions: <VideoDetailAction>[]),
     );
@@ -87,10 +107,16 @@ final class StorageBackedVideoDetailRepository
       title: partial.title,
       coverUri: partial.coverUri,
       summary: partial.summary,
+      metadataStats: partial.metadataStats,
+      credits: partial.credits,
+      characters: partial.characters,
+      relations: partial.relations,
+      metadataFailures: partial.metadataFailures,
       episodes: partial.episodes,
       continueWatching: partial.continueWatching,
       followState: partial.followState,
       trackingStatus: partial.trackingStatus,
+      trackingConflict: partial.trackingConflict,
       binding: partial.binding,
       actions: deriveVideoDetailActions(partial),
     );
@@ -257,6 +283,8 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
   PlaybackSourceHandoffContract playbackSourceHandoff =
       const LocalPlaybackSourceHandoff(),
   BangumiTrackingProvider? trackingProvider,
+  BangumiLocalTrackingStore? localTrackingStore,
+  BangumiTrackingSyncProvider? trackingSyncProvider,
   Iterable<BangumiVideoDetailSeed> seeds = const <BangumiVideoDetailSeed>[],
   String providerId = defaultVideoDetailMetadataProviderId,
   DateTime Function()? now,
@@ -268,6 +296,8 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
       StoragePlaybackHistoryStore(storage.playbackHistory);
   final StorageProviderBindingStore binding =
       StorageProviderBindingStore(storage.providerBinding);
+  final BangumiLocalTrackingStore effectiveLocalTrackingStore =
+      localTrackingStore ?? SettingsBangumiLocalTrackingStore(storage.settings);
   final StorageBackedVideoDetailRepository repository =
       StorageBackedVideoDetailRepository(
     metadataProvider: metadataProvider,
@@ -275,6 +305,7 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
     bindingStore: binding,
     historyStore: history,
     trackingProvider: trackingProvider,
+    localTrackingStore: effectiveLocalTrackingStore,
     seeds: seeds,
     providerId: providerId,
     catalogQuery: catalogQuery,
@@ -285,6 +316,8 @@ VideoDetailBootstrap storageBackedVideoDetailBootstrap({
     bindingStore: binding,
     playbackSourceHandoff: playbackSourceHandoff,
     invalidationBus: invalidationBus,
+    localTrackingStore: effectiveLocalTrackingStore,
+    trackingSyncProvider: trackingSyncProvider,
     providerId: providerId,
     now: now,
   );

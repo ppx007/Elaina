@@ -33,6 +33,148 @@ enum VideoTrackingStatus {
   dropped,
 }
 
+enum VideoTrackingConflictResolution {
+  localToRemote,
+  remoteToLocal,
+}
+
+enum VideoDetailMetadataSection {
+  staff,
+  characters,
+  relations,
+}
+
+final class VideoDetailMetadataFailure {
+  const VideoDetailMetadataFailure({
+    required this.section,
+    required this.message,
+  }) : assert(message != '',
+            'Video detail metadata failure message must not be empty.');
+
+  final VideoDetailMetadataSection section;
+  final String message;
+}
+
+final class VideoDetailMetadataStats {
+  const VideoDetailMetadataStats({
+    this.rank,
+    this.score,
+    this.collectionTotal,
+    this.episodeCount,
+  })  : assert(rank == null || rank > 0, 'Rank must be positive.'),
+        assert(score == null || score >= 0, 'Score must not be negative.'),
+        assert(collectionTotal == null || collectionTotal >= 0,
+            'Collection total must not be negative.'),
+        assert(episodeCount == null || episodeCount >= 0,
+            'Episode count must not be negative.');
+
+  final int? rank;
+  final double? score;
+  final int? collectionTotal;
+  final int? episodeCount;
+
+  bool get isEmpty =>
+      rank == null &&
+      score == null &&
+      collectionTotal == null &&
+      episodeCount == null;
+}
+
+final class VideoDetailCredit {
+  const VideoDetailCredit({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.imageUri,
+    this.careers = const <String>[],
+    this.episodeRange,
+  })  : assert(id != '', 'Video detail credit id must not be empty.'),
+        assert(name != '', 'Video detail credit name must not be empty.'),
+        assert(role != '', 'Video detail credit role must not be empty.');
+
+  final String id;
+  final String name;
+  final String role;
+  final Uri? imageUri;
+  final List<String> careers;
+  final String? episodeRange;
+}
+
+final class VideoDetailVoiceActor {
+  const VideoDetailVoiceActor({
+    required this.id,
+    required this.name,
+    this.imageUri,
+    this.careers = const <String>[],
+  })  : assert(id != '', 'Video detail voice actor id must not be empty.'),
+        assert(name != '', 'Video detail voice actor name must not be empty.');
+
+  final String id;
+  final String name;
+  final Uri? imageUri;
+  final List<String> careers;
+}
+
+final class VideoDetailCharacter {
+  const VideoDetailCharacter({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.summary,
+    this.imageUri,
+    this.voiceActors = const <VideoDetailVoiceActor>[],
+  })  : assert(id != '', 'Video detail character id must not be empty.'),
+        assert(name != '', 'Video detail character name must not be empty.'),
+        assert(role != '', 'Video detail character role must not be empty.');
+
+  final String id;
+  final String name;
+  final String role;
+  final String? summary;
+  final Uri? imageUri;
+  final List<VideoDetailVoiceActor> voiceActors;
+}
+
+final class VideoDetailRelatedSubject {
+  const VideoDetailRelatedSubject({
+    required this.id,
+    required this.title,
+    required this.relation,
+    this.coverUri,
+    this.type,
+  })  : assert(id != '', 'Video detail related subject id must not be empty.'),
+        assert(title != '',
+            'Video detail related subject title must not be empty.'),
+        assert(relation != '',
+            'Video detail related subject relation must not be empty.');
+
+  final String id;
+  final String title;
+  final String relation;
+  final Uri? coverUri;
+  final int? type;
+}
+
+final class VideoTrackingConflict {
+  const VideoTrackingConflict({
+    required this.subjectId,
+    required this.title,
+    required this.localStatus,
+    required this.remoteStatus,
+    required this.localUpdatedAt,
+    this.remoteUpdatedAt,
+  })  : assert(subjectId != '',
+            'Video tracking conflict subject id must not be empty.'),
+        assert(title != '', 'Video tracking conflict title must not be empty.');
+
+  final String subjectId;
+  final String title;
+  final VideoTrackingStatus localStatus;
+  final VideoTrackingStatus remoteStatus;
+  final DateTime localUpdatedAt;
+  final DateTime? remoteUpdatedAt;
+}
+
 final class VideoDetailEpisode {
   const VideoDetailEpisode({
     required this.id,
@@ -60,10 +202,16 @@ final class VideoDetailViewData {
     required this.followState,
     required this.actions,
     VideoTrackingStatus? trackingStatus,
+    this.metadataStats = const VideoDetailMetadataStats(),
+    this.credits = const <VideoDetailCredit>[],
+    this.characters = const <VideoDetailCharacter>[],
+    this.relations = const <VideoDetailRelatedSubject>[],
+    this.metadataFailures = const <VideoDetailMetadataFailure>[],
     this.coverUri,
     this.summary,
     this.continueWatching,
     this.binding,
+    this.trackingConflict,
   })  : trackingStatus = trackingStatus ??
             (followState == VideoFollowState.followed
                 ? VideoTrackingStatus.watching
@@ -74,10 +222,16 @@ final class VideoDetailViewData {
   final String title;
   final Uri? coverUri;
   final String? summary;
+  final VideoDetailMetadataStats metadataStats;
+  final List<VideoDetailCredit> credits;
+  final List<VideoDetailCharacter> characters;
+  final List<VideoDetailRelatedSubject> relations;
+  final List<VideoDetailMetadataFailure> metadataFailures;
   final List<VideoDetailEpisode> episodes;
   final ContinueWatchingState? continueWatching;
   final VideoFollowState followState;
   final VideoTrackingStatus trackingStatus;
+  final VideoTrackingConflict? trackingConflict;
   final ProviderBinding? binding;
   final VideoDetailActionSet actions;
 }
@@ -86,7 +240,7 @@ enum VideoDetailActionKind {
   continuePlayback,
   selectEpisode,
   follow,
-  unfollow,
+  setTrackingStatus,
   openBinding,
   refreshMetadata,
 }
@@ -96,12 +250,14 @@ final class VideoDetailAction {
     required this.kind,
     required this.label,
     this.episodeId,
+    this.trackingStatus,
     this.primary = false,
   }) : assert(label != '', 'Action label must not be empty.');
 
   final VideoDetailActionKind kind;
   final String label;
   final VideoEpisodeId? episodeId;
+  final VideoTrackingStatus? trackingStatus;
   final bool primary;
 }
 
@@ -185,7 +341,13 @@ abstract interface class VideoDetailActionHandler {
 
   Future<VideoDetailActionResult> follow(VideoDetailId id);
 
-  Future<VideoDetailActionResult> unfollow(VideoDetailId id);
+  Future<VideoDetailActionResult> setTrackingStatus(
+      VideoDetailId id, VideoTrackingStatus status);
+
+  Future<VideoDetailActionResult> resolveTrackingConflict(
+    VideoDetailId id,
+    VideoTrackingConflictResolution resolution,
+  );
 }
 
 final class VideoDetailController {
@@ -216,6 +378,11 @@ final class VideoDetailController {
   Future<VideoDetailActionResult> follow(VideoDetailId id) =>
       _actions.follow(id);
 
-  Future<VideoDetailActionResult> unfollow(VideoDetailId id) =>
-      _actions.unfollow(id);
+  Future<VideoDetailActionResult> setTrackingStatus(
+          VideoDetailId id, VideoTrackingStatus status) =>
+      _actions.setTrackingStatus(id, status);
+
+  Future<VideoDetailActionResult> resolveTrackingConflict(
+          VideoDetailId id, VideoTrackingConflictResolution resolution) =>
+      _actions.resolveTrackingConflict(id, resolution);
 }

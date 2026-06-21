@@ -138,6 +138,40 @@ final class UnavailableBangumiProvider implements BangumiProvider {
           'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
     );
   }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  ) async {
+    return const AcgProviderFailure<List<BangumiRelatedPerson>>(
+      kind: AcgProviderFailureKind.unavailable,
+      message:
+          'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  ) async {
+    return const AcgProviderFailure<List<BangumiRelatedCharacter>>(
+      kind: AcgProviderFailureKind.unavailable,
+      message:
+          'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
+    BangumiSubjectId subjectId,
+  ) async {
+    return const AcgProviderFailure<List<BangumiRelatedSubject>>(
+      kind: AcgProviderFailureKind.unavailable,
+      message:
+          'Bangumi runtime is not configured for this Dandanplay-only bootstrap.',
+    );
+  }
 }
 
 final class UnavailableBangumiAuthProvider implements BangumiAuthProvider {

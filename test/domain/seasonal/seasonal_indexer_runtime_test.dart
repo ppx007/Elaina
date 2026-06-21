@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/provider_test_fakes.dart';
+
 void main() {
   test('registers YucWiki as an ordinary feed source with immutable snapshots',
       () async {
@@ -200,9 +202,9 @@ void main() {
       matchWorker: DeterministicBangumiMatchWorker(
         queueStore: queueStore,
         bindingStore: DeterministicProviderBindingStore(),
-        bangumiProvider: _FakeBangumiProvider(
+        bangumiProvider: FakeBangumiProvider(
           subjects: const <BangumiSubject>[],
-          failureKind: AcgProviderFailureKind.throttled,
+          searchFailureKind: AcgProviderFailureKind.throttled,
         ),
       ),
     );
@@ -258,8 +260,14 @@ void main() {
       matchWorker: DeterministicBangumiMatchWorker(
         queueStore: queueStore,
         bindingStore: bindingStore,
-        bangumiProvider: _FakeBangumiProvider(
-            subjects: <BangumiSubject>[_subject('Seasonal Anime')]),
+        bangumiProvider: FakeBangumiProvider(
+          subjects: <BangumiSubject>[_subject('Seasonal Anime')],
+          searchResultsByQuery: <String, List<BangumiSubject>>{
+            'Unmatched Seasonal Anime': <BangumiSubject>[
+              _subject('Different Title'),
+            ],
+          },
+        ),
         cacheInvalidationBus: bus,
         clock: _now,
       ),
@@ -443,122 +451,4 @@ final class _FakeRssEngine implements RssEngineContract {
       newItems: const <FeedItem>[],
     ));
   }
-}
-
-final class _FakeBangumiProvider implements BangumiProvider {
-  _FakeBangumiProvider({required this.subjects, this.failureKind});
-
-  final List<BangumiSubject> subjects;
-  final AcgProviderFailureKind? failureKind;
-
-  @override
-  String get displayName => 'Fake Bangumi Provider';
-
-  @override
-  ProviderGateway get gateway => _UnsupportedProviderGateway();
-
-  @override
-  String get id => 'fake-bangumi';
-
-  @override
-  ProviderKind get kind => ProviderKind.metadata;
-
-  @override
-  ProviderRegistration get registration => ProviderRegistration(
-        providerId: const ProviderId('fake-bangumi'),
-        ratePolicy: const ProviderRatePolicy(
-            maxRequests: 12, window: Duration(minutes: 1)),
-        retryPolicy: const ProviderRetryPolicy(
-            maxAttempts: 3, initialBackoff: Duration(seconds: 1)),
-      );
-
-  @override
-  Future<ProviderGatewayResponse<T>> executeGatewayRequest<T>({
-    required String cacheKey,
-    required Future<T> Function() load,
-    ProviderCachePolicy cachePolicy = ProviderCachePolicy.networkOnly,
-  }) async {
-    return ProviderGatewayResponse<T>(
-        value: await load(), source: ProviderGatewayResponseSource.network);
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id) {
-    return Future<AcgProviderResult<BangumiEpisode>>.value(
-      AcgProviderSuccess<BangumiEpisode>(BangumiEpisode(
-        id: id,
-        subjectId: const BangumiSubjectId('subject-Seasonal-Anime'),
-        index: 1,
-        title: 'Episode 1',
-      )),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiEpisode>>> listEpisodes(
-    BangumiSubjectId subjectId,
-  ) {
-    return Future<AcgProviderResult<List<BangumiEpisode>>>.value(
-      AcgProviderSuccess<List<BangumiEpisode>>(
-        <BangumiEpisode>[
-          BangumiEpisode(
-            id: const BangumiEpisodeId('episode-1'),
-            subjectId: subjectId,
-            index: 1,
-            title: 'Episode 1',
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id) {
-    return Future<AcgProviderResult<BangumiSubject>>.value(
-        AcgProviderSuccess<BangumiSubject>(subjects.first));
-  }
-
-  @override
-  ProviderRequestKey requestKey(String cacheKey) {
-    return ProviderRequestKey(
-        providerId: const ProviderId('fake-bangumi'), cacheKey: cacheKey);
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
-    final AcgProviderFailureKind? kind = failureKind;
-    if (kind != null) {
-      return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-        AcgProviderFailure<List<BangumiSubject>>(
-          kind: kind,
-          message: 'Search failed.',
-        ),
-      );
-    }
-    if (query == 'Unmatched Seasonal Anime') {
-      return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-        AcgProviderSuccess<List<BangumiSubject>>(
-            <BangumiSubject>[_subject('Different Title')]),
-      );
-    }
-    return Future<AcgProviderResult<List<BangumiSubject>>>.value(
-        AcgProviderSuccess<List<BangumiSubject>>(subjects));
-  }
-}
-
-final class _UnsupportedProviderGateway implements ProviderGateway {
-  @override
-  StorageFoundation get storage => throw StateError('Storage is not used.');
-
-  @override
-  Future<ProviderGatewayResponse<T>> execute<T>(
-      ProviderGatewayRequest<T> request) async {
-    return ProviderGatewayResponse<T>(
-        value: await request.load(),
-        source: ProviderGatewayResponseSource.network);
-  }
-
-  @override
-  Future<void> registerProvider(ProviderRegistration registration) =>
-      Future<void>.value();
 }

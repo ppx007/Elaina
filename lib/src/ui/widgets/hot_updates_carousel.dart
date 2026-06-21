@@ -55,6 +55,8 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
   final PageController _pageController = PageController();
   Timer? _timer;
   int _currentPage = 0;
+  final Map<String, ImageProvider<Object>> _imageProvidersByUri =
+      <String, ImageProvider<Object>>{};
 
   static const List<HotUpdateItem> _fallbackItems = <HotUpdateItem>[
     HotUpdateItem(
@@ -82,8 +84,22 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
   @override
   void initState() {
     super.initState();
+    _syncImageProviders();
     if (widget.autoScroll) {
       _startAutoScroll();
+    }
+  }
+
+  @override
+  void didUpdateWidget(HotUpdatesCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncImageProviders();
+    if (oldWidget.autoScroll != widget.autoScroll) {
+      _timer?.cancel();
+      _timer = null;
+      if (widget.autoScroll) {
+        _startAutoScroll();
+      }
     }
   }
 
@@ -130,6 +146,25 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
       duration: const Duration(milliseconds: 800),
       curve: Curves.easeInOut,
     );
+  }
+
+  void _syncImageProviders() {
+    final Map<String, ImageProvider<Object>> next =
+        <String, ImageProvider<Object>>{};
+    for (final HotUpdateItem item in _items) {
+      final Uri? coverUri = item.coverUri;
+      if (coverUri == null) continue;
+      final String key = coverUri.toString();
+      next[key] = _imageProvidersByUri[key] ?? NetworkImage(key);
+    }
+    _imageProvidersByUri
+      ..clear()
+      ..addAll(next);
+  }
+
+  ImageProvider<Object>? _imageProviderFor(Uri? uri) {
+    if (uri == null) return null;
+    return _imageProvidersByUri[uri.toString()];
   }
 
   @override
@@ -184,13 +219,13 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                     child: Row(
                       children: [
                         SizedBox(
-                          width: imageWidth,
-                          child: _HotUpdatePlaceholder(
-                            symbol: item.symbol,
-                            index: index,
-                            coverUri: item.coverUri,
-                          ),
+                        width: imageWidth,
+                        child: _HotUpdatePlaceholder(
+                          symbol: item.symbol,
+                          index: index,
+                          imageProvider: _imageProviderFor(item.coverUri),
                         ),
+                      ),
                         Expanded(
                           child: Padding(
                             padding: EdgeInsets.all(contentPadding),
@@ -344,12 +379,12 @@ class _HotUpdatePlaceholder extends StatelessWidget {
   const _HotUpdatePlaceholder({
     required this.symbol,
     required this.index,
-    this.coverUri,
+    this.imageProvider,
   });
 
   final String symbol;
   final int index;
-  final Uri? coverUri;
+  final ImageProvider<Object>? imageProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -359,41 +394,41 @@ class _HotUpdatePlaceholder extends StatelessWidget {
       <Color>[theme.secondary, const Color(0xFF7C3AED)],
     ];
     final List<Color> colors = palettes[index % palettes.length];
-    final Uri? imageUri = coverUri;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-        image: imageUri == null
-            ? null
-            : DecorationImage(
-                image: NetworkImage(imageUri.toString()),
-                fit: BoxFit.cover,
-              ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          Icon(
-            Icons.auto_awesome,
-            size: 180,
-            color: Colors.white.withValues(alpha: 0.18),
+    return RepaintBoundary(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
           ),
-          Center(
-            child: Text(
-              symbol,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 56,
-                fontWeight: FontWeight.w900,
+          image: imageProvider == null
+              ? null
+              : DecorationImage(
+                  image: imageProvider!,
+                  fit: BoxFit.cover,
+                ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            Icon(
+              Icons.auto_awesome,
+              size: 180,
+              color: Colors.white.withValues(alpha: 0.18),
+            ),
+            Center(
+              child: Text(
+                symbol,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 56,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

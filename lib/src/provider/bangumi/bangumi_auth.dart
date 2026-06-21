@@ -45,6 +45,16 @@ final class BangumiProgressUpdate {
   final BangumiProgressState state;
 }
 
+final class BangumiSubjectCollectionUpdate {
+  const BangumiSubjectCollectionUpdate({
+    required this.subjectId,
+    required this.status,
+  });
+
+  final BangumiSubjectId subjectId;
+  final BangumiSubjectCollectionStatus status;
+}
+
 final class BangumiAnimeCollectionItem {
   const BangumiAnimeCollectionItem({
     required this.subjectId,
@@ -73,6 +83,12 @@ abstract interface class BangumiAuthProvider {
   Future<AcgProviderResult<BangumiAuthSession>> currentSession();
 
   Future<AcgProviderResult<void>> syncProgress(BangumiProgressUpdate update);
+}
+
+abstract interface class BangumiSubjectCollectionSyncProvider {
+  Future<AcgProviderResult<void>> syncSubjectCollection(
+    BangumiSubjectCollectionUpdate update,
+  );
 }
 
 abstract interface class BangumiCollectionProvider {

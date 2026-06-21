@@ -24,6 +24,13 @@ final class VideoDetailPageContract {
   Future<VideoDetailActionResult> follow(VideoDetailId id) =>
       _controller.follow(id);
 
-  Future<VideoDetailActionResult> unfollow(VideoDetailId id) =>
-      _controller.unfollow(id);
+  Future<VideoDetailActionResult> setTrackingStatus(
+          VideoDetailId id, VideoTrackingStatus status) =>
+      _controller.setTrackingStatus(id, status);
+
+  Future<VideoDetailActionResult> resolveTrackingConflict(
+    VideoDetailId id,
+    VideoTrackingConflictResolution resolution,
+  ) =>
+      _controller.resolveTrackingConflict(id, resolution);
 }

@@ -55,6 +55,31 @@ ProviderRequestKey bangumiEpisodeListRequestKey(BangumiSubjectId subjectId) {
   );
 }
 
+ProviderRequestKey bangumiSubjectPersonsRequestKey(BangumiSubjectId subjectId) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'subject-persons:${subjectId.value}',
+  );
+}
+
+ProviderRequestKey bangumiSubjectCharactersRequestKey(
+  BangumiSubjectId subjectId,
+) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'subject-characters:${subjectId.value}',
+  );
+}
+
+ProviderRequestKey bangumiSubjectRelationsRequestKey(
+  BangumiSubjectId subjectId,
+) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'subject-relations:${subjectId.value}',
+  );
+}
+
 ProviderRequestKey bangumiSessionRequestKey() {
   return const ProviderRequestKey(
     providerId: bangumiProviderId,
@@ -74,6 +99,16 @@ ProviderRequestKey bangumiProgressRequestKey(BangumiProgressUpdate update) {
     providerId: bangumiProviderId,
     cacheKey:
         'progress:${update.subjectId.value}:${update.episodeId.value}:${update.state.name}',
+  );
+}
+
+ProviderRequestKey bangumiSubjectCollectionSyncRequestKey(
+  BangumiSubjectCollectionUpdate update,
+) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey: 'subject-collection:${update.subjectId.value}:'
+        '${update.status.name}',
   );
 }
 
@@ -101,6 +136,12 @@ final class DeterministicBangumiProvider
     required this.gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
     Iterable<BangumiEpisode> episodes = const <BangumiEpisode>[],
+    Map<String, List<BangumiRelatedPerson>> personsBySubjectId =
+        const <String, List<BangumiRelatedPerson>>{},
+    Map<String, List<BangumiRelatedCharacter>> charactersBySubjectId =
+        const <String, List<BangumiRelatedCharacter>>{},
+    Map<String, List<BangumiRelatedSubject>> relationsBySubjectId =
+        const <String, List<BangumiRelatedSubject>>{},
   })  : _subjects = <String, BangumiSubject>{
           for (final BangumiSubject subject in subjects)
             subject.id.value: subject,
@@ -108,10 +149,16 @@ final class DeterministicBangumiProvider
         _episodes = <String, BangumiEpisode>{
           for (final BangumiEpisode episode in episodes)
             episode.id.value: episode,
-        };
+        },
+        _personsBySubjectId = personsBySubjectId,
+        _charactersBySubjectId = charactersBySubjectId,
+        _relationsBySubjectId = relationsBySubjectId;
 
   final Map<String, BangumiSubject> _subjects;
   final Map<String, BangumiEpisode> _episodes;
+  final Map<String, List<BangumiRelatedPerson>> _personsBySubjectId;
+  final Map<String, List<BangumiRelatedCharacter>> _charactersBySubjectId;
+  final Map<String, List<BangumiRelatedSubject>> _relationsBySubjectId;
 
   @override
   final ProviderGateway gateway;
@@ -263,6 +310,49 @@ final class DeterministicBangumiProvider
     );
   }
 
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute(
+      key: bangumiSubjectPersonsRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async => List<BangumiRelatedPerson>.unmodifiable(
+        _personsBySubjectId[subjectId.value] ??
+            const <BangumiRelatedPerson>[],
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute(
+      key: bangumiSubjectCharactersRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async => List<BangumiRelatedCharacter>.unmodifiable(
+        _charactersBySubjectId[subjectId.value] ??
+            const <BangumiRelatedCharacter>[],
+      ),
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
+    BangumiSubjectId subjectId,
+  ) {
+    return _execute(
+      key: bangumiSubjectRelationsRequestKey(subjectId),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async => List<BangumiRelatedSubject>.unmodifiable(
+        _relationsBySubjectId[subjectId.value] ??
+            const <BangumiRelatedSubject>[],
+      ),
+    );
+  }
+
   Future<AcgProviderResult<T>> _execute<T>({
     required ProviderRequestKey key,
     required Future<T> Function() load,
@@ -309,6 +399,7 @@ int _compareSubjectsByPopularityThenTitle(
 final class DeterministicBangumiAuthProvider
     implements
         BangumiAuthProvider,
+        BangumiSubjectCollectionSyncProvider,
         BangumiCollectionProvider,
         GatewayBoundProvider {
   const DeterministicBangumiAuthProvider({
@@ -317,15 +408,18 @@ final class DeterministicBangumiAuthProvider
     Iterable<BangumiAnimeCollectionItem> animeCollection =
         const <BangumiAnimeCollectionItem>[],
     bool progressSyncAvailable = true,
+    bool subjectCollectionSyncAvailable = true,
     DateTime Function()? now,
   })  : _session = session,
         _animeCollection = animeCollection,
         _progressSyncAvailable = progressSyncAvailable,
+        _subjectCollectionSyncAvailable = subjectCollectionSyncAvailable,
         _now = now;
 
   final BangumiAuthSession? _session;
   final Iterable<BangumiAnimeCollectionItem> _animeCollection;
   final bool _progressSyncAvailable;
+  final bool _subjectCollectionSyncAvailable;
   final DateTime Function()? _now;
 
   @override
@@ -440,6 +534,48 @@ final class DeterministicBangumiAuthProvider
   }
 
   @override
+  Future<AcgProviderResult<void>> syncSubjectCollection(
+    BangumiSubjectCollectionUpdate update,
+  ) async {
+    try {
+      final ProviderGatewayResponse<bool> response =
+          await gateway.execute<bool>(
+        bangumiGatewayRequest<bool>(
+          key: bangumiSubjectCollectionSyncRequestKey(update),
+          cachePolicy: ProviderCachePolicy.networkOnly,
+          load: () async {
+            if (!_subjectCollectionSyncAvailable) {
+              throw ProviderFailure(
+                kind: ProviderFailureKind.retryable,
+                message: 'Bangumi subject collection sync is unavailable.',
+              );
+            }
+            final BangumiAuthSession? session = _session;
+            if (session == null ||
+                session.isExpiredAt((_now ?? DateTime.now)())) {
+              return false;
+            }
+            return true;
+          },
+        ),
+      );
+      if (!response.value) {
+        return const AcgProviderFailure<void>(
+          kind: AcgProviderFailureKind.unauthenticated,
+          message:
+              'Bangumi subject collection sync requires an active session.',
+        );
+      }
+      return const AcgProviderSuccess<void>(null);
+    } on ProviderFailure catch (failure) {
+      return AcgProviderFailure<void>(
+        kind: acgFailureKindFromGateway(failure.kind),
+        message: failure.message,
+      );
+    }
+  }
+
+  @override
   Future<AcgProviderResult<List<BangumiAnimeCollectionItem>>>
       currentAnimeCollection() async {
     final BangumiAuthSession? session = _session;
@@ -478,12 +614,19 @@ final class BangumiProviderRuntime
     implements
         BangumiProvider,
         BangumiAuthProvider,
+        BangumiSubjectCollectionSyncProvider,
         BangumiCollectionProvider,
         BangumiDiscoveryProvider {
   BangumiProviderRuntime({
     required ProviderGateway gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
     Iterable<BangumiEpisode> episodes = const <BangumiEpisode>[],
+    Map<String, List<BangumiRelatedPerson>> personsBySubjectId =
+        const <String, List<BangumiRelatedPerson>>{},
+    Map<String, List<BangumiRelatedCharacter>> charactersBySubjectId =
+        const <String, List<BangumiRelatedCharacter>>{},
+    Map<String, List<BangumiRelatedSubject>> relationsBySubjectId =
+        const <String, List<BangumiRelatedSubject>>{},
     Iterable<BangumiAnimeCollectionItem> animeCollection =
         const <BangumiAnimeCollectionItem>[],
     BangumiAuthSession? session,
@@ -491,6 +634,7 @@ final class BangumiProviderRuntime
     DateTime Function()? now,
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
+    BangumiSubjectCollectionSyncProvider? subjectCollectionSyncProvider,
     BangumiCollectionProvider? collectionProvider,
     BangumiDiscoveryProvider? discoveryProvider,
   })  : _gateway = gateway,
@@ -499,8 +643,20 @@ final class BangumiProviderRuntime
               gateway: gateway,
               subjects: subjects,
               episodes: episodes,
+              personsBySubjectId: personsBySubjectId,
+              charactersBySubjectId: charactersBySubjectId,
+              relationsBySubjectId: relationsBySubjectId,
             ),
         _authProvider = authProvider ??
+            DeterministicBangumiAuthProvider(
+              gateway: gateway,
+              session: session,
+              animeCollection: animeCollection,
+              progressSyncAvailable: progressSyncAvailable,
+              now: now,
+            ),
+        _subjectCollectionSyncProvider = subjectCollectionSyncProvider ??
+            _bangumiSubjectCollectionSyncProviderFrom(authProvider) ??
             DeterministicBangumiAuthProvider(
               gateway: gateway,
               session: session,
@@ -523,11 +679,15 @@ final class BangumiProviderRuntime
               gateway: gateway,
               subjects: subjects,
               episodes: episodes,
+              personsBySubjectId: personsBySubjectId,
+              charactersBySubjectId: charactersBySubjectId,
+              relationsBySubjectId: relationsBySubjectId,
             );
 
   final ProviderGateway _gateway;
   final BangumiProvider _metadataProvider;
   final BangumiAuthProvider _authProvider;
+  final BangumiSubjectCollectionSyncProvider _subjectCollectionSyncProvider;
   final BangumiCollectionProvider _collectionProvider;
   final BangumiDiscoveryProvider _discoveryProvider;
   bool _registered = false;
@@ -536,6 +696,9 @@ final class BangumiProviderRuntime
   BangumiProvider get metadataProvider => _metadataProvider;
 
   BangumiAuthProvider get authProvider => _authProvider;
+
+  BangumiSubjectCollectionSyncProvider get subjectCollectionSyncProvider =>
+      _subjectCollectionSyncProvider;
 
   BangumiCollectionProvider get collectionProvider => _collectionProvider;
 
@@ -646,6 +809,34 @@ final class BangumiProviderRuntime
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiRelatedPerson>>> listSubjectPersons(
+    BangumiSubjectId subjectId,
+  ) async {
+    if (_disposed) return _disposedFailure<List<BangumiRelatedPerson>>();
+    await _ensureRegistered();
+    return _metadataProvider.listSubjectPersons(subjectId);
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedCharacter>>>
+      listSubjectCharacters(
+    BangumiSubjectId subjectId,
+  ) async {
+    if (_disposed) return _disposedFailure<List<BangumiRelatedCharacter>>();
+    await _ensureRegistered();
+    return _metadataProvider.listSubjectCharacters(subjectId);
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiRelatedSubject>>> listSubjectRelations(
+    BangumiSubjectId subjectId,
+  ) async {
+    if (_disposed) return _disposedFailure<List<BangumiRelatedSubject>>();
+    await _ensureRegistered();
+    return _metadataProvider.listSubjectRelations(subjectId);
+  }
+
+  @override
   Future<AcgProviderResult<BangumiAuthSession>> currentSession() async {
     if (_disposed) return _disposedFailure<BangumiAuthSession>();
     await _ensureRegistered();
@@ -658,6 +849,15 @@ final class BangumiProviderRuntime
     if (_disposed) return _disposedFailure<void>();
     await _ensureRegistered();
     return _authProvider.syncProgress(update);
+  }
+
+  @override
+  Future<AcgProviderResult<void>> syncSubjectCollection(
+    BangumiSubjectCollectionUpdate update,
+  ) async {
+    if (_disposed) return _disposedFailure<void>();
+    await _ensureRegistered();
+    return _subjectCollectionSyncProvider.syncSubjectCollection(update);
   }
 
   @override
@@ -687,6 +887,12 @@ final class BangumiProviderBootstrap {
     required ProviderGateway gateway,
     Iterable<BangumiSubject> subjects = const <BangumiSubject>[],
     Iterable<BangumiEpisode> episodes = const <BangumiEpisode>[],
+    Map<String, List<BangumiRelatedPerson>> personsBySubjectId =
+        const <String, List<BangumiRelatedPerson>>{},
+    Map<String, List<BangumiRelatedCharacter>> charactersBySubjectId =
+        const <String, List<BangumiRelatedCharacter>>{},
+    Map<String, List<BangumiRelatedSubject>> relationsBySubjectId =
+        const <String, List<BangumiRelatedSubject>>{},
     Iterable<BangumiAnimeCollectionItem> animeCollection =
         const <BangumiAnimeCollectionItem>[],
     BangumiAuthSession? session,
@@ -694,18 +900,23 @@ final class BangumiProviderBootstrap {
     DateTime Function()? now,
     BangumiProvider? metadataProvider,
     BangumiAuthProvider? authProvider,
+    BangumiSubjectCollectionSyncProvider? subjectCollectionSyncProvider,
     BangumiCollectionProvider? collectionProvider,
     BangumiDiscoveryProvider? discoveryProvider,
   }) : runtime = BangumiProviderRuntime(
           gateway: gateway,
           subjects: subjects,
           episodes: episodes,
+          personsBySubjectId: personsBySubjectId,
+          charactersBySubjectId: charactersBySubjectId,
+          relationsBySubjectId: relationsBySubjectId,
           animeCollection: animeCollection,
           session: session,
           progressSyncAvailable: progressSyncAvailable,
           now: now,
           metadataProvider: metadataProvider,
           authProvider: authProvider,
+          subjectCollectionSyncProvider: subjectCollectionSyncProvider,
           collectionProvider: collectionProvider,
           discoveryProvider: discoveryProvider,
         );
@@ -715,6 +926,9 @@ final class BangumiProviderBootstrap {
   BangumiProvider get provider => runtime;
 
   BangumiAuthProvider get authProvider => runtime;
+
+  BangumiSubjectCollectionSyncProvider get subjectCollectionSyncProvider =>
+      runtime;
 
   BangumiCollectionProvider get collectionProvider => runtime;
 
@@ -739,6 +953,14 @@ BangumiCollectionProvider? _bangumiCollectionProviderFrom(
 ) {
   return provider is BangumiCollectionProvider
       ? provider as BangumiCollectionProvider
+      : null;
+}
+
+BangumiSubjectCollectionSyncProvider? _bangumiSubjectCollectionSyncProviderFrom(
+  BangumiAuthProvider? provider,
+) {
+  return provider is BangumiSubjectCollectionSyncProvider
+      ? provider as BangumiSubjectCollectionSyncProvider
       : null;
 }
 

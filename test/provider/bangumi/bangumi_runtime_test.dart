@@ -1,13 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/provider_test_fakes.dart';
 
 void main() {
   test(
       'runtime registers policy and looks up subject episode and search results',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
     final BangumiSubject subject = BangumiSubject(
       id: const BangumiSubjectId('subject-1017'),
       title: 'Elaina',
@@ -71,6 +74,13 @@ void main() {
       offset: 48,
     );
     final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
+    final ProviderRequestKey subjectCollectionSyncKey =
+        bangumiSubjectCollectionSyncRequestKey(
+      const BangumiSubjectCollectionUpdate(
+        subjectId: BangumiSubjectId('42'),
+        status: BangumiSubjectCollectionStatus.dropped,
+      ),
+    );
     final ProviderGatewayRequest<String> request =
         bangumiGatewayRequest<String>(
       key: subjectKey,
@@ -87,13 +97,14 @@ void main() {
       'subject-recent-popular-anime:20260621:24:48',
     );
     expect(collectionKey.cacheKey, 'anime-collection:current');
+    expect(subjectCollectionSyncKey.cacheKey, 'subject-collection:42:dropped');
     expect(request.cachePolicy, ProviderCachePolicy.networkFirst);
     expect(request.deduplicationWindow, bangumiRuntimeDeduplicationWindow);
   });
 
   test('gateway failures normalize before reaching domain callers', () async {
-    final _FailingGateway gateway =
-        _FailingGateway(ProviderFailureKind.throttled);
+    final FailingProviderGateway gateway =
+        FailingProviderGateway(ProviderFailureKind.throttled);
     final DeterministicBangumiProvider provider =
         DeterministicBangumiProvider(gateway: gateway);
 
@@ -110,7 +121,7 @@ void main() {
       () async {
     final DateTime now = DateTime.utc(2026, 6, 9);
     final BangumiProviderRuntime authenticated = BangumiProviderRuntime(
-      gateway: _RecordingGateway(),
+      gateway: RecordingProviderGateway(),
       session: BangumiAuthSession(
         userId: 'user-1',
         expiresAt: now.add(const Duration(days: 1)),
@@ -143,6 +154,14 @@ void main() {
       ),
     );
     expect(syncResult, isA<AcgProviderSuccess<void>>());
+    final AcgProviderResult<void> subjectSync =
+        await authenticated.syncSubjectCollection(
+      const BangumiSubjectCollectionUpdate(
+        subjectId: BangumiSubjectId('subject-1017'),
+        status: BangumiSubjectCollectionStatus.dropped,
+      ),
+    );
+    expect(subjectSync, isA<AcgProviderSuccess<void>>());
 
     final AcgProviderResult<List<BangumiAnimeCollectionItem>> collectionResult =
         await authenticated.currentAnimeCollection();
@@ -153,7 +172,7 @@ void main() {
     expect(collection.single.status, BangumiSubjectCollectionStatus.watching);
 
     final BangumiProviderRuntime unauthenticated = BangumiProviderRuntime(
-      gateway: _RecordingGateway(),
+      gateway: RecordingProviderGateway(),
       now: () => now,
     );
     final AcgProviderResult<BangumiAuthSession> missingSession =
@@ -169,6 +188,15 @@ void main() {
       ),
     );
     expect((missingSync as AcgProviderFailure<void>).kind,
+        AcgProviderFailureKind.unauthenticated);
+    final AcgProviderResult<void> missingSubjectSync =
+        await unauthenticated.syncSubjectCollection(
+      const BangumiSubjectCollectionUpdate(
+        subjectId: BangumiSubjectId('subject-1017'),
+        status: BangumiSubjectCollectionStatus.watching,
+      ),
+    );
+    expect((missingSubjectSync as AcgProviderFailure<void>).kind,
         AcgProviderFailureKind.unauthenticated);
     final AcgProviderResult<List<BangumiAnimeCollectionItem>>
         missingCollection = await unauthenticated.currentAnimeCollection();
@@ -193,7 +221,7 @@ void main() {
       title: 'Optional Enrichment',
     );
     final BangumiAcgRuntime runtime = BangumiAcgRuntime(
-      gateway: _RecordingGateway(),
+      gateway: RecordingProviderGateway(),
       subjects: <BangumiSubject>[subject],
     );
 
@@ -211,7 +239,7 @@ void main() {
 
   test('disposed runtime rejects direct gateway execution without dispatch',
       () async {
-    final _RecordingGateway gateway = _RecordingGateway();
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
     final BangumiProviderRuntime runtime = BangumiProviderRuntime(
       gateway: gateway,
     );
@@ -249,9 +277,9 @@ void main() {
 
   test('concrete API provider maps metadata requests through gateway',
       () async {
-    final _RecordingGateway gateway =
-        _RecordingGateway(proxyUrl: 'http://127.0.0.1:7890');
-    final _FakeBangumiTransport transport = _FakeBangumiTransport(
+    final RecordingProviderGateway gateway =
+        RecordingProviderGateway(proxyUrl: 'http://127.0.0.1:7890');
+    final FakeBangumiTransport transport = FakeBangumiTransport(
       responses: <String, BangumiApiResponse>{
         'GET /v0/subjects/42': const BangumiApiResponse(
           statusCode: 200,
@@ -284,6 +312,21 @@ void main() {
           body:
               '{"total":2,"limit":200,"offset":0,"data":[{"id":8,"subject_id":42,"ep":2,"name":"Episode Two","name_cn":""},{"id":7,"subject_id":42,"ep":1,"name":"Episode One","name_cn":"第一话"}]}',
         ),
+        'GET /v0/subjects/42/persons': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '[{"id":1001,"name":"Director Name","relation":"导演","career":["producer","director"],"eps":"1-12","images":{"large":"https://img.test/person-large.jpg"}}]',
+        ),
+        'GET /v0/subjects/42/characters': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '[{"id":2001,"name":"Heroine","relation":"主角","summary":"Character summary","images":{"medium":"https://img.test/character-medium.jpg"},"actors":[{"id":3001,"name":"Voice Actor","career":["seiyu"],"images":{"small":"https://img.test/actor-small.jpg"}}]}]',
+        ),
+        'GET /v0/subjects/42/subjects': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '[{"id":4001,"name":"Related Fallback","name_cn":"Related Title","relation":"续集","type":2,"images":{"common":"https://img.test/related-common.jpg"}}]',
+        ),
       },
     );
     final BangumiApiProvider provider = BangumiApiProvider(
@@ -292,6 +335,7 @@ void main() {
         transport: transport,
         baseUri: Uri.parse('https://api.test'),
       ),
+      now: () => DateTime.utc(2026, 6, 21),
     );
     final BangumiProviderRuntime runtime = BangumiProviderRuntime(
       gateway: gateway,
@@ -354,10 +398,15 @@ void main() {
     final Map<String, Object?> popularBody =
         jsonDecode(popularRequest.body!) as Map<String, Object?>;
     expect(popularBody['sort'], 'heat');
+    final Map<String, Object?> popularFilter =
+        popularBody['filter'] as Map<String, Object?>;
     expect(
-      ((popularBody['filter'] as Map<String, Object?>)['type'] as List<Object?>)
-          .single,
+      (popularFilter['type'] as List<Object?>).single,
       bangumiAnimeSubjectType,
+    );
+    expect(
+      popularFilter['air_date'],
+      <String>['>=2026-05-21', '<2026-06-22'],
     );
     final BangumiSubject popularSubject =
         (popular as AcgProviderSuccess<List<BangumiSubject>>).value.single;
@@ -433,12 +482,70 @@ void main() {
       listedEpisodes.map((BangumiEpisode episode) => episode.title),
       <String>['第一话', 'Episode Two'],
     );
+
+    final AcgProviderResult<List<BangumiRelatedPerson>> persons =
+        await runtime.listSubjectPersons(const BangumiSubjectId('42'));
+    final BangumiRelatedPerson person =
+        (persons as AcgProviderSuccess<List<BangumiRelatedPerson>>)
+            .value
+            .single;
+    expect(gateway.lastCacheKey, 'subject-persons:42');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/v0/subjects/42/persons'));
+    expect(transport.requests.last.proxyUrl, 'http://127.0.0.1:7890');
+    expect(person.id.value, '1001');
+    expect(person.name, 'Director Name');
+    expect(person.relation, '导演');
+    expect(person.careers, <String>['producer', 'director']);
+    expect(person.episodeRange, '1-12');
+    expect(person.imageUri, Uri.parse('https://img.test/person-large.jpg'));
+
+    final AcgProviderResult<List<BangumiRelatedCharacter>> characters =
+        await runtime.listSubjectCharacters(const BangumiSubjectId('42'));
+    final BangumiRelatedCharacter character =
+        (characters as AcgProviderSuccess<List<BangumiRelatedCharacter>>)
+            .value
+            .single;
+    expect(gateway.lastCacheKey, 'subject-characters:42');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/v0/subjects/42/characters'));
+    expect(character.name, 'Heroine');
+    expect(character.relation, '主角');
+    expect(character.summary, 'Character summary');
+    expect(
+      character.imageUri,
+      Uri.parse('https://img.test/character-medium.jpg'),
+    );
+    expect(character.actors.single.name, 'Voice Actor');
+    expect(character.actors.single.careers, <String>['seiyu']);
+    expect(
+      character.actors.single.imageUri,
+      Uri.parse('https://img.test/actor-small.jpg'),
+    );
+
+    final AcgProviderResult<List<BangumiRelatedSubject>> relations =
+        await runtime.listSubjectRelations(const BangumiSubjectId('42'));
+    final BangumiRelatedSubject relation =
+        (relations as AcgProviderSuccess<List<BangumiRelatedSubject>>)
+            .value
+            .single;
+    expect(gateway.lastCacheKey, 'subject-relations:42');
+    expect(gateway.lastNetworkPolicyUri,
+        Uri.parse('https://api.test/v0/subjects/42/subjects'));
+    expect(relation.id.value, '4001');
+    expect(relation.title, 'Related Title');
+    expect(relation.relation, '续集');
+    expect(relation.type, bangumiAnimeSubjectType);
+    expect(
+      relation.coverUri,
+      Uri.parse('https://img.test/related-common.jpg'),
+    );
   });
 
   test('concrete API client exposes Bangumi token acquisition URI', () {
     final BangumiApiClient client = BangumiApiClient(
-      transport: _FakeBangumiTransport(
-          responses: const <String, BangumiApiResponse>{}),
+      transport:
+          FakeBangumiTransport(responses: const <String, BangumiApiResponse>{}),
       baseUri: Uri.parse('https://api.test'),
     );
 
@@ -452,8 +559,8 @@ void main() {
   test('concrete API provider maps auth and progress with bearer token',
       () async {
     final DateTime now = DateTime.utc(2026, 6, 16);
-    final _RecordingGateway gateway = _RecordingGateway();
-    final _FakeBangumiTransport transport = _FakeBangumiTransport(
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final FakeBangumiTransport transport = FakeBangumiTransport(
       responses: <String, BangumiApiResponse>{
         'GET /v0/me': const BangumiApiResponse(
           statusCode: 200,
@@ -463,6 +570,8 @@ void main() {
         'PUT /v0/users/-/collections/-/episodes/7':
             const BangumiApiResponse(statusCode: 204, body: ''),
         'PUT /v0/users/-/collections/-/episodes/8':
+            const BangumiApiResponse(statusCode: 204, body: ''),
+        'POST /v0/users/-/collections/42':
             const BangumiApiResponse(statusCode: 204, body: ''),
         'GET /v0/users/alice/collections?subject_type=2&limit=50&offset=0':
             const BangumiApiResponse(
@@ -531,6 +640,30 @@ void main() {
     expect(onHoldBody['type'], bangumiEpisodeCollectionWish);
     expect(onHoldBody['type'], isNot(bangumiEpisodeCollectionDropped));
 
+    final AcgProviderResult<void> subjectCollection =
+        await provider.syncSubjectCollection(
+      const BangumiSubjectCollectionUpdate(
+        subjectId: BangumiSubjectId('42'),
+        status: BangumiSubjectCollectionStatus.dropped,
+      ),
+    );
+    expect(subjectCollection, isA<AcgProviderSuccess<void>>());
+    expect(gateway.lastCacheKey, 'subject-collection:42:dropped');
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/v0/users/-/collections/42'),
+    );
+    final BangumiApiRequest subjectCollectionRequest = transport.requests.last;
+    expect(subjectCollectionRequest.method, 'POST');
+    expect(subjectCollectionRequest.uri.path, '/v0/users/-/collections/42');
+    expect(
+      subjectCollectionRequest.headers['authorization'],
+      'Bearer token-1',
+    );
+    final Map<String, Object?> subjectCollectionBody =
+        jsonDecode(subjectCollectionRequest.body!) as Map<String, Object?>;
+    expect(subjectCollectionBody['type'], bangumiSubjectCollectionDropped);
+
     final AcgProviderResult<List<BangumiAnimeCollectionItem>> collection =
         await provider.currentAnimeCollection();
     final BangumiAnimeCollectionItem item =
@@ -562,7 +695,7 @@ void main() {
         DeterministicStorageFoundation();
     final DeterministicProviderGateway gateway =
         DeterministicProviderGateway(storage: storage);
-    final _FakeBangumiTransport transport = _FakeBangumiTransport(
+    final FakeBangumiTransport transport = FakeBangumiTransport(
       responses: <String, BangumiApiResponse>{
         'GET /v0/me': const BangumiApiResponse(
           statusCode: 200,
@@ -624,14 +757,20 @@ void main() {
   });
 
   test('concrete API provider normalizes auth and API failures', () async {
-    final _RecordingGateway gateway = _RecordingGateway();
-    final _FakeBangumiTransport transport = _FakeBangumiTransport(
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final FakeBangumiTransport transport = FakeBangumiTransport(
       responses: <String, BangumiApiResponse>{
         'GET /v0/subjects/missing':
             const BangumiApiResponse(statusCode: 404, body: '{"title":"no"}'),
         'GET /v0/subjects/throttled':
             const BangumiApiResponse(statusCode: 429, body: '{"title":"slow"}'),
         'GET /v0/subjects/bad':
+            const BangumiApiResponse(statusCode: 200, body: '{bad'),
+        'GET /v0/subjects/missing/persons':
+            const BangumiApiResponse(statusCode: 404, body: '{"title":"no"}'),
+        'GET /v0/subjects/throttled/characters':
+            const BangumiApiResponse(statusCode: 429, body: '{"title":"slow"}'),
+        'GET /v0/subjects/bad/subjects':
             const BangumiApiResponse(statusCode: 200, body: '{bad'),
         'GET /v0/me':
             const BangumiApiResponse(statusCode: 401, body: '{"title":"auth"}'),
@@ -679,6 +818,32 @@ void main() {
     expect((malformed as AcgProviderFailure<BangumiSubject>).kind,
         AcgProviderFailureKind.terminal);
 
+    final AcgProviderResult<List<BangumiRelatedPerson>> missingPersons =
+        await unauthenticated
+            .listSubjectPersons(const BangumiSubjectId('missing'));
+    expect(
+      (missingPersons as AcgProviderFailure<List<BangumiRelatedPerson>>).kind,
+      AcgProviderFailureKind.cachedMiss,
+    );
+
+    final AcgProviderResult<List<BangumiRelatedCharacter>> throttledCharacters =
+        await unauthenticated
+            .listSubjectCharacters(const BangumiSubjectId('throttled'));
+    expect(
+      (throttledCharacters as AcgProviderFailure<List<BangumiRelatedCharacter>>)
+          .kind,
+      AcgProviderFailureKind.throttled,
+    );
+
+    final AcgProviderResult<List<BangumiRelatedSubject>> malformedRelations =
+        await unauthenticated
+            .listSubjectRelations(const BangumiSubjectId('bad'));
+    expect(
+      (malformedRelations as AcgProviderFailure<List<BangumiRelatedSubject>>)
+          .kind,
+      AcgProviderFailureKind.terminal,
+    );
+
     final BangumiApiProvider invalidToken = BangumiApiProvider(
       gateway: gateway,
       client: BangumiApiClient(
@@ -696,88 +861,53 @@ void main() {
     expect((invalidSession as AcgProviderFailure<BangumiAuthSession>).kind,
         AcgProviderFailureKind.unauthenticated);
   });
-}
 
-final class _RecordingGateway implements ProviderGateway {
-  _RecordingGateway({this.proxyUrl});
-
-  final DeterministicStorageFoundation _storage =
-      DeterministicStorageFoundation();
-  final String? proxyUrl;
-  String? registeredProviderId;
-  String? lastCacheKey;
-  ProviderCachePolicy? lastCachePolicy;
-  Duration? lastDeduplicationWindow;
-  Uri? lastNetworkPolicyUri;
-
-  @override
-  StorageFoundation get storage => _storage;
-
-  @override
-  Future<void> registerProvider(ProviderRegistration registration) async {
-    registeredProviderId = registration.providerId.value;
-  }
-
-  @override
-  Future<ProviderGatewayResponse<T>> execute<T>(
-      ProviderGatewayRequest<T> request) async {
-    lastCacheKey = request.key.cacheKey;
-    lastCachePolicy = request.cachePolicy;
-    lastDeduplicationWindow = request.deduplicationWindow;
-    lastNetworkPolicyUri = request.networkPolicyUri;
-    return ProviderGatewayResponse<T>(
-      value: await request.executeLoad(
-        ProviderGatewayRequestContext(proxyUrl: proxyUrl),
+  test(
+      'concrete API provider falls back to cached subject on transient detail failure',
+      () async {
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final QueuedBangumiTransport transport = QueuedBangumiTransport(
+      <Object>[
+        const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"total":1,"limit":7,"offset":0,"data":[{"id":44,"type":2,"name":"Cached Hot Anime","name_cn":"","short_summary":"Cached summary","images":{"large":"https://img.test/cached-hot.jpg"},"eps":12}]}',
+        ),
+        const HandshakeException('Connection terminated during handshake'),
+        const BangumiApiResponse(statusCode: 404, body: '{"title":"no"}'),
+      ],
+    );
+    final BangumiApiProvider provider = BangumiApiProvider(
+      gateway: gateway,
+      client: BangumiApiClient(
+        transport: transport,
+        baseUri: Uri.parse('https://api.test'),
       ),
-      source: ProviderGatewayResponseSource.network,
     );
-  }
-}
-
-final class _FailingGateway implements ProviderGateway {
-  _FailingGateway(this.kind);
-
-  final ProviderFailureKind kind;
-  final DeterministicStorageFoundation _storage =
-      DeterministicStorageFoundation();
-
-  @override
-  StorageFoundation get storage => _storage;
-
-  @override
-  Future<void> registerProvider(ProviderRegistration registration) async {}
-
-  @override
-  Future<ProviderGatewayResponse<T>> execute<T>(
-      ProviderGatewayRequest<T> request) {
-    return Future<ProviderGatewayResponse<T>>.error(
-      ProviderFailure(kind: kind, message: 'Injected gateway failure.'),
+    final BangumiProviderRuntime runtime = BangumiProviderRuntime(
+      gateway: gateway,
+      metadataProvider: provider,
+      discoveryProvider: provider,
     );
-  }
-}
 
-final class _FakeBangumiTransport implements BangumiApiTransport {
-  _FakeBangumiTransport({
-    required Map<String, BangumiApiResponse> responses,
-  }) : _responses = responses;
+    final AcgProviderResult<List<BangumiSubject>> popular =
+        await runtime.popularAnime();
+    expect(popular, isA<AcgProviderSuccess<List<BangumiSubject>>>());
 
-  final Map<String, BangumiApiResponse> _responses;
-  final List<BangumiApiRequest> requests = <BangumiApiRequest>[];
+    final AcgProviderResult<BangumiSubject> transientDetail =
+        await runtime.lookupSubject(const BangumiSubjectId('44'));
+    final BangumiSubject cached =
+        (transientDetail as AcgProviderSuccess<BangumiSubject>).value;
+    expect(cached.title, 'Cached Hot Anime');
+    expect(cached.summary, 'Cached summary');
+    expect(cached.coverUri, Uri.parse('https://img.test/cached-hot.jpg'));
+    expect(transport.requests.last.uri.path, '/v0/subjects/44');
 
-  @override
-  Future<BangumiApiResponse> send(BangumiApiRequest request) async {
-    requests.add(request);
-    final String key = _requestKey(request);
-    final BangumiApiResponse? response = _responses[key];
-    if (response != null) return response;
-    return const BangumiApiResponse(
-      statusCode: 404,
-      body: '{"title":"missing fake response"}',
+    final AcgProviderResult<BangumiSubject> notFoundDetail =
+        await runtime.lookupSubject(const BangumiSubjectId('44'));
+    expect(
+      (notFoundDetail as AcgProviderFailure<BangumiSubject>).kind,
+      AcgProviderFailureKind.cachedMiss,
     );
-  }
-
-  String _requestKey(BangumiApiRequest request) {
-    final String query = request.uri.hasQuery ? '?${request.uri.query}' : '';
-    return '${request.method} ${request.uri.path}$query';
-  }
+  });
 }
