@@ -1,3 +1,4 @@
+import '../../foundation/storage/storage_contracts.dart';
 import '../../streaming/bt_task_core.dart';
 import '../../streaming/bt_task_core_runtime.dart';
 
@@ -9,10 +10,12 @@ final class DownloadRuntimeSnapshot {
   DownloadRuntimeSnapshot({
     required this.status,
     required this.tasks,
+    this.capabilities = DownloadCapabilityProjection.unsupported,
   });
 
   final DownloadRuntimeStatus status;
   final List<DownloadProjection> tasks;
+  final DownloadCapabilityProjection capabilities;
 }
 
 enum DownloadRuntimeStatus {
@@ -26,6 +29,23 @@ enum DownloadRuntimeStatus {
   ready,
   failed,
   disposed,
+}
+
+enum DownloadTaskSourceKind {
+  magnet,
+  torrentFile,
+  unknown,
+}
+
+enum DownloadCreateMode {
+  quick,
+  advanced,
+}
+
+enum DownloadFileSelectionState {
+  skipped,
+  selected,
+  streamingTarget,
 }
 
 DownloadRuntimeStatus _mapStatus(BtTaskCoreRuntimeStatus status) {
@@ -45,6 +65,78 @@ DownloadRuntimeStatus _mapStatus(BtTaskCoreRuntimeStatus status) {
   };
 }
 
+final class DownloadCapabilityProjection {
+  const DownloadCapabilityProjection({
+    required this.taskManagementAvailable,
+    required this.metadataFetchingAvailable,
+    required this.backgroundDownloadAvailable,
+    required this.virtualStreamAvailable,
+    this.taskManagementReason,
+    this.metadataFetchingReason,
+    this.backgroundDownloadReason,
+    this.virtualStreamReason,
+  });
+
+  static const DownloadCapabilityProjection unsupported =
+      DownloadCapabilityProjection(
+    taskManagementAvailable: false,
+    metadataFetchingAvailable: false,
+    backgroundDownloadAvailable: false,
+    virtualStreamAvailable: false,
+  );
+
+  final bool taskManagementAvailable;
+  final bool metadataFetchingAvailable;
+  final bool backgroundDownloadAvailable;
+  final bool virtualStreamAvailable;
+  final String? taskManagementReason;
+  final String? metadataFetchingReason;
+  final String? backgroundDownloadReason;
+  final String? virtualStreamReason;
+
+  bool get canCreateTasks =>
+      taskManagementAvailable && metadataFetchingAvailable;
+}
+
+final class DownloadFileIndex {
+  const DownloadFileIndex(this.value)
+      : assert(value >= 0, 'Download file index must not be negative.');
+
+  final int value;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DownloadFileIndex &&
+          runtimeType == other.runtimeType &&
+          value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
+final class DownloadFileProjection {
+  const DownloadFileProjection({
+    required this.index,
+    required this.name,
+    required this.path,
+    required this.sizeBytes,
+    required this.selectionState,
+    this.mediaMimeType,
+  });
+
+  final DownloadFileIndex index;
+  final String name;
+  final String path;
+  final int sizeBytes;
+  final DownloadFileSelectionState selectionState;
+  final String? mediaMimeType;
+
+  bool get isSelected =>
+      selectionState == DownloadFileSelectionState.selected ||
+      selectionState == DownloadFileSelectionState.streamingTarget;
+}
+
 final class DownloadProjection {
   const DownloadProjection({
     required this.taskId,
@@ -55,16 +147,37 @@ final class DownloadProjection {
     required this.downloadRateBytesPerSecond,
     required this.connectedPeers,
     required this.totalSizeBytes,
+    this.sourceKind = DownloadTaskSourceKind.unknown,
+    this.uploadRateBytesPerSecond = 0,
+    this.message,
+    this.latestEvent,
+    this.createdAt,
+    this.updatedAt,
+    this.infoHash,
+    this.pieceLengthBytes,
+    this.files = const <DownloadFileProjection>[],
   });
 
   final DownloadTaskId taskId;
   final String sourceUri;
+  final DownloadTaskSourceKind sourceKind;
   final DownloadLifecycleState state;
   final String name;
   final double progress;
   final int downloadRateBytesPerSecond;
+  final int uploadRateBytesPerSecond;
   final int connectedPeers;
   final int totalSizeBytes;
+  final String? message;
+  final String? latestEvent;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final String? infoHash;
+  final int? pieceLengthBytes;
+  final List<DownloadFileProjection> files;
+
+  int get selectedFileCount =>
+      files.where((DownloadFileProjection file) => file.isSelected).length;
 }
 
 final class DownloadCreateResult {
@@ -91,6 +204,24 @@ final class DownloadCreateResult {
 
   bool get isSuccess => task != null && failureMessage == null;
   bool get hasWarning => warningMessage != null;
+}
+
+final class DownloadCommandResult {
+  const DownloadCommandResult._({
+    required this.isSuccess,
+    this.task,
+    this.failureMessage,
+  });
+
+  const DownloadCommandResult.success([DownloadProjection? task])
+      : this._(isSuccess: true, task: task);
+
+  const DownloadCommandResult.failure(String message)
+      : this._(isSuccess: false, failureMessage: message);
+
+  final bool isSuccess;
+  final DownloadProjection? task;
+  final String? failureMessage;
 }
 
 final class DownloadTaskId {
@@ -135,11 +266,20 @@ abstract interface class DownloadRuntime {
   DownloadRuntimeSnapshot get currentSnapshot;
   void addObserver(DownloadRuntimeObserver observer);
   void removeObserver(DownloadRuntimeObserver observer);
-  Future<DownloadCreateResult> createTaskFromUri(String sourceUri);
+  Future<DownloadCreateResult> createTaskFromUri(
+    String sourceUri, {
+    DownloadCreateMode mode,
+  });
+  Future<DownloadCommandResult> selectFiles(
+    DownloadTaskId taskId,
+    Iterable<DownloadFileIndex> files,
+  );
   Future<void> listTasks();
-  Future<void> pause(DownloadTaskId taskId);
-  Future<void> resume(DownloadTaskId taskId);
-  Future<void> remove(DownloadTaskId taskId);
+  Future<DownloadCommandResult> pause(DownloadTaskId taskId);
+  Future<DownloadCommandResult> resume(DownloadTaskId taskId);
+  Future<DownloadCommandResult> remove(DownloadTaskId taskId);
+  Future<DownloadCommandResult> pauseAll();
+  Future<DownloadCommandResult> resumeAll();
   void dispose();
 }
 
@@ -183,51 +323,51 @@ final class DownloadRuntimeAdapter
   }
 
   @override
-  Future<DownloadCreateResult> createTaskFromUri(String sourceUri) async {
+  Future<DownloadCreateResult> createTaskFromUri(
+    String sourceUri, {
+    DownloadCreateMode mode = DownloadCreateMode.quick,
+  }) async {
     final String trimmed = sourceUri.trim();
     if (trimmed.isEmpty) {
       return const DownloadCreateResult.failure(
-          'Download source URI is empty.');
+        '下载来源不能为空。',
+      );
     }
 
-    final BtTaskSource source;
-    if (trimmed.startsWith('magnet:?')) {
-      source = MagnetBtTaskSource(uri: trimmed);
-    } else {
-      final Uri? parsed = Uri.tryParse(trimmed);
-      if (parsed == null ||
-          !(parsed.isScheme('file') ||
-              parsed.isScheme('http') ||
-              parsed.isScheme('https'))) {
-        return const DownloadCreateResult.failure(
-          'Download source must be a magnet link, torrent file URI, or HTTP(S) torrent URL.',
-        );
-      }
-      source = TorrentDataBtTaskSource(uri: parsed);
+    final BtTaskSource? source = _sourceFromUri(trimmed);
+    if (source == null) {
+      return const DownloadCreateResult.failure(
+        '仅支持 magnet 链接或本地 .torrent 文件 URI。',
+      );
     }
 
     final BtTaskCoreRuntimeActionResult<BtTaskProjection> created =
         await _runtime.createTask(BtTaskCreateRequest(source: source));
     if (!created.isSuccess || created.value == null) {
       return DownloadCreateResult.failure(
-        created.failure?.message ?? 'Download task creation failed.',
+        created.failure?.message ?? '下载任务创建失败。',
       );
     }
 
     BtTaskProjection projection = created.value!;
+    if (mode == DownloadCreateMode.advanced) {
+      final DownloadCreateResult? pauseResult =
+          await _pauseCreatedTask(projection);
+      if (pauseResult != null) return pauseResult;
+    }
+
     final BtTaskCoreRuntimeActionResult<BtTaskProjection> metadata =
         await _runtime.ensureMetadata(projection.taskId);
     if (!metadata.isSuccess || metadata.value == null) {
       await _runtime.listTasks();
       return DownloadCreateResult.partial(
         task: _wrapProjection(projection),
-        warningMessage:
-            metadata.failure?.message ?? 'Download metadata is not available.',
+        warningMessage: metadata.failure?.message ?? '下载元数据暂不可用。',
       );
     }
 
     projection = metadata.value!;
-    if (projection.files.isNotEmpty) {
+    if (mode == DownloadCreateMode.quick && projection.files.isNotEmpty) {
       final Iterable<BtFileIndex> allFiles =
           projection.files.map((BtTaskFileProjection file) => file.index);
       final BtTaskCoreRuntimeActionResult<BtTaskProjection> selected =
@@ -236,8 +376,7 @@ final class DownloadRuntimeAdapter
         await _runtime.listTasks();
         return DownloadCreateResult.partial(
           task: _wrapProjection(projection),
-          warningMessage:
-              selected.failure?.message ?? 'Download file selection failed.',
+          warningMessage: selected.failure?.message ?? '下载文件选择失败。',
         );
       }
       projection = selected.value!;
@@ -247,29 +386,113 @@ final class DownloadRuntimeAdapter
     return DownloadCreateResult.success(_wrapProjection(projection));
   }
 
+  Future<DownloadCreateResult?> _pauseCreatedTask(
+    BtTaskProjection projection,
+  ) async {
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> paused =
+        await _runtime.pause(projection.taskId);
+    if (paused.isSuccess && paused.value != null) return null;
+    await _runtime.listTasks();
+    return DownloadCreateResult.partial(
+      task: _wrapProjection(projection),
+      warningMessage: paused.failure?.message ?? '高级添加任务已创建，但暂停失败。',
+    );
+  }
+
+  @override
+  Future<DownloadCommandResult> selectFiles(
+    DownloadTaskId taskId,
+    Iterable<DownloadFileIndex> files,
+  ) async {
+    final List<DownloadFileIndex> selectedFiles =
+        List<DownloadFileIndex>.unmodifiable(files);
+    if (selectedFiles.isEmpty) {
+      return const DownloadCommandResult.failure('至少选择一个文件。');
+    }
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> selected =
+        await _runtime.selectFiles(
+      BtTaskId(taskId.value),
+      selectedFiles.map((DownloadFileIndex file) => BtFileIndex(file.value)),
+    );
+    return _commandResult(selected, fallbackMessage: '下载文件选择失败。');
+  }
+
   @override
   Future<void> listTasks() async {
     await _runtime.listTasks();
   }
 
   @override
-  Future<void> pause(DownloadTaskId taskId) async {
-    await _runtime.pause(BtTaskId(taskId.value));
+  Future<DownloadCommandResult> pause(DownloadTaskId taskId) async {
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> paused =
+        await _runtime.pause(BtTaskId(taskId.value));
+    return _commandResult(paused, fallbackMessage: '暂停下载任务失败。');
   }
 
   @override
-  Future<void> resume(DownloadTaskId taskId) async {
-    await _runtime.resume(BtTaskId(taskId.value));
+  Future<DownloadCommandResult> resume(DownloadTaskId taskId) async {
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> resumed =
+        await _runtime.resume(BtTaskId(taskId.value));
+    return _commandResult(resumed, fallbackMessage: '恢复下载任务失败。');
   }
 
   @override
-  Future<void> remove(DownloadTaskId taskId) async {
-    await _runtime.remove(BtTaskId(taskId.value));
+  Future<DownloadCommandResult> remove(DownloadTaskId taskId) async {
+    final BtTaskCoreRuntimeActionResult<BtTaskProjection> removed =
+        await _runtime.remove(BtTaskId(taskId.value));
+    return _commandResult(removed, fallbackMessage: '删除下载任务失败。');
+  }
+
+  @override
+  Future<DownloadCommandResult> pauseAll() async {
+    return _runBatchCommand(
+      currentSnapshot.tasks.where(_canPause),
+      pause,
+    );
+  }
+
+  @override
+  Future<DownloadCommandResult> resumeAll() async {
+    return _runBatchCommand(
+      currentSnapshot.tasks.where(_canResume),
+      resume,
+    );
+  }
+
+  Future<DownloadCommandResult> _runBatchCommand(
+    Iterable<DownloadProjection> tasks,
+    Future<DownloadCommandResult> Function(DownloadTaskId taskId) command,
+  ) async {
+    final List<DownloadProjection> actionable =
+        List<DownloadProjection>.unmodifiable(tasks);
+    if (actionable.isEmpty) {
+      await _runtime.listTasks();
+      return DownloadCommandResult.success();
+    }
+    for (final DownloadProjection task in actionable) {
+      final DownloadCommandResult result = await command(task.taskId);
+      if (!result.isSuccess) return result;
+    }
+    await _runtime.listTasks();
+    return DownloadCommandResult.success();
+  }
+
+  DownloadCommandResult _commandResult(
+    BtTaskCoreRuntimeActionResult<BtTaskProjection> result, {
+    required String fallbackMessage,
+  }) {
+    if (!result.isSuccess || result.value == null) {
+      return DownloadCommandResult.failure(
+        result.failure?.message ?? fallbackMessage,
+      );
+    }
+    return DownloadCommandResult.success(_wrapProjection(result.value!));
   }
 
   DownloadRuntimeSnapshot _wrapSnapshot(BtTaskCoreRuntimeSnapshot snapshot) {
     return DownloadRuntimeSnapshot(
       status: _mapStatus(snapshot.status),
+      capabilities: _wrapCapabilities(snapshot.capabilities),
       tasks: <DownloadProjection>[
         for (final task in snapshot.tasks) _wrapProjection(task),
       ],
@@ -280,13 +503,133 @@ final class DownloadRuntimeAdapter
     return DownloadProjection(
       taskId: DownloadTaskId(task.taskId.value),
       sourceUri: task.sourceUri,
+      sourceKind: _mapSourceKind(task.sourceKind),
       state: _mapLifecycleState(task.state),
       name: task.metadata?.name ?? task.sourceUri,
       progress: task.latestTransferSnapshot?.progress ?? 0.0,
       downloadRateBytesPerSecond:
           task.latestTransferSnapshot?.downloadRateBytesPerSecond ?? 0,
+      uploadRateBytesPerSecond:
+          task.latestTransferSnapshot?.uploadRateBytesPerSecond ?? 0,
       connectedPeers: task.latestTransferSnapshot?.connectedPeers ?? 0,
       totalSizeBytes: task.metadata?.totalSizeBytes ?? 0,
+      message: task.message ?? task.latestTransferSnapshot?.message,
+      latestEvent: _eventMessage(task.latestEvent),
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      infoHash: task.infoHash?.value ?? task.metadata?.infoHash.value,
+      pieceLengthBytes: task.metadata?.pieceLengthBytes,
+      files: <DownloadFileProjection>[
+        for (final BtTaskFileProjection file in task.files)
+          DownloadFileProjection(
+            index: DownloadFileIndex(file.index.value),
+            name: _fileName(file.path),
+            path: file.path,
+            sizeBytes: file.lengthBytes,
+            selectionState: _mapFileSelectionState(file.selectionState),
+            mediaMimeType: file.mediaMimeType,
+          ),
+      ],
     );
   }
+}
+
+bool _canPause(DownloadProjection task) {
+  return switch (task.state) {
+    DownloadLifecycleState.queued ||
+    DownloadLifecycleState.fetchingMetadata ||
+    DownloadLifecycleState.ready ||
+    DownloadLifecycleState.downloading =>
+      true,
+    DownloadLifecycleState.paused ||
+    DownloadLifecycleState.completed ||
+    DownloadLifecycleState.failed =>
+      false,
+  };
+}
+
+bool _canResume(DownloadProjection task) {
+  return switch (task.state) {
+    DownloadLifecycleState.queued ||
+    DownloadLifecycleState.ready ||
+    DownloadLifecycleState.paused =>
+      true,
+    DownloadLifecycleState.fetchingMetadata ||
+    DownloadLifecycleState.downloading ||
+    DownloadLifecycleState.completed ||
+    DownloadLifecycleState.failed =>
+      false,
+  };
+}
+
+BtTaskSource? _sourceFromUri(String sourceUri) {
+  if (sourceUri.startsWith('magnet:?')) {
+    return MagnetBtTaskSource(uri: sourceUri);
+  }
+  final Uri? parsed = Uri.tryParse(sourceUri);
+  if (parsed != null && parsed.isScheme('file')) {
+    return TorrentDataBtTaskSource(uri: parsed);
+  }
+  return null;
+}
+
+DownloadCapabilityProjection _wrapCapabilities(BtCapabilityMatrix matrix) {
+  final BtCapabilityStatus taskManagement =
+      matrix.statusOf(BtStreamingCapability.taskManagement);
+  final BtCapabilityStatus metadataFetching =
+      matrix.statusOf(BtStreamingCapability.metadataFetching);
+  final BtCapabilityStatus backgroundDownload =
+      matrix.statusOf(BtStreamingCapability.longBackgroundDownload);
+  final BtCapabilityStatus virtualStream =
+      matrix.statusOf(BtStreamingCapability.virtualMediaStream);
+  return DownloadCapabilityProjection(
+    taskManagementAvailable: taskManagement.supported,
+    metadataFetchingAvailable: metadataFetching.supported,
+    backgroundDownloadAvailable: backgroundDownload.supported,
+    virtualStreamAvailable: virtualStream.supported,
+    taskManagementReason: taskManagement.reason,
+    metadataFetchingReason: metadataFetching.reason,
+    backgroundDownloadReason: backgroundDownload.reason,
+    virtualStreamReason: virtualStream.reason,
+  );
+}
+
+DownloadTaskSourceKind _mapSourceKind(StoredBtTaskSourceKind sourceKind) {
+  return switch (sourceKind) {
+    StoredBtTaskSourceKind.magnet => DownloadTaskSourceKind.magnet,
+    StoredBtTaskSourceKind.torrentData => DownloadTaskSourceKind.torrentFile,
+  };
+}
+
+DownloadFileSelectionState _mapFileSelectionState(BtFileSelectionState state) {
+  return switch (state) {
+    BtFileSelectionState.skipped => DownloadFileSelectionState.skipped,
+    BtFileSelectionState.selected => DownloadFileSelectionState.selected,
+    BtFileSelectionState.streamingTarget =>
+      DownloadFileSelectionState.streamingTarget,
+  };
+}
+
+String _fileName(String path) {
+  final int slash = path.lastIndexOf('/');
+  final int backslash = path.lastIndexOf('\\');
+  final int separator = slash > backslash ? slash : backslash;
+  if (separator < 0 || separator + 1 >= path.length) return path;
+  return path.substring(separator + 1);
+}
+
+String? _eventMessage(BtTaskEventProjection? event) {
+  if (event == null) return null;
+  if (event.message != null && event.message!.isNotEmpty) {
+    return event.message;
+  }
+  return switch (event.eventKind) {
+    StoredBtTaskEventKind.created => '任务已创建',
+    StoredBtTaskEventKind.metadataUpdated => '元数据已更新',
+    StoredBtTaskEventKind.fileSelectionChanged => '文件选择已更新',
+    StoredBtTaskEventKind.lifecycleChanged => '任务状态已更新',
+    StoredBtTaskEventKind.pieceCompleted => '分片已完成',
+    StoredBtTaskEventKind.failed => '任务失败',
+    StoredBtTaskEventKind.removed => '任务已删除',
+  };
 }

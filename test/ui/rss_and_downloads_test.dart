@@ -81,6 +81,7 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
   final List<BtTaskId> resumedTasks = <BtTaskId>[];
   final List<BtTaskId> removedTasks = <BtTaskId>[];
   final List<BtTaskCreateRequest> createdRequests = <BtTaskCreateRequest>[];
+  final List<List<BtFileIndex>> selectedFiles = <List<BtFileIndex>>[];
   bool failMetadata = false;
   bool includeMetadataFiles = false;
   bool failSelection = false;
@@ -146,6 +147,7 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
     if (failSelection) {
       throw StateError('selection failed');
     }
+    selectedFiles.add(<BtFileIndex>[...files]);
   }
 
   @override
@@ -298,6 +300,32 @@ void main() {
           totalSizeBytes: 1024 * 1024,
         ),
       );
+      await btStore.storeFiles(
+        taskId: 'task-1',
+        files: const <StoredBtTaskFileRecord>[
+          StoredBtTaskFileRecord(
+            taskId: 'task-1',
+            index: 0,
+            path: 'Season 1/Episode 01.mkv',
+            lengthBytes: 1024 * 1024,
+            offsetBytes: 0,
+            selectionState: StoredBtFileSelectionState.selected,
+            mediaMimeType: 'video/x-matroska',
+          ),
+        ],
+      );
+      await btStore.storeTransferSnapshot(
+        StoredBtTaskTransferSnapshotRecord(
+          taskId: 'task-1',
+          lifecycleState: StoredBtTaskLifecycleState.downloading,
+          progress: 0.5,
+          downloadRateBytesPerSecond: 2048,
+          uploadRateBytesPerSecond: 512,
+          connectedPeers: 3,
+          observedAt: DateTime.utc(2026, 6, 21, 12),
+          message: 'running',
+        ),
+      );
     });
 
     tearDown(() {
@@ -321,30 +349,109 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify task name is displayed
-      expect(find.text('My Download Task'), findsOneWidget);
-      expect(find.text('分片文件拼图 (Piece map)'), findsOneWidget);
+      expect(find.text('下载'), findsWidgets);
+      expect(find.text('My Download Task'), findsWidgets);
+      expect(find.text('2.0 KiB/s / 512 B/s'), findsOneWidget);
+      await tester.drag(
+        find.byKey(const ValueKey<String>('download-detail-scroll')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('文件'), findsOneWidget);
+      expect(find.textContaining('Episode 01.mkv'), findsOneWidget);
 
-      // Verify control buttons (Pause icon/tooltip/button)
-      expect(find.byIcon(Icons.pause), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow),
-          findsNothing); // It's currently downloading so show pause
-
-      // Tap Pause
-      await tester.tap(find.byIcon(Icons.pause));
+      await tester.tap(find.byTooltip('暂停'));
       await tester.pumpAndSettle();
       expect(fakeAdapter.pausedTasks.length, 1);
       expect(fakeAdapter.pausedTasks.single.value, 'task-1');
 
-      // Tap Remove (represented by delete icon)
-      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.tap(find.byTooltip('删除任务'));
+      await tester.pumpAndSettle();
+      expect(find.text('删除下载任务'), findsOneWidget);
+      await tester.tap(find.text('删除任务'));
       await tester.pumpAndSettle();
       expect(fakeAdapter.removedTasks.length, 1);
       expect(fakeAdapter.removedTasks.single.value, 'task-1');
     });
 
     testWidgets('creates a new download task from magnet input',
+        (WidgetTester tester) async {
+      fakeAdapter.includeMetadataFiles = true;
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('添加'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
+        'magnet:?xt=urn:btih:new-task',
+      );
+      await tester.tap(find.text('创建'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.createdRequests, hasLength(1));
+      expect(
+          fakeAdapter.createdRequests.single.source, isA<MagnetBtTaskSource>());
+      expect(fakeAdapter.selectedFiles.single.single.value, 0);
+      expect(find.text('My Download Task'), findsWidgets);
+    });
+
+    testWidgets('advanced add pauses task and requires a file selection',
+        (WidgetTester tester) async {
+      fakeAdapter.includeMetadataFiles = true;
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: DownloadRuntimeAdapter(btTaskCoreRuntime),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('添加'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('高级添加'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
+        'magnet:?xt=urn:btih:advanced-task',
+      );
+      await tester.tap(find.text('创建'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.pausedTasks.single.value, 'task-1');
+      expect(find.textContaining('选择文件：My Download Task'), findsOneWidget);
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, '确认选择'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认选择'));
+      await tester.pumpAndSettle();
+
+      expect(fakeAdapter.selectedFiles.single.single.value, 0);
+      expect(fakeAdapter.resumedTasks.single.value, 'task-1');
+    });
+
+    testWidgets('rejects HTTP torrent URL before creating a task',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _testHost(
@@ -357,19 +464,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
+      await tester.tap(find.text('添加'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Magnet or file URL'),
-        'magnet:?xt=urn:btih:new-task',
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
+        'https://example.com/anime.torrent',
       );
-      await tester.tap(find.text('Create'));
+      await tester.tap(find.text('创建'));
       await tester.pumpAndSettle();
 
-      expect(fakeAdapter.createdRequests, hasLength(1));
       expect(
-          fakeAdapter.createdRequests.single.source, isA<MagnetBtTaskSource>());
-      expect(find.text('My Download Task'), findsOneWidget);
+        find.text('仅支持 magnet 链接或本地 .torrent 文件 URI。'),
+        findsOneWidget,
+      );
+      expect(fakeAdapter.createdRequests, isEmpty);
     });
 
     testWidgets('surfaces metadata failure as a partial create warning',
@@ -387,19 +495,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
+      await tester.tap(find.text('添加'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Magnet or file URL'),
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
         'magnet:?xt=urn:btih:metadata-warning',
       );
-      await tester.tap(find.text('Create'));
+      await tester.tap(find.text('创建'));
       await tester.pumpAndSettle();
 
       expect(fakeAdapter.createdRequests, hasLength(1));
       expect(find.textContaining('metadata failed'), findsOneWidget);
-      expect(find.text('Creating...'), findsNothing);
-      expect(find.text('Add task'), findsOneWidget);
+      expect(find.text('添加中'), findsNothing);
+      expect(find.text('添加'), findsWidgets);
     });
 
     testWidgets('surfaces file selection failure as a partial create warning',
@@ -418,19 +526,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
+      await tester.tap(find.text('添加'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Magnet or file URL'),
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
         'magnet:?xt=urn:btih:selection-warning',
       );
-      await tester.tap(find.text('Create'));
+      await tester.tap(find.text('创建'));
       await tester.pumpAndSettle();
 
       expect(fakeAdapter.createdRequests, hasLength(1));
       expect(find.textContaining('selection failed'), findsOneWidget);
-      expect(find.text('Creating...'), findsNothing);
-      expect(find.text('Add task'), findsOneWidget);
+      expect(find.text('添加中'), findsNothing);
+      expect(find.text('添加'), findsWidgets);
     });
 
     testWidgets('restores create button after unexpected runtime failure',
@@ -446,18 +554,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
+      await tester.tap(find.text('添加'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Magnet or file URL'),
+        find.widgetWithText(TextField, 'Magnet 或本地 torrent 文件 URI'),
         'magnet:?xt=urn:btih:runtime-error',
       );
-      await tester.tap(find.text('Create'));
+      await tester.tap(find.text('创建'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Create task failed'), findsOneWidget);
-      expect(find.text('Creating...'), findsNothing);
-      expect(find.text('Add task'), findsOneWidget);
+      expect(find.textContaining('创建下载任务失败'), findsOneWidget);
+      expect(find.text('添加中'), findsNothing);
+      expect(find.text('添加'), findsWidgets);
     });
   });
 }
@@ -466,6 +574,12 @@ final class _ThrowingDownloadRuntime implements DownloadRuntime {
   final DownloadRuntimeSnapshot _snapshot = DownloadRuntimeSnapshot(
     status: DownloadRuntimeStatus.idle,
     tasks: const <DownloadProjection>[],
+    capabilities: const DownloadCapabilityProjection(
+      taskManagementAvailable: true,
+      metadataFetchingAvailable: true,
+      backgroundDownloadAvailable: false,
+      virtualStreamAvailable: false,
+    ),
   );
 
   @override
@@ -478,7 +592,10 @@ final class _ThrowingDownloadRuntime implements DownloadRuntime {
   void dispose() {}
 
   @override
-  Future<DownloadCreateResult> createTaskFromUri(String sourceUri) {
+  Future<DownloadCreateResult> createTaskFromUri(
+    String sourceUri, {
+    DownloadCreateMode mode = DownloadCreateMode.quick,
+  }) {
     throw StateError('create exploded');
   }
 
@@ -486,14 +603,32 @@ final class _ThrowingDownloadRuntime implements DownloadRuntime {
   Future<void> listTasks() async {}
 
   @override
-  Future<void> pause(DownloadTaskId taskId) async {}
+  Future<DownloadCommandResult> pause(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
 
   @override
-  Future<void> remove(DownloadTaskId taskId) async {}
+  Future<DownloadCommandResult> pauseAll() async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> remove(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
 
   @override
   void removeObserver(DownloadRuntimeObserver observer) {}
 
   @override
-  Future<void> resume(DownloadTaskId taskId) async {}
+  Future<DownloadCommandResult> resume(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> resumeAll() async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> selectFiles(
+    DownloadTaskId taskId,
+    Iterable<DownloadFileIndex> files,
+  ) async =>
+      const DownloadCommandResult.success();
 }

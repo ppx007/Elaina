@@ -167,6 +167,8 @@ void main() {
     final BtTaskCoreRuntimeActionResult<BtTaskProjection?> projection =
         await harness.runtime.taskById(const BtTaskId('task-1'));
     expect(projection.value?.latestTransferSnapshot?.progress, 0.25);
+    expect(projection.value?.latestTransferSnapshot?.uploadRateBytesPerSecond,
+        256);
     expect(
         projection.value?.latestEvent?.eventKind, StoredBtTaskEventKind.failed);
     await harness.close();

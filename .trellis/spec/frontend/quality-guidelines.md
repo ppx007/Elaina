@@ -69,6 +69,40 @@ Use focused validation while iterating:
 - `tools/check_changed_tests.ps1 -Scope Full` only for release-readiness or
   broad refactors.
 
+### Dense Tool Surfaces
+
+Flutter tool pages with tables, side panels, or compact rows must be verified
+at the default widget-test viewport, not only at desktop-friendly sizes. This
+prevents layouts that look fine on a wide monitor but fail tests with
+`RenderFlex overflowed`.
+
+Good:
+
+```dart
+const ButtonStyle compactIconButtonStyle = ButtonStyle(
+  minimumSize: WidgetStatePropertyAll<Size>(Size.square(32)),
+  maximumSize: WidgetStatePropertyAll<Size>(Size.square(32)),
+  padding: WidgetStatePropertyAll<EdgeInsetsGeometry>(EdgeInsets.zero),
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+);
+```
+
+Use a scrollable detail region when fixed header, metadata, file tables, and
+footer actions share limited height. Do not stack a fixed-height detail panel
+under another fixed area unless the parent has enough bounded space.
+
+When placing `ListTile`, `CheckboxListTile`, or similar ink widgets inside a
+decorated panel with a background color, wrap each tile in its own
+`Material(color: Colors.transparent)` or use a Material-backed panel. Flutter
+asserts when a `DecoratedBox` hides ListTile ink and background effects.
+
+Tests required for dense tool surfaces:
+
+- Render the page at the default widget-test viewport.
+- Assert no Flutter layout exceptions are thrown.
+- Exercise at least one row action and one detail-panel action.
+- Scroll internal detail regions by key when testing content below the fold.
+
 
 ---
 
