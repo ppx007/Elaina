@@ -2,8 +2,72 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+typedef RuntimeCheckProcessRunner = Future<ProcessResult> Function(
+  String executable,
+  List<String> arguments,
+);
+
+Future<ProcessResult> runRuntimeCheckProcess(
+  String executable,
+  List<String> arguments,
+) {
+  return Process.run(executable, arguments);
+}
+
+final class RuntimeCheckResult {
+  const RuntimeCheckResult({
+    required this.exitCode,
+    required this.stdoutText,
+    required this.stderrText,
+  });
+
+  final int exitCode;
+  final String stdoutText;
+  final String stderrText;
+}
+
+final class RuntimeCheckException implements Exception {
+  RuntimeCheckException({
+    required this.moduleName,
+    required this.exitCode,
+    required this.executable,
+    required List<String> arguments,
+    required this.stdoutText,
+    required this.stderrText,
+  }) : arguments = List<String>.unmodifiable(arguments);
+
+  final String moduleName;
+  final int exitCode;
+  final String executable;
+  final List<String> arguments;
+  final String stdoutText;
+  final String stderrText;
+
+  String get message =>
+      "Module check '$moduleName' failed with exit code $exitCode.";
+
+  String get errorLog {
+    final List<String> parts = <String>[
+      stdoutText.trim(),
+      stderrText.trim(),
+    ].where((String text) => text.isNotEmpty).toList(growable: false);
+    return parts.join('\n');
+  }
+
+  @override
+  String toString() {
+    final String log = errorLog;
+    if (log.isEmpty) {
+      return message;
+    }
+    return '$message\n$log';
+  }
+}
+
 abstract base class BaseRuntimeCheck {
-  const BaseRuntimeCheck();
+  const BaseRuntimeCheck({
+    RuntimeCheckProcessRunner? processRunner,
+  }) : _processRunner = processRunner;
 
   static const String _moduleCheckScriptName = 'Invoke-ModuleCheck.ps1';
   static const String _defaultToolsDirectory = 'tools';
@@ -15,28 +79,23 @@ abstract base class BaseRuntimeCheck {
 
   static final RegExp _moduleNamePattern = RegExp(r'^[A-Za-z0-9_.-]+$');
 
+  final RuntimeCheckProcessRunner? _processRunner;
+
   String get moduleName;
 
   Future<void> run(List<String> arguments) async {
     try {
-      _validateModuleName(moduleName);
-      final _RuntimeCheckOptions options =
-          _RuntimeCheckOptions.parse(arguments);
-      if (options.showHelp) {
-        stdout.writeln(_usageText);
-        exitCode = _successExitCode;
-        return;
-      }
-
-      final String projectRoot =
-          options.projectRoot ?? _findDefaultProjectRoot();
-      final String scriptPath = _resolveModuleCheckScript(projectRoot);
-      final int processExitCode = await _runModuleCheck(
-        options: options,
-        projectRoot: projectRoot,
-        scriptPath: scriptPath,
-      );
-      exitCode = processExitCode;
+      final RuntimeCheckResult result = await execute(arguments);
+      _writeOutput(stdout, result.stdoutText);
+      _writeOutput(stderr, result.stderrText);
+      exitCode = result.exitCode;
+    } on RuntimeCheckException catch (error) {
+      stderr.writeln(error.message);
+      _writeOutput(stdout, error.stdoutText);
+      _writeOutput(stderr, error.stderrText);
+      exitCode = error.exitCode == _successExitCode
+          ? _failureExitCode
+          : error.exitCode;
     } on FormatException catch (error) {
       stderr.writeln(error.message);
       stderr.writeln('Run with --help to see supported runtime check options.');
@@ -50,7 +109,27 @@ abstract base class BaseRuntimeCheck {
     }
   }
 
-  Future<int> _runModuleCheck({
+  Future<RuntimeCheckResult> execute(List<String> arguments) async {
+    _validateModuleName(moduleName);
+    final _RuntimeCheckOptions options = _RuntimeCheckOptions.parse(arguments);
+    if (options.showHelp) {
+      return RuntimeCheckResult(
+        exitCode: _successExitCode,
+        stdoutText: _usageText,
+        stderrText: '',
+      );
+    }
+
+    final String projectRoot = options.projectRoot ?? _findDefaultProjectRoot();
+    final String scriptPath = _resolveModuleCheckScript(projectRoot);
+    return _runModuleCheck(
+      options: options,
+      projectRoot: projectRoot,
+      scriptPath: scriptPath,
+    );
+  }
+
+  Future<RuntimeCheckResult> _runModuleCheck({
     required _RuntimeCheckOptions options,
     required String projectRoot,
     required String scriptPath,
@@ -80,16 +159,27 @@ abstract base class BaseRuntimeCheck {
       ],
     ];
 
-    final Process process = await Process.start(
+    final ProcessResult result =
+        await (_processRunner ?? runRuntimeCheckProcess)(
       powerShellExecutable,
       processArguments,
-      runInShell: false,
     );
-    final Future<void> stdoutForward = stdout.addStream(process.stdout);
-    final Future<void> stderrForward = stderr.addStream(process.stderr);
-    final int processExitCode = await process.exitCode;
-    await Future.wait(<Future<void>>[stdoutForward, stderrForward]);
-    return processExitCode;
+    final RuntimeCheckResult runtimeResult = RuntimeCheckResult(
+      exitCode: result.exitCode,
+      stdoutText: _processOutputToString(result.stdout),
+      stderrText: _processOutputToString(result.stderr),
+    );
+    if (runtimeResult.exitCode != _successExitCode) {
+      throw RuntimeCheckException(
+        moduleName: moduleName,
+        exitCode: runtimeResult.exitCode,
+        executable: powerShellExecutable,
+        arguments: processArguments,
+        stdoutText: runtimeResult.stdoutText,
+        stderrText: runtimeResult.stderrText,
+      );
+    }
+    return runtimeResult;
   }
 
   static void _validateModuleName(String value) {
@@ -151,6 +241,29 @@ abstract base class BaseRuntimeCheck {
   static String _encodeScriptArguments(List<String> arguments) {
     final String jsonText = jsonEncode(arguments);
     return base64.encode(utf8.encode(jsonText));
+  }
+
+  static String _processOutputToString(Object? output) {
+    if (output == null) {
+      return '';
+    }
+    if (output is String) {
+      return output;
+    }
+    if (output is List<int>) {
+      return utf8.decode(output);
+    }
+    return output.toString();
+  }
+
+  static void _writeOutput(IOSink sink, String text) {
+    if (text.isEmpty) {
+      return;
+    }
+    sink.write(text);
+    if (!text.endsWith('\n')) {
+      sink.writeln();
+    }
   }
 
   String get _usageText {

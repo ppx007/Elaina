@@ -60,6 +60,9 @@ param(
   [string[]]$DartCheckScripts = @(),
 
   [Parameter()]
+  [string[]]$DartTestPaths = @(),
+
+  [Parameter()]
   [string[]]$ScriptArguments = @(),
 
   [Parameter()]
@@ -87,6 +90,7 @@ $script:ModuleCheckDefaultScriptPrefix = 'check_'
 $script:ModuleCheckScriptExtension = '.ps1'
 $script:ModuleCheckWindowsPowerShellCommand = 'powershell.exe'
 $script:ModuleCheckDartCommand = 'dart'
+$script:ModuleCheckDartTestSubCommand = 'test'
 $script:ModuleCheckLogPath = $null
 
 function ConvertTo-CheckStringList {
@@ -508,6 +512,22 @@ function Invoke-DartCheckScript {
   Invoke-CheckProcess -FilePath $script:ModuleCheckDartCommand -ArgumentList @($path) -ActivityName 'Invoke Dart check script'
 }
 
+function Invoke-DartTestPath {
+  [CmdletBinding(SupportsShouldProcess = $true)]
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$RootPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$TestPath
+  )
+
+  $path = Resolve-CheckPath -RootPath $RootPath -Path $TestPath -MustExist
+  Invoke-CheckProcess -FilePath $script:ModuleCheckDartCommand -ArgumentList @($script:ModuleCheckDartTestSubCommand, $path) -ActivityName 'Invoke Dart test path'
+}
+
 function Invoke-ModuleCheck {
   [CmdletBinding(SupportsShouldProcess = $true)]
   param(
@@ -549,6 +569,9 @@ function Invoke-ModuleCheck {
     [string[]]$DartScripts = @(),
 
     [Parameter()]
+    [string[]]$DartTests = @(),
+
+    [Parameter()]
     [string[]]$LegacyScriptArguments = @(),
 
     [Parameter()]
@@ -557,7 +580,7 @@ function Invoke-ModuleCheck {
 
   $startedAt = Get-Date
   $requiresLegacyRunner = (-not $DoNotInvokeLegacyScript) -or $DependencyChecks.Count -gt 0
-  $requiresDart = $DartScripts.Count -gt 0
+  $requiresDart = $DartScripts.Count -gt 0 -or $DartTests.Count -gt 0
   Assert-CheckEnvironment -RootPath $RootPath -ToolRootPath $ToolRootPath -RequiresLegacyScriptRunner:$requiresLegacyRunner -RequiresDart:$requiresDart
 
   $hasDeclarativeChecks = $Files.Count -gt 0 -or
@@ -565,6 +588,7 @@ function Invoke-ModuleCheck {
     $ForbiddenTermMap.Count -gt 0 -or
     $RecursiveForbiddenTermMap.Count -gt 0 -or
     $DartScripts.Count -gt 0 -or
+    $DartTests.Count -gt 0 -or
     $DependencyChecks.Count -gt 0
   if ($DoNotInvokeLegacyScript -and -not $hasDeclarativeChecks) {
     throw 'No module check actions were configured.'
@@ -583,6 +607,10 @@ function Invoke-ModuleCheck {
 
   foreach ($dartScript in $DartScripts) {
     Invoke-DartCheckScript -RootPath $RootPath -ScriptPath $dartScript
+  }
+
+  foreach ($dartTest in $DartTests) {
+    Invoke-DartTestPath -RootPath $RootPath -TestPath $dartTest
   }
 
   if (-not $DoNotInvokeLegacyScript) {
@@ -646,6 +674,7 @@ try {
     -RecursiveForbiddenTermMap $RecursiveForbiddenTermsByPath `
     -TreeFileExtension $RecursiveFileExtension `
     -DartScripts $DartCheckScripts `
+    -DartTests $DartTestPaths `
     -LegacyScriptArguments $effectiveScriptArguments `
     -DoNotInvokeLegacyScript:$SkipLegacyScript
 

@@ -30,6 +30,21 @@ dart analyze
 powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
 ```
 
+Tooling-only Dart tests intentionally live under `test/tools` and can run with
+the Dart test runner:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\check_runtime_check_base.ps1"
+dart test test\tools
+```
+
+Project tests that import `flutter_test` require the Flutter test runner; do not
+use repository-wide `dart test` as a full-project substitute:
+
+```powershell
+flutter test
+```
+
 Run the full non-UI release-readiness gate before treating the current core
 runtime baseline as complete:
 

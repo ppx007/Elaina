@@ -1,0 +1,1 @@
+& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'runtime_check_base' -SkipLegacyScript -RequiredFiles @('tools/runtime_check_base.dart', 'test/tools/base_runtime_check_test.dart') -DartTestPaths 'test/tools'
