@@ -48,12 +48,30 @@ class _FakeUserProfileProvider implements UserProfileProvider {
 }
 
 class _FakeHomeRecommendationProvider implements HomeRecommendationProvider {
-  const _FakeHomeRecommendationProvider(this.snapshot);
+  _FakeHomeRecommendationProvider({
+    required this.popularSnapshot,
+    Iterable<HomeRecommendationItem> recentItems =
+        const <HomeRecommendationItem>[],
+    this.recentPageLimit,
+  }) : _recentItems = List<HomeRecommendationItem>.unmodifiable(recentItems);
 
-  final HomeRecommendationSnapshot snapshot;
+  final HomeRecommendationSnapshot popularSnapshot;
+  final List<HomeRecommendationItem> _recentItems;
+  final int? recentPageLimit;
 
   @override
-  Future<HomeRecommendationSnapshot> popularAnime() async => snapshot;
+  Future<HomeRecommendationSnapshot> popularAnime() async => popularSnapshot;
+
+  @override
+  Future<HomeRecommendationSnapshot> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) async {
+    final int effectiveLimit = recentPageLimit ?? limit;
+    return HomeRecommendationSnapshot.loaded(
+      _recentItems.skip(offset).take(effectiveLimit),
+    );
+  }
 }
 
 class _FakeBangumiTrackingProvider implements BangumiTrackingProvider {
@@ -347,7 +365,7 @@ void main() {
         btTaskCoreRuntime: btTaskCoreRuntime,
         policyStore: policyStore,
         homeRecommendationProvider: _FakeHomeRecommendationProvider(
-          HomeRecommendationSnapshot.loaded(
+          popularSnapshot: HomeRecommendationSnapshot.loaded(
             <HomeRecommendationItem>[
               const HomeRecommendationItem(
                 subjectId: '100',
@@ -359,6 +377,24 @@ void main() {
               ),
             ],
           ),
+          recentItems: const <HomeRecommendationItem>[
+            HomeRecommendationItem(
+              subjectId: '100',
+              title: 'Recent Hot Anime',
+              rank: 1,
+              score: 9.3,
+              collectionTotal: 120000,
+              episodeCount: 12,
+            ),
+            HomeRecommendationItem(
+              subjectId: '101',
+              title: 'Six Month Hot Anime',
+              score: 8.1,
+              collectionTotal: 42000,
+              episodeCount: 13,
+            ),
+          ],
+          recentPageLimit: 1,
         ),
       ),
     );
@@ -369,6 +405,7 @@ void main() {
     expect(find.text('最近观看'), findsOneWidget);
     expect(find.text('请登录'), findsOneWidget);
     expect(find.text('Recent Hot Anime'), findsWidgets);
+    expect(find.text('Six Month Hot Anime'), findsOneWidget);
     expect(find.text('Bangumi 近期热门，评分 9.3，120000 人收藏。'), findsWidgets);
     expect(find.textContaining('Bangumi 排名'), findsNothing);
     expect(
@@ -389,7 +426,9 @@ void main() {
       find.byKey(const ValueKey<String>('home-recommendation-waterfall')),
     );
     await tester.pump();
-    await tester.tap(find.text('Recent Hot Anime').last);
+    await tester.ensureVisible(find.text('Six Month Hot Anime'));
+    await tester.pump();
+    await tester.tap(find.text('Six Month Hot Anime'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Mock Title'), findsNWidgets(2));

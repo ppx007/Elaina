@@ -35,6 +35,28 @@ class FakeVideoDetailRepository implements VideoDetailRepository {
   }
 }
 
+final class _MappedVideoDetailRepository implements VideoDetailRepository {
+  const _MappedVideoDetailRepository(this._dataById);
+
+  final Map<String, VideoDetailViewData> _dataById;
+
+  @override
+  Future<VideoDetailViewData> load(VideoDetailId id) async => _dataFor(id);
+
+  @override
+  Stream<VideoDetailViewData> watch(VideoDetailId id) async* {
+    yield _dataFor(id);
+  }
+
+  VideoDetailViewData _dataFor(VideoDetailId id) {
+    final VideoDetailViewData? data = _dataById[id.value];
+    if (data == null) {
+      throw StateError('Missing detail fixture for ${id.value}.');
+    }
+    return data;
+  }
+}
+
 class FakeVideoDetailActionHandler implements VideoDetailActionHandler {
   final List<String> calls = <String>[];
 
@@ -661,6 +683,8 @@ void main() {
       await tester.pump();
 
       // Verify layout contents
+      final Scaffold scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      expect(scaffold.backgroundColor, ElainaThemeData.dark.background);
       expect(find.text('赛博朋克大冒险'),
           findsNWidgets(2)); // Header title and content title
       expect(find.text('这是一个未来赛博世界的硬核故事。'), findsOneWidget);
@@ -755,6 +779,80 @@ void main() {
       await tester.tap(find.text('抛弃'));
       await tester.pump();
       expect(actionHandler.calls, isEmpty);
+    });
+
+    testWidgets('reloads detail stream and tracking state when id changes',
+        (WidgetTester tester) async {
+      const VideoDetailId plannedId = VideoDetailId('subject-planned');
+      const VideoDetailId droppedId = VideoDetailId('subject-dropped');
+      const VideoDetailViewData plannedData = VideoDetailViewData(
+        id: plannedId,
+        title: 'Planned Remote Anime',
+        summary: 'Planned summary.',
+        followState: VideoFollowState.notFollowed,
+        trackingStatus: VideoTrackingStatus.planned,
+        actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+        episodes: <VideoDetailEpisode>[],
+      );
+      const VideoDetailViewData droppedData = VideoDetailViewData(
+        id: droppedId,
+        title: 'Dropped Remote Anime',
+        summary: 'Dropped summary.',
+        followState: VideoFollowState.notFollowed,
+        trackingStatus: VideoTrackingStatus.dropped,
+        actions: VideoDetailActionSet(actions: <VideoDetailAction>[]),
+        episodes: <VideoDetailEpisode>[],
+      );
+      final FakeVideoDetailActionHandler actionHandler =
+          FakeVideoDetailActionHandler();
+      final VideoDetailPageContract contract = VideoDetailPageContract(
+        controller: VideoDetailController(
+          repository: const _MappedVideoDetailRepository(
+            <String, VideoDetailViewData>{
+              'subject-planned': plannedData,
+              'subject-dropped': droppedData,
+            },
+          ),
+          actions: actionHandler,
+        ),
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: const <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+            PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+          },
+        ),
+      );
+
+      Future<void> pumpDetail(VideoDetailId id) {
+        return tester.pumpWidget(
+          _testHost(
+            child: VideoDetailPage(
+              id: id,
+              videoDetailPageContract: contract,
+              playbackController: playbackController,
+              onPlaybackStarted: () {},
+              onClose: () {},
+            ),
+          ),
+        );
+      }
+
+      await pumpDetail(plannedId);
+      await tester.pump();
+      expect(find.text('Planned Remote Anime'), findsNWidgets(2));
+      expect(find.text('想看'), findsOneWidget);
+      expect(find.text('加入追番'), findsNothing);
+
+      await pumpDetail(droppedId);
+      await tester.pump();
+
+      expect(find.text('Planned Remote Anime'), findsNothing);
+      expect(find.text('想看'), findsNothing);
+      expect(find.text('Dropped Remote Anime'), findsNWidgets(2));
+      expect(find.text('抛弃'), findsOneWidget);
+      expect(find.text('加入追番'), findsNothing);
     });
   });
 

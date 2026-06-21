@@ -81,15 +81,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _trackingGridAspectRatio = 1.55;
   static const double _completedProgressThreshold = 0.98;
   static const int _homeHeroRecommendationLimit = 7;
+  static const int _homeMoreRecommendationPageSize = 20;
+  static const double _homeMoreRecommendationLoadAheadExtent = 640;
+  static const double _recommendationPosterAspectRatio = 9 / 16;
   static const double _recommendationThreeColumnWidth = 900;
   static const double _recommendationTwoColumnWidth = 560;
   static const double _recommendationWaterfallGap = 24;
-  static const List<double> _recommendationWaterfallCardHeights = <double>[
-    220,
-    280,
-    248,
-    312,
-  ];
   static const double _recentWatchingPanelHeight = 400;
   static const String _brandLogoAsset =
       'assets/brand/elaina_iconic_character_logo.png';
@@ -98,10 +95,20 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   bool _playbackOverlayActive = false;
   VideoDetailId? _activeDetailId;
   int _bangumiAuthRevision = 0;
+  int _homeRecommendationRevision = 0;
   late MediaLibraryRuntimeSnapshot _librarySnapshot;
+  late final ScrollController _homeScrollController;
   Future<UserProfileSnapshot?>? _profileFuture;
   Future<BangumiTrackingSnapshot>? _trackingFuture;
   Future<HomeRecommendationSnapshot>? _homeRecommendationFuture;
+  final List<HomeRecommendationItem> _moreRecommendationItems =
+      <HomeRecommendationItem>[];
+  final Set<String> _moreRecommendationSubjectIds = <String>{};
+  Set<String> _homeHeroSubjectIds = <String>{};
+  int _moreRecommendationOffset = 0;
+  bool _moreRecommendationIsLoading = false;
+  bool _moreRecommendationHasMore = true;
+  String? _moreRecommendationMessage;
   _TrackingFilter _trackingFilter = _TrackingFilter.all;
 
   @override
@@ -109,8 +116,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     super.initState();
     _profileFuture = widget.profileProvider?.currentProfile();
     _trackingFuture = widget.bangumiTrackingProvider?.currentAnimeCollection();
-    _homeRecommendationFuture =
-        widget.homeRecommendationProvider?.popularAnime();
+    _homeScrollController = ScrollController();
+    _homeScrollController.addListener(_onHomeScroll);
+    _reloadHomeRecommendations();
     _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.playbackController.addPlaybackStateObserver(this);
     widget.mediaLibraryRuntime.addObserver(this);
@@ -136,13 +144,14 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     }
     if (oldWidget.homeRecommendationProvider !=
         widget.homeRecommendationProvider) {
-      _homeRecommendationFuture =
-          widget.homeRecommendationProvider?.popularAnime();
+      _reloadHomeRecommendations();
     }
   }
 
   @override
   void dispose() {
+    _homeScrollController.removeListener(_onHomeScroll);
+    _homeScrollController.dispose();
     widget.mediaLibraryRuntime.removeObserver(this);
     widget.playbackController.removePlaybackStateObserver(this);
     super.dispose();
@@ -194,6 +203,121 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   void _refreshLibrarySnapshot() {
     unawaited(widget.mediaLibraryRuntime.refresh());
+  }
+
+  void _reloadHomeRecommendations() {
+    _homeRecommendationRevision += 1;
+    final int revision = _homeRecommendationRevision;
+    final Future<HomeRecommendationSnapshot>? heroFuture =
+        widget.homeRecommendationProvider?.popularAnime();
+    _homeRecommendationFuture = heroFuture;
+    _homeHeroSubjectIds = <String>{};
+    _moreRecommendationItems.clear();
+    _moreRecommendationSubjectIds.clear();
+    _moreRecommendationOffset = 0;
+    _moreRecommendationIsLoading = false;
+    _moreRecommendationHasMore = heroFuture != null;
+    _moreRecommendationMessage = null;
+
+    if (heroFuture == null) return;
+    unawaited(
+      heroFuture.then((HomeRecommendationSnapshot snapshot) {
+        if (!mounted || revision != _homeRecommendationRevision) return;
+        final Set<String> heroSubjectIds = _subjectIdsFromRecommendations(
+          _loadedHomeRecommendationItems(snapshot)
+              .take(_homeHeroRecommendationLimit),
+        );
+        setState(() {
+          _homeHeroSubjectIds = heroSubjectIds;
+        });
+        unawaited(_loadMoreRecommendations());
+      }).catchError((Object error) {
+        if (!mounted || revision != _homeRecommendationRevision) return;
+        unawaited(_loadMoreRecommendations());
+      }),
+    );
+  }
+
+  void _onHomeScroll() {
+    if (_shouldLoadMoreHomeRecommendations()) {
+      unawaited(_loadMoreRecommendations());
+    }
+  }
+
+  bool _shouldLoadMoreHomeRecommendations() {
+    return _homeScrollController.hasClients &&
+        _homeScrollController.position.extentAfter <=
+            _homeMoreRecommendationLoadAheadExtent;
+  }
+
+  Future<void> _loadMoreRecommendations() async {
+    final HomeRecommendationProvider? provider =
+        widget.homeRecommendationProvider;
+    if (provider == null ||
+        _moreRecommendationIsLoading ||
+        !_moreRecommendationHasMore ||
+        _moreRecommendationMessage != null) {
+      return;
+    }
+
+    final int revision = _homeRecommendationRevision;
+    final int offset = _moreRecommendationOffset;
+    setState(() {
+      _moreRecommendationIsLoading = true;
+      _moreRecommendationMessage = null;
+    });
+
+    late final HomeRecommendationSnapshot snapshot;
+    try {
+      snapshot = await provider.recentPopularAnime(
+        limit: _homeMoreRecommendationPageSize,
+        offset: offset,
+      );
+    } catch (error) {
+      if (!mounted || revision != _homeRecommendationRevision) return;
+      setState(() {
+        _moreRecommendationIsLoading = false;
+        _moreRecommendationHasMore = true;
+        _moreRecommendationMessage = 'Bangumi 推荐加载失败：$error';
+      });
+      return;
+    }
+    if (!mounted || revision != _homeRecommendationRevision) return;
+
+    if (snapshot.status == HomeRecommendationLoadStatus.failed) {
+      setState(() {
+        _moreRecommendationIsLoading = false;
+        _moreRecommendationHasMore = true;
+        _moreRecommendationMessage = snapshot.message;
+      });
+      return;
+    }
+
+    final List<HomeRecommendationItem> incoming = snapshot.items;
+    final List<HomeRecommendationItem> accepted =
+        _newMoreRecommendationItems(incoming);
+    setState(() {
+      _moreRecommendationItems.addAll(accepted);
+      for (final HomeRecommendationItem item in accepted) {
+        _moreRecommendationSubjectIds.add(item.subjectId);
+      }
+      _moreRecommendationOffset += incoming.length;
+      _moreRecommendationHasMore = incoming.isNotEmpty;
+      _moreRecommendationIsLoading = false;
+    });
+
+    if (_moreRecommendationHasMore &&
+        (accepted.isEmpty || _shouldLoadMoreHomeRecommendations())) {
+      unawaited(_loadMoreRecommendations());
+    }
+  }
+
+  void _retryMoreRecommendations() {
+    setState(() {
+      _moreRecommendationHasMore = true;
+      _moreRecommendationMessage = null;
+    });
+    unawaited(_loadMoreRecommendations());
   }
 
   void _openBangumiSettings() {
@@ -295,6 +419,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
           if (_activeDetailId != null)
             Positioned.fill(
               child: VideoDetailPage(
+                key: ValueKey<String>(_activeDetailId!.value),
                 id: _activeDetailId!,
                 videoDetailPageContract: widget.videoDetailPageContract,
                 playbackController: widget.playbackController,
@@ -536,6 +661,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
           // Scrollable Content
           Expanded(
             child: ListView(
+              controller: _homeScrollController,
               children: <Widget>[
                 _buildBangumiHomeRecommendations(theme),
               ],
@@ -575,7 +701,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               ),
             ),
             const SizedBox(height: 12),
-            _buildRecommendationsWaterfall(theme, items),
+            _buildRecommendationsWaterfall(
+              theme,
+              _moreRecommendationItems,
+            ),
           ],
         );
       },
@@ -782,6 +911,27 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     return snapshot!.items;
   }
 
+  Set<String> _subjectIdsFromRecommendations(
+    Iterable<HomeRecommendationItem> items,
+  ) {
+    return <String>{
+      for (final HomeRecommendationItem item in items) item.subjectId,
+    };
+  }
+
+  List<HomeRecommendationItem> _newMoreRecommendationItems(
+    Iterable<HomeRecommendationItem> items,
+  ) {
+    final Set<String> blockedSubjectIds = <String>{
+      ..._homeHeroSubjectIds,
+      ..._moreRecommendationSubjectIds,
+    };
+    return <HomeRecommendationItem>[
+      for (final HomeRecommendationItem item in items)
+        if (!blockedSubjectIds.contains(item.subjectId)) item,
+    ];
+  }
+
   List<HeroCarouselItem> _heroItemsFromRecommendations(
     List<HomeRecommendationItem> items,
   ) {
@@ -934,6 +1084,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   ) {
     final List<_RecommendationCardModel> cards =
         _recommendationCardsFromItems(items);
+    if (cards.isEmpty) {
+      return _buildMoreRecommendationStatus(theme);
+    }
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final int columnCount =
@@ -942,39 +1095,39 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             _recommendationWaterfallColumns(cards.length, columnCount);
         return KeyedSubtree(
           key: const ValueKey<String>('home-recommendation-waterfall'),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
             children: <Widget>[
-              for (int columnIndex = 0;
-                  columnIndex < columns.length;
-                  columnIndex += 1) ...<Widget>[
-                if (columnIndex > 0)
-                  const SizedBox(width: _recommendationWaterfallGap),
-                Expanded(
-                  child: Column(
-                    children: <Widget>[
-                      for (final int cardIndex in columns[columnIndex])
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: cardIndex == columns[columnIndex].last
-                                ? 0
-                                : _recommendationWaterfallGap,
-                          ),
-                          child: SizedBox(
-                            height: _recommendationWaterfallCardHeight(
-                              cardIndex,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (int columnIndex = 0;
+                      columnIndex < columns.length;
+                      columnIndex += 1) ...<Widget>[
+                    if (columnIndex > 0)
+                      const SizedBox(width: _recommendationWaterfallGap),
+                    Expanded(
+                      child: Column(
+                        children: <Widget>[
+                          for (final int cardIndex in columns[columnIndex])
+                            Padding(
+                              padding: EdgeInsets.only(
+                                bottom: cardIndex == columns[columnIndex].last
+                                    ? 0
+                                    : _recommendationWaterfallGap,
+                              ),
+                              child: _buildRecommendationWaterfallCard(
+                                cards[cardIndex],
+                                cardIndex,
+                                theme,
+                              ),
                             ),
-                            child: _buildRecommendationWaterfallCard(
-                              cards[cardIndex],
-                              cardIndex,
-                              theme,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              _buildMoreRecommendationFooter(theme),
             ],
           ),
         );
@@ -985,28 +1138,6 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   List<_RecommendationCardModel> _recommendationCardsFromItems(
     List<HomeRecommendationItem> items,
   ) {
-    if (items.isEmpty) {
-      return const <_RecommendationCardModel>[
-        _RecommendationCardModel(
-          title: '星际回响',
-          subtitle: '12 话全',
-          rating: 'Bangumi 近期热门',
-          symbol: 'SE',
-        ),
-        _RecommendationCardModel(
-          title: '霓虹协议',
-          subtitle: '更新至 08 话',
-          rating: 'Bangumi 近期热门',
-          symbol: 'NP',
-        ),
-        _RecommendationCardModel(
-          title: '绯红地平线',
-          subtitle: '24 话全',
-          rating: 'Bangumi 近期热门',
-          symbol: 'CH',
-        ),
-      ];
-    }
     return <_RecommendationCardModel>[
       for (final HomeRecommendationItem item in items)
         _RecommendationCardModel(
@@ -1020,6 +1151,86 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     ];
   }
 
+  Widget _buildMoreRecommendationStatus(ElainaThemeData theme) {
+    final String? message = _moreRecommendationMessage;
+    return KeyedSubtree(
+      key: const ValueKey<String>('home-recommendation-waterfall'),
+      child: SizedBox(
+        height: 180,
+        child: Center(
+          child: message != null
+              ? _buildMoreRecommendationRetry(theme, message)
+              : _moreRecommendationIsLoading
+                  ? CircularProgressIndicator(color: theme.primary)
+                  : Text(
+                      '暂无推荐',
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.62),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoreRecommendationFooter(ElainaThemeData theme) {
+    final String? message = _moreRecommendationMessage;
+    if (message != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 20),
+        child: _buildMoreRecommendationRetry(theme, message),
+      );
+    }
+    if (!_moreRecommendationIsLoading) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Center(
+        child: SizedBox.square(
+          dimension: 28,
+          child: CircularProgressIndicator(
+            color: theme.primary,
+            strokeWidth: 3,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoreRecommendationRetry(
+    ElainaThemeData theme,
+    String message,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          message,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: theme.onBackground.withValues(alpha: 0.68),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed:
+              _moreRecommendationIsLoading ? null : _retryMoreRecommendations,
+          icon: const Icon(Icons.refresh),
+          label: const Text('重试'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.primary,
+            side: BorderSide(color: theme.primary),
+          ),
+        ),
+      ],
+    );
+  }
+
   List<List<int>> _recommendationWaterfallColumns(
     int cardCount,
     int columnCount,
@@ -1027,33 +1238,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     final List<List<int>> columns = <List<int>>[
       for (int index = 0; index < columnCount; index += 1) <int>[],
     ];
-    final List<double> columnHeights = List<double>.filled(columnCount, 0);
     for (int cardIndex = 0; cardIndex < cardCount; cardIndex += 1) {
-      final int columnIndex = _shortestRecommendationColumn(columnHeights);
-      columns[columnIndex].add(cardIndex);
-      columnHeights[columnIndex] +=
-          _recommendationWaterfallCardHeight(cardIndex) +
-              _recommendationWaterfallGap;
+      columns[cardIndex % columnCount].add(cardIndex);
     }
     return columns;
-  }
-
-  int _shortestRecommendationColumn(List<double> columnHeights) {
-    int shortestIndex = 0;
-    double shortestHeight = columnHeights.first;
-    for (int index = 1; index < columnHeights.length; index += 1) {
-      final double height = columnHeights[index];
-      if (height < shortestHeight) {
-        shortestIndex = index;
-        shortestHeight = height;
-      }
-    }
-    return shortestIndex;
-  }
-
-  double _recommendationWaterfallCardHeight(int index) {
-    return _recommendationWaterfallCardHeights[
-        index % _recommendationWaterfallCardHeights.length];
   }
 
   Widget _buildRecommendationWaterfallCard(
@@ -1096,7 +1284,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     final bool canOpenDetail = subjectId != null;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16.0),
+      borderRadius: BorderRadius.circular(8.0),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         mouseCursor:
@@ -1105,78 +1293,59 @@ class _ElainaAppShellState extends State<ElainaAppShell>
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16.0),
+            borderRadius: BorderRadius.circular(8.0),
             border: Border.all(
                 color: Colors.white.withValues(alpha: 0.2), width: 1.0),
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _RecommendationBackdrop(
-                symbol: symbol,
-                accentIndex: accentIndex,
-                theme: theme,
-                coverUri: coverUri,
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.8)
-                    ],
-                    stops: const [0.4, 1.0],
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AspectRatio(
+                aspectRatio: _recommendationPosterAspectRatio,
+                child: _RecommendationBackdrop(
+                  symbol: symbol,
+                  accentIndex: accentIndex,
+                  theme: theme,
+                  coverUri: coverUri,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
                     Text(
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.62),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            rating,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                              color: theme.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      rating,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -2275,38 +2444,68 @@ class _RecommendationBackdrop extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: colors,
         ),
-        image: imageUri == null
-            ? null
-            : DecorationImage(
-                image: NetworkImage(imageUri.toString()),
-                fit: BoxFit.cover,
-              ),
       ),
       child: Stack(
+        fit: StackFit.expand,
         children: <Widget>[
-          Positioned(
-            right: -20,
-            top: -28,
-            child: Icon(
-              Icons.blur_on,
-              size: 140,
-              color: Colors.white.withValues(alpha: 0.14),
+          if (imageUri == null)
+            _buildFallbackPoster()
+          else
+            Image.network(
+              imageUri.toString(),
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              gaplessPlayback: true,
+              errorBuilder:
+                  (BuildContext context, Object error, StackTrace? stackTrace) {
+                return _buildFallbackPoster();
+              },
+              loadingBuilder: (
+                BuildContext context,
+                Widget child,
+                ImageChunkEvent? loadingProgress,
+              ) {
+                if (loadingProgress == null) return child;
+                return _buildFallbackPoster();
+              },
             ),
-          ),
-          Positioned(
-            left: 16,
-            top: 14,
-            child: Text(
-              symbol,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.35),
-                fontSize: 48,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFallbackPoster() {
+    return Stack(
+      children: <Widget>[
+        Positioned(
+          right: -20,
+          top: -28,
+          child: Icon(
+            Icons.blur_on,
+            size: 140,
+            color: Colors.white.withValues(alpha: 0.14),
+          ),
+        ),
+        Positioned(
+          left: 16,
+          top: 14,
+          child: Text(
+            symbol,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.35),
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        Center(
+          child: Icon(
+            Icons.movie_filter_outlined,
+            color: Colors.white.withValues(alpha: 0.32),
+            size: 42,
+          ),
+        ),
+      ],
     );
   }
 }

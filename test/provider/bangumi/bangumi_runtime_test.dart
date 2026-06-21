@@ -64,6 +64,12 @@ void main() {
         bangumiEpisodeRequestKey(const BangumiEpisodeId('7'));
     final ProviderRequestKey episodeListKey =
         bangumiEpisodeListRequestKey(const BangumiSubjectId('42'));
+    final ProviderRequestKey recentPopularKey =
+        bangumiRecentPopularAnimeRequestKey(
+      now: DateTime.utc(2026, 6, 21),
+      limit: 24,
+      offset: 48,
+    );
     final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
     final ProviderGatewayRequest<String> request =
         bangumiGatewayRequest<String>(
@@ -76,6 +82,10 @@ void main() {
     expect(searchKey.cacheKey, 'subject-search:elaina');
     expect(episodeKey.cacheKey, 'episode:7');
     expect(episodeListKey.cacheKey, 'episodes:42');
+    expect(
+      recentPopularKey.cacheKey,
+      'subject-recent-popular-anime:20260621:24:48',
+    );
     expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(request.cachePolicy, ProviderCachePolicy.networkFirst);
     expect(request.deduplicationWindow, bangumiRuntimeDeduplicationWindow);
@@ -253,11 +263,15 @@ void main() {
           body:
               '{"data":[{"id":43,"name":"Search Fallback","name_cn":"Search Title","summary":"Hit"}]}',
         ),
-        'GET /v0/subjects?type=2&sort=heat&limit=7&offset=0':
-            const BangumiApiResponse(
+        'POST /v0/search/subjects?limit=7&offset=0': const BangumiApiResponse(
           statusCode: 200,
           body:
-              '{"total":1,"limit":7,"offset":0,"data":[{"id":44,"type":2,"name":"Recent Hot Anime","name_cn":"","short_summary":"Popular","images":{"large":"https://img.test/recent-hot.jpg"},"eps":12,"score":9.3,"rank":1,"collection_total":120000}]}',
+              '{"total":1,"limit":7,"offset":0,"data":[{"id":44,"type":2,"name":"Recent Hot Anime","name_cn":"","short_summary":"Popular","images":{"common":"https://img.test/recent-hot-common.jpg","large":"https://img.test/recent-hot.jpg"},"eps":12,"score":9.3,"rank":1,"collection_total":120000}]}',
+        ),
+        'POST /v0/search/subjects?limit=24&offset=24': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"total":48,"limit":24,"offset":24,"data":[{"id":45,"type":2,"name":"Recent Six Month Anime","name_cn":"","short_summary":"Recent","images":{"common":"https://img.test/recent-six-month.jpg"},"eps":13,"rating":{"score":8.4,"rank":120},"collection":{"wish":1000,"collect":2000,"doing":300,"on_hold":40,"dropped":5}}]}',
         ),
         'GET /v0/episodes/7': const BangumiApiResponse(
           statusCode: 200,
@@ -331,20 +345,69 @@ void main() {
     expect(gateway.lastCacheKey, 'subject-popular-anime');
     expect(
       gateway.lastNetworkPolicyUri,
-      Uri.parse(
-          'https://api.test/v0/subjects?type=2&sort=heat&limit=7&offset=0'),
+      Uri.parse('https://api.test/v0/search/subjects?limit=7&offset=0'),
     );
-    expect(popularRequest.method, 'GET');
-    expect(popularRequest.uri.path, '/v0/subjects');
-    expect(popularRequest.uri.queryParameters['sort'], 'heat');
+    expect(popularRequest.method, 'POST');
+    expect(popularRequest.uri.path, '/v0/search/subjects');
+    expect(popularRequest.uri.queryParameters['limit'], '7');
+    expect(popularRequest.uri.queryParameters['offset'], '0');
+    final Map<String, Object?> popularBody =
+        jsonDecode(popularRequest.body!) as Map<String, Object?>;
+    expect(popularBody['sort'], 'heat');
+    expect(
+      ((popularBody['filter'] as Map<String, Object?>)['type'] as List<Object?>)
+          .single,
+      bangumiAnimeSubjectType,
+    );
     final BangumiSubject popularSubject =
         (popular as AcgProviderSuccess<List<BangumiSubject>>).value.single;
     expect(popularSubject.title, 'Recent Hot Anime');
     expect(popularSubject.summary, 'Popular');
+    expect(
+        popularSubject.coverUri, Uri.parse('https://img.test/recent-hot.jpg'));
     expect(popularSubject.rank, 1);
     expect(popularSubject.score, 9.3);
     expect(popularSubject.collectionTotal, 120000);
     expect(popularSubject.episodeCount, 12);
+
+    final AcgProviderResult<List<BangumiSubject>> recentPopular =
+        await runtime.recentPopularAnime(
+      now: DateTime.utc(2026, 6, 21),
+      limit: 24,
+      offset: 24,
+    );
+    final BangumiApiRequest recentPopularRequest = transport.requests.last;
+    expect(
+      gateway.lastCacheKey,
+      'subject-recent-popular-anime:20260621:24:24',
+    );
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/v0/search/subjects?limit=24&offset=24'),
+    );
+    expect(recentPopularRequest.method, 'POST');
+    expect(recentPopularRequest.uri.path, '/v0/search/subjects');
+    final Map<String, Object?> recentPopularBody =
+        jsonDecode(recentPopularRequest.body!) as Map<String, Object?>;
+    expect(recentPopularBody['sort'], 'heat');
+    final Map<String, Object?> recentPopularFilter =
+        recentPopularBody['filter'] as Map<String, Object?>;
+    expect(
+      recentPopularFilter['air_date'],
+      <String>['>=2025-12-21', '<2026-06-22'],
+    );
+    final BangumiSubject recentPopularSubject =
+        (recentPopular as AcgProviderSuccess<List<BangumiSubject>>)
+            .value
+            .single;
+    expect(recentPopularSubject.title, 'Recent Six Month Anime');
+    expect(recentPopularSubject.rank, 120);
+    expect(recentPopularSubject.score, 8.4);
+    expect(recentPopularSubject.collectionTotal, 3345);
+    expect(
+      recentPopularSubject.coverUri,
+      Uri.parse('https://img.test/recent-six-month.jpg'),
+    );
 
     final AcgProviderResult<BangumiEpisode> episode =
         await runtime.lookupEpisode(const BangumiEpisodeId('7'));

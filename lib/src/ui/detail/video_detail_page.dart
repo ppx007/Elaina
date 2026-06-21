@@ -29,6 +29,27 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   static const double _disabledStatusBackgroundAlpha = 0.35;
   static const double _disabledStatusForegroundAlpha = 0.7;
 
+  late Stream<VideoDetailViewData> _detailStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailStream = _watchDetail();
+  }
+
+  @override
+  void didUpdateWidget(VideoDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id.value != widget.id.value ||
+        oldWidget.videoDetailPageContract != widget.videoDetailPageContract) {
+      _detailStream = _watchDetail();
+    }
+  }
+
+  Stream<VideoDetailViewData> _watchDetail() {
+    return widget.videoDetailPageContract.watch(widget.id);
+  }
+
   Future<void> _continuePlayback(VideoDetailViewData data) async {
     final VideoDetailActionResult result =
         await widget.videoDetailPageContract.continuePlayback(widget.id);
@@ -110,32 +131,37 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   Widget build(BuildContext context) {
     final ElainaThemeData theme = ElainaTheme.of(context);
 
-    return StreamBuilder<VideoDetailViewData>(
-      stream: widget.videoDetailPageContract.watch(widget.id),
-      builder:
-          (BuildContext context, AsyncSnapshot<VideoDetailViewData> snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('加载详情失败: ${snapshot.error}',
-                style: TextStyle(color: theme.onSurface)),
-          );
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return Scaffold(
+      backgroundColor: theme.background,
+      body: StreamBuilder<VideoDetailViewData>(
+        key: ValueKey<String>(widget.id.value),
+        stream: _detailStream,
+        builder: (BuildContext context,
+            AsyncSnapshot<VideoDetailViewData> snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('加载详情失败: ${snapshot.error}',
+                  style: TextStyle(color: theme.onSurface)),
+            );
+          }
+          if (!snapshot.hasData) {
+            return Center(
+              child: CircularProgressIndicator(color: theme.primary),
+            );
+          }
 
-        final VideoDetailViewData data = snapshot.data!;
-        final bool isTracked =
-            data.trackingStatus != VideoTrackingStatus.notTracked;
-        final bool canToggleFollow = _canToggleFollow(data);
-        final bool hasContinueWatching = data.continueWatching != null;
+          final VideoDetailViewData data = snapshot.data!;
+          final bool isTracked =
+              data.trackingStatus != VideoTrackingStatus.notTracked;
+          final bool canToggleFollow = _canToggleFollow(data);
+          final bool hasContinueWatching = data.continueWatching != null;
+          final Color detailSurface =
+              Color.alphaBlend(theme.surface, theme.background);
 
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Container(
+          return Container(
             margin: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
-              color: theme.surface,
+              color: detailSurface,
               borderRadius: BorderRadius.circular(16.0),
               border: Border.all(color: theme.border, width: 1.0),
             ),
@@ -409,9 +435,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                 ],
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

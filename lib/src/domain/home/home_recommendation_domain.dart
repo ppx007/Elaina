@@ -63,4 +63,9 @@ final class HomeRecommendationItem {
 
 abstract interface class HomeRecommendationProvider {
   Future<HomeRecommendationSnapshot> popularAnime();
+
+  Future<HomeRecommendationSnapshot> recentPopularAnime({
+    required int limit,
+    required int offset,
+  });
 }

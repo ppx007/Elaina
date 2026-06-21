@@ -68,4 +68,10 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
 
 abstract interface class BangumiDiscoveryProvider {
   Future<AcgProviderResult<List<BangumiSubject>>> popularAnime();
+
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required DateTime now,
+    required int limit,
+    required int offset,
+  });
 }

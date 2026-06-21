@@ -375,9 +375,13 @@ final class _BangumiTrackingCollectionProvider
 
 final class _BangumiHomeRecommendationProvider
     implements HomeRecommendationProvider {
-  const _BangumiHomeRecommendationProvider(this._discoveryProvider);
+  _BangumiHomeRecommendationProvider(
+    this._discoveryProvider, {
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final BangumiDiscoveryProvider _discoveryProvider;
+  final DateTime Function() _now;
 
   @override
   Future<HomeRecommendationSnapshot> popularAnime() async {
@@ -392,6 +396,33 @@ final class _BangumiHomeRecommendationProvider
       return HomeRecommendationSnapshot.failed(result.message);
     }
     return const HomeRecommendationSnapshot.failed('Bangumi 近期热门状态未知。');
+  }
+
+  @override
+  Future<HomeRecommendationSnapshot> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) async {
+    if (limit <= 0 || offset < 0) {
+      return const HomeRecommendationSnapshot.failed(
+        'Bangumi 推荐分页参数无效。',
+      );
+    }
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _discoveryProvider.recentPopularAnime(
+      now: _now(),
+      limit: limit,
+      offset: offset,
+    );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.loaded(
+        result.value.map(_homeRecommendationItemFromSubject),
+      );
+    }
+    if (result is AcgProviderFailure<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.failed(result.message);
+    }
+    return const HomeRecommendationSnapshot.failed('Bangumi 近半年热门状态未知。');
   }
 }
 

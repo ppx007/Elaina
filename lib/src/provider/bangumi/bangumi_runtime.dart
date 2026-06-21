@@ -29,6 +29,18 @@ ProviderRequestKey bangumiPopularAnimeRequestKey() {
   );
 }
 
+ProviderRequestKey bangumiRecentPopularAnimeRequestKey({
+  required DateTime now,
+  required int limit,
+  required int offset,
+}) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey:
+        'subject-recent-popular-anime:${_dateCacheKey(now)}:$limit:$offset',
+  );
+}
+
 ProviderRequestKey bangumiEpisodeRequestKey(BangumiEpisodeId id) {
   return ProviderRequestKey(
     providerId: bangumiProviderId,
@@ -185,6 +197,30 @@ final class DeterministicBangumiProvider
           ..._subjects.values,
         ]..sort(_compareSubjectsByPopularityThenTitle);
         return List<BangumiSubject>.unmodifiable(subjects);
+      },
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required DateTime now,
+    required int limit,
+    required int offset,
+  }) {
+    return _execute(
+      key: bangumiRecentPopularAnimeRequestKey(
+        now: now,
+        limit: limit,
+        offset: offset,
+      ),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async {
+        final List<BangumiSubject> subjects = <BangumiSubject>[
+          ..._subjects.values,
+        ]..sort(_compareSubjectsByPopularityThenTitle);
+        return List<BangumiSubject>.unmodifiable(
+          subjects.skip(offset).take(limit),
+        );
       },
     );
   }
@@ -578,6 +614,21 @@ final class BangumiProviderRuntime
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required DateTime now,
+    required int limit,
+    required int offset,
+  }) async {
+    if (_disposed) return _disposedFailure<List<BangumiSubject>>();
+    await _ensureRegistered();
+    return _discoveryProvider.recentPopularAnime(
+      now: now,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(
       BangumiEpisodeId id) async {
     if (_disposed) return _disposedFailure<BangumiEpisode>();
@@ -675,6 +726,13 @@ final class BangumiProviderBootstrap {
 }
 
 String _normalizeQuery(String query) => query.trim().toLowerCase();
+
+String _dateCacheKey(DateTime value) {
+  final String year = value.year.toString().padLeft(4, '0');
+  final String month = value.month.toString().padLeft(2, '0');
+  final String day = value.day.toString().padLeft(2, '0');
+  return '$year$month$day';
+}
 
 BangumiCollectionProvider? _bangumiCollectionProviderFrom(
   BangumiAuthProvider? provider,

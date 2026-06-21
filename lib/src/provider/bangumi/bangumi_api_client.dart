@@ -19,6 +19,10 @@ const int bangumiApiDefaultSearchOffset = 0;
 const int bangumiApiPopularAnimeLimit = 7;
 const int bangumiApiPopularAnimeOffset = 0;
 const String bangumiApiPopularAnimeSort = 'heat';
+const int bangumiApiRecentPopularAnimeWindowMonths = 6;
+const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
+const int bangumiApiRecentPopularAnimeOffset = 0;
+const int _calendarMonthsPerYear = 12;
 const int bangumiApiEpisodePageLimit = 200;
 const int bangumiApiEpisodeInitialOffset = 0;
 const int bangumiApiCollectionPageLimit = 50;
@@ -179,10 +183,21 @@ final class BangumiApiClient {
     int offset = bangumiApiPopularAnimeOffset,
   }) {
     return _uri(
-      '/v0/subjects',
+      '/v0/search/subjects',
       <String, String>{
-        'type': '$bangumiAnimeSubjectType',
-        'sort': bangumiApiPopularAnimeSort,
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Uri recentPopularAnimeRequestUri({
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+  }) {
+    return _uri(
+      '/v0/search/subjects',
+      <String, String>{
         'limit': '$limit',
         'offset': '$offset',
       },
@@ -261,54 +276,57 @@ final class BangumiApiClient {
       'POST',
       searchSubjectsRequestUri(),
       proxyUrl: proxyUrl,
-      body: <String, Object?>{
-        'keyword': normalizedQuery,
-        'sort': 'match',
-        'filter': const <String, Object?>{
-          'type': <int>[bangumiAnimeSubjectType],
-        },
-      },
+      body: _animeSubjectSearchBody(
+        keyword: normalizedQuery,
+        sort: 'match',
+      ),
     );
-    final Object? data = switch (json) {
-      final Map<String, Object?> object => object['data'],
-      final List<Object?> list => list,
-      _ => null,
-    };
-    if (data is! List<Object?>) {
-      throw const ProviderFailure(
-        kind: ProviderFailureKind.terminal,
-        message: 'Bangumi subject search response missing data list.',
-      );
-    }
-    return data
-        .map((Object? value) =>
-            _subjectFromJson(_jsonObject(value, 'Bangumi search subject')))
-        .toList(growable: false);
+    return _subjectsFromJsonList(
+      json,
+      missingDataMessage: 'Bangumi subject search response missing data list.',
+      itemLabel: 'Bangumi search subject',
+    );
   }
 
   Future<List<BangumiSubject>> popularAnime({
     String? proxyUrl,
   }) async {
     final Object? json = await _sendJson(
-      'GET',
+      'POST',
       popularAnimeRequestUri(),
       proxyUrl: proxyUrl,
+      body: _animeSubjectSearchBody(sort: bangumiApiPopularAnimeSort),
     );
-    final Object? data = switch (json) {
-      final Map<String, Object?> object => object['data'],
-      final List<Object?> list => list,
-      _ => null,
-    };
-    if (data is! List<Object?>) {
-      throw const ProviderFailure(
-        kind: ProviderFailureKind.terminal,
-        message: 'Bangumi popular anime response missing data list.',
-      );
-    }
-    return data
-        .map((Object? value) =>
-            _subjectFromJson(_jsonObject(value, 'Bangumi popular subject')))
-        .toList(growable: false);
+    return _subjectsFromJsonList(
+      json,
+      missingDataMessage: 'Bangumi popular anime response missing data list.',
+      itemLabel: 'Bangumi popular subject',
+    );
+  }
+
+  Future<List<BangumiSubject>> recentPopularAnime({
+    required DateTime now,
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+    String? proxyUrl,
+  }) async {
+    final _BangumiAirDateRange airDateRange =
+        _recentPopularAnimeAirDateRange(now);
+    final Object? json = await _sendJson(
+      'POST',
+      recentPopularAnimeRequestUri(limit: limit, offset: offset),
+      proxyUrl: proxyUrl,
+      body: _animeSubjectSearchBody(
+        sort: bangumiApiPopularAnimeSort,
+        airDateFilters: airDateRange.filters,
+      ),
+    );
+    return _subjectsFromJsonList(
+      json,
+      missingDataMessage:
+          'Bangumi recent popular anime response missing data list.',
+      itemLabel: 'Bangumi recent popular subject',
+    );
   }
 
   Future<BangumiEpisode> lookupEpisode(
@@ -665,6 +683,33 @@ final class BangumiApiProvider
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required DateTime now,
+    required int limit,
+    required int offset,
+  }) {
+    return _execute<List<BangumiSubject>>(
+      key: bangumiRecentPopularAnimeRequestKey(
+        now: now,
+        limit: limit,
+        offset: offset,
+      ),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.recentPopularAnimeRequestUri(
+        limit: limit,
+        offset: offset,
+      ),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.recentPopularAnime(
+        now: now,
+        limit: limit,
+        offset: offset,
+        proxyUrl: context.proxyUrl,
+      ),
+    );
+  }
+
+  @override
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(
     BangumiEpisodeId id,
   ) {
@@ -806,6 +851,78 @@ Map<String, Object?> _jsonObject(Object? value, String label) {
   );
 }
 
+Map<String, Object?> _animeSubjectSearchBody({
+  required String sort,
+  String? keyword,
+  List<String> airDateFilters = const <String>[],
+}) {
+  return <String, Object?>{
+    if (keyword != null) 'keyword': keyword,
+    'sort': sort,
+    'filter': <String, Object?>{
+      'type': const <int>[bangumiAnimeSubjectType],
+      if (airDateFilters.isNotEmpty) 'air_date': airDateFilters,
+    },
+  };
+}
+
+List<BangumiSubject> _subjectsFromJsonList(
+  Object? json, {
+  required String missingDataMessage,
+  required String itemLabel,
+}) {
+  final Object? data = switch (json) {
+    final Map<String, Object?> object => object['data'],
+    final List<Object?> list => list,
+    _ => null,
+  };
+  if (data is! List<Object?>) {
+    throw ProviderFailure(
+      kind: ProviderFailureKind.terminal,
+      message: missingDataMessage,
+    );
+  }
+  return data
+      .map((Object? value) => _subjectFromJson(_jsonObject(value, itemLabel)))
+      .toList(growable: false);
+}
+
+_BangumiAirDateRange _recentPopularAnimeAirDateRange(DateTime now) {
+  final DateTime today = DateTime(now.year, now.month, now.day);
+  final DateTime start = _subtractCalendarMonths(
+    today,
+    bangumiApiRecentPopularAnimeWindowMonths,
+  );
+  final DateTime endExclusive = today.add(const Duration(days: 1));
+  return _BangumiAirDateRange(
+    startDate: _bangumiDate(start),
+    endExclusiveDate: _bangumiDate(endExclusive),
+  );
+}
+
+DateTime _subtractCalendarMonths(DateTime value, int months) {
+  int year = value.year;
+  int month = value.month - months;
+  while (month <= 0) {
+    month += _calendarMonthsPerYear;
+    year -= 1;
+  }
+  final int maxDay = _daysInMonth(year, month);
+  final int day = value.day <= maxDay ? value.day : maxDay;
+  return DateTime(year, month, day);
+}
+
+int _daysInMonth(int year, int month) {
+  return DateTime(year, month + 1, 0).day;
+}
+
+String _bangumiDate(DateTime value) {
+  final String year = value.year.toString().padLeft(4, '0');
+  final String month = value.month.toString().padLeft(2, '0');
+  final String day = value.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
 BangumiSubject _subjectFromJson(Map<String, Object?> json) {
   final String id = _requiredIdString(json['id'], 'Bangumi subject id');
   final String title = _firstNonEmptyString(<Object?>[
@@ -822,10 +939,11 @@ BangumiSubject _subjectFromJson(Map<String, Object?> json) {
     id: BangumiSubjectId(id),
     title: title,
     summary: _optionalString(json['summary'] ?? json['short_summary']),
-    coverUri: _avatarUriFromJson(json['images']),
-    rank: _optionalPositiveIntOrNull(json['rank']),
+    coverUri: _avatarUriFromJson(json['images'] ?? json['image']),
+    rank:
+        _optionalPositiveIntOrNull(json['rank'] ?? _ratingValue(json, 'rank')),
     score: _optionalNonNegativeDouble(_ratingValue(json, 'score')),
-    collectionTotal: _optionalNonNegativeIntOrNull(json['collection_total']),
+    collectionTotal: _subjectCollectionTotal(json),
     episodeCount:
         _optionalNonNegativeIntOrNull(json['eps'] ?? json['total_episodes']),
   );
@@ -905,17 +1023,44 @@ Object? _ratingValue(Map<String, Object?> json, String key) {
   return rating?[key];
 }
 
+int? _subjectCollectionTotal(Map<String, Object?> json) {
+  final int? direct = _optionalNonNegativeIntOrNull(json['collection_total']);
+  if (direct != null) return direct;
+
+  final Map<String, Object?>? collection =
+      _optionalJsonObject(json['collection']);
+  if (collection == null) return null;
+
+  int total = 0;
+  bool hasCount = false;
+  for (final String key in const <String>[
+    'wish',
+    'collect',
+    'doing',
+    'on_hold',
+    'dropped',
+  ]) {
+    final int? count = _optionalNonNegativeIntOrNull(collection[key]);
+    if (count == null) continue;
+    total += count;
+    hasCount = true;
+  }
+  return hasCount ? total : null;
+}
+
 Uri? _avatarUriFromJson(Object? value) {
   final String text = switch (value) {
     final String raw => raw.trim(),
     final Map<String, Object?> object => _firstNonEmptyString(<Object?>[
         object['large'],
+        object['common'],
         object['medium'],
         object['small'],
         object['grid'],
       ]),
     final Map<Object?, Object?> object => _firstNonEmptyString(<Object?>[
         object['large'],
+        object['common'],
         object['medium'],
         object['small'],
         object['grid'],
@@ -1068,6 +1213,21 @@ final class _BangumiApiUnauthenticated implements Exception {
   const _BangumiApiUnauthenticated(this.message);
 
   final String message;
+}
+
+final class _BangumiAirDateRange {
+  const _BangumiAirDateRange({
+    required this.startDate,
+    required this.endExclusiveDate,
+  });
+
+  final String startDate;
+  final String endExclusiveDate;
+
+  List<String> get filters => <String>[
+        '>=$startDate',
+        '<$endExclusiveDate',
+      ];
 }
 
 final class _BangumiCollectionPage {
