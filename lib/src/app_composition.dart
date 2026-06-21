@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
 import 'domain/home/home_recommendation_domain.dart';
+import 'domain/home/home_search_domain.dart';
 import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
@@ -113,6 +114,9 @@ class AppComposition {
       remoteProvider: remoteTrackingProvider,
     );
     homeRecommendationProvider = _BangumiHomeRecommendationProvider(
+      bangumiProviderRuntime,
+    );
+    homeSearchProvider = _BangumiHomeSearchProvider(
       bangumiProviderRuntime,
     );
 
@@ -229,6 +233,7 @@ class AppComposition {
   late final BangumiTrackingSyncProvider trackingSyncProvider;
   late final BangumiTrackingProvider trackingProvider;
   late final HomeRecommendationProvider homeRecommendationProvider;
+  late final HomeSearchProvider homeSearchProvider;
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
@@ -443,7 +448,7 @@ final class _BangumiHomeRecommendationProvider
     if (result is AcgProviderFailure<List<BangumiSubject>>) {
       return HomeRecommendationSnapshot.failed(result.message);
     }
-    return const HomeRecommendationSnapshot.failed('Bangumi 近期热门状态未知。');
+    return const HomeRecommendationSnapshot.failed('Bangumi 近30天注目状态未知。');
   }
 
   @override
@@ -478,6 +483,46 @@ HomeRecommendationItem _homeRecommendationItemFromSubject(
   BangumiSubject subject,
 ) {
   return HomeRecommendationItem(
+    subjectId: subject.id.value,
+    title: subject.title,
+    summary: subject.summary,
+    coverUri: subject.coverUri,
+    rank: subject.rank,
+    score: subject.score,
+    collectionTotal: subject.collectionTotal,
+    episodeCount: subject.episodeCount,
+  );
+}
+
+final class _BangumiHomeSearchProvider implements HomeSearchProvider {
+  const _BangumiHomeSearchProvider(this._provider);
+
+  final BangumiProvider _provider;
+
+  @override
+  Future<HomeSearchSnapshot> searchAnime(String query) async {
+    final String normalizedQuery = query.trim();
+    if (normalizedQuery.length < homeSearchMinimumQueryLength) {
+      return HomeSearchSnapshot.loaded(const <HomeSearchItem>[]);
+    }
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _provider.searchSubjects(normalizedQuery);
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      return HomeSearchSnapshot.loaded(
+        result.value
+            .take(homeSearchSuggestionLimit)
+            .map(_homeSearchItemFromSubject),
+      );
+    }
+    if (result is AcgProviderFailure<List<BangumiSubject>>) {
+      return HomeSearchSnapshot.failed(result.message);
+    }
+    return const HomeSearchSnapshot.failed('Bangumi 搜索状态未知。');
+  }
+}
+
+HomeSearchItem _homeSearchItemFromSubject(BangumiSubject subject) {
+  return HomeSearchItem(
     subjectId: subject.id.value,
     title: subject.title,
     summary: subject.summary,

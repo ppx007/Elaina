@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:elaina/elaina.dart';
 import 'package:elaina/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/widget_test_waiters.dart';
@@ -78,6 +79,43 @@ class _FakeHomeRecommendationProvider implements HomeRecommendationProvider {
     final int effectiveLimit = recentPageLimit ?? limit;
     return HomeRecommendationSnapshot.loaded(
       _recentItems.skip(offset).take(effectiveLimit),
+    );
+  }
+}
+
+class _FakeHomeSearchProvider implements HomeSearchProvider {
+  _FakeHomeSearchProvider({
+    Map<String, HomeSearchSnapshot> snapshotsByQuery =
+        const <String, HomeSearchSnapshot>{},
+    Map<String, List<HomeSearchSnapshot>> queuedSnapshotsByQuery =
+        const <String, List<HomeSearchSnapshot>>{},
+    Map<String, Completer<HomeSearchSnapshot>> pendingByQuery =
+        const <String, Completer<HomeSearchSnapshot>>{},
+  })  : _snapshotsByQuery = snapshotsByQuery,
+        _queuedSnapshotsByQuery = <String, List<HomeSearchSnapshot>>{
+          for (final MapEntry<String, List<HomeSearchSnapshot>> entry
+              in queuedSnapshotsByQuery.entries)
+            entry.key: <HomeSearchSnapshot>[...entry.value],
+        },
+        _pendingByQuery = pendingByQuery;
+
+  final Map<String, HomeSearchSnapshot> _snapshotsByQuery;
+  final Map<String, List<HomeSearchSnapshot>> _queuedSnapshotsByQuery;
+  final Map<String, Completer<HomeSearchSnapshot>> _pendingByQuery;
+  final List<String> searchedQueries = <String>[];
+
+  @override
+  Future<HomeSearchSnapshot> searchAnime(String query) {
+    searchedQueries.add(query);
+    final List<HomeSearchSnapshot>? queue = _queuedSnapshotsByQuery[query];
+    if (queue != null && queue.isNotEmpty) {
+      return Future<HomeSearchSnapshot>.value(queue.removeAt(0));
+    }
+    final Completer<HomeSearchSnapshot>? pending = _pendingByQuery[query];
+    if (pending != null) return pending.future;
+    return Future<HomeSearchSnapshot>.value(
+      _snapshotsByQuery[query] ??
+          HomeSearchSnapshot.loaded(const <HomeSearchItem>[]),
     );
   }
 }
@@ -188,6 +226,77 @@ class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
       BtTaskId taskId, Iterable<BtFileIndex> files) async {}
 }
 
+final class _WidgetShellFixture {
+  const _WidgetShellFixture(this.libraryRuntime);
+
+  final MediaLibraryRuntime libraryRuntime;
+
+  void dispose() {
+    libraryRuntime.dispose();
+  }
+}
+
+Future<_WidgetShellFixture> _pumpHomeSearchShell(
+  WidgetTester tester, {
+  required HomeSearchProvider homeSearchProvider,
+}) async {
+  final mockController = MockPlaybackController(
+    matrix: PlaybackCapabilityMatrix(
+      capabilities: const <PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.playPause: CapabilityStatus.supported(),
+        PlaybackCapability.seek: CapabilityStatus.supported(),
+        PlaybackCapability.stop: CapabilityStatus.supported(),
+      },
+    ),
+  );
+  final libraryRuntime = MediaLibraryRuntime(
+    scanner: DeterministicMediaLibraryScanner(
+      scanId: const MediaScanId('search-shell-scan'),
+      candidates: const [],
+    ),
+    catalogRepository: DeterministicMediaLibraryCatalogRepository(),
+    importer: DeterministicMediaBatchImportContract(
+      repository: DeterministicMediaLibraryCatalogRepository(),
+    ),
+    historyStore: DeterministicPlaybackHistoryStore(),
+    bindingStore: DeterministicProviderBindingStore(),
+    playbackSourceHandoff: const LocalPlaybackSourceHandoff(),
+    invalidationBus: _MockCacheInvalidationBus(),
+  );
+  final detailContract = VideoDetailPageContract(
+    controller: VideoDetailController(
+      repository: _FakeVideoDetailRepository(),
+      actions: _FakeVideoDetailActionHandler(),
+    ),
+  );
+  final policyStore = DeterministicRssAutoDownloadPolicyStore();
+  final rssEngineRuntime = RssEngineRuntime(
+    engine: _FakeRssEngine(),
+    store: DeterministicRssFeedStore(),
+    scheduler: _FakeFeedScheduler(),
+    policyStore: policyStore,
+  );
+  final btTaskCoreRuntime = BtTaskCoreRuntime.withDependencies(
+    adapter: _FakeDownloadEngineAdapter(),
+    store: DeterministicBtTaskStore(),
+  );
+
+  await tester.pumpWidget(
+    MyApp(
+      playbackController: mockController,
+      videoSurface: const SizedBox(),
+      mediaLibraryRuntime: libraryRuntime,
+      videoDetailPageContract: detailContract,
+      rssEngineRuntime: rssEngineRuntime,
+      btTaskCoreRuntime: btTaskCoreRuntime,
+      policyStore: policyStore,
+      homeSearchProvider: homeSearchProvider,
+    ),
+  );
+  await tester.pump();
+  return _WidgetShellFixture(libraryRuntime);
+}
+
 void main() {
   testWidgets('Elaina App Shell smoke test', (WidgetTester tester) async {
     final mockController = MockPlaybackController(
@@ -252,6 +361,192 @@ void main() {
     expect(find.text('Elaina'), findsOneWidget);
 
     libraryRuntime.dispose();
+  });
+
+  testWidgets('home search opens typeahead and Enter opens first result',
+      (WidgetTester tester) async {
+    final _FakeHomeSearchProvider searchProvider = _FakeHomeSearchProvider(
+      snapshotsByQuery: <String, HomeSearchSnapshot>{
+        'fri': HomeSearchSnapshot.loaded(
+          const <HomeSearchItem>[
+            HomeSearchItem(
+              subjectId: 'search-frieren',
+              title: 'Frieren',
+              summary: 'Journey after the end.',
+              score: 9.1,
+              collectionTotal: 120000,
+              episodeCount: 28,
+            ),
+          ],
+        ),
+      },
+    );
+    final _WidgetShellFixture fixture = await _pumpHomeSearchShell(
+      tester,
+      homeSearchProvider: searchProvider,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-entry')));
+    await tester.pump();
+    await tester.pumpUntilFound(
+      find.byKey(const ValueKey<String>('home-search-input')),
+    );
+    final TextField input = tester.widget<TextField>(
+      find.byKey(const ValueKey<String>('home-search-input')),
+    );
+    expect(input.focusNode?.hasFocus, isTrue);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('home-search-input')),
+      'f',
+    );
+    await tester.pump(homeSearchDebounceDuration);
+    expect(searchProvider.searchedQueries, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('home-search-input')),
+      'fri',
+    );
+    await tester.pump(homeSearchDebounceDuration);
+    await tester.pumpUntilFound(find.text('Frieren'));
+
+    expect(searchProvider.searchedQueries, <String>['fri']);
+    expect(find.text('评分 9.1 · 120000 人收藏 · 28 话'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pumpUntilFound(find.text('Mock Title'));
+
+    expect(
+        find.byKey(const ValueKey<String>('home-search-input')), findsNothing);
+    expect(find.text('Mock Title'), findsNWidgets(2));
+
+    fixture.dispose();
+  });
+
+  testWidgets('home search closes with Escape', (WidgetTester tester) async {
+    final _WidgetShellFixture fixture = await _pumpHomeSearchShell(
+      tester,
+      homeSearchProvider: _FakeHomeSearchProvider(),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-entry')));
+    await tester.pump();
+    await tester.pumpUntilFound(
+      find.byKey(const ValueKey<String>('home-search-input')),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(
+        find.byKey(const ValueKey<String>('home-search-input')), findsNothing);
+
+    fixture.dispose();
+  });
+
+  testWidgets('home search retry recovers from provider failure',
+      (WidgetTester tester) async {
+    final _FakeHomeSearchProvider searchProvider = _FakeHomeSearchProvider(
+      queuedSnapshotsByQuery: <String, List<HomeSearchSnapshot>>{
+        'bad': <HomeSearchSnapshot>[
+          const HomeSearchSnapshot.failed('Bangumi temporarily failed.'),
+          HomeSearchSnapshot.loaded(
+            const <HomeSearchItem>[
+              HomeSearchItem(
+                subjectId: 'retry-subject',
+                title: 'Recovered Anime',
+              ),
+            ],
+          ),
+        ],
+      },
+    );
+    final _WidgetShellFixture fixture = await _pumpHomeSearchShell(
+      tester,
+      homeSearchProvider: searchProvider,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-entry')));
+    await tester.pump();
+    await tester.pumpUntilFound(
+      find.byKey(const ValueKey<String>('home-search-input')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('home-search-input')),
+      'bad',
+    );
+    await tester.pump(homeSearchDebounceDuration);
+    await tester.pumpUntilFound(find.text('Bangumi temporarily failed.'));
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-retry')));
+    await tester.pump();
+    await tester.pumpUntilFound(find.text('Recovered Anime'));
+
+    expect(searchProvider.searchedQueries, <String>['bad', 'bad']);
+
+    fixture.dispose();
+  });
+
+  testWidgets('home search ignores stale typeahead results',
+      (WidgetTester tester) async {
+    final Completer<HomeSearchSnapshot> oldSearch =
+        Completer<HomeSearchSnapshot>();
+    final Completer<HomeSearchSnapshot> newSearch =
+        Completer<HomeSearchSnapshot>();
+    final _FakeHomeSearchProvider searchProvider = _FakeHomeSearchProvider(
+      pendingByQuery: <String, Completer<HomeSearchSnapshot>>{
+        'sl': oldSearch,
+        'slow': newSearch,
+      },
+    );
+    final _WidgetShellFixture fixture = await _pumpHomeSearchShell(
+      tester,
+      homeSearchProvider: searchProvider,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-entry')));
+    await tester.pump();
+    await tester.pumpUntilFound(
+      find.byKey(const ValueKey<String>('home-search-input')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('home-search-input')),
+      'sl',
+    );
+    await tester.pump(homeSearchDebounceDuration);
+    expect(searchProvider.searchedQueries, <String>['sl']);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('home-search-input')),
+      'slow',
+    );
+    await tester.pump(homeSearchDebounceDuration);
+    expect(searchProvider.searchedQueries, <String>['sl', 'slow']);
+
+    newSearch.complete(
+      HomeSearchSnapshot.loaded(
+        const <HomeSearchItem>[
+          HomeSearchItem(subjectId: 'new-result', title: 'New Result'),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pumpUntilFound(find.text('New Result'));
+
+    oldSearch.complete(
+      HomeSearchSnapshot.loaded(
+        const <HomeSearchItem>[
+          HomeSearchItem(subjectId: 'old-result', title: 'Old Result'),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('New Result'), findsOneWidget);
+    expect(find.text('Old Result'), findsNothing);
+
+    fixture.dispose();
   });
 
   testWidgets('Elaina App Shell greets signed-in profile',
@@ -423,7 +718,7 @@ void main() {
     expect(find.text('请登录'), findsOneWidget);
     expect(find.text('Recent Hot Anime'), findsWidgets);
     expect(find.text('Six Month Hot Anime'), findsOneWidget);
-    expect(find.text('Bangumi 近期热门，评分 9.3，120000 人收藏。'), findsWidgets);
+    expect(find.text('Bangumi 近30天注目，评分 9.3，120000 人收藏。'), findsWidgets);
     expect(find.textContaining('Bangumi 排名'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('home-recommendation-waterfall')),

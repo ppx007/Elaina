@@ -1,25 +1,29 @@
-enum HomeRecommendationLoadStatus {
+enum HomeSearchLoadStatus {
   loaded,
   failed,
 }
 
-final class HomeRecommendationSnapshot {
-  HomeRecommendationSnapshot.loaded(Iterable<HomeRecommendationItem> items)
-      : status = HomeRecommendationLoadStatus.loaded,
+const int homeSearchMinimumQueryLength = 2;
+const int homeSearchSuggestionLimit = 10;
+const Duration homeSearchDebounceDuration = Duration(milliseconds: 300);
+
+final class HomeSearchSnapshot {
+  HomeSearchSnapshot.loaded(Iterable<HomeSearchItem> items)
+      : status = HomeSearchLoadStatus.loaded,
         message = null,
-        items = List<HomeRecommendationItem>.unmodifiable(items);
+        items = List<HomeSearchItem>.unmodifiable(items);
 
-  const HomeRecommendationSnapshot.failed(String this.message)
-      : status = HomeRecommendationLoadStatus.failed,
-        items = const <HomeRecommendationItem>[];
+  const HomeSearchSnapshot.failed(String this.message)
+      : status = HomeSearchLoadStatus.failed,
+        items = const <HomeSearchItem>[];
 
-  final HomeRecommendationLoadStatus status;
+  final HomeSearchLoadStatus status;
   final String? message;
-  final List<HomeRecommendationItem> items;
+  final List<HomeSearchItem> items;
 }
 
-final class HomeRecommendationItem {
-  const HomeRecommendationItem({
+final class HomeSearchItem {
+  const HomeSearchItem({
     required this.subjectId,
     required this.title,
     this.summary,
@@ -28,8 +32,8 @@ final class HomeRecommendationItem {
     this.score,
     this.collectionTotal,
     this.episodeCount,
-  })  : assert(subjectId != '', 'Recommendation subject id must not be empty.'),
-        assert(title != '', 'Recommendation title must not be empty.'),
+  })  : assert(subjectId != '', 'Search subject id must not be empty.'),
+        assert(title != '', 'Search title must not be empty.'),
         assert(rank == null || rank > 0, 'Rank must be positive.'),
         assert(score == null || score >= 0, 'Score must not be negative.'),
         assert(collectionTotal == null || collectionTotal >= 0,
@@ -46,7 +50,7 @@ final class HomeRecommendationItem {
   final int? collectionTotal;
   final int? episodeCount;
 
-  String get popularitySentence {
+  String get metadataSentence {
     final List<String> parts = <String>[];
     final double? valueScore = score;
     if (valueScore != null) {
@@ -56,16 +60,14 @@ final class HomeRecommendationItem {
     if (valueCollectionTotal != null) {
       parts.add('$valueCollectionTotal 人收藏');
     }
-    if (parts.isEmpty) return 'Bangumi 近30天注目';
-    return 'Bangumi 近30天注目，${parts.join('，')}。';
+    final int? valueEpisodeCount = episodeCount;
+    if (valueEpisodeCount != null && valueEpisodeCount > 0) {
+      parts.add('$valueEpisodeCount 话');
+    }
+    return parts.join(' · ');
   }
 }
 
-abstract interface class HomeRecommendationProvider {
-  Future<HomeRecommendationSnapshot> popularAnime();
-
-  Future<HomeRecommendationSnapshot> recentPopularAnime({
-    required int limit,
-    required int offset,
-  });
+abstract interface class HomeSearchProvider {
+  Future<HomeSearchSnapshot> searchAnime(String query);
 }

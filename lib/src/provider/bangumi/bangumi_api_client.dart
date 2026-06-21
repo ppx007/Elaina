@@ -19,7 +19,7 @@ const int bangumiApiDefaultSearchOffset = 0;
 const int bangumiApiPopularAnimeLimit = 7;
 const int bangumiApiPopularAnimeOffset = 0;
 const String bangumiApiPopularAnimeSort = 'heat';
-const int bangumiApiPopularAnimeWindowMonths = 1;
+const int bangumiApiPopularAnimeWindowDays = 30;
 const int bangumiApiRecentPopularAnimeWindowMonths = 6;
 const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
 const int bangumiApiRecentPopularAnimeOffset = 0;
@@ -239,7 +239,8 @@ final class BangumiApiClient {
   }
 
   Uri listSubjectRelationsRequestUri(BangumiSubjectId subjectId) {
-    return _uri('/v0/subjects/${Uri.encodeComponent(subjectId.value)}/subjects');
+    return _uri(
+        '/v0/subjects/${Uri.encodeComponent(subjectId.value)}/subjects');
   }
 
   Uri currentSessionRequestUri() {
@@ -775,13 +776,14 @@ final class BangumiApiProvider
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() async {
+    final DateTime now = (_now ?? DateTime.now)();
     final AcgProviderResult<List<BangumiSubject>> result =
         await _execute<List<BangumiSubject>>(
-      key: bangumiPopularAnimeRequestKey(),
+      key: bangumiPopularAnimeRequestKey(now: now),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.popularAnimeRequestUri(),
       load: (ProviderGatewayRequestContext context) => _client.popularAnime(
-        now: (_now ?? DateTime.now)(),
+        now: now,
         proxyUrl: context.proxyUrl,
       ),
     );
@@ -1112,8 +1114,8 @@ List<BangumiRelatedPerson> _relatedPersonsFromJson(Object? json) {
       _jsonArray(json, 'Bangumi subject persons response');
   return data
       .map(
-        (Object? value) =>
-            _relatedPersonFromJson(_jsonObject(value, 'Bangumi related person')),
+        (Object? value) => _relatedPersonFromJson(
+            _jsonObject(value, 'Bangumi related person')),
       )
       .toList(growable: false);
 }
@@ -1143,9 +1145,9 @@ List<BangumiRelatedSubject> _relatedSubjectsFromJson(Object? json) {
 }
 
 _BangumiAirDateRange _popularAnimeAirDateRange(DateTime now) {
-  return _animeAirDateRange(
+  return _animeTrailingDayAirDateRange(
     now: now,
-    windowMonths: bangumiApiPopularAnimeWindowMonths,
+    windowDays: bangumiApiPopularAnimeWindowDays,
   );
 }
 
@@ -1166,6 +1168,20 @@ _BangumiAirDateRange _animeAirDateRange({
     windowMonths,
   );
   final DateTime endExclusive = today.add(const Duration(days: 1));
+  return _BangumiAirDateRange(
+    startDate: _bangumiDate(start),
+    endExclusiveDate: _bangumiDate(endExclusive),
+  );
+}
+
+_BangumiAirDateRange _animeTrailingDayAirDateRange({
+  required DateTime now,
+  required int windowDays,
+}) {
+  assert(windowDays > 0, 'Bangumi air date day window must be positive.');
+  final DateTime today = DateTime(now.year, now.month, now.day);
+  final DateTime endExclusive = today.add(const Duration(days: 1));
+  final DateTime start = endExclusive.subtract(Duration(days: windowDays));
   return _BangumiAirDateRange(
     startDate: _bangumiDate(start),
     endExclusiveDate: _bangumiDate(endExclusive),

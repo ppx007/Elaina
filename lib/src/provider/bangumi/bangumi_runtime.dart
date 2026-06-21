@@ -22,10 +22,12 @@ ProviderRequestKey bangumiSubjectSearchRequestKey(String query) {
   );
 }
 
-ProviderRequestKey bangumiPopularAnimeRequestKey() {
-  return const ProviderRequestKey(
+ProviderRequestKey bangumiPopularAnimeRequestKey({
+  required DateTime now,
+}) {
+  return ProviderRequestKey(
     providerId: bangumiProviderId,
-    cacheKey: 'subject-popular-anime',
+    cacheKey: 'subject-popular-anime:${_dateCacheKey(now)}',
   );
 }
 
@@ -142,6 +144,7 @@ final class DeterministicBangumiProvider
         const <String, List<BangumiRelatedCharacter>>{},
     Map<String, List<BangumiRelatedSubject>> relationsBySubjectId =
         const <String, List<BangumiRelatedSubject>>{},
+    DateTime Function()? now,
   })  : _subjects = <String, BangumiSubject>{
           for (final BangumiSubject subject in subjects)
             subject.id.value: subject,
@@ -152,13 +155,15 @@ final class DeterministicBangumiProvider
         },
         _personsBySubjectId = personsBySubjectId,
         _charactersBySubjectId = charactersBySubjectId,
-        _relationsBySubjectId = relationsBySubjectId;
+        _relationsBySubjectId = relationsBySubjectId,
+        _now = now;
 
   final Map<String, BangumiSubject> _subjects;
   final Map<String, BangumiEpisode> _episodes;
   final Map<String, List<BangumiRelatedPerson>> _personsBySubjectId;
   final Map<String, List<BangumiRelatedCharacter>> _charactersBySubjectId;
   final Map<String, List<BangumiRelatedSubject>> _relationsBySubjectId;
+  final DateTime Function()? _now;
 
   @override
   final ProviderGateway gateway;
@@ -236,8 +241,9 @@ final class DeterministicBangumiProvider
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() {
+    final DateTime now = (_now ?? DateTime.now)();
     return _execute(
-      key: bangumiPopularAnimeRequestKey(),
+      key: bangumiPopularAnimeRequestKey(now: now),
       cachePolicy: ProviderCachePolicy.networkFirst,
       load: () async {
         final List<BangumiSubject> subjects = <BangumiSubject>[
@@ -318,8 +324,7 @@ final class DeterministicBangumiProvider
       key: bangumiSubjectPersonsRequestKey(subjectId),
       cachePolicy: ProviderCachePolicy.networkFirst,
       load: () async => List<BangumiRelatedPerson>.unmodifiable(
-        _personsBySubjectId[subjectId.value] ??
-            const <BangumiRelatedPerson>[],
+        _personsBySubjectId[subjectId.value] ?? const <BangumiRelatedPerson>[],
       ),
     );
   }

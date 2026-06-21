@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../domain/detail/video_detail.dart';
 import '../../../domain/diagnostics/diagnostics_domain.dart';
 import '../../../domain/download/download_domain.dart';
 import '../../../domain/home/home_recommendation_domain.dart';
+import '../../../domain/home/home_search_domain.dart';
 import '../../../domain/media/media_library.dart';
 import '../../../domain/media/media_library_runtime.dart';
 import '../../../domain/playback/playback_controller.dart';
@@ -43,6 +45,7 @@ class ElainaAppShell extends StatefulWidget {
     this.bangumiTrackingProvider,
     this.bangumiLoginController,
     this.homeRecommendationProvider,
+    this.homeSearchProvider,
     this.carouselAutoScroll = true,
   });
 
@@ -58,6 +61,7 @@ class ElainaAppShell extends StatefulWidget {
   final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
   final HomeRecommendationProvider? homeRecommendationProvider;
+  final HomeSearchProvider? homeSearchProvider;
   final bool carouselAutoScroll;
 
   @override
@@ -88,6 +92,12 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _recommendationTwoColumnWidth = 560;
   static const double _recommendationWaterfallGap = 24;
   static const double _recentWatchingPanelHeight = 400;
+  static const double _homeSearchEntryMaxWidth = 420;
+  static const double _homeSearchEntryHeight = 44;
+  static const double _searchOverlayMaxWidth = 760;
+  static const double _searchOverlayPanelPadding = 24;
+  static const double _searchResultCoverWidth = 64;
+  static const double _searchResultCoverHeight = 90;
   static const String _brandLogoAsset =
       'assets/brand/elaina_iconic_character_logo.png';
 
@@ -101,6 +111,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   Future<UserProfileSnapshot?>? _profileFuture;
   Future<BangumiTrackingSnapshot>? _trackingFuture;
   Future<HomeRecommendationSnapshot>? _homeRecommendationFuture;
+  late final TextEditingController _homeSearchController;
+  late final FocusNode _homeSearchFocusNode;
+  Timer? _homeSearchDebounceTimer;
   final List<HomeRecommendationItem> _moreRecommendationItems =
       <HomeRecommendationItem>[];
   final Set<String> _moreRecommendationSubjectIds = <String>{};
@@ -109,6 +122,11 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   bool _moreRecommendationIsLoading = false;
   bool _moreRecommendationHasMore = true;
   String? _moreRecommendationMessage;
+  bool _homeSearchOverlayActive = false;
+  bool _homeSearchIsLoading = false;
+  int _homeSearchRevision = 0;
+  String _homeSearchQuery = '';
+  HomeSearchSnapshot? _homeSearchSnapshot;
   _TrackingFilter _trackingFilter = _TrackingFilter.all;
 
   @override
@@ -118,6 +136,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     _trackingFuture = widget.bangumiTrackingProvider?.currentAnimeCollection();
     _homeScrollController = ScrollController();
     _homeScrollController.addListener(_onHomeScroll);
+    _homeSearchController = TextEditingController();
+    _homeSearchFocusNode = FocusNode();
     _reloadHomeRecommendations();
     _librarySnapshot = widget.mediaLibraryRuntime.currentSnapshot;
     widget.playbackController.addPlaybackStateObserver(this);
@@ -152,6 +172,9 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   void dispose() {
     _homeScrollController.removeListener(_onHomeScroll);
     _homeScrollController.dispose();
+    _homeSearchDebounceTimer?.cancel();
+    _homeSearchController.dispose();
+    _homeSearchFocusNode.dispose();
     widget.mediaLibraryRuntime.removeObserver(this);
     widget.playbackController.removePlaybackStateObserver(this);
     super.dispose();
@@ -332,6 +355,118 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     });
   }
 
+  void _openHomeSearch() {
+    setState(() {
+      _homeSearchOverlayActive = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _homeSearchOverlayActive) {
+        _homeSearchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _closeHomeSearch() {
+    _homeSearchDebounceTimer?.cancel();
+    _homeSearchRevision += 1;
+    _homeSearchFocusNode.unfocus();
+    setState(() {
+      _homeSearchOverlayActive = false;
+      _homeSearchController.clear();
+      _homeSearchQuery = '';
+      _homeSearchSnapshot = null;
+      _homeSearchIsLoading = false;
+    });
+  }
+
+  void _onHomeSearchQueryChanged(String value) {
+    _homeSearchDebounceTimer?.cancel();
+    _homeSearchRevision += 1;
+    final int revision = _homeSearchRevision;
+    final String query = value.trim();
+    setState(() {
+      _homeSearchQuery = query;
+      _homeSearchSnapshot = null;
+      _homeSearchIsLoading = false;
+    });
+    if (query.length < homeSearchMinimumQueryLength) return;
+    _homeSearchDebounceTimer = Timer(homeSearchDebounceDuration, () {
+      unawaited(_runHomeSearch(query, revision));
+    });
+  }
+
+  Future<void> _runHomeSearch(String query, int revision) async {
+    if (!mounted ||
+        revision != _homeSearchRevision ||
+        !_homeSearchOverlayActive ||
+        query != _homeSearchQuery) {
+      return;
+    }
+    final HomeSearchProvider? provider = widget.homeSearchProvider;
+    if (provider == null) {
+      if (!mounted ||
+          revision != _homeSearchRevision ||
+          !_homeSearchOverlayActive) {
+        return;
+      }
+      setState(() {
+        _homeSearchSnapshot =
+            const HomeSearchSnapshot.failed('Bangumi 搜索服务不可用。');
+        _homeSearchIsLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _homeSearchIsLoading = true;
+      _homeSearchSnapshot = null;
+    });
+    late final HomeSearchSnapshot snapshot;
+    try {
+      snapshot = await provider.searchAnime(query);
+    } catch (error) {
+      snapshot = HomeSearchSnapshot.failed('Bangumi 搜索失败：$error');
+    }
+    if (!mounted ||
+        revision != _homeSearchRevision ||
+        !_homeSearchOverlayActive ||
+        query != _homeSearchQuery) {
+      return;
+    }
+    setState(() {
+      _homeSearchSnapshot = snapshot;
+      _homeSearchIsLoading = false;
+    });
+  }
+
+  void _retryHomeSearch() {
+    final String query = _homeSearchQuery;
+    if (query.length < homeSearchMinimumQueryLength) return;
+    _homeSearchDebounceTimer?.cancel();
+    _homeSearchRevision += 1;
+    unawaited(_runHomeSearch(query, _homeSearchRevision));
+  }
+
+  void _openFirstHomeSearchResult() {
+    final List<HomeSearchItem> items =
+        _homeSearchSnapshot?.items ?? const <HomeSearchItem>[];
+    if (items.isEmpty) return;
+    _openHomeSearchResult(items.first);
+  }
+
+  void _openHomeSearchResult(HomeSearchItem item) {
+    _homeSearchDebounceTimer?.cancel();
+    _homeSearchRevision += 1;
+    setState(() {
+      _homeSearchOverlayActive = false;
+      _homeSearchController.clear();
+      _homeSearchQuery = '';
+      _homeSearchSnapshot = null;
+      _homeSearchIsLoading = false;
+      _activeDetailId = VideoDetailId(item.subjectId);
+    });
+  }
+
   Future<void> _startBangumiLogin() async {
     final BangumiLoginController? loginController =
         widget.bangumiLoginController;
@@ -412,6 +547,23 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               child: ProductionPlaybackPage(
                 controller: widget.playbackController,
                 videoSurface: widget.videoSurface,
+              ),
+            ),
+
+          if (_homeSearchOverlayActive)
+            Positioned.fill(
+              child: _HomeSearchOverlay(
+                controller: _homeSearchController,
+                focusNode: _homeSearchFocusNode,
+                theme: theme,
+                query: _homeSearchQuery,
+                isLoading: _homeSearchIsLoading,
+                snapshot: _homeSearchSnapshot,
+                onChanged: _onHomeSearchQueryChanged,
+                onClose: _closeHomeSearch,
+                onRetry: _retryHomeSearch,
+                onSubmitFirst: _openFirstHomeSearchResult,
+                onOpenItem: _openHomeSearchResult,
               ),
             ),
 
@@ -643,6 +795,23 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Flexible(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _homeSearchEntryMaxWidth,
+                    ),
+                    child: _HomeSearchEntry(
+                      theme: theme,
+                      height: _homeSearchEntryHeight,
+                      onTap: _openHomeSearch,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -1850,6 +2019,421 @@ final class _RecommendationCardModel {
   final String symbol;
   final Uri? coverUri;
   final String? subjectId;
+}
+
+class _HomeSearchEntry extends StatelessWidget {
+  const _HomeSearchEntry({
+    required this.theme,
+    required this.height,
+    required this.onTap,
+  });
+
+  static const double _radius = 12;
+
+  final ElainaThemeData theme;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const ValueKey<String>('home-search-entry'),
+          mouseCursor: SystemMouseCursors.click,
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_radius),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: theme.surface.withValues(alpha: 0.74),
+              borderRadius: BorderRadius.circular(_radius),
+              border: Border.all(color: theme.border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.search, color: theme.primary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '搜索 Bangumi 动画',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.onSurface.withValues(alpha: 0.72),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_return,
+                  color: theme.onSurface.withValues(alpha: 0.38),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeSearchOverlay extends StatelessWidget {
+  const _HomeSearchOverlay({
+    required this.controller,
+    required this.focusNode,
+    required this.theme,
+    required this.query,
+    required this.isLoading,
+    required this.snapshot,
+    required this.onChanged,
+    required this.onClose,
+    required this.onRetry,
+    required this.onSubmitFirst,
+    required this.onOpenItem,
+  });
+
+  static const double _inputHeight = 56;
+  static const double _resultTileRadius = 12;
+  static const double _resultTilePadding = 12;
+  static const double _bodyTopGap = 18;
+  static const double _stateIconSize = 32;
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ElainaThemeData theme;
+  final String query;
+  final bool isLoading;
+  final HomeSearchSnapshot? snapshot;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClose;
+  final VoidCallback onRetry;
+  final VoidCallback onSubmitFirst;
+  final ValueChanged<HomeSearchItem> onOpenItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (DismissIntent intent) {
+              onClose();
+              return null;
+            },
+          ),
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (ActivateIntent intent) {
+              onSubmitFirst();
+              return null;
+            },
+          ),
+        },
+        child: Material(
+          color: theme.background.withValues(alpha: 0.96),
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _ElainaAppShellState._searchOverlayMaxWidth,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(
+                    _ElainaAppShellState._searchOverlayPanelPadding,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _buildSearchInput(),
+                      const SizedBox(height: _bodyTopGap),
+                      Expanded(child: _buildBody()),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchInput() {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: SizedBox(
+            height: _inputHeight,
+            child: TextField(
+              key: const ValueKey<String>('home-search-input'),
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              onSubmitted: (_) => onSubmitFirst(),
+              textInputAction: TextInputAction.search,
+              cursorColor: theme.primary,
+              style: TextStyle(color: theme.onSurface, fontSize: 18),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: theme.surface,
+                prefixIcon: Icon(Icons.search, color: theme.primary),
+                hintText: '搜索 Bangumi 动画',
+                hintStyle: TextStyle(
+                  color: theme.onSurface.withValues(alpha: 0.46),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_resultTileRadius),
+                  borderSide: BorderSide(color: theme.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_resultTileRadius),
+                  borderSide: BorderSide(color: theme.primary, width: 1.4),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          key: const ValueKey<String>('home-search-close'),
+          mouseCursor: SystemMouseCursors.click,
+          tooltip: '关闭搜索',
+          onPressed: onClose,
+          icon: Icon(Icons.close, color: theme.onSurface),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (query.length < homeSearchMinimumQueryLength) {
+      return _buildState(
+        icon: Icons.manage_search,
+        label: '输入至少 $homeSearchMinimumQueryLength 个字符',
+      );
+    }
+    if (isLoading) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            SizedBox(
+              width: _stateIconSize,
+              height: _stateIconSize,
+              child: CircularProgressIndicator(
+                color: theme.primary,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '搜索中',
+              style: TextStyle(
+                color: theme.onSurface.withValues(alpha: 0.74),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final HomeSearchSnapshot? value = snapshot;
+    if (value == null) {
+      return _buildState(icon: Icons.hourglass_empty, label: '准备搜索');
+    }
+    if (value.status == HomeSearchLoadStatus.failed) {
+      return _buildFailure(value.message ?? 'Bangumi 搜索失败。');
+    }
+    if (value.items.isEmpty) {
+      return _buildState(icon: Icons.search_off, label: '没有找到结果');
+    }
+    return ListView.separated(
+      itemCount: value.items.length,
+      separatorBuilder: (BuildContext context, int index) =>
+          const SizedBox(height: 10),
+      itemBuilder: (BuildContext context, int index) {
+        final HomeSearchItem item = value.items[index];
+        return _HomeSearchResultTile(
+          item: item,
+          theme: theme,
+          onTap: () => onOpenItem(item),
+        );
+      },
+    );
+  }
+
+  Widget _buildFailure(String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.error_outline, color: theme.accentMagenta, size: 36),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: theme.onSurface),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const ValueKey<String>('home-search-retry'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildState({
+    required IconData icon,
+    required String label,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            icon,
+            color: theme.primary.withValues(alpha: 0.82),
+            size: _stateIconSize,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.onSurface.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeSearchResultTile extends StatelessWidget {
+  const _HomeSearchResultTile({
+    required this.item,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final HomeSearchItem item;
+  final ElainaThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey<String>('home-search-result-${item.subjectId}'),
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(_HomeSearchOverlay._resultTileRadius),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: theme.surface,
+            borderRadius:
+                BorderRadius.circular(_HomeSearchOverlay._resultTileRadius),
+            border: Border.all(color: theme.border),
+          ),
+          padding: const EdgeInsets.all(_HomeSearchOverlay._resultTilePadding),
+          child: Row(
+            children: <Widget>[
+              _buildCover(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (item.metadataSentence.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 6),
+                      Text(
+                        item.metadataSentence,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (item.summary != null &&
+                        item.summary!.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 6),
+                      Text(
+                        item.summary!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.onSurface.withValues(alpha: 0.62),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.chevron_right, color: theme.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCover() {
+    final Uri? coverUri = item.coverUri;
+    return Container(
+      width: _ElainaAppShellState._searchResultCoverWidth,
+      height: _ElainaAppShellState._searchResultCoverHeight,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.background.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.border),
+      ),
+      child: coverUri == null
+          ? _buildCoverFallback()
+          : Image.network(
+              coverUri.toString(),
+              fit: BoxFit.cover,
+              errorBuilder:
+                  (BuildContext context, Object error, StackTrace? stackTrace) {
+                return _buildCoverFallback();
+              },
+            ),
+    );
+  }
+
+  Widget _buildCoverFallback() {
+    return Icon(Icons.movie_creation_outlined, color: theme.primary);
+  }
 }
 
 class _BangumiAccountPill extends StatelessWidget {

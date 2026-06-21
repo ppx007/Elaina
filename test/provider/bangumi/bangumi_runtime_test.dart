@@ -73,6 +73,9 @@ void main() {
       limit: 24,
       offset: 48,
     );
+    final ProviderRequestKey popularKey = bangumiPopularAnimeRequestKey(
+      now: DateTime.utc(2026, 6, 21),
+    );
     final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
     final ProviderRequestKey subjectCollectionSyncKey =
         bangumiSubjectCollectionSyncRequestKey(
@@ -90,6 +93,7 @@ void main() {
     expect(subjectKey.providerId.value, bangumiProviderId.value);
     expect(subjectKey.cacheKey, 'subject:42');
     expect(searchKey.cacheKey, 'subject-search:elaina');
+    expect(popularKey.cacheKey, 'subject-popular-anime:20260621');
     expect(episodeKey.cacheKey, 'episode:7');
     expect(episodeListKey.cacheKey, 'episodes:42');
     expect(
@@ -386,7 +390,7 @@ void main() {
     final AcgProviderResult<List<BangumiSubject>> popular =
         await runtime.popularAnime();
     final BangumiApiRequest popularRequest = transport.requests.last;
-    expect(gateway.lastCacheKey, 'subject-popular-anime');
+    expect(gateway.lastCacheKey, 'subject-popular-anime:20260621');
     expect(
       gateway.lastNetworkPolicyUri,
       Uri.parse('https://api.test/v0/search/subjects?limit=7&offset=0'),
@@ -406,7 +410,7 @@ void main() {
     );
     expect(
       popularFilter['air_date'],
-      <String>['>=2026-05-21', '<2026-06-22'],
+      <String>['>=2026-05-23', '<2026-06-22'],
     );
     final BangumiSubject popularSubject =
         (popular as AcgProviderSuccess<List<BangumiSubject>>).value.single;
