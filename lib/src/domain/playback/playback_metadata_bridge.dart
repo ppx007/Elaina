@@ -12,6 +12,8 @@ import '../subtitle/subtitle_provider_runtime.dart';
 import 'basic_danmaku_state.dart';
 import 'playback_state.dart';
 
+/// Metadata bridge unavailable messages are constants because tests and UI
+/// diagnostics need stable failure text for missing optional subsystems.
 const String playbackMetadataSubtitleRuntimeUnavailable =
     'Subtitle playback runtime is unavailable.';
 const String playbackMetadataSubtitleProviderUnavailable =
@@ -97,6 +99,10 @@ final class PlaybackMetadataBridgeSnapshot {
   }
 }
 
+/// Bridges playback source changes to subtitle and danmaku provider lookups.
+///
+/// Playback remains usable when metadata providers are absent; the bridge
+/// reports partial failure instead of turning provider work into a playback gate.
 final class PlaybackMetadataBridge {
   PlaybackMetadataBridge({
     required BasicSubtitleRuntime subtitleRuntime,

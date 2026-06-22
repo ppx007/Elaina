@@ -4,6 +4,10 @@ import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
 import 'virtual_media_stream.dart';
 
+/// Runtime status describes orchestration state, not playback state.
+///
+/// Playback can be buffering or paused while the virtual stream runtime remains
+/// ready; this separation prevents UI from mixing transport and stream concerns.
 enum VirtualMediaStreamRuntimeStatus {
   idle,
   ready,
@@ -183,6 +187,10 @@ final class VirtualMediaStreamBootstrap {
   final VirtualMediaStreamRuntime runtime;
 }
 
+/// Coordinates virtual stream registry operations with durable restart state.
+///
+/// The runtime owns create/close persistence and cache invalidation. Adapters
+/// should use the registry for byte serving, not mutate stored stream records.
 final class VirtualMediaStreamRuntime {
   VirtualMediaStreamRuntime.withDependencies({
     required BtTaskStore btTaskStore,

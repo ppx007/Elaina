@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// App smoke widget tests use the shared harness for navigation reachability.
+// Page-specific behavior belongs in focused UI suites to keep this file stable.
+// Add broad shell coverage here only when multiple pages must boot together.
 import 'package:elaina/elaina.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

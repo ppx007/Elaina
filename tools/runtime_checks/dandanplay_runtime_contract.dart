@@ -1,3 +1,5 @@
+// dandanplay runtime contract validates provider matching and comment retrieval
+// from the Dart CLI without depending on playback UI.
 import '../../lib/elaina.dart';
 import 'bangumi_runtime_contract.dart';
 

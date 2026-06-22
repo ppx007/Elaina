@@ -5,6 +5,10 @@ import 'dandanplay_comments.dart';
 import 'dandanplay_provider.dart';
 import 'dandanplay_registration.dart';
 
+/// Provider-level dedupe window for dandanplay API calls.
+///
+/// Matching and comment requests are cacheable enough to collapse duplicate UI
+/// refreshes, but short enough that manual retries still reach the provider.
 const Duration dandanplayRuntimeDeduplicationWindow = Duration(seconds: 30);
 
 ProviderRequestKey dandanplayMatchRequestKey(String filename) {
@@ -270,6 +274,10 @@ final class DeterministicDandanplayCommentProvider
   }
 }
 
+/// Runtime provider wrapper that routes dandanplay calls through ProviderGateway.
+///
+/// The concrete client never appears in UI/domain code; this adapter is where
+/// gateway caching, proxy context, and provider failure normalization converge.
 final class DandanplayProviderRuntime
     implements DandanplayProvider, DandanplayCommentProvider {
   DandanplayProviderRuntime({

@@ -1,3 +1,6 @@
+// RSS fetcher/parser tests pin feed normalization and malformed-feed behavior.
+// Auto-download matching belongs in policy/runtime suites.
+// Keep network transport fakes local to feed-fetch behavior.
 import 'dart:io';
 
 import 'package:elaina/elaina.dart';

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// Seasonal indexer contract tests define catalog and match-queue semantics
+// before provider runtimes and home-page recommendations consume them.
+// Provider-specific feed parsing belongs elsewhere.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

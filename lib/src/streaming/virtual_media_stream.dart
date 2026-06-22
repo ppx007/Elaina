@@ -4,6 +4,10 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/storage_contracts.dart';
 import 'bt_task_core.dart';
 
+/// Private URI scheme used to hand a virtual stream to playback adapters.
+///
+/// The scheme marks an app-owned byte source, not a network URL. Playback
+/// adapters must resolve it through the registry instead of opening it directly.
 const String virtualMediaStreamUriScheme = 'elaina-virtual-stream';
 
 final class VirtualMediaStreamId {
@@ -177,6 +181,10 @@ abstract interface class VirtualMediaStream {
   Future<VirtualStreamCommandOutcome> close();
 }
 
+/// Source of byte ranges for a virtual media stream.
+///
+/// Implementations may read from files, BT pieces, or future caches; the stream
+/// contract only cares whether a requested range is actually available.
 abstract interface class VirtualByteRangeSource {
   Future<VirtualRangeEnsureOutcome> ensureRange({
     required VirtualMediaStreamDescriptor descriptor,
@@ -337,6 +345,10 @@ final class DeterministicVirtualMediaStreamRegistry
   }
 }
 
+/// Deterministic stream that records lifecycle and buffered ranges.
+///
+/// It intentionally models byte availability without background networking so
+/// scheduler/runtime tests can assert range decisions deterministically.
 final class DeterministicVirtualMediaStream implements VirtualMediaStream {
   DeterministicVirtualMediaStream({
     required this.descriptor,

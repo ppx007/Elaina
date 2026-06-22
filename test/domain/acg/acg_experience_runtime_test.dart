@@ -1,3 +1,6 @@
+// ACG experience runtime tests cover the coordinator across Bangumi,
+// dandanplay, subtitles, and playback metadata instead of retesting providers.
+// Provider wire cases belong in provider-specific runtime tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

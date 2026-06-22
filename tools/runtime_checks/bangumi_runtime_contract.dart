@@ -1,3 +1,5 @@
+// Bangumi runtime contract validates normalized provider behavior from the CLI.
+// HTTP wire details belong in Bangumi provider tests.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

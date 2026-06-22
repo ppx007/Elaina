@@ -1,3 +1,6 @@
+// Online rule runtime contract tests lock down unsafe operation rejection and
+// extraction state without depending on any specific website parser.
+// Provider-specific rule packs should add source fixtures elsewhere.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

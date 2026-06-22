@@ -1,3 +1,6 @@
+// Unified Dart validation CLI replacing the old PowerShell toolchain. Keep
+// orchestration here thin; module/test-suite policy belongs in JSON registries
+// and runner classes under tools/tooling.
 import 'dart:io';
 
 import 'package:args/command_runner.dart';

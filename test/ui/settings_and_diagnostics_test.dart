@@ -1,3 +1,6 @@
+// Settings/diagnostics UI tests focus on persisted global options and
+// read-only diagnostic projections, not individual provider internals.
+// Provider-specific settings should still be verified through their runtimes.
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
 import 'package:elaina/src/domain/media/media_library_folder_preferences.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';

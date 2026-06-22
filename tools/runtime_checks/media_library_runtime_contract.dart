@@ -1,5 +1,8 @@
 import 'dart:io';
 
+// Media library runtime contract validates scanning, import, binding, and
+// playback handoff from the CLI without Flutter widgets.
+// Page layout behavior belongs in the media-library widget suite.
 import '../../lib/elaina.dart';
 import 'video_detail_runtime_contract.dart';
 

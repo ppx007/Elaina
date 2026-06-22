@@ -1,6 +1,8 @@
 import '../foundation/provider_contracts.dart';
 import '../foundation/security/outbound_uri_guard.dart';
 
+/// Manual challenge identity used to join browser work, captured artifacts, and
+/// later provider backfill attempts.
 final class ManualChallengeRequestId {
   const ManualChallengeRequestId(this.value)
       : assert(value != '', 'Manual challenge request id must not be empty.');
@@ -88,6 +90,11 @@ enum UnsupportedWebViewSessionOperationKind {
   crossOriginReuse,
 }
 
+/// Domain contract for manual WebView session capture.
+///
+/// This boundary intentionally supports user-completed challenges only. It
+/// records same-origin artifacts for later provider use without granting a
+/// hidden browser, captcha solver, or cross-origin cookie shortcut.
 enum WebViewSessionCapability {
   isolatedWebView,
   cookieCapture,

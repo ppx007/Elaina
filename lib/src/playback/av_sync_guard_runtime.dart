@@ -3,6 +3,10 @@ import '../foundation/storage/av_sync_guard_storage_contracts.dart';
 import 'av_sync_guard.dart';
 import 'capability_matrix.dart';
 
+/// Builds an AV-sync runtime with matching guard, capability, and storage scope.
+///
+/// AV-sync degradation decisions must stay scoped to the playback environment
+/// that measured the drift; cross-scope reuse would hide real timing faults.
 final class AVSyncGuardBootstrap {
   AVSyncGuardBootstrap({
     required this.guardStore,
@@ -130,6 +134,10 @@ final class AVSyncGuardRuntimeProjection {
   final AVSyncGuardRuntimeRestartProjection restart;
 }
 
+/// Runtime facade for measuring drift and applying deterministic degradation.
+///
+/// The guard owns timing policy; callers receive action results instead of
+/// sprinkling drift thresholds and fallback decisions through playback UI.
 final class AVSyncGuardRuntime {
   AVSyncGuardRuntime({
     required AVSyncGuardStore guardStore,

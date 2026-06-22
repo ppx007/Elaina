@@ -1,3 +1,5 @@
+// Local media scanner contract tests define filesystem-to-candidate behavior.
+// Import, binding, and playback handoff are media-library runtime concerns.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

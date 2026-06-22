@@ -3,6 +3,11 @@ import '../foundation/storage/video_enhancement_storage_contracts.dart';
 import 'capability_matrix.dart';
 import 'video_enhancement_pipeline.dart';
 
+/// Builds a scoped runtime from stored profiles and adapter capability maps.
+///
+/// The bootstrap owns the cross-layer wiring so callers cannot accidentally
+/// combine a profile from one scope with a pipeline or capability matrix from
+/// another scope.
 final class VideoEnhancementPipelineBootstrap {
   VideoEnhancementPipelineBootstrap({
     required this.profileStore,
@@ -188,6 +193,11 @@ final class VideoEnhancementPipelineRuntimeProjection {
   final VideoEnhancementPipelineRuntimeRestartProjection restart;
 }
 
+/// Coordinates enhancement profile application, persistence, and degradation.
+///
+/// This runtime is the only layer that should mutate enhancement state. UI code
+/// consumes projections and action results instead of calling a native pipeline
+/// directly, keeping capability failure explicit and reversible.
 final class VideoEnhancementPipelineRuntime {
   VideoEnhancementPipelineRuntime({
     required EnhancementProfileStore profileStore,

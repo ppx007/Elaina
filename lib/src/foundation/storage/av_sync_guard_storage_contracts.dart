@@ -1,3 +1,6 @@
+// Stored AV-sync records preserve drift measurements and degradation decisions.
+// Live timing policy remains in AVSyncGuardRuntime.
+// Store implementations should not reinterpret drift thresholds.
 import '../baseline_defaults.dart';
 
 enum StoredAVSyncHealthKind {

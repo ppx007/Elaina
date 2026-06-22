@@ -1,3 +1,6 @@
+// RSS/download UI regression tests use page-level fakes rather than storage or
+// engine calls. That keeps layout and command wiring tests independent from BT
+// runtime behavior.
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/download/downloads_page.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';

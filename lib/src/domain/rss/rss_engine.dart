@@ -6,6 +6,8 @@ import '../../foundation/storage/storage_contracts.dart';
 import '../../provider/provider_result.dart';
 import '../../provider/rss/feed_contracts.dart';
 
+/// Refresh request is intentionally small: source configuration lives in the
+/// feed registry, while refresh callers only choose the source to pull.
 final class RssRefreshRequest {
   const RssRefreshRequest({required this.sourceId});
 
@@ -59,6 +61,10 @@ abstract interface class RssEngineContract {
   Stream<FeedItem> get updates;
 }
 
+/// Deterministic RSS engine that refreshes registered feed sources into memory.
+///
+/// Production scheduling and auto-download live in [RssEngineRuntime]; this
+/// engine focuses on source refresh and item dedupe semantics.
 final class DeterministicRssEngine implements RssEngineContract, FeedEngine {
   DeterministicRssEngine({
     required this.store,

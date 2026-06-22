@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// RSS page tests exercise the subscription and rule-editing surface through the
+// test harness so layout rewrites do not force every assertion to chase text.
+// Keep RSS engine behavior in domain/provider tests and assert user flows here.
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/rss/rss_page.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';

@@ -4,6 +4,9 @@ import '../../playback/subtitle/subtitle_scanner.dart';
 import '../../provider/subtitle/subtitle_provider.dart';
 import 'subtitle_discovery.dart';
 
+/// Runtime status tracks provider orchestration, not subtitle parsing state.
+/// Parsed cue warnings stay in the subtitle runtime so provider failures remain
+/// distinguishable from file-format failures.
 enum SubtitleProviderRuntimeStatus {
   idle,
   searching,
@@ -126,6 +129,10 @@ abstract interface class SubtitleProviderRuntimeObserver {
       SubtitleProviderRuntimeSnapshot snapshot);
 }
 
+/// Coordinates provider lookup, download, cache invalidation, and observers.
+///
+/// UI and playback code should request subtitles through this runtime instead
+/// of directly calling a provider or storage cache.
 final class SubtitleProviderRuntime {
   SubtitleProviderRuntime({required SubtitleDiscoveryContract discovery})
       : _discovery = discovery;

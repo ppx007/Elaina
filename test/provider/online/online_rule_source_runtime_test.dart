@@ -1,3 +1,6 @@
+// Online rule source runtime tests focus on source retrieval, validation, and
+// capability persistence. Parser behavior belongs in provider runtime tests.
+// Keep these fixtures close to source lifecycle, not individual extractor rules.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

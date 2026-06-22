@@ -1,3 +1,5 @@
+// RSS engine runtime contract validates source refresh, rules, preview, and
+// auto-download orchestration from the Dart validation CLI.
 import '../../lib/elaina.dart';
 import 'subtitle_provider_runtime_contract.dart';
 

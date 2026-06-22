@@ -1,3 +1,5 @@
+/// Stored advanced-caption records capture user profile choices and renderer
+/// state, while actual native caption resources stay outside storage.
 enum StoredAdvancedCaptionRendererStateKind {
   disabled,
   evaluated,
@@ -162,6 +164,8 @@ final class StoredAdvancedCaptionRendererStateRecord {
   final DateTime updatedAt;
 }
 
+/// Persistence port for advanced caption profiles and renderer state.
+/// Renderer resources and frame-budget decisions remain outside storage.
 abstract interface class AdvancedCaptionStore {
   Future<StoredAdvancedCaptionProfileRecord> storeProfile(
       StoredAdvancedCaptionProfileRecord profile);

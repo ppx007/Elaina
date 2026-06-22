@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+// Playback history integration tests cover the domain bridge from playback
+// events into media-library progress. Storage shape belongs in storage tests.
+// Keep player adapter behavior outside this suite.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

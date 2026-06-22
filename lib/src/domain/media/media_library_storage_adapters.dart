@@ -6,6 +6,10 @@ import 'local_file_media_scanner.dart';
 import 'media_library.dart';
 import 'media_library_runtime.dart';
 
+/// Binding authorities persisted with local media matches.
+///
+/// Automatic matches and user-confirmed matches are stored differently because
+/// sync/conflict handling must trust explicit user choices more than heuristics.
 const String storageProviderBindingAuthorityAutomatic = 'automatic';
 const String storageProviderBindingAuthorityUserConfirmed = 'user-confirmed';
 const String storageMediaLibraryItemIdPrefix = 'stored-media';
@@ -165,6 +169,8 @@ final class StorageProviderBindingStore implements ProviderBindingStore {
   }
 }
 
+/// Import adapter that writes media, playback history, and provider bindings as
+/// one domain operation over the storage foundation.
 final class StorageMediaBatchImportContract
     implements MediaBatchImportContract {
   StorageMediaBatchImportContract({

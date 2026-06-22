@@ -1,3 +1,6 @@
+// Subtitle provider runtime contract validates search/retrieve orchestration
+// from the CLI without depending on a concrete subtitle provider.
+// Concrete provider behavior belongs in provider-specific tests.
 import '../../lib/elaina.dart';
 import 'media_library_runtime_contract.dart';
 

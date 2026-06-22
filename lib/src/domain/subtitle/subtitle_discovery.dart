@@ -1,3 +1,6 @@
+// Subtitle discovery converts local file/provider candidates into comparable
+// domain records. It should not parse cue text or perform provider networking.
+// Ranking and confidence rules live here because both sources feed the same UI.
 import '../../foundation/baseline_defaults.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../../playback/subtitle/subtitle_parser.dart';

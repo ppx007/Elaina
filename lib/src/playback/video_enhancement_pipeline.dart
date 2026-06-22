@@ -2,6 +2,10 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/video_enhancement_storage_contracts.dart';
 import 'capability_matrix.dart';
 
+/// User-facing video enhancement intent, independent from any one adapter.
+///
+/// MPV, media-kit, and future adapters can map these intents differently; the
+/// domain only promises the semantic choice the user made.
 enum VideoScalerIntent {
   adapterDefault,
   sharp,
@@ -208,6 +212,10 @@ abstract interface class VideoEnhancementPipeline {
       EnhancementDegradationRequest request);
 }
 
+/// Deterministic pipeline for exercising profile, capability, and budget logic.
+///
+/// It keeps enhancement policy testable without requiring a native renderer,
+/// which prevents UI/runtime tests from accidentally becoming MPV tests.
 final class DeterministicVideoEnhancementPipeline
     implements VideoEnhancementPipeline {
   DeterministicVideoEnhancementPipeline({

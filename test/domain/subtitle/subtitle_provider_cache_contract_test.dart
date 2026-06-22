@@ -1,3 +1,6 @@
+// Subtitle provider cache contract tests protect cache identity and invalidation
+// separately from provider HTTP and parser behavior.
+// Parser warnings belong in subtitle parser tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

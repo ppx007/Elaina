@@ -2,6 +2,8 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/storage/network_policy_storage_contracts.dart';
 import 'network_policy.dart';
 
+/// Runtime-level failures are explicit so provider callers can tell policy
+/// absence, disabled scopes, and evaluator failures apart.
 enum NetworkPolicyRuntimeFailureKind {
   capabilityUnsupported,
   unavailable,
@@ -137,6 +139,10 @@ final class NetworkPolicyRuntimeBootstrap {
   }
 }
 
+/// Applies stored provider assignments through declared network evaluators.
+///
+/// ProviderGateway is the enforcement caller; this runtime owns persistence and
+/// capability gating so HTTP clients cannot quietly bypass SSRF/proxy policy.
 final class NetworkPolicyRuntime {
   NetworkPolicyRuntime._({
     required NetworkPolicyStore store,

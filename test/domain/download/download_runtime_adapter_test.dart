@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// Download adapter tests pin the UI-facing runtime projection over BT task
+// state. They should not reach through to libtorrent or storage directly.
+// Keep file-selection and task-command semantics visible at the runtime port.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

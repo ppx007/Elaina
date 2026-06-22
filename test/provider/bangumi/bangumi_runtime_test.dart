@@ -1,3 +1,6 @@
+// Bangumi runtime tests intentionally exercise gateway routing, cache policy,
+// mirror rewriting, and JSON mapping together because those bugs appear at the
+// provider boundary rather than inside isolated model constructors.
 import 'dart:convert';
 import 'dart:io';
 

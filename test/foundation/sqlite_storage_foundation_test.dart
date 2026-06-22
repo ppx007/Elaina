@@ -1,5 +1,8 @@
 import 'dart:io';
 
+// SQLite foundation tests verify the concrete storage adapter honors the shared
+// storage contracts. Domain behavior should be tested above this layer.
+// Keep database migration checks here, not in domain runtime tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

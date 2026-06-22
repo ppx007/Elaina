@@ -4,6 +4,10 @@ import '../../domain/diagnostics/diagnostics_domain.dart';
 import '../../foundation/constants.dart';
 import '../theme/elaina_theme.dart';
 
+/// Read-only diagnostics console for the local runtime.
+///
+/// The page queries [DiagnosticsRuntime] projections only; it does not register
+/// schemas or mutate retention/export state from UI callbacks.
 class DiagnosticsPage extends StatefulWidget {
   const DiagnosticsPage({
     super.key,

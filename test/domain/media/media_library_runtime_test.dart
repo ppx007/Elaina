@@ -1,3 +1,6 @@
+// Media library runtime tests cover scanning, import, binding, and playback
+// handoff as one domain boundary. Widget tests should use runtime fakes.
+// Storage adapter tests own persistence shape.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

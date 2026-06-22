@@ -1,3 +1,6 @@
+// Diagnostics runtime implementation wires the domain-facing DiagnosticsRuntime
+// to the foundation DiagnosticsCenter. Keep event schema ownership in the center
+// and UI projections in the domain layer.
 import 'dart:async';
 import 'dart:convert';
 

@@ -1,5 +1,7 @@
 import '../../network/network_policy.dart';
 
+/// Stored network policy records describe user/operator policy configuration.
+/// ProviderGateway evaluates these through NetworkPolicyRuntime before HTTP.
 enum StoredNetworkPolicyAction {
   systemDns,
   configuredDns,
@@ -196,6 +198,9 @@ final class StoredNetworkPolicyCapabilityRecord {
   final DateTime updatedAt;
 }
 
+/// Persistence port for network policy profiles and provider assignments.
+/// Evaluation is performed by NetworkPolicyRuntime so storage never becomes a
+/// second, divergent network-policy engine.
 abstract interface class NetworkPolicyStore {
   Future<StoredNetworkPolicyProfileRecord> storeProfile(
       StoredNetworkPolicyProfileRecord profile);

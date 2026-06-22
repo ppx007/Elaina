@@ -1,3 +1,5 @@
+// Playback state is the domain read model shared by controller, UI, metadata
+// bridge, and tests. Keep adapter-specific details out of these snapshots.
 final class DomainMediaTrackId {
   const DomainMediaTrackId(this.value)
       : assert(value != '', 'Track id must not be empty.');

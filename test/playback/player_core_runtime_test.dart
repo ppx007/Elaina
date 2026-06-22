@@ -1,3 +1,6 @@
+// Player core runtime tests protect adapter lifecycle and capability-gated
+// commands. UI pages should depend on this contract rather than adapter details.
+// Add adapter quirks in adapter tests after the core command semantics are set.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

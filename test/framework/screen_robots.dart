@@ -1,3 +1,6 @@
+// Screen robots provide stable user-level actions for high-churn widget tests.
+// Keep text/layout finders centralized here instead of scattering them through
+// page test files.
 import 'package:elaina/src/domain/home/home_search_domain.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';

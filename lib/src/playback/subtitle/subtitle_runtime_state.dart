@@ -1,3 +1,6 @@
+// Subtitle runtime state is the playback-facing projection of parsed tracks,
+// cue selection, and offset decisions. Provider lookup and file parsing stay in
+// their own layers so playback can render from stable snapshots.
 import '../player_clock.dart';
 import 'subtitle_cue.dart';
 import 'subtitle_offset.dart';

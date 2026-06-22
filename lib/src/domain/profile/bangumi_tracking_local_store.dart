@@ -3,6 +3,10 @@ import 'dart:convert';
 import '../../foundation/storage/storage_contracts.dart';
 import 'bangumi_tracking_domain.dart';
 
+/// Settings key for offline Bangumi tracking fallback records.
+///
+/// Local tracking is a temporary authority while logged out; once cloud state is
+/// available, conflict handling must decide which side wins.
 const String bangumiLocalTrackingSettingsKey =
     'bangumi_local_tracking_records_v1';
 const int bangumiLocalTrackingSchemaVersion = 1;
@@ -79,6 +83,10 @@ abstract interface class BangumiTrackingSyncProvider {
   });
 }
 
+/// Bangumi tracking provider that prefers cloud state when authenticated.
+///
+/// Local records are not used to mask remote failures; they only fill gaps when
+/// there is no remote provider or the remote explicitly reports unauthenticated.
 final class CloudFirstBangumiTrackingProvider
     implements BangumiTrackingProvider {
   const CloudFirstBangumiTrackingProvider({

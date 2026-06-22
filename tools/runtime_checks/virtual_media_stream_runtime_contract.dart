@@ -1,3 +1,6 @@
+// Virtual media stream runtime contract validates stream creation and byte-range
+// restart state from the CLI, separate from playback adapter tests.
+// Byte-source serving tests own range content assertions.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

@@ -1,3 +1,6 @@
+// Legacy playback shell tests remain as a compatibility safety net. New
+// production playback behavior belongs in the redesigned playback page tests.
+// Avoid adding new visual behavior here unless the legacy shell itself changes.
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/playback/flutter_playback_shell.dart';
 import 'package:elaina/src/ui/playback/production_playback_page.dart';

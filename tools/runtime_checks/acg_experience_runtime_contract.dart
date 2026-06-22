@@ -1,3 +1,5 @@
+// ACG experience runtime contract validates the high-level coordinator from the
+// Dart CLI without duplicating provider-specific runtime tests.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

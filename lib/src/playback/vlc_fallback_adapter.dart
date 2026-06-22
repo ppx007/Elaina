@@ -1,3 +1,6 @@
+// VLC fallback adapter is a capability-described placeholder for environments
+// where VLC is the selected secondary player. It must not hide capability loss.
+// Real playback commands still flow through the common PlayerAdapter contract.
 import 'capability_matrix.dart';
 import 'fallback_adapter.dart';
 import 'player_adapter.dart';

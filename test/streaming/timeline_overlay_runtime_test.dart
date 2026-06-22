@@ -1,3 +1,6 @@
+// Timeline overlay runtime tests keep BT piece state, priority windows, and UI
+// overlay projection together because the value is in their alignment.
+// Rendering concerns belong in widget tests that consume the projection.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// BT task runtime contract is the CLI-facing guard for task lifecycle,
+// metadata, file selection, transfer snapshots, and event projections.
+// Keep engine-specific assertions in adapter tests.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

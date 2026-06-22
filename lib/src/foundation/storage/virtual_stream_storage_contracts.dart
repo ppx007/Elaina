@@ -1,3 +1,6 @@
+// Stored virtual-stream records describe app-owned byte streams across restarts.
+// Byte serving and range availability are runtime concerns, not storage logic.
+// The registry resolves stream URIs back to live byte sources.
 import '../baseline_defaults.dart';
 
 enum StoredVirtualMediaStreamLifecycleState {

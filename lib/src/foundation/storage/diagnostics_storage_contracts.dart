@@ -1,5 +1,7 @@
 import '../diagnostics/diagnostics_center.dart';
 
+/// Stored diagnostics records preserve schema/correlation data across restarts.
+/// DiagnosticsCenter still owns validation; the store only persists facts.
 enum StoredDiagnosticsCapabilityState {
   supported,
   unsupported,
@@ -188,6 +190,9 @@ final class StoredDiagnosticsCapabilityRecord {
   final String? reason;
 }
 
+/// Persistence port for diagnostics events and schema snapshots.
+/// The diagnostics runtime validates required payload keys before records reach
+/// this store, keeping persistence code free of domain-specific event rules.
 abstract interface class DiagnosticsStore {
   Future<void> storeSchema(StoredDiagnosticsSchemaRecord schema);
 

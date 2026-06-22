@@ -1,5 +1,7 @@
 import '../baseline_defaults.dart';
 
+/// Stored seasonal catalog entries are provider-normalized snapshots.
+/// Recommendation and detail screens consume domain projections, not these rows.
 final class StoredSeasonalCatalogEntryRecord {
   const StoredSeasonalCatalogEntryRecord({
     required this.id,
@@ -34,6 +36,8 @@ final class StoredSeasonalCatalogEntryRecord {
   final DateTime updatedAt;
 }
 
+/// Persistence port for normalized seasonal catalog entries.
+/// Provider fetch and recommendation ranking stay in the seasonal runtime.
 abstract interface class SeasonalCatalogStore {
   Future<StoredSeasonalCatalogEntryRecord> store(
       StoredSeasonalCatalogEntryRecord entry);
@@ -195,6 +199,9 @@ final class StoredBangumiMatchQueueItemRecord {
   }
 }
 
+/// Persistence port for queued Bangumi match candidates.
+/// The queue records candidate state; matching confidence and provider lookup
+/// rules live in the media/seasonal domain layer.
 abstract interface class BangumiMatchQueueStore {
   Future<void> enqueue(StoredBangumiMatchQueueItemRecord item);
 

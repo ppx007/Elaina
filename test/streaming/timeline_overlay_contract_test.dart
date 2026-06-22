@@ -1,3 +1,5 @@
+// Timeline overlay contract tests define projection composition semantics
+// before runtime storage and widget rendering are involved.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

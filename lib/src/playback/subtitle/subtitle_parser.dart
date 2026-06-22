@@ -1,6 +1,10 @@
 import 'subtitle_cue.dart';
 import 'subtitle_source.dart';
 
+/// Immutable request passed into format-specific subtitle parsers.
+///
+/// Parsers receive already-decoded text; byte decoding and provider caching are
+/// handled outside this boundary so format parsing stays deterministic.
 final class SubtitleParseRequest {
   const SubtitleParseRequest({
     required this.source,
@@ -63,6 +67,8 @@ final class BasicSubtitleParserRegistry implements SubtitleParserRegistry {
   SubtitleParser? parserFor(SubtitleFormat format) => _parsers[format];
 }
 
+/// Minimal SRT parser that preserves malformed-file warnings instead of
+/// throwing away the entire track after one bad cue.
 final class SrtSubtitleParser implements SubtitleParser {
   const SrtSubtitleParser();
 
@@ -185,6 +191,10 @@ final class WebVttSubtitleParser implements SubtitleParser {
   }
 }
 
+/// Basic ASS parser for timing and plain text extraction.
+///
+/// Advanced ASS layout and styling belong to the advanced caption renderer; the
+/// core subtitle runtime only needs stable cues for playback synchronization.
 final class BasicAssSubtitleParser implements SubtitleParser {
   const BasicAssSubtitleParser();
 

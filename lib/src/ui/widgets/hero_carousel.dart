@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
+/// Home-page hero carousel for recent Bangumi attention items.
+///
+/// The widget owns only presentation and image lifecycle. Ranking windows,
+/// provider caching, and Bangumi fallback decisions stay in the home/domain
+/// composition that creates [HeroCarouselItem]s.
 class HeroCarousel extends StatefulWidget {
   const HeroCarousel({
     super.key,
@@ -393,6 +398,9 @@ class _HeroImageCachePin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (providers.isEmpty) return const SizedBox.shrink();
+    // The ListView is logically infinite, so keep image providers pinned
+    // outside the visible cards. Otherwise Flutter may evict the first images
+    // during a loop and the second pass can degrade to text-only cards.
     return Positioned(
       left: 0,
       top: 0,

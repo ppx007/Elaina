@@ -5,8 +5,16 @@ import '../../domain/playback/playback_state.dart';
 import 'playback_page_contract.dart';
 
 final DateTime mockPlaybackShellObservedAt = DateTime.utc(2026, 6, 3, 12, 0);
+/// Demo seek target used by the legacy shell driver.
+///
+/// Production playback controls use the controller contract and redesigned
+/// production page; this shell remains as a lightweight compatibility surface.
 const Duration demoPlaybackSeekPosition = Duration(seconds: 42);
 
+/// Driver boundary for the legacy Flutter-only playback shell.
+///
+/// New playback UI should prefer the production driver/page pair; this
+/// interface exists so older shell tests can keep exercising widget wiring.
 abstract interface class FlutterPlaybackShellDriver {
   PlaybackStateSnapshot get snapshot;
 

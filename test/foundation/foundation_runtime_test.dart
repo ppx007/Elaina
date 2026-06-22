@@ -1,3 +1,6 @@
+// Foundation runtime tests protect the baseline extension-point registry and
+// layer manifest. Feature tests should not duplicate these bootstrap checks.
+// Add feature modules through the manifest first, then assert them here.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

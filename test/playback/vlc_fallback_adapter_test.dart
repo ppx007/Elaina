@@ -1,3 +1,5 @@
+// VLC fallback adapter tests assert capability reporting for the fallback path.
+// Real native VLC playback should be covered by adapter integration tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,3 +1,6 @@
+// Subtitle provider runtime tests cover search/retrieve orchestration and cache
+// invalidation. Cue parsing and HTTP provider details stay in separate suites.
+// Add provider-specific wire cases to provider tests first.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

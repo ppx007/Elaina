@@ -1,3 +1,5 @@
+// Fallback runtime tests ensure adapter selection is explicit and capability
+// loss remains visible instead of becoming a silent playback downgrade.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

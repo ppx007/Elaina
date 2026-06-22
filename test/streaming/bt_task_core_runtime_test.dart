@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// BT task runtime tests keep lifecycle, metadata, file selection, and events in
+// one suite because regressions usually cross those projections.
+// Engine adapter details belong in adapter tests, not this runtime suite.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

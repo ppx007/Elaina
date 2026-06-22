@@ -1,3 +1,6 @@
+/// Diagnostics capabilities are declared separately from event schemas so a
+/// runtime can expose read-only diagnostics without pretending export or
+/// retention enforcement exists.
 enum DiagnosticsCapability {
   schemaRegistration,
   redactedEventRecording,
@@ -272,6 +275,10 @@ abstract interface class DiagnosticsEventRegistry {
   DiagnosticsEventSchema? schemaFor(DiagnosticsEventType type);
 }
 
+/// Contract for recording, querying, retaining, and exporting diagnostics.
+///
+/// Callers register schemas before recording events. That makes payload shape a
+/// runtime contract rather than scattered ad hoc maps in each subsystem.
 abstract interface class DiagnosticsCenter {
   DiagnosticsRetentionPolicy get retentionPolicy;
   DiagnosticsRedactionPolicy get redactionPolicy;

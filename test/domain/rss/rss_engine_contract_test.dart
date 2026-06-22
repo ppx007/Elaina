@@ -1,3 +1,6 @@
+// RSS engine contract tests define refresh and dedupe semantics. Runtime tests
+// add scheduling, storage, and auto-download orchestration.
+// Feed-source parser cases belong in provider tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

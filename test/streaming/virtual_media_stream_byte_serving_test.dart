@@ -1,3 +1,5 @@
+// Virtual media stream byte-serving tests assert range content and response
+// behavior separately from runtime restart orchestration.
 import 'dart:io';
 
 import 'package:elaina/elaina.dart';

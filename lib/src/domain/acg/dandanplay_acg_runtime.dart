@@ -1,3 +1,5 @@
+// dandanplay ACG runtime adapts comment/match provider data into the shared ACG
+// experience model. Keep provider wire details in dandanplay provider classes.
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
 import '../../provider/bangumi/bangumi_auth.dart';

@@ -1,3 +1,6 @@
+// Playback history integration listens to playback snapshots and writes
+// media-library progress. It must stay above adapters so progress works for
+// local files, virtual streams, and future playback backends alike.
 import '../../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../playback/playback_state.dart';
 import 'media_library.dart';

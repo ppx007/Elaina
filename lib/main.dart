@@ -1,3 +1,5 @@
+// App entrypoint wires the production composition and theme persistence. Keep
+// feature-specific setup inside AppComposition so main remains startup-only.
 import 'package:flutter/material.dart';
 
 import 'src/app_composition.dart';

@@ -1,3 +1,5 @@
+// Online rule harness check keeps fixture evaluation available from the CLI.
+// Provider/site-specific parser behavior should stay in provider tests.
 import 'dart:io';
 
 import '../lib/elaina.dart';

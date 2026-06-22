@@ -3,6 +3,10 @@ import '../foundation/storage/fallback_adapter_storage_contracts.dart';
 import 'capability_matrix.dart';
 import 'player_adapter.dart';
 
+/// Identifies a playback adapter that can be selected after primary failure.
+///
+/// The id is persisted in fallback state, so it must remain stable across app
+/// restarts instead of being derived from object identity.
 final class FallbackAdapterId {
   const FallbackAdapterId(this.value)
       : assert(value != '', 'Fallback adapter id must not be empty.');
@@ -223,6 +227,10 @@ abstract interface class PlaybackFallbackStrategy {
       FallbackAdapterId candidateId);
 }
 
+/// Deterministic fallback strategy for capability-aware adapter selection.
+///
+/// Fallback is not a silent downgrade: the selected adapter carries hidden
+/// capability reasons so UI and diagnostics can show what was sacrificed.
 final class DeterministicPlaybackFallbackStrategy
     implements PlaybackFallbackStrategy {
   DeterministicPlaybackFallbackStrategy({

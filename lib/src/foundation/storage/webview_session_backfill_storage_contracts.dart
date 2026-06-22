@@ -1,3 +1,5 @@
+/// Stored WebView session artifacts are references to approved local secrets.
+/// Values should remain indirect so storage rows are safe to inspect/export.
 enum StoredManualChallengeKind {
   captcha,
   login,
@@ -176,6 +178,9 @@ final class StoredWebViewSessionCapabilityRecord {
   final DateTime updatedAt;
 }
 
+/// Persistence port for manual challenge and session artifact state.
+/// It stores artifact references and approvals; it must not attempt browser
+/// automation or same-origin validation by itself.
 abstract interface class WebViewSessionBackfillStore {
   Future<StoredManualChallengeRequestRecord> storeChallengeRequest(
       StoredManualChallengeRequestRecord request);

@@ -1,3 +1,6 @@
+// Playback metadata bridge tests verify optional provider enrichment never
+// blocks core playback state updates.
+// Provider failures should remain metadata failures, not transport failures.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

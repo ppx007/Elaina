@@ -1,5 +1,8 @@
 import 'dart:io';
 
+// Online rule source runtime contract exercises source retrieval and capability
+// persistence through the Dart CLI after PowerShell checks were removed.
+// Keep parser-package behavior in online-rule runtime tests.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

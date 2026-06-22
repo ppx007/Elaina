@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+// OpenSubtitles provider tests verify provider-gateway, proxy, and download URL
+// handoff behavior. Subtitle parser behavior belongs in playback parser tests.
+// Multi-hop URL policy coverage belongs here.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

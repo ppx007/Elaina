@@ -1,3 +1,6 @@
+// Seasonal indexer runtime contract keeps feed normalization, catalog storage,
+// and match-queue behavior executable from the Dart validation CLI.
+// UI recommendation behavior should stay in widget/domain tests.
 import 'dart:async';
 
 import '../../lib/elaina.dart';

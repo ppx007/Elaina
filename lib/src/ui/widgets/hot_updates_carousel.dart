@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
+/// Horizontal recent-watching carousel shown after home data is mapped.
+///
+/// This widget intentionally does not fetch Bangumi or local history itself;
+/// it only renders the already-normalized [HotUpdateItem] projection.
 class HotUpdatesCarousel extends StatefulWidget {
   const HotUpdatesCarousel({
     super.key,
@@ -165,6 +169,8 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
 
   ImageProvider<Object>? _imageProviderFor(Uri? uri) {
     if (uri == null) return null;
+    // Preserve provider identity across rebuilds to avoid restarting network
+    // image resolution while the carousel auto-advances.
     return _imageProvidersByUri[uri.toString()];
   }
 

@@ -1,3 +1,5 @@
+/// Stored piece-priority records capture planning decisions for restart and
+/// diagnostics; the scheduler runtime still owns live torrent piece mutation.
 enum StoredPiecePriorityApplicationOutcomeKind {
   accepted,
   rejected,
@@ -172,6 +174,9 @@ final class StoredPiecePriorityPlanningFailureRecord {
   final DateTime occurredAt;
 }
 
+/// Persistence port for piece priority profiles, plans, and application events.
+/// Live engine mutation remains in the scheduler runtime so this store can stay
+/// deterministic and side-effect free.
 abstract interface class PiecePrioritySchedulerStore {
   Future<StoredPiecePriorityStrategyProfileRecord> storeProfile(
       StoredPiecePriorityStrategyProfileRecord profile);

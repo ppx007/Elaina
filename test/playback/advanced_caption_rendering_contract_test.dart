@@ -1,3 +1,6 @@
+// Advanced caption contract tests define renderer capability and degradation
+// semantics before runtime persistence is involved.
+// UI overlay rendering belongs in playback-page tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

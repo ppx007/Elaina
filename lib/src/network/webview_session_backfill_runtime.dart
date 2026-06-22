@@ -3,6 +3,8 @@ import '../foundation/security/outbound_uri_guard.dart';
 import '../foundation/storage/webview_session_backfill_storage_contracts.dart';
 import 'webview_session_backfill.dart';
 
+/// Runtime failures keep browser support, origin rejection, and storage issues
+/// separate so providers can surface the exact reason a session was not reused.
 enum WebViewSessionBackfillRuntimeFailureKind {
   capabilityUnsupported,
   unavailable,
@@ -140,6 +142,10 @@ final class WebViewSessionBackfillRuntimeBootstrap {
   }
 }
 
+/// Coordinates manual challenge artifacts with durable backfill attempts.
+///
+/// The runtime never performs hidden automation; it validates user-approved
+/// same-origin artifacts and records retry state for provider-owned requests.
 final class WebViewSessionBackfillRuntime {
   WebViewSessionBackfillRuntime._({
     required WebViewSessionBackfillStore store,

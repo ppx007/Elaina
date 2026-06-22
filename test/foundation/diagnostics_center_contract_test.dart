@@ -1,3 +1,6 @@
+// Diagnostics center contract tests pin schema validation, retention, and query
+// semantics before runtime/UI layers project diagnostics to users.
+// Storage tests should only prove persistence of these facts.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

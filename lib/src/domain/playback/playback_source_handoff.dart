@@ -1,3 +1,5 @@
+// Playback source handoff is the domain boundary for opening local files,
+// virtual streams, and detail-page media in the player controller.
 import '../../playback/player_adapter.dart';
 import '../../playback/virtual_stream_playback_source.dart';
 import '../media/media_library.dart';

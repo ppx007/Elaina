@@ -5,6 +5,10 @@ import 'capability_matrix.dart';
 import 'danmaku/danmaku_event.dart';
 import 'subtitle/subtitle_source.dart';
 
+/// Feature flags understood by the advanced caption boundary.
+///
+/// These are capability-facing intents, not UI toggles. A UI preference still
+/// has to pass through renderer capability checks before anything is applied.
 enum AdvancedCaptionFeature {
   matrixDanmaku,
   dualSubtitles,
@@ -222,6 +226,10 @@ abstract interface class AdvancedCaptionRenderer {
       {required String reason});
 }
 
+/// Deterministic renderer used by contract tests and runtime scaffolding.
+///
+/// It models the same capability and AV-sync decisions expected from a real
+/// renderer, but deliberately avoids native subtitle/danmaku side effects.
 final class DeterministicAdvancedCaptionRenderer
     implements AdvancedCaptionRenderer {
   DeterministicAdvancedCaptionRenderer({

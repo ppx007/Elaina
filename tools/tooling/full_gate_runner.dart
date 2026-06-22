@@ -1,3 +1,6 @@
+// Full gate runner composes declarative module checks for release-readiness.
+// Keep module membership in module_checks.json instead of hardcoding script
+// names here.
 import 'dart:io';
 
 import 'module_check_runner.dart';

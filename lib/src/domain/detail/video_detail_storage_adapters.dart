@@ -11,6 +11,10 @@ import 'video_detail.dart';
 import 'video_detail_bootstrap.dart';
 import 'video_detail_runtime.dart';
 
+/// Storage-backed detail repository for local playback and tracking context.
+///
+/// Provider metadata still comes from Bangumi; this adapter joins that metadata
+/// with local library bindings, history, and offline tracking fallback records.
 final class StorageBackedVideoDetailRepository
     implements VideoDetailRepository {
   StorageBackedVideoDetailRepository({

@@ -1,3 +1,5 @@
+// Basic danmaku runtime tests cover timing, lane projection, and visibility
+// state after provider comments have already been normalized.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

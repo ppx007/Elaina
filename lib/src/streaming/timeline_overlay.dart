@@ -2,6 +2,10 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import 'bt_task_core.dart';
 import 'virtual_media_stream.dart';
 
+/// Timeline overlay ranges use both playback time and byte ranges.
+///
+/// Keeping them separate prevents UI heatmaps from assuming a linear mapping
+/// when a container layout or torrent file ordering says otherwise.
 final class TimelineTimeRange {
   const TimelineTimeRange({required this.start, required this.end})
       : assert(start >= Duration.zero, 'Timeline start must not be negative.'),
@@ -202,6 +206,8 @@ abstract interface class TimelineOverlayComposer {
       TimelineOverlayCompositionInput input);
 }
 
+/// Deterministic overlay composer for BT piece state, priority windows, and
+/// playback markers. It produces UI-ready snapshots without touching the engine.
 final class DeterministicTimelineOverlayComposer
     implements TimelineOverlayComposer {
   DeterministicTimelineOverlayComposer(

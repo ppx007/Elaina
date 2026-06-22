@@ -1,3 +1,6 @@
+// Media library smoke gate checks scanner, import, binding, and playback handoff
+// wiring as a CLI validation path. Detailed edge cases belong in unit tests.
+// Keep it fast enough for module checks instead of turning it into full QA.
 import 'dart:async';
 import 'dart:io';
 

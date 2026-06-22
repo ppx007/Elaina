@@ -1,3 +1,6 @@
+// Virtual media stream contract tests define byte-range and lifecycle semantics
+// before runtime persistence or playback adapters are involved.
+// Runtime tests own restart and registry orchestration.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

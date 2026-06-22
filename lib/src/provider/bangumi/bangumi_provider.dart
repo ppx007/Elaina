@@ -1,5 +1,7 @@
 import '../../foundation/extension_points.dart';
 import '../gateway_bound_provider.dart';
+// Bangumi provider contract is the normalized boundary consumed by domain/UI.
+// Concrete API clients map Bangumi JSON into these types before crossing layers.
 import '../provider_result.dart';
 
 final class BangumiSubjectId {

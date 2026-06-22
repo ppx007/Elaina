@@ -1,3 +1,6 @@
+// Local file scanner turns filesystem paths into media-library candidates.
+// It must not perform provider matching or playback handoff; those remain in
+// media-library runtime and detail/playback domains.
 import 'dart:convert';
 import 'dart:io';
 

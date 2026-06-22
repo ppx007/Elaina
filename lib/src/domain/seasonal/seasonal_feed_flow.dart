@@ -4,6 +4,8 @@ import '../rss/rss_engine_runtime.dart';
 import 'seasonal_anime.dart';
 import 'seasonal_indexer_runtime.dart';
 
+/// Seasonal feed flow state belongs to the ingestion pipeline, not to the home
+/// page carousel. UI should consume catalog projections after refresh completes.
 enum SeasonalFeedFlowStatus {
   idle,
   registering,
@@ -104,6 +106,10 @@ final class SeasonalFeedFlowSnapshot {
   final List<SeasonalFeedFlowFailure> failures;
 }
 
+/// Refreshes seasonal provider data into durable catalog storage.
+///
+/// The flow preserves the provider/catalog boundary: matching, queueing, and UI
+/// recommendations consume stored entries instead of scraping provider JSON.
 final class SeasonalFeedFlowRuntime {
   SeasonalFeedFlowRuntime({
     required RssEngineRuntime rssRuntime,

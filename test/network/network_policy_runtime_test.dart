@@ -1,3 +1,6 @@
+// Network policy runtime tests pin assignment, evaluation, and block recording
+// at the ProviderGateway boundary. HTTP clients are intentionally not involved.
+// Transport behavior belongs in provider/client tests with recorded URIs.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

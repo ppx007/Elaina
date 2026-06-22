@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// Seasonal indexer runtime tests cover provider normalization and catalog
+// persistence, leaving home-page recommendation layout to widget tests.
+// Keep source-specific parsing in provider/feed tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

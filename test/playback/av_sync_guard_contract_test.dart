@@ -1,3 +1,5 @@
+// AV-sync guard contract tests define drift thresholds and degradation outcomes
+// before runtime persistence records measurements.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

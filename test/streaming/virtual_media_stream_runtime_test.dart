@@ -1,3 +1,6 @@
+// Virtual stream runtime tests verify restart and byte-range orchestration.
+// They avoid playback adapters so failures identify stream state, not video UI.
+// Byte-serving edge cases belong in the dedicated byte-source tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

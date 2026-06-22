@@ -1,3 +1,5 @@
+// Network policy runtime contract validates assignment and evaluation from the
+// Dart CLI without invoking real HTTP transports.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

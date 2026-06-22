@@ -4,6 +4,10 @@ import 'advanced_caption_rendering.dart';
 import 'av_sync_guard.dart';
 import 'capability_matrix.dart';
 
+/// Wires advanced caption rendering to profiles, capabilities, and storage.
+///
+/// Keeping bootstrap wiring centralized prevents app composition from applying
+/// a renderer with a capability matrix from the wrong playback scope.
 final class AdvancedCaptionRuntimeBootstrap {
   AdvancedCaptionRuntimeBootstrap({
     required this.captionStore,
@@ -127,6 +131,10 @@ final class AdvancedCaptionRuntimeProjection {
   final AdvancedCaptionRuntimeRestartProjection restart;
 }
 
+/// Runtime facade for matrix danmaku, dual subtitles, and advanced subtitle use.
+///
+/// It persists only decisions and projection state; actual rendering remains in
+/// [AdvancedCaptionRenderer] so the UI never talks to native caption backends.
 final class AdvancedCaptionRuntime {
   AdvancedCaptionRuntime._({
     required AdvancedCaptionStore captionStore,

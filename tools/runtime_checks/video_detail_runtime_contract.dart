@@ -1,3 +1,6 @@
+// Video detail runtime contract validates provider metadata, local playback
+// bindings, and tracking actions without depending on Flutter widgets.
+// Page layout assertions belong in the detail-page widget suite.
 import '../../lib/elaina.dart';
 import 'danmaku_runtime_contract.dart';
 

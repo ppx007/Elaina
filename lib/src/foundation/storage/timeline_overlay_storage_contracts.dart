@@ -1,3 +1,6 @@
+// Stored timeline overlay records persist composed playback/BT projections for
+// restart and diagnostics. The composer owns alignment math, not this store.
+// Storage implementations should preserve snapshots without recomposition.
 enum StoredTimelineOverlayLayerKind {
   playbackProgress,
   bufferedRanges,

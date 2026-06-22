@@ -1,3 +1,6 @@
+// Network policy contract tests define matcher and action semantics independent
+// of ProviderGateway runtime persistence.
+// Runtime tests assert assignment storage and evaluation recording.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

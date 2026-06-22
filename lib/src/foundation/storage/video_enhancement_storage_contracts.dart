@@ -1,3 +1,5 @@
+// Stored video-enhancement records preserve user profiles and runtime decisions.
+// Native renderer resources and frame-budget calculations stay out of storage.
 enum StoredEnhancementPipelineStateKind {
   disabled,
   evaluated,

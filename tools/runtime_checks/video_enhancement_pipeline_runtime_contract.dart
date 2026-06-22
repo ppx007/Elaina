@@ -1,3 +1,6 @@
+// Video enhancement runtime contract keeps profile/capability/degradation
+// behavior available from the Dart validation CLI without native rendering.
+// Native renderer behavior belongs in playback adapter tests.
 import '../../lib/elaina.dart';
 
 Future<void> main() async {

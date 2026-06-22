@@ -1,3 +1,5 @@
+// Playback capability matrix is the single source for feature availability.
+// UI should expose controls from this contract instead of probing adapters.
 enum PlaybackCapability {
   localFilePlayback,
   httpPlayback,

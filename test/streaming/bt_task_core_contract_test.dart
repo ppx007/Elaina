@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// BT task core contract tests define task/file/event projections before any
+// concrete engine adapter is allowed to implement them.
+// Adapter tests should conform to these projections, not redefine them.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

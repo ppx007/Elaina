@@ -1,3 +1,6 @@
+// WebView session backfill tests protect same-origin and manual-challenge
+// boundaries. They must not introduce hidden browser automation shortcuts.
+// Add new challenge flows here only when the user remains in control.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

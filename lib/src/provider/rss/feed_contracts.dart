@@ -1,3 +1,6 @@
+// Feed contracts define source and item projections shared by RSS, seasonal,
+// and automation layers. Provider-specific parsing should normalize into these
+// types before domain runtimes consume feed data.
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
 import '../gateway_bound_provider.dart';

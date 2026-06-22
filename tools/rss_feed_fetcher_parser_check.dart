@@ -1,3 +1,5 @@
+// RSS fetcher/parser check is a focused CLI contract for feed normalization.
+// It should stay smaller than the runtime check that handles scheduling.
 import 'dart:io';
 
 import '../lib/elaina.dart';

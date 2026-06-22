@@ -1,3 +1,6 @@
+// Automation smoke gate validates RSS-to-download handoff wiring. Keep this as
+// orchestration coverage rather than a replacement for RSS/download unit tests.
+// Do not add UI assertions here; this is a CLI composition guard.
 import 'dart:io';
 
 import '../lib/elaina.dart';

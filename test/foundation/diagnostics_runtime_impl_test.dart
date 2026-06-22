@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+// Diagnostics runtime implementation tests verify the domain projection over
+// DiagnosticsCenter rather than re-testing schema validation internals.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

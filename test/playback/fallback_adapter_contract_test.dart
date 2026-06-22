@@ -1,3 +1,5 @@
+// Fallback adapter contract tests define capability-loss visibility before the
+// runtime persists selections or UI renders fallback warnings.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

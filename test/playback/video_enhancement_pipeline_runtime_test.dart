@@ -1,3 +1,6 @@
+// Video enhancement runtime tests cover profile persistence, capability gates,
+// and degradation projections without depending on native renderer behavior.
+// Keep adapter-specific rendering in adapter tests.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

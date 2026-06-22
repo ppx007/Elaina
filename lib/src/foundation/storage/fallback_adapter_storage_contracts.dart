@@ -1,3 +1,6 @@
+// Stored fallback-adapter records capture selected adapters and capability
+// tradeoffs so fallback never becomes an invisible downgrade after restart.
+// Selection policy belongs in PlaybackFallbackStrategy.
 import '../baseline_defaults.dart';
 
 enum StoredFallbackStrategyStateKind {

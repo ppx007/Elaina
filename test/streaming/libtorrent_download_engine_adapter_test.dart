@@ -1,3 +1,6 @@
+// Adapter tests pin the contract between the domain download runtime and the
+// libtorrent-facing adapter. Keep engine fakes narrow so UI tests do not grow
+// hidden torrent-engine assumptions.
 import 'dart:async';
 
 import 'package:elaina/elaina.dart';

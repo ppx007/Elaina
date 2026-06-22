@@ -1,3 +1,6 @@
+// Piece priority contract tests cover planning semantics without a torrent
+// engine. Runtime tests own persistence and application-event behavior.
+// Keep live engine mutation in adapter/runtime suites.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

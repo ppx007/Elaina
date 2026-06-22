@@ -1,3 +1,5 @@
+// Video enhancement contract tests define profile and budget semantics before
+// runtime storage and adapter mapping are involved.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

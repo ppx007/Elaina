@@ -10,6 +10,8 @@ import '../subtitle/subtitle_discovery.dart';
 import '../subtitle/subtitle_provider_runtime.dart';
 import 'acg_data_controller.dart';
 
+/// ACG experience status is the orchestration state across Bangumi,
+/// dandanplay, and playback metadata; it is not a provider-specific status.
 enum AcgExperienceRuntimeStatus {
   idle,
   ready,
@@ -80,6 +82,10 @@ final class AcgExperienceResult {
   bool get isSuccess => failures.isEmpty;
 }
 
+/// High-level ACG data coordinator for matching, tracking, and comment metadata.
+///
+/// It keeps provider-specific failures normalized so UI can render one coherent
+/// experience without knowing which provider supplied each piece.
 final class AcgExperienceRuntime {
   AcgExperienceRuntime({
     required AcgDataController controller,

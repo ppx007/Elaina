@@ -1,3 +1,5 @@
+// Advanced caption runtime tests verify profile state, capability gates, and
+// AV-sync degradation without invoking native caption renderers.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

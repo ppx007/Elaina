@@ -1,5 +1,7 @@
 import 'dart:io';
 
+// Seasonal feed flow tests cover RSS/seasonal ingestion into catalog storage.
+// Home-page carousel and recommendation layout are tested separately.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

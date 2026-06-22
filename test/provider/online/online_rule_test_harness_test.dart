@@ -1,3 +1,5 @@
+// Online rule harness tests verify fixture-driven rule evaluation. They should
+// not become tests for a specific public website.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

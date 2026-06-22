@@ -1,3 +1,6 @@
+// Elaina tool tests cover the Dart CLI orchestration layer that replaced PS1.
+// Keep policy in registries and assert runner behavior here.
+// Avoid shell-specific assumptions so checks stay cross-platform.
 import 'dart:convert';
 import 'dart:io';
 

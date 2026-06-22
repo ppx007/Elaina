@@ -1,3 +1,5 @@
+// Playback source handoff tests ensure local media, virtual streams, and detail
+// actions all enter playback through one domain boundary.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

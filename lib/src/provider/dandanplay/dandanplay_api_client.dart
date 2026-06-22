@@ -11,6 +11,10 @@ import 'dandanplay_provider.dart';
 import 'dandanplay_registration.dart';
 import 'dandanplay_runtime.dart';
 
+/// dandanplay protocol constants kept near the wire mapper.
+///
+/// They are named even when the upstream API uses numeric modes so future
+/// maintainers do not need to rediscover response-mode semantics from samples.
 const String defaultDandanplayApiUserAgent = 'Elaina/0.1';
 const String dandanplayMatchModeFileNameOnly = 'fileNameOnly';
 const int dandanplayCommentsFromOffset = 0;
@@ -82,6 +86,10 @@ abstract interface class DandanplayApiTransport {
   Future<DandanplayApiResponse> send(DandanplayApiRequest request);
 }
 
+/// HTTP transport for dandanplay requests.
+///
+/// Proxy wiring lives here; endpoint construction, request signatures, and
+/// response normalization stay in [DandanplayApiClient].
 final class HttpDandanplayApiTransport implements DandanplayApiTransport {
   HttpDandanplayApiTransport({
     HttpClient? httpClient,

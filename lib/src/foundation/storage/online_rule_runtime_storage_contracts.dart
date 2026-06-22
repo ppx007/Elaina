@@ -1,3 +1,5 @@
+/// Stored online-rule records are persistence DTOs, not parser/runtime models.
+/// Keep validation and extraction semantics in the provider runtime layer.
 enum StoredOnlineRuleTarget {
   search,
   detail,
@@ -245,6 +247,9 @@ final class StoredOnlineRuleSourceCapabilityRecord {
   final DateTime updatedAt;
 }
 
+/// Persistence port consumed by the online-rule runtime.
+/// Runtime validation owns semantics; this store only preserves manifests,
+/// retrieval outcomes, evaluations, and unsupported-operation audit entries.
 abstract interface class OnlineRuleRuntimeStore {
   Future<StoredOnlineRuleManifestRecord> storeManifest(
       StoredOnlineRuleManifestRecord manifest);

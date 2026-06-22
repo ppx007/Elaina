@@ -1,3 +1,6 @@
+// dandanplay runtime tests cover ProviderGateway behavior and protocol mapping
+// in one place so UI/playback tests can depend on normalized provider results.
+// Add new wire cases here before exposing them through playback metadata.
 import 'dart:convert';
 
 import 'package:elaina/elaina.dart';

@@ -1,3 +1,5 @@
+// Danmaku runtime state is the playback-facing projection of timed comments.
+// Provider matching and comment transport live outside this layer.
 import '../player_clock.dart';
 import 'danmaku_event.dart';
 import 'danmaku_filter.dart';

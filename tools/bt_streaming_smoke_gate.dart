@@ -1,3 +1,6 @@
+// BT streaming smoke gate validates the cross-module happy path from task
+// creation through virtual byte serving. It is intentionally narrower than the
+// full feature gate and should stay free of UI assertions.
 import 'dart:async';
 import 'dart:io';
 

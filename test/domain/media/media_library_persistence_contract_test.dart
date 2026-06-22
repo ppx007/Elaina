@@ -1,3 +1,5 @@
+// Media library persistence contract tests protect stored item, binding, and
+// history shape before concrete storage adapters implement it.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

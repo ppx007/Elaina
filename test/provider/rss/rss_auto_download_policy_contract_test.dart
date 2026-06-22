@@ -1,3 +1,6 @@
+// RSS auto-download policy contract tests define matcher and dedupe semantics
+// before runtime/UI code turns accepted candidates into download tasks.
+// UI rule editors should conform to these matcher semantics.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

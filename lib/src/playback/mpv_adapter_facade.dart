@@ -1,3 +1,5 @@
+// MPV adapter facade translates the generic PlayerAdapter contract to an MPV
+// binding. Keep libmpv-specific loading and command quirks behind this file.
 import 'capability_matrix.dart';
 import 'player_adapter.dart';
 import 'track_management.dart';

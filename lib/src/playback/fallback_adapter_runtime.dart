@@ -3,6 +3,10 @@ import 'capability_matrix.dart';
 import 'fallback_adapter.dart';
 import 'player_adapter.dart';
 
+/// Wires a fallback strategy with stored runtime state.
+///
+/// Keeping this bootstrap separate prevents composition code from partially
+/// constructing fallback state and then skipping persistence or invalidation.
 final class FallbackAdapterBootstrap {
   FallbackAdapterBootstrap({
     required this.store,
@@ -121,6 +125,10 @@ final class FallbackAdapterRuntimeProjection {
   final FallbackAdapterRuntimeRestartProjection restart;
 }
 
+/// Runtime facade for registering, selecting, and disabling playback fallback.
+///
+/// It exposes action results rather than throwing through UI flows so fallback
+/// failure can be rendered as an explicit capability/diagnostic state.
 final class FallbackAdapterRuntime {
   FallbackAdapterRuntime._({
     required FallbackAdapterStore store,

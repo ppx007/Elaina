@@ -1,4 +1,6 @@
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
+// Hero carousel tests focus on image-provider lifecycle and cyclic reuse.
+// Bangumi ranking windows are tested at provider/home composition boundaries.
 import 'package:elaina/src/ui/widgets/hero_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

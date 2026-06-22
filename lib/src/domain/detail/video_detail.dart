@@ -1,5 +1,7 @@
 import '../media/media_library.dart';
 
+/// Video detail defaults point to Bangumi today, but remain provider-labelled so
+/// future metadata providers can be added without changing UI state models.
 const String bangumiVideoDetailProviderId = bangumiProviderBindingProviderId;
 const String defaultVideoDetailMetadataProviderId =
     bangumiVideoDetailProviderId;
@@ -194,6 +196,10 @@ final class VideoDetailEpisode {
   final ContinueWatchingState? continueWatching;
 }
 
+/// Complete read model consumed by the detail page.
+///
+/// It merges provider metadata, local playback binding, tracking state, and
+/// partial table failures so UI never reaches into Bangumi JSON or storage rows.
 final class VideoDetailViewData {
   const VideoDetailViewData({
     required this.id,

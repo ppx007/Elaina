@@ -1,5 +1,7 @@
 import 'dart:io';
 
+// Seasonal feed flow check provides a fast CLI guard for catalog refresh wiring.
+// Detailed matching and home recommendation tests live elsewhere.
 import '../lib/elaina.dart';
 
 Future<void> main() async {

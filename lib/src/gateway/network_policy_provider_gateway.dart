@@ -1,3 +1,6 @@
+// Network-policy provider gateway decorates ProviderGateway with outbound URI
+// evaluation. Keep policy enforcement here so individual providers cannot
+// accidentally skip proxy/SSRF decisions.
 import '../foundation/constants.dart';
 import '../foundation/gateway/provider_gateway.dart';
 import '../foundation/storage/storage_contracts.dart';

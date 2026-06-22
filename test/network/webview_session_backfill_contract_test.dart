@@ -1,3 +1,5 @@
+// WebView backfill contract tests define manual challenge and same-origin
+// artifact semantics before runtime/storage persistence.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

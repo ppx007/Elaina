@@ -396,6 +396,11 @@ abstract interface class RssAutoDownloadPolicyEvaluator {
   });
 }
 
+/// Deterministic rule evaluator for source-scoped RSS auto-download.
+///
+/// Rules are evaluated in priority order and the first accepted source wins.
+/// Rejections keep the most specific reason so previews can explain why an item
+/// was skipped instead of showing a generic "not matched" result.
 final class DeterministicRssAutoDownloadPolicyEvaluator
     implements RssAutoDownloadPolicyEvaluator {
   const DeterministicRssAutoDownloadPolicyEvaluator({

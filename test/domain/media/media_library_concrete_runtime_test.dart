@@ -1,5 +1,7 @@
 import 'dart:io';
 
+// Concrete media library runtime tests verify storage-backed scanning/import
+// wiring after the domain contract tests define expected behavior.
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 

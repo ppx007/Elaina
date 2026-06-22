@@ -1,5 +1,7 @@
 import 'dart:async';
 
+// Settings domain stores only global options that runtime code actually reads.
+// Page-specific business objects stay in their own domain pages.
 import '../../foundation/constants.dart';
 import '../../foundation/storage/storage_contracts.dart';
 

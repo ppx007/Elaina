@@ -1,6 +1,10 @@
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
 
+/// UI controls the playback page is allowed to expose.
+///
+/// The page resolves these from domain surface state before dispatching any
+/// intent, so unsupported controls cannot call into the controller by accident.
 enum PlaybackPageControlId {
   playPause,
   seek,
@@ -227,6 +231,10 @@ final class PlaybackPageSurfaceDescriptor {
   }
 }
 
+/// A user action expressed at page level before it becomes a controller call.
+///
+/// Keeping page intent separate from controller commands lets the page gate
+/// panels, tracks, and transport actions through the current surface descriptor.
 enum PlaybackPageIntentKind {
   noop,
   play,

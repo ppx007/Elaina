@@ -1,5 +1,8 @@
 import '../baseline_defaults.dart';
 
+/// Stored BT task records describe engine-visible task state.
+/// They intentionally do not promise that downloaded files are deleted when a
+/// UI removes a task; file deletion is a separate explicit capability.
 enum StoredBtTaskSourceKind {
   magnet,
   torrentData,
