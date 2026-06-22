@@ -286,6 +286,11 @@ final class BtTaskCoreBootstrap {
   final BtTaskCoreRuntime runtime;
 }
 
+/// Runtime projection layer over the BT task core.
+///
+/// The core owns adapter commands; this runtime owns durable projection,
+/// restart reconciliation, observer notifications, and UI-safe failure shapes.
+/// Pages should consume this layer rather than engine adapter records.
 final class BtTaskCoreRuntime {
   BtTaskCoreRuntime.withComposition({
     required BtTaskRuntimeCompositionContract composition,
@@ -610,6 +615,8 @@ final class BtTaskCoreRuntime {
   Future<BtTaskProjection> _projectionFromRecord(
     StoredBtTaskRecord task,
   ) async {
+    // A task row is assembled from several persisted slices because metadata,
+    // files, transfer snapshots, and events arrive at different times.
     final StoredBtTaskMetadataRecord? metadata =
         await _store.metadataFor(task.id);
     final List<StoredBtTaskFileRecord> files = await _store.filesFor(task.id);

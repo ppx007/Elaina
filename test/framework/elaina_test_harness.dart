@@ -21,6 +21,11 @@ const int defaultDownloadPieceLengthBytes = 1024;
 
 final DateTime defaultDownloadInstant = DateTime.utc(2026, 6, 22, 12);
 
+/// Shared app/widget test entrypoint.
+///
+/// UI tests should prefer this harness over hand-assembling MaterialApp,
+/// runtimes, fake downloads, and settings stores. That keeps navigation tests
+/// resilient when page layout changes but contracts stay stable.
 final class ElainaTestHarness {
   const ElainaTestHarness._();
 
@@ -215,6 +220,9 @@ final class _HarnessRuntimeBundle {
     final RssAutoDownloadPolicyStore effectivePolicyStore =
         policyStore ?? DeterministicRssAutoDownloadPolicyStore();
 
+    // Build a complete default runtime graph, but allow each test to override
+    // the specific contract it exercises. This avoids large private fakes in
+    // every UI test file.
     return _HarnessRuntimeBundle(
       playbackController: playbackController ?? _defaultPlaybackController(),
       mediaLibraryRuntime: mediaLibraryRuntime ?? _defaultMediaLibraryRuntime(),

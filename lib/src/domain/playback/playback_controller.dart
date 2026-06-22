@@ -6,6 +6,8 @@ import 'playback_state.dart';
 typedef DomainPlaybackCommandResult = PlaybackCommandResult;
 typedef DomainTrackSwitchResult = TrackSwitchResult;
 
+// Tests use a fixed observation time so seek assertions do not depend on wall
+// clock drift or the order in which WidgetTester pumps frames.
 final DateTime mockPlaybackObservedAt = DateTime.utc(2026, 6, 3, 12, 0);
 
 abstract interface class ActivePlayerAdapterResolver {
@@ -319,6 +321,10 @@ final class MockPlaybackController implements PlaybackControllerContract {
     Uri? sourceUri,
     String? failureReason,
   }) {
+    // Preserve the full projection when a test command mutates one field.
+    // Playback UI tests often assert subtitles, danmaku, buffering, and active
+    // tracks after play/seek commands; dropping untouched fields here would
+    // make the fake less faithful than the real controller.
     return PlaybackStateSnapshot(
       status: status ?? currentState.status,
       timeline: timeline ?? currentState.timeline,

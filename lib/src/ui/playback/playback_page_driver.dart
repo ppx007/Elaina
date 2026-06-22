@@ -14,6 +14,11 @@ enum PlaybackTrackPanelStatus {
   failed,
 }
 
+/// UI-facing track row data.
+///
+/// The production page deliberately consumes this projection instead of
+/// MediaTrackDescriptor so widget code never reaches into adapter-owned track
+/// types. That keeps MPV/media-kit/VLC track quirks out of the UI layer.
 final class PlaybackTrackItemSnapshot {
   const PlaybackTrackItemSnapshot({
     required this.id,
@@ -28,6 +33,10 @@ final class PlaybackTrackItemSnapshot {
   final String? languageCode;
 }
 
+/// Snapshot for the inspector track panel.
+///
+/// Track discovery is intentionally lazy. Opening playback should stay cheap,
+/// and adapters may need native/player state before they can enumerate tracks.
 final class PlaybackTrackPanelSnapshot {
   PlaybackTrackPanelSnapshot._({
     required this.status,
@@ -88,6 +97,10 @@ final class PlaybackTrackPanelSnapshot {
   }
 }
 
+/// Read-only capability row shown by the playback inspector.
+///
+/// Capabilities are diagnostics here, not action buttons. If a capability does
+/// not have a domain command contract, the page must only report its status.
 final class PlaybackCapabilityItemSnapshot {
   const PlaybackCapabilityItemSnapshot({
     required this.capability,
@@ -123,6 +136,11 @@ final class PlaybackCapabilityPanelSnapshot {
   final List<PlaybackCapabilityItemSnapshot> items;
 }
 
+/// Complete UI read model for the production playback page.
+///
+/// Keeping the page on this single read model prevents individual widgets from
+/// mixing controller state, surface controls, track discovery, and capability
+/// matrix reads in slightly different ways.
 final class PlaybackPageViewSnapshot {
   const PlaybackPageViewSnapshot({
     required this.playback,
@@ -139,6 +157,10 @@ final class PlaybackPageViewSnapshot {
   final PlaybackPageIntentResult? lastIntentResult;
 }
 
+/// Boundary used by the production page.
+///
+/// The UI talks in page intents and read models; the concrete implementation is
+/// responsible for translating them to the PlaybackPageContract and controller.
 abstract interface class PlaybackPageDriver implements Listenable {
   PlaybackPageViewSnapshot get view;
 
@@ -219,6 +241,9 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
 
   @override
   void onPlaybackState(PlaybackStateSnapshot snapshot) {
+    // Track lists belong to the loaded source. A new source invalidates the
+    // previous native enumeration instead of pretending the old rows still
+    // describe the current file or stream.
     if (snapshot.sourceUri != _trackPanel.sourceUri) {
       _trackPanel =
           PlaybackTrackPanelSnapshot.idle(sourceUri: snapshot.sourceUri);

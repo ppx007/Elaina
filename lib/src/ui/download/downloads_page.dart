@@ -23,6 +23,11 @@ const ButtonStyle _taskIconButtonStyle = ButtonStyle(
   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
 );
 
+/// Desktop BT task management page.
+///
+/// The page only consumes DownloadRuntime projections and commands. It must not
+/// inspect libtorrent or engine internals; capability flags decide which
+/// actions are visible or enabled.
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({
     super.key,
@@ -94,6 +99,9 @@ class _DownloadsPageState extends State<DownloadsPage>
   }
 
   void _syncSelection() {
+    // Keep the detail pane anchored to a real task after refresh, filter, or
+    // deletion. File checkboxes mirror the selected task projection so pending
+    // UI edits never outlive the task they belong to.
     if (_snapshot.tasks.isEmpty) {
       _selectedTaskId = null;
       _detailSelectedFiles = <DownloadFileIndex>{};
@@ -192,6 +200,8 @@ class _DownloadsPageState extends State<DownloadsPage>
     }
   }
 
+  // Advanced add is allowed to produce a paused task before metadata exists.
+  // File selection resumes only after the runtime projects concrete files.
   Future<void> _continueAdvancedAdd(DownloadProjection task) async {
     if (task.files.isEmpty) {
       _showMessage('任务已暂停，等待元数据后可在详情中选择文件。');

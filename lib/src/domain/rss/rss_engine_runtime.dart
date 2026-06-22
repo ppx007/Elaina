@@ -191,6 +191,11 @@ final class RssAutoDownloadRuleDraft {
   final bool requireDownloadSource;
 }
 
+/// UI projection for a source-scoped RSS auto-download rule.
+///
+/// Rules remain part of the RSS runtime API instead of exposing the storage
+/// records directly. That keeps future matcher/storage migrations from
+/// rewriting the RSS page.
 final class RssAutoDownloadRuleProjection {
   const RssAutoDownloadRuleProjection({
     required this.ruleId,
@@ -306,6 +311,12 @@ abstract interface class RssDownloadTaskEnqueuer {
   Future<RssAutoDownloadEnqueueResult> enqueue(RssDownloadCandidate candidate);
 }
 
+/// Converts accepted RSS candidates into real download tasks.
+///
+/// RSS may expose magnet links or remote .torrent URLs, while the downloads
+/// runtime only accepts supported task sources. Remote .torrent URLs therefore
+/// must be resolved to a local file before handoff; unsupported sources are
+/// rejected explicitly instead of pretending the task was created.
 final class DownloadRuntimeRssTaskEnqueuer implements RssDownloadTaskEnqueuer {
   const DownloadRuntimeRssTaskEnqueuer({
     required DownloadRuntime downloadRuntime,
@@ -394,6 +405,12 @@ final class _RssResolvedDownloadSource {
   bool get isSuccess => sourceUri != null;
 }
 
+/// Coordinates feed storage, refresh, dedupe, scheduling, and auto-download.
+///
+/// The UI should use this runtime rather than reaching into RssEngineContract,
+/// RssAutoDownloadPolicyStore, or DownloadRuntime separately. Keeping the
+/// orchestration here is what prevents "enable source" from accidentally
+/// becoming "download the entire feed".
 final class RssEngineRuntime {
   RssEngineRuntime({
     required RssEngineContract engine,
@@ -466,8 +483,9 @@ final class RssEngineRuntime {
     if (_disposed) return _disposedResult();
     final RssAutoDownloadPolicyStore? policyStore = _policyStore;
     if (policyStore == null) {
-      return const RssEngineActionResult<List<RssAutoDownloadRuleProjection>>
-          .success(<RssAutoDownloadRuleProjection>[]);
+      return const RssEngineActionResult<
+              List<RssAutoDownloadRuleProjection>>.success(
+          <RssAutoDownloadRuleProjection>[]);
     }
     try {
       final List<StoredRssAutoDownloadRuleRecord> records =
@@ -906,6 +924,9 @@ final class RssEngineRuntime {
                 rule.enabled && rule.scopedSourceIds.contains(sourceId.value))
             .toList(growable: false);
     if (rules.isEmpty) {
+      // Source activation alone is not enough to enqueue downloads. Requiring
+      // at least one explicit rule prevents a new subscription from pulling the
+      // full historical feed by accident.
       return RssAutoDownloadExecutionReport(
         previews: const <RssAutoDownloadRulePreview>[],
         enqueueResults: const <RssAutoDownloadEnqueueResult>[],

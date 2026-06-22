@@ -113,6 +113,10 @@ final class PiecePrioritySnapshotOutcome {
   bool get isSuccess => failure == null;
 }
 
+/// Persistent runtime wrapper around piece priority planning.
+///
+/// The pure scheduler creates plans; this runtime owns profile selection,
+/// latest-plan lookup, stale-plan rejection, and optional adapter application.
 final class PiecePrioritySchedulerRuntime implements PiecePriorityScheduler {
   PiecePrioritySchedulerRuntime({
     required this.btTaskStore,

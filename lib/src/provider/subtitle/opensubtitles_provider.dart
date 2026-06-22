@@ -79,6 +79,10 @@ abstract interface class OpenSubtitlesApiTransport {
   Future<OpenSubtitlesApiResponse> send(OpenSubtitlesApiRequest request);
 }
 
+/// Socket-level transport for OpenSubtitles requests.
+///
+/// Endpoint construction and provider caching stay outside this class; the
+/// transport only applies proxy wiring and the outbound URI guard.
 final class HttpOpenSubtitlesApiTransport implements OpenSubtitlesApiTransport {
   HttpOpenSubtitlesApiTransport({
     HttpClient? httpClient,
@@ -143,6 +147,10 @@ final class HttpOpenSubtitlesApiTransport implements OpenSubtitlesApiTransport {
   }
 }
 
+/// Endpoint-level OpenSubtitles client.
+///
+/// It maps provider queries into OpenSubtitles HTTP calls and parses API JSON.
+/// Rate limiting, dedupe, and cache policy are still owned by ProviderGateway.
 final class OpenSubtitlesApiClient {
   OpenSubtitlesApiClient({
     required OpenSubtitlesApiTransport transport,

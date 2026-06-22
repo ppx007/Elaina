@@ -25,6 +25,11 @@ enum ChangedTestScope {
   }
 }
 
+/// Runs the validation subset selected from tools/test_suites.json.
+///
+/// The selection logic is data-driven so adding a page or module means editing
+/// the registry, not branching this runner. Fast/Module scopes therefore stay
+/// cheap enough for everyday UI work while Full remains the release gate.
 final class ChangedTestRunner {
   ChangedTestRunner({
     required this.projectRoot,

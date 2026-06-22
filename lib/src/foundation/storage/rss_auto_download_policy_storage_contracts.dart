@@ -1,6 +1,11 @@
 import '../../provider/rss/feed_contracts.dart';
 import '../../provider/rss/rss_auto_download_policy.dart';
 
+// Persisted RSS automation policy records.
+//
+// The evaluator writes decisions, candidates, dedupe keys, and enqueue outcomes
+// separately so the UI can explain why an item was or was not downloaded after
+// a refresh.
 enum StoredRssAutoDownloadMatcherField {
   title,
   releaseGroup,

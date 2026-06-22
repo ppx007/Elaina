@@ -235,6 +235,10 @@ abstract interface class PiecePriorityPlanApplier {
   Future<PiecePriorityApplicationOutcome> apply(PiecePriorityPlan plan);
 }
 
+/// Deterministic planner for playback-aware piece priority.
+///
+/// The plan keeps edge pieces, the current playback window, and explicit seek
+/// targets prioritized without exposing BT adapter knobs to the playback page.
 final class DeterministicPiecePriorityScheduler
     implements PiecePriorityScheduler {
   DeterministicPiecePriorityScheduler({
@@ -721,6 +725,8 @@ void _addWindowRules({
   required PiecePriorityRuleReason reason,
   Duration? deadline,
 }) {
+  // The scheduler stores priorities per BT piece, while playback thinks in
+  // stream-relative bytes. This is the single translation point between them.
   final int startPiece = (fileOffsetBytes + startByte) ~/ pieceLengthBytes;
   final int endPiece = (fileOffsetBytes + endByte) ~/ pieceLengthBytes;
   for (int piece = startPiece; piece <= endPiece; piece += 1) {

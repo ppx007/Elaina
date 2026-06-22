@@ -5,6 +5,11 @@ import 'process_runner.dart';
 import 'tool_exception.dart';
 import 'tool_paths.dart';
 
+/// Executes declarative module checks from tools/module_checks.json.
+///
+/// This replaces the old pile of script-per-module entrypoints. Each module
+/// describes required files, forbidden terms, and focused commands in data,
+/// while this runner owns ordering, dependency recursion, and failure reporting.
 final class ModuleCheckRunner {
   ModuleCheckRunner({
     required this.projectRoot,

@@ -29,6 +29,11 @@ export 'video_enhancement_storage_contracts.dart';
 export 'virtual_stream_storage_contracts.dart';
 export 'webview_session_backfill_storage_contracts.dart';
 
+// Storage-layer contracts and records.
+//
+// These types describe persisted state, not UI/domain view models. Runtime
+// layers are responsible for translating records into projections with business
+// semantics and failure handling.
 enum StorageDomain {
   sqliteMetadata,
   blobCache,

@@ -4,6 +4,11 @@ import '../../provider/provider_result.dart';
 import '../playback/playback_source_handoff.dart';
 import 'media_library.dart';
 
+// Runtime boundary for local media-library workflows.
+//
+// UI pages ask this runtime to scan, import, match Bangumi subjects, and prepare
+// playback. That keeps folder preferences and widgets from constructing
+// playback sources or provider bindings directly.
 const int bangumiLocalMediaSearchCandidateLimit = 6;
 const int bangumiLocalMediaMatchQueryMinLength = 2;
 const int bangumiLocalMediaMatchQueryMaxLength = 80;
@@ -208,6 +213,8 @@ final class BangumiLocalMediaMatcher implements LocalMediaBangumiMatcher {
           LocalMediaBangumiMatchResult(
             mediaId: item.identity.id,
             query: query,
+            // Confidence is intentionally simple and explainable. The user must
+            // confirm a binding before it becomes authoritative.
             candidates: <LocalMediaBangumiMatchCandidate>[
               for (final BangumiSubject subject in value.take(candidateLimit))
                 LocalMediaBangumiMatchCandidate(

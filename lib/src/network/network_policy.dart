@@ -160,6 +160,11 @@ final class NetworkPolicyRule {
   String? get proxyTag => proxyIntent?.proxyTag;
 }
 
+/// Provider-scoped network policy model.
+///
+/// Policies are evaluated before provider traffic leaves the app. The model
+/// records both routing intent and security blocks so gateway code can audit
+/// decisions instead of silently applying proxies or DNS fallbacks.
 final class NetworkPolicy {
   NetworkPolicy({
     required this.id,
@@ -419,6 +424,11 @@ abstract interface class NetworkPolicyEvaluator {
   });
 }
 
+/// Deterministic evaluator for provider network handoff decisions.
+///
+/// Security blocks run before routing rules. A provider-specific policy can
+/// choose DNS/proxy/direct behavior, but it cannot override the outbound URI
+/// guard for loopback, link-local, or private network exposure.
 final class DeterministicNetworkPolicyEvaluator
     implements NetworkPolicyEvaluator {
   DeterministicNetworkPolicyEvaluator(
@@ -447,6 +457,8 @@ final class DeterministicNetworkPolicyEvaluator
 
     final NetworkPolicyBlocked? securityBlock = _securityBlock(policy, request);
     if (securityBlock != null) {
+      // The SSRF guard is non-negotiable; routing rules are considered only
+      // after the request URI passes the security boundary.
       return Future<NetworkPolicyDecision>.value(securityBlock);
     }
 

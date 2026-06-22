@@ -146,6 +146,11 @@ abstract interface class BangumiApiTransport {
   Future<BangumiApiResponse> send(BangumiApiRequest request);
 }
 
+/// Concrete HTTP transport for Bangumi requests.
+///
+/// It owns socket-level concerns such as proxy wiring and the outbound URI
+/// guard. Endpoint construction, cache policy, and JSON mapping stay in
+/// BangumiApiClient/BangumiApiProvider.
 final class HttpBangumiApiTransport implements BangumiApiTransport {
   HttpBangumiApiTransport({
     HttpClient? httpClient,
@@ -213,6 +218,11 @@ final class HttpBangumiApiTransport implements BangumiApiTransport {
   }
 }
 
+/// Endpoint-level Bangumi client used by the provider adapter.
+///
+/// The client reads mirror configuration per request so settings changes take
+/// effect immediately without rebuilding the provider runtime. It still returns
+/// plain provider models; UI and domain layers must not consume raw Bangumi JSON.
 final class BangumiApiClient {
   BangumiApiClient({
     required BangumiApiTransport transport,
@@ -501,6 +511,7 @@ final class BangumiApiClient {
     required DateTime now,
     String? proxyUrl,
   }) async {
+    // The hero carousel should represent recent attention, not all-time rank.
     final _BangumiAirDateRange airDateRange = _popularAnimeAirDateRange(now);
     final _BangumiResolvedRequest request = await _resolvedRequest(
       _subjectSearchPath,
@@ -532,6 +543,8 @@ final class BangumiApiClient {
     int offset = bangumiApiRecentPopularAnimeOffset,
     String? proxyUrl,
   }) async {
+    // The waterfall feed needs a wider recent window than the hero while still
+    // staying seasonal enough to avoid historical ranking noise.
     final _BangumiAirDateRange airDateRange =
         _recentPopularAnimeAirDateRange(now);
     final _BangumiResolvedRequest request = await _resolvedRequest(
@@ -932,6 +945,9 @@ final class BangumiApiClient {
 
     final Uri? apiBaseUri = config.apiBaseUri;
     final Uri? imageBaseUri = config.imageBaseUri;
+    // Mirror URLs are user/operator configuration, but they still need a hard
+    // shape check here. Allowing query/fragment on a base URI would make every
+    // request ambiguous and weaken ProviderGateway network-policy accounting.
     if (!_isMirrorBaseUri(apiBaseUri) || !_isMirrorBaseUri(imageBaseUri)) {
       throw const ProviderFailure(
         kind: ProviderFailureKind.terminal,
@@ -958,6 +974,8 @@ final class _BangumiResolvedRequest {
     if (baseUri == null || !bangumiMirrorImageHosts.contains(originalHost)) {
       return original;
     }
+    // Rewrite only Bangumi-owned image hosts. The image mirror endpoint is not
+    // a general URL proxy, so third-party URLs stay untouched.
     return baseUri.replace(
       queryParameters: <String, String>{
         bangumiMirrorImageUrlParameter: original.toString(),

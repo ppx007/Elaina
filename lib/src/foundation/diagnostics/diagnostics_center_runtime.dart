@@ -142,6 +142,11 @@ final class DiagnosticsCenterRuntimeBootstrap {
   }
 }
 
+/// Runtime wrapper for diagnostics storage, projection, retention, and export.
+///
+/// The deterministic diagnostics center owns validation/redaction rules; this
+/// runtime turns those results into durable records and cache invalidation
+/// events for UI/diagnostics surfaces.
 final class DiagnosticsCenterRuntime {
   DiagnosticsCenterRuntime._({
     required DiagnosticsStore store,
@@ -175,6 +180,9 @@ final class DiagnosticsCenterRuntime {
   int _eventSeq = 0;
 
   DiagnosticsStore _requireStore() {
+    // Public methods gate unavailable/disposed states before reaching these
+    // accessors. If one is hit directly, the runtime has been miswired and
+    // should fail loudly instead of inventing partial diagnostics.
     final DiagnosticsStore? store = _store;
     if (store == null) throw StateError('Store required but unavailable.');
     return store;

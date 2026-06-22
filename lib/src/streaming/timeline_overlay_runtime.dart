@@ -159,6 +159,11 @@ final class TimelineOverlayRuntimeProjection {
   final TimelineOverlayRuntimeRestartProjection restart;
 }
 
+/// Runtime for composing and persisting playback timeline overlays.
+///
+/// It keeps overlay profiles, latest snapshots, and rejection records outside
+/// the player UI so buffering/piece/marker visualizations can be rebuilt after
+/// restart without re-running playback.
 final class TimelineOverlayRuntime {
   TimelineOverlayRuntime({
     required TimelineOverlayStore store,

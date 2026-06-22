@@ -2,6 +2,10 @@ import '../../foundation/gateway/provider_gateway.dart';
 import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
+/// Identifier for a declared online rule source.
+///
+/// Online sources are treated as opt-in rule manifests, not privileged scrapers.
+/// The runtime below validates every operation before evaluation.
 final class OnlineRuleSourceId {
   const OnlineRuleSourceId(this.value)
       : assert(value != '', 'Online rule source id must not be empty.');
@@ -494,6 +498,11 @@ abstract interface class OnlineRuleRuntime implements GatewayBoundProvider {
       OnlineRuleEvaluationRequest request);
 }
 
+/// Safe, deterministic evaluator for declarative online extraction rules.
+///
+/// It intentionally supports CSS/XPath/regex extraction only. JavaScript, WASM,
+/// scriptlets, and arbitrary code stay rejected so online source parsing cannot
+/// become a hidden code-execution surface.
 final class DeterministicOnlineRuleRuntime {
   const DeterministicOnlineRuleRuntime({
     this.enabled = true,
@@ -511,6 +520,8 @@ final class DeterministicOnlineRuleRuntime {
         <OnlineRuleValidationIssue>[];
     for (final OnlineRuleSet ruleSet in manifest.ruleSets) {
       for (final OnlineExtractionOperation operation in ruleSet.operations) {
+        // Validation is separate from evaluation so manifests can be rejected
+        // before any page document or provider gateway request is involved.
         final UnsupportedOnlineOperationKind? unsupported =
             _unsupportedOperation(operation);
         if (unsupported != null) {

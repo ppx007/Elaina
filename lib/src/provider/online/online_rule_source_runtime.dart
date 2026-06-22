@@ -145,6 +145,11 @@ final class OnlineRuleSourceRuntimeBootstrap {
   }
 }
 
+/// Manages persisted online rule manifests and per-source evaluations.
+///
+/// The lower DeterministicOnlineRuleRuntime validates and evaluates a manifest;
+/// this runtime records restart projection, disabled state, and cache
+/// invalidation so provider pages do not reach into storage directly.
 final class OnlineRuleSourceRuntime {
   OnlineRuleSourceRuntime._({
     required OnlineRuleRuntimeStore store,

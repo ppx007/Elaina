@@ -150,6 +150,11 @@ final class RssAutoDownloadPolicyRuntimeProjection {
   final RssAutoDownloadPolicyRuntimeRestartProjection restart;
 }
 
+/// Executes stored RSS auto-download policies for a single source scope.
+///
+/// Evaluation and handoff are separate on purpose: evaluation explains why an
+/// item matched or was rejected, while handoff records dedupe/enqueue intent
+/// before any download task is created.
 final class RssAutoDownloadPolicyRuntime {
   RssAutoDownloadPolicyRuntime({
     required RssAutoDownloadPolicyStore policyStore,

@@ -21,6 +21,11 @@ const double _smallIconSize = 18;
 const MediaLibraryFolderPreferenceCodec _folderPreferenceCodec =
     MediaLibraryFolderPreferenceCodec();
 
+/// Global settings center for values consumed by app runtimes.
+///
+/// Business objects such as RSS rules, download tasks, and media indexes stay
+/// on their own pages. SettingsPage should only expose durable global
+/// preferences that a runtime actually reads.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
@@ -84,6 +89,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
+    // Load once into controllers, then persist through explicit save/apply
+    // actions. Text fields should not write storage on every keystroke.
     try {
       final String? bangumiTokenStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.bangumiAccessToken);
@@ -228,6 +235,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final String? validationMessage = _bangumiMirrorValidationMessage();
     if (validationMessage != null) {
+      // Invalid mirror settings disable the mirror instead of saving a broken
+      // enabled state that would fail every Bangumi request at runtime.
       setState(() {
         _bangumiMirrorEnabled = false;
         _bangumiMirrorMessage = validationMessage;

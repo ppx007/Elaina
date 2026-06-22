@@ -2,6 +2,10 @@ import 'package:elaina/elaina.dart';
 
 const String fakeBangumiProviderId = 'fake-bangumi';
 
+/// ProviderGateway fake that records cache/network boundary inputs.
+///
+/// Provider tests use this to verify cache keys, dedupe windows, proxy-aware
+/// network-policy URIs, and registration without reaching real storage/network.
 final class RecordingProviderGateway implements ProviderGateway {
   RecordingProviderGateway({this.proxyUrl});
 
@@ -62,6 +66,10 @@ final class FailingProviderGateway implements ProviderGateway {
   }
 }
 
+/// Fail-fast gateway for tests that should never cross the provider boundary.
+///
+/// Prefer this over nullable stubs when a test is about pure mapping or UI
+/// behavior; accidental gateway use then fails loudly.
 final class UnsupportedProviderGateway implements ProviderGateway {
   const UnsupportedProviderGateway();
 

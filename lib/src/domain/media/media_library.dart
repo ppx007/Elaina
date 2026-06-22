@@ -1,5 +1,10 @@
 import '../../foundation/baseline_defaults.dart';
 
+/// Stable identity for a playable local media file.
+///
+/// This id is intentionally separate from MediaLibraryItemId because one local
+/// file can be re-indexed, rebound, or removed from the catalog without
+/// invalidating playback history and provider bindings tied to the media itself.
 final class LocalMediaId {
   const LocalMediaId(this.value)
       : assert(value != '', 'Local media id must not be empty.');
@@ -429,6 +434,8 @@ final class DeterministicMediaBatchImportContract
     final List<MediaImportItemOutcome> outcomes = <MediaImportItemOutcome>[];
     var index = 0;
     for (final MediaScanCandidate candidate in candidates) {
+      // URI and fingerprint are both considered identity hints. A URI duplicate
+      // handles unchanged paths; a fingerprint duplicate handles renames/moves.
       final MediaLibraryItem? uriMatch =
           await repository.findByUri(candidate.identity.uri);
       final MediaFileFingerprint? fingerprint = candidate.identity.fingerprint;
@@ -439,6 +446,8 @@ final class DeterministicMediaBatchImportContract
       if (uriMatch != null &&
           fingerprintMatch != null &&
           uriMatch.id.value != fingerprintMatch.id.value) {
+        // Conflicting identity hints should fail loudly; auto-merging here
+        // would corrupt playback history or Bangumi bindings.
         outcomes.add(
           MediaImportItemOutcome.failed(
             MediaImportFailure(

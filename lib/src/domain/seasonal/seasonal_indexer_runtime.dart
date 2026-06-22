@@ -166,6 +166,11 @@ abstract interface class SeasonalIndexerRuntimeObserver {
   );
 }
 
+/// Runtime facade for seasonal RSS indexing and Bangumi match queue projection.
+///
+/// yuc.wiki remains just one FeedSource; this runtime coordinates RSS
+/// consumption, catalog storage, and optional Bangumi matching without making
+/// seasonal indexing a privileged scraper path.
 final class SeasonalIndexerRuntime {
   SeasonalIndexerRuntime({
     required RssEngineContract rssEngine,

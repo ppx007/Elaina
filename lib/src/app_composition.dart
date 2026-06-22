@@ -77,6 +77,9 @@ final class HttpRssTorrentUrlResolver implements RssTorrentUrlResolver {
 
   @override
   Future<RssTorrentUrlResolution> resolve(Uri torrentUri) async {
+    // DownloadRuntime intentionally does not accept remote .torrent URLs. RSS
+    // auto-download resolves them into cached local files before task creation
+    // so the downloads page can keep its stricter source contract.
     final Directory directory = _cacheDirectory ??
         Directory(
           '${Directory.systemTemp.path}${Platform.pathSeparator}'
@@ -130,6 +133,11 @@ final class HttpRssTorrentUrlResolver implements RssTorrentUrlResolver {
   }
 }
 
+/// Wires production runtimes while preserving layer boundaries.
+///
+/// Composition is the only place where storage, provider gateway, playback,
+/// RSS, downloads, and UI-facing adapters are assembled together. Feature pages
+/// should receive contracts from here instead of constructing runtimes locally.
 class AppComposition {
   AppComposition() {
     // 1. Initialize foundation bootstrap

@@ -5,6 +5,11 @@ import 'package:archive/archive_io.dart';
 import 'tool_exception.dart';
 import 'tool_paths.dart';
 
+/// Windows release staging and archive builder.
+///
+/// Packaging is kept in Dart so validation uses the same toolchain as the app.
+/// The explicit libmpv staging check prevents a release zip that launches with
+/// a blank/native-player failure on machines without the DLL in PATH.
 final class WindowsReleasePackager {
   WindowsReleasePackager({required this.projectRoot});
 

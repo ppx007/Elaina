@@ -24,6 +24,10 @@ final class SystemToolProcessRunner implements ToolProcessRunner {
       executable,
       arguments,
       workingDirectory: workingDirectory,
+      // Windows resolves Flutter/Dart shims through .bat/.cmd files. Running
+      // through the shell keeps the Dart CLI gate equivalent to a developer
+      // typing the command in PowerShell, while non-Windows platforms keep the
+      // stricter direct exec path.
       runInShell: Platform.isWindows,
     );
     return ToolProcessResult(

@@ -2,6 +2,10 @@ import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
+// Native playback boundary tests.
+//
+// The libmpv resolver and media-kit binding are tested with injected filesystem
+// and player doubles so CI does not need to launch a native player process.
 void main() {
   group('bundled libmpv resolver', () {
     test('prefers explicit dll path when it exists', () {

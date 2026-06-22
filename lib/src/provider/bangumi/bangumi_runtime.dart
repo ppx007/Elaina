@@ -615,6 +615,12 @@ final class DeterministicBangumiAuthProvider
   }
 }
 
+/// Runtime facade for all Bangumi provider roles.
+///
+/// Tests can inject deterministic role-specific providers, while production can
+/// inject the API-backed provider. The facade keeps registration/disposal and
+/// role delegation in one place so UI/domain code does not need to know whether
+/// metadata, auth, collection, and discovery are served by the same object.
 final class BangumiProviderRuntime
     implements
         BangumiProvider,
@@ -874,6 +880,9 @@ final class BangumiProviderRuntime
   }
 
   Future<void> _ensureRegistered() async {
+    // Provider registration is lazy because many tests construct the runtime
+    // only to exercise one provider role. The first real operation is the
+    // boundary where gateway identity and network/cache policy must exist.
     if (_registered) return;
     await _gateway.registerProvider(registration);
     _registered = true;

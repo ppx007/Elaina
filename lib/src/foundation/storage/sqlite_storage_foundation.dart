@@ -8,6 +8,12 @@ import 'storage_contracts.dart';
 
 const int sqliteStorageSchemaVersion = 1;
 
+/// SQLite-backed storage foundation for the stores that have durable schemas.
+///
+/// Stores not yet migrated to SQLite deliberately delegate to a fallback
+/// StorageFoundation. That keeps production wiring usable while making the
+/// migration boundary explicit in one place instead of hiding partial support
+/// behind individual repositories.
 final class SqliteStorageFoundation implements StorageFoundation {
   SqliteStorageFoundation._({
     required Database database,
@@ -154,6 +160,8 @@ final class SqliteMetadataStore implements MetadataStore {
         (SchemaMigration a, SchemaMigration b) => a.from.compareTo(b.from),
       );
     int current = schemaVersion.value;
+    // Schema changes are applied inside one immediate transaction so a failed
+    // migration cannot leave schema_version ahead of the actual tables.
     _database.execute('begin immediate');
     try {
       for (final SchemaMigration migration in ordered) {

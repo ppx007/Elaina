@@ -2,6 +2,11 @@ import '../foundation/cache_invalidation/cache_invalidation_bus.dart';
 import '../foundation/extension_points.dart';
 import '../foundation/storage/storage_contracts.dart';
 
+// Domain contract for BT task control.
+//
+// This file models tasks, metadata, files, events, and adapter capabilities.
+// UI-facing download pages should consume DownloadRuntime/BtTaskCoreRuntime
+// projections instead of depending on these adapter-level shapes directly.
 final class BtTaskId {
   const BtTaskId(this.value)
       : assert(value != '', 'BT task id must not be empty.');

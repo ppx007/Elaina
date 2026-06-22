@@ -2,6 +2,11 @@ import '../../foundation/storage/storage_contracts.dart';
 import '../../streaming/bt_task_core.dart';
 import '../../streaming/bt_task_core_runtime.dart';
 
+// UI-facing download contract.
+//
+// DownloadRuntime deliberately hides BT adapter/source details behind stable
+// projections so the downloads page can evolve without depending on libtorrent
+// records or core runtime persistence details.
 abstract interface class DownloadRuntimeObserver {
   void onDownloadRuntimeSnapshot(DownloadRuntimeSnapshot snapshot);
 }

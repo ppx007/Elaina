@@ -9,6 +9,12 @@ import '../theme/elaina_theme.dart';
 import 'playback_page_contract.dart';
 import 'playback_page_driver.dart';
 
+/// Production playback surface.
+///
+/// The page owns only presentation state such as overlay visibility. Playback
+/// actions, surface availability, tracks, subtitles, danmaku, and capability
+/// status all come from PlaybackPageDriver so the UI cannot grow direct
+/// dependencies on concrete player adapters.
 class ProductionPlaybackPage extends StatefulWidget {
   const ProductionPlaybackPage({
     super.key,
@@ -24,6 +30,9 @@ class ProductionPlaybackPage extends StatefulWidget {
 }
 
 class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
+  // Playback is a fullscreen tool surface; keeping the geometry tokens local to
+  // this page prevents reusable theme constants from being polluted with values
+  // that only make sense around a video surface.
   static const Duration _overlayAnimationDuration = Duration(milliseconds: 220);
   static const Duration _playButtonAnimationDuration =
       Duration(milliseconds: 160);
@@ -96,6 +105,9 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   static const int _maxInlineOverlayComments = 3;
 
   late ControllerPlaybackPageDriver _driver;
+
+  // These toggles are page-local affordances. They do not mutate playback
+  // runtime configuration, which keeps hide/show UI actions reversible and cheap.
   bool _areControlsVisible = true;
   bool _isInspectorVisible = false;
   bool _areSubtitlesVisible = true;
@@ -141,6 +153,9 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
       _areControlsVisible = true;
       _isInspectorVisible = true;
     });
+    // Track discovery can be adapter-expensive and sometimes depends on the
+    // current source being opened, so it is pulled only when the inspector needs
+    // it instead of during page construction.
     final PlaybackTrackPanelStatus trackStatus = _driver.view.tracks.status;
     if (trackStatus == PlaybackTrackPanelStatus.idle) {
       unawaited(_driver.loadTracks());
@@ -173,6 +188,9 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
           backgroundColor: Colors.black,
           body: Stack(
             children: <Widget>[
+              // Layer order matters: the native surface stays at the bottom,
+              // passive overlays sit above it, and interactive controls/inspector
+              // own the top hit-test regions.
               Positioned.fill(child: Center(child: widget.videoSurface)),
               Positioned.fill(
                 child: MouseRegion(
@@ -797,6 +815,8 @@ class _InspectorLayer extends StatelessWidget {
         builder: (BuildContext context, BoxConstraints constraints) {
           final bool compact = constraints.maxWidth <
               _ProductionPlaybackPageState._compactInspectorBreakpoint;
+          // Wide screens use a persistent right inspector; compact screens use
+          // a bottom sheet so the video surface remains the primary target.
           return Stack(
             children: <Widget>[
               if (compact)
@@ -1263,6 +1283,8 @@ class _CapabilitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Capabilities are intentionally read-only here. A row becomes actionable
+    // only after the playback domain exposes a concrete command contract for it.
     return _InspectorSection(
       title: '能力状态',
       child: Column(

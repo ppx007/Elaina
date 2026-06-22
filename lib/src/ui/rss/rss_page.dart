@@ -45,6 +45,12 @@ enum _RssItemFilter {
   autoDownloadMatched,
 }
 
+/// RSS subscription workspace.
+///
+/// The page displays source activation, feed items, and source-scoped
+/// auto-download rules through RssEngineRuntime. It must not talk to RSS
+/// storage or DownloadRuntime directly; the runtime owns rule evaluation and
+/// enqueue side effects.
 class RssPage extends StatefulWidget {
   const RssPage({
     super.key,
@@ -134,6 +140,8 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   }
 
   Future<void> _loadAutoDownloadState(Iterable<FeedSource> sources) async {
+    // Activation, rules, and matched item ids are refreshed as one projection so
+    // the item list never labels matches using stale rule state.
     final List<FeedSource> sourceList = List<FeedSource>.of(sources);
     final Map<String, bool> nextStates = <String, bool>{};
     final Map<String, List<RssAutoDownloadRuleProjection>> nextRules =

@@ -6,6 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/provider_test_fakes.dart';
 import '../../support/runtime_test_fakes.dart';
 
+// Contract-level coverage for VideoDetailRuntime.
+//
+// These tests intentionally exercise domain projections, tracking conflict
+// rules, and playback handoff without depending on the widget layout.
 void main() {
   test('runtime assembles ordered metadata continue state binding and actions',
       () async {

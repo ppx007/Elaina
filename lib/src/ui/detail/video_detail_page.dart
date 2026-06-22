@@ -8,6 +8,11 @@ import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 import 'video_detail_page_contract.dart';
 
+/// Bangumi-backed video detail page.
+///
+/// The widget consumes VideoDetailPageContract rather than provider APIs. That
+/// keeps Staff/CV tables, local playback binding, and tracking conflict
+/// resolution in the domain layer where they can be tested without UI layout.
 class VideoDetailPage extends StatefulWidget {
   const VideoDetailPage({
     super.key,
@@ -118,6 +123,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       _showSnackBar('该剧集没有本地媒体文件');
       return;
     }
+    // Detail pages only know local media identities. The handoff object owns
+    // conversion into PlaybackSource so adapter-specific source shape does not
+    // leak into the detail UI.
     const LocalPlaybackSourceHandoff handoff = LocalPlaybackSourceHandoff();
     final PlaybackSourceHandoffResult prepared = handoff.prepare(
       PlaybackSourceHandoffInput.localMediaIdentity(localMedia),
@@ -196,6 +204,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     final String conflictKey = _trackingConflictKey(conflict);
     if (_lastPromptedConflictKey == conflictKey) return;
     _lastPromptedConflictKey = conflictKey;
+    // The prompt is scheduled after build because conflicts are derived from
+    // stream data. Showing a dialog synchronously during build would create
+    // re-entrant UI work and flaky tests.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _showTrackingConflictDialog(conflict);

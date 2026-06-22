@@ -243,6 +243,8 @@ Future<VideoTrackingProjection> videoTrackingProjectionForSubject({
       await localTrackingStore?.findBySubjectId(subjectId);
   final BangumiTrackingProvider? provider = trackingProvider;
   if (provider == null) {
+    // Local tracking is a signed-out fallback only. Without a remote provider,
+    // it becomes the visible state so users can still manage progress offline.
     return VideoTrackingProjection(
       status: localTracking == null
           ? videoTrackingStatusFromBinding(binding)
@@ -253,6 +255,9 @@ Future<VideoTrackingProjection> videoTrackingProjectionForSubject({
   final BangumiTrackingSnapshot snapshot =
       await provider.currentAnimeCollection();
   if (snapshot.status != BangumiTrackingLoadStatus.loaded) {
+    // Remote failure must not masquerade as cloud success. We keep the local
+    // projection for continuity, and the caller can surface the provider state
+    // separately instead of silently syncing stale data.
     return VideoTrackingProjection(
       status: localTracking == null
           ? videoTrackingStatusFromBinding(binding)
@@ -271,6 +276,9 @@ Future<VideoTrackingProjection> videoTrackingProjectionForSubject({
       ? VideoTrackingStatus.notTracked
       : videoTrackingStatusFromBangumiTracking(remoteItem.status);
   if (localTracking == null) {
+    // Once the cloud answers and there is no local override, cloud is the
+    // authority. Local records exist to bridge signed-out use, not to shadow an
+    // authenticated Bangumi collection.
     return VideoTrackingProjection(status: remoteStatus);
   }
 
@@ -287,7 +295,7 @@ Future<VideoTrackingProjection> videoTrackingProjectionForSubject({
             remoteStatus: remoteStatus,
             localUpdatedAt: localTracking.updatedAt,
             remoteUpdatedAt: remoteItem?.updatedAt,
-    ),
+          ),
   );
 }
 
@@ -300,6 +308,9 @@ Future<VideoDetailMetadataProjection> videoDetailMetadataProjectionForSubject({
   _MetadataTableResult<List<VideoDetailCharacter>>? charactersResult;
   _MetadataTableResult<List<VideoDetailRelatedSubject>>? relationsResult;
 
+  // Staff, characters, and relations are useful but non-fatal detail tables.
+  // The subject itself is still the only hard requirement for opening a detail
+  // page; individual table failures are carried into the view model.
   await Future.wait<void>(<Future<void>>[
     _creditsForSubject(metadataProvider, subjectId, seed).then(
       (value) => creditsResult = value,

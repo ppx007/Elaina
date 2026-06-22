@@ -9,6 +9,11 @@ import '../../provider/rss/feed_contracts.dart';
 import '../media/media_library.dart';
 import '../rss/rss_engine.dart';
 
+// Seasonal catalog and Bangumi matching domain.
+//
+// Feed sources produce catalog entries first; Bangumi binding is a separate
+// confidence-gated step so an RSS title parser never silently rewrites provider
+// bindings for local media.
 const double defaultAutomaticBangumiMatchMinimumConfidence = 0.8;
 const double exactBangumiTitleMatchConfidence = 1.0;
 const double partialBangumiTitleMatchConfidence = 0.6;

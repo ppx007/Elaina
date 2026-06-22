@@ -1,6 +1,9 @@
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+// Runtime-level coverage for RSS source registration, refresh, dedupe, and
+// auto-download orchestration. Widget tests should not duplicate these domain
+// cases; they only need to verify UI commands reach this runtime.
 void main() {
   test('runtime registers lists removes and snapshots immutable source state',
       () async {

@@ -44,6 +44,11 @@ const ButtonStyle _compactIconButtonStyle = ButtonStyle(
   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
 );
 
+/// Local media library management page.
+///
+/// This page manages folders, indexed files, playback handoff, and Bangumi
+/// binding through MediaLibraryRuntime. It should remain a local-library
+/// workspace, not a second tracking page or direct filesystem scanner.
 class MediaLibraryPage extends StatefulWidget {
   const MediaLibraryPage({
     super.key,
@@ -128,6 +133,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   }
 
   List<_MediaLibraryViewItem> get _viewItems {
+    // Projection is rebuilt from the runtime snapshot so sorting and folder
+    // attribution remain pure UI read-model work. Mutation stays in the
+    // runtime/storage layer.
     final List<_MediaLibraryViewItem> items = <_MediaLibraryViewItem>[
       for (final MediaLibraryCatalogItemState itemState
           in _snapshot.catalogItems)
@@ -325,6 +333,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
       }
 
       final Uri fileUri = Uri.file(path);
+      // Single-file playback still goes through the media-library handoff path.
+      // That keeps validation and PlaybackSource construction out of the UI.
       final MediaScanCandidate candidate = MediaScanCandidate(
         identity: LocalMediaIdentity(
           id: LocalMediaId('$_selectedFileMediaIdPrefix${fileUri.toString()}'),
@@ -344,6 +354,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   Future<void> _openPreparedSource(
     MediaLibraryActionResult<PlaybackSourceHandoffResult> result,
   ) async {
+    // The runtime prepares a PlaybackSource; the page only opens and starts it.
+    // This is the boundary that prevents UI widgets from constructing adapter
+    // specific playback sources.
     if (!mounted) return;
     if (!result.isSuccess) {
       _showMessage(result.failure?.message ?? '准备播放失败');
