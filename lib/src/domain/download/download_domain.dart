@@ -94,8 +94,7 @@ final class DownloadCapabilityProjection {
   final String? backgroundDownloadReason;
   final String? virtualStreamReason;
 
-  bool get canCreateTasks =>
-      taskManagementAvailable && metadataFetchingAvailable;
+  bool get canCreateTasks => taskManagementAvailable;
 }
 
 final class DownloadFileIndex {

@@ -182,14 +182,56 @@ void main() {
           isTrue);
       await harness.close();
     });
+
+    test('allows task creation when metadata fetching is unavailable',
+        () async {
+      final _DownloadHarness harness = _DownloadHarness(
+        capabilities: _taskManagementWithoutMetadataCapabilities(),
+      );
+
+      await harness.downloadRuntime.listTasks();
+      final DownloadCapabilityProjection capabilities =
+          harness.downloadRuntime.currentSnapshot.capabilities;
+
+      expect(capabilities.taskManagementAvailable, isTrue);
+      expect(capabilities.metadataFetchingAvailable, isFalse);
+      expect(capabilities.canCreateTasks, isTrue);
+      await harness.close();
+    });
   });
+}
+
+BtCapabilityMatrix _supportedCapabilities() {
+  return const BtCapabilityMatrix(
+    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
+      BtStreamingCapability.metadataFetching: BtCapabilityStatus.supported(),
+      BtStreamingCapability.longBackgroundDownload:
+          BtCapabilityStatus.supported(),
+      BtStreamingCapability.virtualMediaStream: BtCapabilityStatus.supported(),
+    },
+  );
+}
+
+BtCapabilityMatrix _taskManagementWithoutMetadataCapabilities() {
+  return const BtCapabilityMatrix(
+    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
+      BtStreamingCapability.metadataFetching:
+          BtCapabilityStatus.unsupported('Metadata projection unavailable.'),
+      BtStreamingCapability.longBackgroundDownload:
+          BtCapabilityStatus.supported(),
+      BtStreamingCapability.virtualMediaStream: BtCapabilityStatus.supported(),
+    },
+  );
 }
 
 final class _DownloadHarness {
   _DownloadHarness({
+    BtCapabilityMatrix? capabilities,
     DeterministicBtTaskStore? store,
     Iterable<StoredBtTaskRecord> seedTasks = const <StoredBtTaskRecord>[],
-  })  : adapter = _FakeDownloadEngineAdapter(),
+  })  : adapter = _FakeDownloadEngineAdapter(capabilities: capabilities),
         store = store ?? DeterministicBtTaskStore(seedTasks: seedTasks) {
     btRuntime = BtTaskCoreRuntime.withDependencies(
       adapter: adapter,
@@ -209,20 +251,11 @@ final class _DownloadHarness {
 }
 
 final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
-  _FakeDownloadEngineAdapter();
+  _FakeDownloadEngineAdapter({BtCapabilityMatrix? capabilities})
+      : capabilities = capabilities ?? _supportedCapabilities();
 
   @override
-  BtCapabilityMatrix get capabilities => const BtCapabilityMatrix(
-        capabilities: <BtStreamingCapability, BtCapabilityStatus>{
-          BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
-          BtStreamingCapability.metadataFetching:
-              BtCapabilityStatus.supported(),
-          BtStreamingCapability.longBackgroundDownload:
-              BtCapabilityStatus.supported(),
-          BtStreamingCapability.virtualMediaStream:
-              BtCapabilityStatus.supported(),
-        },
-      );
+  final BtCapabilityMatrix capabilities;
 
   final List<BtTaskCreateRequest> createdRequests = <BtTaskCreateRequest>[];
   final List<BtTaskId> pausedTasks = <BtTaskId>[];

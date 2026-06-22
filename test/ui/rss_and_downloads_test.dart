@@ -71,8 +71,60 @@ BtCapabilityMatrix _supportedCapabilities() {
   );
 }
 
+BtCapabilityMatrix _taskManagementWithoutMetadataCapabilities() {
+  return const BtCapabilityMatrix(
+    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
+      BtStreamingCapability.metadataFetching:
+          BtCapabilityStatus.unsupported('Metadata projection unavailable.'),
+    },
+  );
+}
+
+final DateTime _downloadTestInstant = DateTime.utc(2026, 6, 21, 12);
+
+StoredBtTaskRecord _storedDownloadTask(
+  String id,
+  StoredBtTaskLifecycleState state,
+) {
+  return StoredBtTaskRecord(
+    id: id,
+    sourceKind: StoredBtTaskSourceKind.magnet,
+    sourceUri: 'magnet:?xt=urn:btih:$id',
+    lifecycleState: state,
+    createdAt: _downloadTestInstant,
+    updatedAt: _downloadTestInstant,
+  );
+}
+
+DownloadRuntimeAdapter _downloadRuntimeFor({
+  required _FakeDownloadEngineAdapter adapter,
+  Iterable<StoredBtTaskRecord> seedTasks = const <StoredBtTaskRecord>[],
+}) {
+  final BtTaskCoreRuntime runtime = BtTaskCoreRuntime.withDependencies(
+    adapter: adapter,
+    store: DeterministicBtTaskStore(seedTasks: seedTasks),
+  );
+  return DownloadRuntimeAdapter(runtime);
+}
+
+Finder _filledButtonWithIcon(IconData icon) {
+  return find.ancestor(
+    of: find.byIcon(icon),
+    matching: find.byType(FilledButton),
+  );
+}
+
+Finder _outlinedButtonWithIcon(IconData icon) {
+  return find.ancestor(
+    of: find.byIcon(icon),
+    matching: find.byType(OutlinedButton),
+  );
+}
+
 final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
-  _FakeDownloadEngineAdapter() : capabilities = _supportedCapabilities();
+  _FakeDownloadEngineAdapter({BtCapabilityMatrix? capabilities})
+      : capabilities = capabilities ?? _supportedCapabilities();
 
   @override
   final BtCapabilityMatrix capabilities;
@@ -330,6 +382,137 @@ void main() {
 
     tearDown(() {
       fakeAdapter.dispose();
+    });
+
+    testWidgets(
+        'keeps add enabled without metadata capability and disables empty batch actions',
+        (WidgetTester tester) async {
+      final _FakeDownloadEngineAdapter localAdapter =
+          _FakeDownloadEngineAdapter(
+        capabilities: _taskManagementWithoutMetadataCapabilities(),
+      );
+      final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
+        adapter: localAdapter,
+      );
+      addTearDown(runtime.dispose);
+      addTearDown(localAdapter.dispose);
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(downloadRuntime: runtime),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<FilledButton>(
+              _filledButtonWithIcon(Icons.add_link),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.pause),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.play_arrow),
+            )
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('enables pause all only when a pausable task exists',
+        (WidgetTester tester) async {
+      final _FakeDownloadEngineAdapter localAdapter =
+          _FakeDownloadEngineAdapter();
+      final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
+        adapter: localAdapter,
+        seedTasks: <StoredBtTaskRecord>[
+          _storedDownloadTask(
+            'downloading',
+            StoredBtTaskLifecycleState.downloading,
+          ),
+        ],
+      );
+      addTearDown(runtime.dispose);
+      addTearDown(localAdapter.dispose);
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(downloadRuntime: runtime),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.pause),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.play_arrow),
+            )
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('enables resume all only when a resumable task exists',
+        (WidgetTester tester) async {
+      final _FakeDownloadEngineAdapter localAdapter =
+          _FakeDownloadEngineAdapter();
+      final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
+        adapter: localAdapter,
+        seedTasks: <StoredBtTaskRecord>[
+          _storedDownloadTask('paused', StoredBtTaskLifecycleState.paused),
+        ],
+      );
+      addTearDown(runtime.dispose);
+      addTearDown(localAdapter.dispose);
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(downloadRuntime: runtime),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.pause),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              _outlinedButtonWithIcon(Icons.play_arrow),
+            )
+            .onPressed,
+        isNotNull,
+      );
     });
 
     testWidgets(

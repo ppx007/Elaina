@@ -285,6 +285,8 @@ class _DownloadsPageState extends State<DownloadsPage>
   @override
   Widget build(BuildContext context) {
     final List<DownloadProjection> visibleTasks = _visibleTasks;
+    final bool hasPausableTasks = _snapshot.tasks.any(_canPause);
+    final bool hasResumableTasks = _snapshot.tasks.any(_canResume);
 
     return Padding(
       padding: const EdgeInsets.all(_pagePadding),
@@ -295,6 +297,8 @@ class _DownloadsPageState extends State<DownloadsPage>
             isCreatingTask: _isCreatingTask,
             isRefreshing: _isRefreshing,
             capabilities: _snapshot.capabilities,
+            hasPausableTasks: hasPausableTasks,
+            hasResumableTasks: hasResumableTasks,
             searchController: _searchController,
             onAddTask: _showCreateTaskDialog,
             onRefresh: _refreshTasks,
@@ -386,6 +390,8 @@ class _DownloadsToolbar extends StatelessWidget {
     required this.isCreatingTask,
     required this.isRefreshing,
     required this.capabilities,
+    required this.hasPausableTasks,
+    required this.hasResumableTasks,
     required this.searchController,
     required this.onAddTask,
     required this.onRefresh,
@@ -396,6 +402,8 @@ class _DownloadsToolbar extends StatelessWidget {
   final bool isCreatingTask;
   final bool isRefreshing;
   final DownloadCapabilityProjection capabilities;
+  final bool hasPausableTasks;
+  final bool hasResumableTasks;
   final TextEditingController searchController;
   final VoidCallback onAddTask;
   final VoidCallback onRefresh;
@@ -460,7 +468,9 @@ class _DownloadsToolbar extends StatelessWidget {
         Tooltip(
           message: '暂停全部可暂停任务',
           child: OutlinedButton.icon(
-            onPressed: capabilities.taskManagementAvailable ? onPauseAll : null,
+            onPressed: capabilities.taskManagementAvailable && hasPausableTasks
+                ? onPauseAll
+                : null,
             icon: const Icon(Icons.pause, size: 18),
             label: const Text('全部暂停'),
           ),
@@ -468,8 +478,9 @@ class _DownloadsToolbar extends StatelessWidget {
         Tooltip(
           message: '恢复全部可恢复任务',
           child: OutlinedButton.icon(
-            onPressed:
-                capabilities.taskManagementAvailable ? onResumeAll : null,
+            onPressed: capabilities.taskManagementAvailable && hasResumableTasks
+                ? onResumeAll
+                : null,
             icon: const Icon(Icons.play_arrow, size: 18),
             label: const Text('全部恢复'),
           ),
