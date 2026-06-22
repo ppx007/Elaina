@@ -478,7 +478,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     final BangumiLoginStartResult result = await loginController.startLogin();
     if (!mounted) return;
     final String? message = switch (result.status) {
-      BangumiLoginStartStatus.opened => '已打开 Bangumi token 获取页面',
+      BangumiLoginStartStatus.opened => '已打开 Bangumi OAuth 授权页面',
       BangumiLoginStartStatus.unavailable => result.message,
       BangumiLoginStartStatus.failed => result.message,
     };

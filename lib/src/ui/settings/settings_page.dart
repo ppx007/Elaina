@@ -34,6 +34,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _bangumiMirrorEnabled = false;
   String _layoutPreference = 'default';
   bool _isLoading = true;
+  bool _isBangumiOAuthOpening = false;
   bool _isBangumiTokenSaving = false;
   String? _bangumiAuthMessage;
   String? _bangumiMirrorMessage;
@@ -110,6 +111,43 @@ class _SettingsPageState extends State<SettingsPage> {
     await _savePreference(
       SettingsPreferenceKeys.bangumiAccessToken,
       value.trim(),
+    );
+  }
+
+  Future<void> _startBangumiOAuth() async {
+    if (_isBangumiOAuthOpening) return;
+    final BangumiLoginController? loginController =
+        widget.bangumiLoginController;
+    if (loginController == null) {
+      const String message = 'Bangumi OAuth 登录控制器不可用';
+      setState(() {
+        _bangumiAuthMessage = message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(message)),
+      );
+      return;
+    }
+
+    setState(() {
+      _isBangumiOAuthOpening = true;
+      _bangumiAuthMessage = null;
+    });
+    final BangumiLoginStartResult result = await loginController.startLogin();
+    if (!mounted) return;
+    final String message = switch (result.status) {
+      BangumiLoginStartStatus.opened => '已打开 Bangumi OAuth 授权页面',
+      BangumiLoginStartStatus.unavailable =>
+        result.message ?? 'Bangumi OAuth 授权页不可用',
+      BangumiLoginStartStatus.failed =>
+        result.message ?? 'Bangumi OAuth 授权页打开失败',
+    };
+    setState(() {
+      _isBangumiOAuthOpening = false;
+      _bangumiAuthMessage = message;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -301,6 +339,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Bangumi',
                   theme: theme,
                   children: <Widget>[
+                    _buildActionRow(
+                      title: 'OAuth 授权',
+                      subtitle:
+                          '打开 Bangumi OAuth 授权页。当前没有回调服务时，授权后仍需在下方粘贴 access token。',
+                      theme: theme,
+                      action: FilledButton.icon(
+                        key: const ValueKey<String>(
+                            'settings-bangumi-oauth-login'),
+                        onPressed:
+                            _isBangumiOAuthOpening ? null : _startBangumiOAuth,
+                        icon: _isBangumiOAuthOpening
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.open_in_browser, size: 16),
+                        label: Text(_isBangumiOAuthOpening ? '打开中' : '打开授权页'),
+                      ),
+                    ),
+                    const Divider(height: 24, color: Colors.white10),
                     _buildTextRow(
                       title: 'Access token',
                       subtitle:
@@ -556,6 +615,44 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildActionRow({
+    required String title,
+    required String subtitle,
+    required Widget action,
+    required ElainaThemeData theme,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: theme.onBackground.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 24),
+        action,
       ],
     );
   }

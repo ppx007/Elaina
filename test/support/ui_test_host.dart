@@ -138,7 +138,7 @@ final class RecordingBangumiLoginController implements BangumiLoginController {
   @override
   Future<BangumiLoginStartResult> startLogin() async {
     startLoginCalls++;
-    openedUri = defaultBangumiAccessTokenPageUri;
+    openedUri = defaultBangumiOAuthAuthorizationPageUri;
     return BangumiLoginStartResult.opened(openedUri!);
   }
 

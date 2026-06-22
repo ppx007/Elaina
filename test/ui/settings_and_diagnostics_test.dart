@@ -2,11 +2,27 @@ import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
 import 'package:elaina/src/domain/profile/profile_domain.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
+import 'package:elaina/src/provider/bangumi/bangumi_api_client.dart';
 import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
 import 'package:elaina/src/ui/settings/settings_page.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const double _settingsScrollStep = 360;
+const int _settingsMaxScrolls = 20;
+
+Future<void> _scrollSettingsUntilVisible(
+  WidgetTester tester,
+  Finder finder,
+) async {
+  await tester.scrollUntilVisible(
+    finder,
+    _settingsScrollStep,
+    maxScrolls: _settingsMaxScrolls,
+    scrollable: find.byType(Scrollable).first,
+  );
+}
 
 Widget _testHost({required Widget child}) {
   return MaterialApp(
@@ -99,10 +115,12 @@ void main() {
     expect(
         await settingsRuntime.getPreference('hardware_acceleration'), 'false');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    final Finder proxyField =
+        find.byKey(const ValueKey<String>('settings-http-proxy'));
+    await _scrollSettingsUntilVisible(tester, proxyField);
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey<String>('settings-http-proxy')).last,
+      proxyField,
       'http://127.0.0.1:1080',
     );
     await tester.pumpAndSettle();
@@ -127,17 +145,48 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey<String>('settings-bangumi-access-token')),
-      ' token-1 ',
-    );
-    await tester
-        .tap(find.byKey(const ValueKey<String>('settings-bangumi-login')));
+    final Finder tokenField =
+        find.byKey(const ValueKey<String>('settings-bangumi-access-token'));
+    final Finder loginButton =
+        find.byKey(const ValueKey<String>('settings-bangumi-login'));
+    await tester.ensureVisible(tokenField);
+    await tester.pumpAndSettle();
+    await tester.enterText(tokenField, ' token-1 ');
+    await tester.ensureVisible(loginButton);
+    await tester.tap(loginButton);
     await tester.pumpAndSettle();
 
     expect(bangumiLoginController.submittedToken, 'token-1');
     expect(authRefreshes, 1);
     expect(find.text('Bangumi 已登录：Alice'), findsWidgets);
+  });
+
+  testWidgets('SettingsPage opens Bangumi OAuth authorization page',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+    final _RecordingBangumiLoginController bangumiLoginController =
+        _RecordingBangumiLoginController();
+
+    await tester.pumpWidget(_testHost(
+      child: SettingsPage(
+        settingsRuntime: settingsRuntime,
+        bangumiLoginController: bangumiLoginController,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final Finder oauthButton =
+        find.byKey(const ValueKey<String>('settings-bangumi-oauth-login'));
+    await tester.ensureVisible(oauthButton);
+    await tester.tap(oauthButton);
+    await tester.pumpAndSettle();
+
+    expect(bangumiLoginController.startLoginCalls, 1);
+    expect(
+      bangumiLoginController.openedUri,
+      defaultBangumiOAuthAuthorizationPageUri,
+    );
+    expect(find.text('已打开 Bangumi OAuth 授权页面'), findsWidgets);
   });
 
   testWidgets('SettingsPage stores valid Bangumi mirror settings',
@@ -220,13 +269,15 @@ void main() {
 }
 
 final class _RecordingBangumiLoginController implements BangumiLoginController {
+  int startLoginCalls = 0;
+  Uri? openedUri;
   String? submittedToken;
 
   @override
   Future<BangumiLoginStartResult> startLogin() async {
-    return BangumiLoginStartResult.opened(
-      Uri.parse('https://next.bgm.tv/demo/access-token'),
-    );
+    startLoginCalls++;
+    openedUri = defaultBangumiOAuthAuthorizationPageUri;
+    return BangumiLoginStartResult.opened(openedUri!);
   }
 
   @override

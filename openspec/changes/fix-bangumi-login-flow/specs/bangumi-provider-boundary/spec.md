@@ -1,14 +1,17 @@
 ## ADDED Requirements
 
-### Requirement: Bangumi login start SHALL open token acquisition without callback deployment
+### Requirement: Bangumi login start SHALL open OAuth authorization without callback deployment
 The concrete Bangumi provider boundary SHALL expose only provider-safe helpers
-for opening the Bangumi token acquisition page and SHALL NOT expose client
-secrets, user credentials, HTTP transports, or raw OAuth payloads to UI code.
+for opening the Bangumi OAuth authorization page and SHALL NOT expose client
+secrets, user credentials, HTTP transports, raw OAuth payloads, or callback
+server concerns to UI code.
 
 #### Scenario: User starts Bangumi login
 - **WHEN** the UI asks to start Bangumi login through a Domain login contract
-- **THEN** the runtime opens the Bangumi token acquisition page in the system
-  browser so the user can copy an access token into settings
+- **THEN** the runtime opens the Bangumi OAuth authorization page in the system
+  browser
+- **AND** when no callback service is deployed, the settings page still offers
+  manual access-token entry for the user to complete login
 - **AND** the UI does not import the concrete Bangumi API client, transport,
   OAuth endpoint constants, callback server code, or credential payload types
 

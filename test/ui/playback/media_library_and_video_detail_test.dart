@@ -1122,7 +1122,7 @@ void main() {
       await invalidationBus.close();
     });
 
-    testWidgets('Bangumi login action opens token acquisition page',
+    testWidgets('Bangumi login action opens OAuth authorization page',
         (WidgetTester tester) async {
       final RecordingCacheInvalidationBus invalidationBus =
           RecordingCacheInvalidationBus();
@@ -1201,9 +1201,9 @@ void main() {
       expect(bangumiLoginController.startLoginCalls, 1);
       expect(
         bangumiLoginController.openedUri,
-        defaultBangumiAccessTokenPageUri,
+        defaultBangumiOAuthAuthorizationPageUri,
       );
-      expect(find.text('已打开 Bangumi token 获取页面'), findsOneWidget);
+      expect(find.text('已打开 Bangumi OAuth 授权页面'), findsOneWidget);
 
       libraryRuntime.dispose();
       await invalidationBus.close();
@@ -1303,13 +1303,15 @@ void main() {
 
       await tester.tap(find.text('设置'));
       await tester.pump();
-      await tester.enterText(
-        find.byKey(const ValueKey<String>('settings-bangumi-access-token')),
-        ' token-1 ',
-      );
-      await tester.tap(
-        find.byKey(const ValueKey<String>('settings-bangumi-login')),
-      );
+      final Finder tokenField =
+          find.byKey(const ValueKey<String>('settings-bangumi-access-token'));
+      final Finder loginButton =
+          find.byKey(const ValueKey<String>('settings-bangumi-login'));
+      await tester.ensureVisible(tokenField);
+      await tester.pump();
+      await tester.enterText(tokenField, ' token-1 ');
+      await tester.ensureVisible(loginButton);
+      await tester.tap(loginButton);
       await tester.pump();
       await tester.pump();
 

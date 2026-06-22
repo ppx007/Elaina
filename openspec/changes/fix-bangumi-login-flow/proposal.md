@@ -13,9 +13,10 @@ immediate signed-in state.
 
 - Add a small Domain-level Bangumi login controller so UI actions do not import
   concrete Bangumi HTTP client or transport details.
-- Start Bangumi login by opening the Bangumi token acquisition page in the
+- Start Bangumi login by opening the Bangumi OAuth authorization page in the
   system browser. Server-side OAuth callback/token exchange remains out of
-  scope until a callback service is intentionally deployed.
+  scope until a callback service is intentionally deployed, so manual access
+  token paste remains available in settings.
 - Validate manually entered access tokens by saving them, requesting the
   current Bangumi session through the existing auth provider, and refreshing
   the shared profile projection only after the auth state changes.

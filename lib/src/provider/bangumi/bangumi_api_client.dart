@@ -38,8 +38,14 @@ const int bangumiEpisodeCollectionWish = 1;
 const int bangumiEpisodeCollectionDone = 2;
 const int bangumiEpisodeCollectionDropped = 3;
 const Duration bangumiApiSessionProjectionTtl = Duration(minutes: 15);
+const String defaultBangumiOAuthClientId = 'bgm63916a369e2af2ca6';
+const String bangumiOAuthAuthorizationResponseType = 'code';
 
 final Uri defaultBangumiApiBaseUri = Uri.parse('https://api.bgm.tv');
+final Uri defaultBangumiOAuthAuthorizeBaseUri =
+    Uri.parse('https://bgm.tv/oauth/authorize');
+final Uri defaultBangumiOAuthAuthorizationPageUri =
+    bangumiOAuthAuthorizationUri();
 final Uri defaultBangumiAccessTokenPageUri =
     Uri.parse('https://next.bgm.tv/demo/access-token');
 
@@ -51,6 +57,24 @@ const String bangumiMirrorImageUrlParameter = 'url';
 const Set<String> bangumiMirrorImageHosts = <String>{
   'lain.bgm.tv',
 };
+
+Uri bangumiOAuthAuthorizationUri({
+  Uri? authorizationBaseUri,
+  String clientId = defaultBangumiOAuthClientId,
+  Uri? redirectUri,
+  String? state,
+}) {
+  final String trimmedClientId = clientId.trim();
+  assert(trimmedClientId.isNotEmpty, 'Bangumi OAuth client id is required.');
+  return (authorizationBaseUri ?? defaultBangumiOAuthAuthorizeBaseUri).replace(
+    queryParameters: <String, String>{
+      'client_id': trimmedClientId,
+      'response_type': bangumiOAuthAuthorizationResponseType,
+      if (redirectUri != null) 'redirect_uri': redirectUri.toString(),
+      if (state != null && state.trim().isNotEmpty) 'state': state.trim(),
+    },
+  );
+}
 
 final class BangumiApiAccessToken {
   const BangumiApiAccessToken({
@@ -393,6 +417,20 @@ final class BangumiApiClient {
 
   Uri accessTokenPageUri({Uri? tokenPageUri}) {
     return tokenPageUri ?? defaultBangumiAccessTokenPageUri;
+  }
+
+  Uri oauthAuthorizationPageUri({
+    Uri? authorizationBaseUri,
+    String clientId = defaultBangumiOAuthClientId,
+    Uri? redirectUri,
+    String? state,
+  }) {
+    return bangumiOAuthAuthorizationUri(
+      authorizationBaseUri: authorizationBaseUri,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      state: state,
+    );
   }
 
   Uri syncProgressRequestUri(BangumiProgressUpdate update) {

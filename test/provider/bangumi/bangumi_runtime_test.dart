@@ -546,18 +546,23 @@ void main() {
     );
   });
 
-  test('concrete API client exposes Bangumi token acquisition URI', () {
+  test('concrete API client exposes Bangumi OAuth authorization URI', () {
     final BangumiApiClient client = BangumiApiClient(
       transport:
           FakeBangumiTransport(responses: const <String, BangumiApiResponse>{}),
       baseUri: Uri.parse('https://api.test'),
     );
 
-    final Uri uri = client.accessTokenPageUri();
+    final Uri uri = client.oauthAuthorizationPageUri();
 
     expect(uri.scheme, 'https');
-    expect(uri.host, 'next.bgm.tv');
-    expect(uri.path, '/demo/access-token');
+    expect(uri.host, 'bgm.tv');
+    expect(uri.path, '/oauth/authorize');
+    expect(uri.queryParameters['client_id'], defaultBangumiOAuthClientId);
+    expect(
+      uri.queryParameters['response_type'],
+      bangumiOAuthAuthorizationResponseType,
+    );
   });
 
   test('concrete API provider uses Bangumi mirror API and image rewrite',
