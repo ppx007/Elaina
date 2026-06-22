@@ -3,6 +3,7 @@ import 'package:elaina/src/ui/widgets/hero_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../framework/elaina_test_framework.dart';
 import '../support/network_image_test_overrides.dart';
 
 void main() {
@@ -38,8 +39,7 @@ void main() {
       );
       await tester.pump();
 
-      final Finder cachePin =
-          find.byKey(const ValueKey<String>('hero-carousel-cache-pin'));
+      final Finder cachePin = ElainaFinders.heroCarouselCachePin;
       expect(cachePin, findsOneWidget);
       expect(
         find.descendant(of: cachePin, matching: find.byType(Image)),
@@ -81,10 +81,8 @@ void main() {
 
       final ScrollableState scrollable =
           tester.state<ScrollableState>(find.byType(Scrollable));
-      final Finder firstCard =
-          find.byKey(const ValueKey<String>('hero-carousel-item-subject-0'));
-      final Finder secondCard =
-          find.byKey(const ValueKey<String>('hero-carousel-item-subject-1'));
+      final Finder firstCard = ElainaFinders.heroCarouselItem('subject-0');
+      final Finder secondCard = ElainaFinders.heroCarouselItem('subject-1');
       final double renderedItemPitch =
           tester.getTopLeft(secondCard).dx - tester.getTopLeft(firstCard).dx;
       final double completeLoopOffset =
@@ -94,7 +92,7 @@ void main() {
       await tester.pump();
 
       final Finder secondLoopFirstCard =
-          find.byKey(const ValueKey<String>('hero-carousel-item-subject-0'));
+          ElainaFinders.heroCarouselItem('subject-0');
       expect(secondLoopFirstCard, findsOneWidget);
       expect(find.text('Anime 0'), findsOneWidget);
       expect(
@@ -147,22 +145,25 @@ void main() {
         host(ElainaThemeData.dark, ElainaThemeMode.dark),
       );
       await tester.pumpAndSettle();
-      final Finder cachePin =
-          find.byKey(const ValueKey<String>('hero-carousel-cache-pin'));
-      final List<ImageProvider<Object>> darkProviders =
-          tester.widgetList<Image>(
-        find.descendant(of: cachePin, matching: find.byType(Image)),
-      ).map((Image image) => image.image).toList(growable: false);
+      final Finder cachePin = ElainaFinders.heroCarouselCachePin;
+      final List<ImageProvider<Object>> darkProviders = tester
+          .widgetList<Image>(
+            find.descendant(of: cachePin, matching: find.byType(Image)),
+          )
+          .map((Image image) => image.image)
+          .toList(growable: false);
       expect(darkProviders, hasLength(expectedCyclicHeroItemCount));
 
       await tester.pumpWidget(
         host(ElainaThemeData.light, ElainaThemeMode.light),
       );
       await tester.pumpAndSettle();
-      final List<ImageProvider<Object>> lightProviders =
-          tester.widgetList<Image>(
-        find.descendant(of: cachePin, matching: find.byType(Image)),
-      ).map((Image image) => image.image).toList(growable: false);
+      final List<ImageProvider<Object>> lightProviders = tester
+          .widgetList<Image>(
+            find.descendant(of: cachePin, matching: find.byType(Image)),
+          )
+          .map((Image image) => image.image)
+          .toList(growable: false);
 
       expect(lightProviders, hasLength(darkProviders.length));
       for (int index = 0; index < darkProviders.length; index++) {

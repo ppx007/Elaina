@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/download/download_domain.dart';
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
 const double _pagePadding = 24;
@@ -1008,7 +1009,8 @@ class _TaskDetailPanel extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: ListView(
-                    key: const ValueKey<String>('download-detail-scroll'),
+                    key: const ValueKey<String>(
+                        UiElementIds.downloadDetailScroll),
                     children: <Widget>[
                       Padding(
                         padding: const EdgeInsets.all(16),

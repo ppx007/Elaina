@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'runtime_check_proxy.dart';
+import 'runtime_check_base.dart';
 
 const int _usageErrorExitCode = 64;
 
@@ -24,7 +24,14 @@ Future<void> main(List<String> arguments) async {
     exitCode = _usageErrorExitCode;
     return;
   }
-  await runModuleRuntimeCheck(options.moduleName!, options.forwardedArguments);
+  await ModuleRuntimeCheck(options.moduleName!).run(options.forwardedArguments);
+}
+
+final class ModuleRuntimeCheck extends BaseRuntimeCheck {
+  const ModuleRuntimeCheck(this.moduleName);
+
+  @override
+  final String moduleName;
 }
 
 final class _RuntimeCheckCliOptions {

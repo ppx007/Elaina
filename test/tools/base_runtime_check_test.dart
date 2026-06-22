@@ -160,7 +160,8 @@ void main() {
     verifyNever(() => runner(any(), any()));
   });
 
-  test('runtime check entrypoints resolve through the module registry', () {
+  test('runtime check modules resolve through the generic registry entrypoint',
+      () {
     final File registryFile = File(
       'tools${Platform.pathSeparator}module_checks.json',
     );
@@ -173,14 +174,9 @@ void main() {
     expect(
         File('tools${Platform.pathSeparator}runtime_check.dart').existsSync(),
         isTrue);
-    expect(
-      File('tools${Platform.pathSeparator}runtime_check_proxy.dart')
-          .existsSync(),
-      isTrue,
-    );
 
     final Directory toolsDirectory = Directory('tools');
-    final List<File> entrypoints = toolsDirectory
+    final List<File> removedWrapperEntrypoints = toolsDirectory
         .listSync(followLinks: false)
         .whereType<File>()
         .where((File file) => _fileName(file.path).endsWith(
@@ -189,33 +185,21 @@ void main() {
         .toList()
       ..sort((File left, File right) => left.path.compareTo(right.path));
 
-    expect(entrypoints, isNotEmpty);
-    for (final File entrypoint in entrypoints) {
-      final String entrypointName = _fileName(entrypoint.path);
-      final String source = entrypoint.readAsStringSync();
-      final RegExpMatch? moduleNameMatch = RegExp(
-        r"runModuleRuntimeCheck\('([A-Za-z0-9_.-]+)', args\);",
-      ).firstMatch(source);
-      expect(
-        moduleNameMatch,
-        isNotNull,
-        reason: '$entrypointName must delegate to the shared runtime proxy.',
-      );
-      final String moduleName = moduleNameMatch!.group(1)!;
-      expect(
-        modules.containsKey(moduleName),
-        isTrue,
-        reason: '$entrypointName points at unregistered module $moduleName.',
-      );
+    expect(
+      removedWrapperEntrypoints,
+      isEmpty,
+      reason: 'Per-module Dart runtime wrappers are redundant; use '
+          'tools/runtime_check.dart --module <name>.',
+    );
 
-      final Map<String, Object?> module =
-          modules[moduleName]! as Map<String, Object?>;
-      final List<String> dartEntrypoints =
-          _stringList(module['dartEntrypoints']);
+    for (final MapEntry<String, Object?> entry in modules.entries) {
+      final String moduleName = entry.key;
+      final Map<String, Object?> module = entry.value! as Map<String, Object?>;
       expect(
-        dartEntrypoints.contains(_registryPath(entrypoint.path)),
-        isTrue,
-        reason: '$entrypointName is missing from registry module $moduleName.',
+        module.containsKey('dartEntrypoints'),
+        isFalse,
+        reason:
+            '$moduleName should not reintroduce per-module Dart wrapper paths.',
       );
 
       final String? publicCheckScript = module['publicCheckScript'] as String?;
@@ -234,18 +218,32 @@ void main() {
       }
 
       final List<String> contracts = _stringList(module['contracts']);
-      final String expectedContract = _registryPath(
-        'tools/runtime_checks/${entrypointName.replaceFirst(
-          '_runtime_check.dart',
-          '_runtime_contract.dart',
-        )}',
-      );
-      expect(
-        contracts.contains(expectedContract),
-        isTrue,
-        reason: '$entrypointName contract is missing from registry.',
-      );
-      expect(File(_platformPath(expectedContract)).existsSync(), isTrue);
+      for (final String contract in contracts) {
+        expect(
+          File(_platformPath(contract)).existsSync(),
+          isTrue,
+          reason: '$moduleName references missing contract $contract.',
+        );
+      }
+
+      final List<String> dartCheckScripts =
+          _stringList(module['dartCheckScripts']);
+      for (final String script in dartCheckScripts) {
+        expect(
+          File(_platformPath(script)).existsSync(),
+          isTrue,
+          reason: '$moduleName references missing Dart check script $script.',
+        );
+      }
+
+      final List<String> dartTestPaths = _stringList(module['dartTestPaths']);
+      for (final String testPath in dartTestPaths) {
+        expect(
+          FileSystemEntity.typeSync(_platformPath(testPath)),
+          isNot(FileSystemEntityType.notFound),
+          reason: '$moduleName references missing Dart test path $testPath.',
+        );
+      }
     }
   });
 }
@@ -284,8 +282,6 @@ List<String> _stringList(Object? value) {
   }
   return (value as List<Object?>).cast<String>();
 }
-
-String _registryPath(String path) => path.replaceAll(r'\', '/');
 
 String _platformPath(String path) {
   return path.replaceAll('/', Platform.pathSeparator);

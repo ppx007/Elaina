@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/rss/rss_engine.dart' show RssRefreshOutcome;
 import '../../domain/rss/rss_engine_runtime.dart';
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
 const double _pagePadding = 24;
@@ -910,7 +911,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
               SizedBox(
                 width: _searchWidth,
                 child: TextField(
-                  key: const ValueKey<String>('rss-item-search'),
+                  key: const ValueKey<String>(UiElementIds.rssItemSearch),
                   controller: _searchController,
                   style: TextStyle(color: theme.onSurface),
                   decoration: InputDecoration(

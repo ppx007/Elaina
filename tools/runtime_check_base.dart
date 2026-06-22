@@ -271,7 +271,7 @@ abstract base class BaseRuntimeCheck {
 Runs the shared PowerShell module check for "$moduleName".
 
 Usage:
-  dart run tools/<module>_runtime_check.dart [options] [-- legacy script args]
+  dart run tools/runtime_check.dart --module $moduleName [options] [-- legacy script args]
 
 Options:
   -h, --help                  Show this help text.

@@ -24,6 +24,7 @@ import '../../download/downloads_page.dart';
 import '../../media/media_library_page.dart';
 import '../../rss/rss_page.dart';
 import '../../settings/settings_page.dart';
+import '../../testing/ui_element_ids.dart';
 import '../../theme/elaina_theme.dart';
 import '../../widgets/hero_carousel.dart';
 import '../../widgets/hot_updates_carousel.dart';
@@ -699,6 +700,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          key: ValueKey<String>(_sidebarElementId(index)),
           mouseCursor: SystemMouseCursors.click,
           onTap: () {
             setState(() {
@@ -764,9 +766,23 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
   }
 
+  String _sidebarElementId(int index) {
+    return switch (index) {
+      _homeNavIndex => UiElementIds.navHome,
+      _trackingNavIndex => UiElementIds.navTracking,
+      _localLibraryNavIndex => UiElementIds.navLocalLibrary,
+      _downloadsNavIndex => UiElementIds.navDownloads,
+      _rssNavIndex => UiElementIds.navRss,
+      _settingsNavIndex => UiElementIds.navSettings,
+      _diagnosticsNavIndex => UiElementIds.navDiagnostics,
+      _ => throw ArgumentError.value(index, 'index', 'Unknown sidebar index.'),
+    };
+  }
+
   // 1. Beautiful Home Page
   Widget _buildHomePage(ElainaThemeData theme) {
     return Container(
+      key: const ValueKey<String>(UiElementIds.pageHome),
       padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1268,7 +1284,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
         final List<List<int>> columns =
             _recommendationWaterfallColumns(cards.length, columnCount);
         return KeyedSubtree(
-          key: const ValueKey<String>('home-recommendation-waterfall'),
+          key: const ValueKey<String>(UiElementIds.homeRecommendationWaterfall),
           child: Column(
             children: <Widget>[
               Row(
@@ -1328,7 +1344,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   Widget _buildMoreRecommendationStatus(ElainaThemeData theme) {
     final String? message = _moreRecommendationMessage;
     return KeyedSubtree(
-      key: const ValueKey<String>('home-recommendation-waterfall'),
+      key: const ValueKey<String>(UiElementIds.homeRecommendationWaterfall),
       child: SizedBox(
         height: 180,
         child: Center(
@@ -1533,18 +1549,21 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   // 2. Bangumi tracking page
   Widget _buildTrackingPage(ElainaThemeData theme) {
-    return FutureBuilder<BangumiTrackingSnapshot>(
-      future: _trackingFuture,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<BangumiTrackingSnapshot> snapshot,
-      ) {
-        return _buildTrackingPageContent(
-          theme,
-          snapshot.data,
-          isRefreshing: snapshot.connectionState == ConnectionState.waiting,
-        );
-      },
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageTracking),
+      child: FutureBuilder<BangumiTrackingSnapshot>(
+        future: _trackingFuture,
+        builder: (
+          BuildContext context,
+          AsyncSnapshot<BangumiTrackingSnapshot> snapshot,
+        ) {
+          return _buildTrackingPageContent(
+            theme,
+            snapshot.data,
+            isRefreshing: snapshot.connectionState == ConnectionState.waiting,
+          );
+        },
+      ),
     );
   }
 
@@ -1885,41 +1904,56 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   // 3. Library Page
   Widget _buildLibraryPage(ElainaThemeData theme) {
-    return MediaLibraryPage(
-      mediaLibraryRuntime: widget.mediaLibraryRuntime,
-      playbackController: widget.playbackController,
-      settingsRuntime: widget.settingsRuntime,
-      onNavigateToDetail: _openDetail,
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageLocalLibrary),
+      child: MediaLibraryPage(
+        mediaLibraryRuntime: widget.mediaLibraryRuntime,
+        playbackController: widget.playbackController,
+        settingsRuntime: widget.settingsRuntime,
+        onNavigateToDetail: _openDetail,
+      ),
     );
   }
 
   // 4. Downloads Page
   Widget _buildDownloadsPage(ElainaThemeData theme) {
-    return DownloadsPage(
-      downloadRuntime: widget.downloadRuntime,
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageDownloads),
+      child: DownloadsPage(
+        downloadRuntime: widget.downloadRuntime,
+      ),
     );
   }
 
   // 5. RSS Page
   Widget _buildRssPage(ElainaThemeData theme) {
-    return RssPage(
-      rssEngineRuntime: widget.rssEngineRuntime,
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageRss),
+      child: RssPage(
+        rssEngineRuntime: widget.rssEngineRuntime,
+      ),
     );
   }
 
   // 6. Settings Page
   Widget _buildSettingsPage(ElainaThemeData theme) {
-    return SettingsPage(
-      settingsRuntime: widget.settingsRuntime,
-      bangumiLoginController: widget.bangumiLoginController,
-      onBangumiAuthChanged: _refreshBangumiProfile,
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageSettings),
+      child: SettingsPage(
+        settingsRuntime: widget.settingsRuntime,
+        bangumiLoginController: widget.bangumiLoginController,
+        onBangumiAuthChanged: _refreshBangumiProfile,
+      ),
     );
   }
 
   // 7. Diagnostics Page
   Widget _buildDiagnosticsPage(ElainaThemeData theme) {
-    return DiagnosticsPage(
-      diagnosticsRuntime: widget.diagnosticsRuntime,
+    return KeyedSubtree(
+      key: const ValueKey<String>(UiElementIds.pageDiagnostics),
+      child: DiagnosticsPage(
+        diagnosticsRuntime: widget.diagnosticsRuntime,
+      ),
     );
   }
 
@@ -2041,7 +2075,7 @@ class _HomeSearchEntry extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          key: const ValueKey<String>('home-search-entry'),
+          key: const ValueKey<String>(UiElementIds.homeSearchEntry),
           mouseCursor: SystemMouseCursors.click,
           onTap: onTap,
           borderRadius: BorderRadius.circular(_radius),
@@ -2173,7 +2207,7 @@ class _HomeSearchOverlay extends StatelessWidget {
           child: SizedBox(
             height: _inputHeight,
             child: TextField(
-              key: const ValueKey<String>('home-search-input'),
+              key: const ValueKey<String>(UiElementIds.homeSearchInput),
               controller: controller,
               focusNode: focusNode,
               onChanged: onChanged,
@@ -2203,7 +2237,7 @@ class _HomeSearchOverlay extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         IconButton(
-          key: const ValueKey<String>('home-search-close'),
+          key: const ValueKey<String>(UiElementIds.homeSearchClose),
           mouseCursor: SystemMouseCursors.click,
           tooltip: '关闭搜索',
           onPressed: onClose,
@@ -2285,7 +2319,7 @@ class _HomeSearchOverlay extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            key: const ValueKey<String>('home-search-retry'),
+            key: const ValueKey<String>(UiElementIds.homeSearchRetry),
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),
@@ -2338,7 +2372,7 @@ class _HomeSearchResultTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        key: ValueKey<String>('home-search-result-${item.subjectId}'),
+        key: ValueKey<String>(UiElementIds.homeSearchResult(item.subjectId)),
         mouseCursor: SystemMouseCursors.click,
         onTap: onTap,
         borderRadius:
@@ -2741,6 +2775,7 @@ class _TrackingItemCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        key: ValueKey<String>(UiElementIds.trackingItem(item.subjectId)),
         mouseCursor: SystemMouseCursors.click,
         onTap: onOpenDetail,
         borderRadius: BorderRadius.circular(12),

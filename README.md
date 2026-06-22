@@ -45,8 +45,8 @@ dart test test\tools
 
 Runtime check modules are registered in `tools\module_checks.json`. New modules
 should add a registry entry first, then expose any stable public wrapper through
-`tools\check_*.ps1` or `tools\*_runtime_check.dart` only when humans or CI need
-that named entry. The generic Dart entrypoint is:
+`tools\check_*.ps1` only when humans or CI need that named PowerShell entry.
+The generic Dart entrypoint is:
 
 ```powershell
 dart run tools\runtime_check.dart --module bangumi_runtime
@@ -98,7 +98,7 @@ Run bootstrap validation:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tools\check_phase0_foundation.ps1"
-dart run tools\player_core_runtime_check.dart
+dart run tools\runtime_check.dart --module player_core
 openspec.cmd validate "bootstrap-phase0-foundation-runtime" --strict
 ```
 

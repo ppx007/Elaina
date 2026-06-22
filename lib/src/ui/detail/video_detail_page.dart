@@ -4,6 +4,7 @@ import '../../domain/detail/video_detail.dart';
 import '../../domain/media/media_library.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_source_handoff.dart';
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 import 'video_detail_page_contract.dart';
 
@@ -411,7 +412,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         child: Row(
           children: <Widget>[
             IconButton(
-              key: const ValueKey<String>('video-detail-close'),
+              key: const ValueKey<String>(UiElementIds.videoDetailClose),
               tooltip: '返回',
               icon: const Icon(Icons.arrow_back),
               color: theme.onSurface,
@@ -660,8 +661,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     final List<_StaffCategory> categories = _staffCategories(data.credits);
     final String selectedRole = _selectedStaffRole == null ||
             !categories.any(
-              (_StaffCategory category) =>
-                  category.role == _selectedStaffRole,
+              (_StaffCategory category) => category.role == _selectedStaffRole,
             )
         ? categories.first.role
         : _selectedStaffRole!;
@@ -715,7 +715,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         .toList(growable: false);
   }
 
-  Widget _buildCharacterSection(ElainaThemeData theme, VideoDetailViewData data) {
+  Widget _buildCharacterSection(
+      ElainaThemeData theme, VideoDetailViewData data) {
     final VideoDetailMetadataFailure? failure =
         _metadataFailureFor(data, VideoDetailMetadataSection.characters);
     if (failure != null) {
@@ -744,7 +745,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     );
   }
 
-  Widget _buildRelationSection(ElainaThemeData theme, VideoDetailViewData data) {
+  Widget _buildRelationSection(
+      ElainaThemeData theme, VideoDetailViewData data) {
     final VideoDetailMetadataFailure? failure =
         _metadataFailureFor(data, VideoDetailMetadataSection.relations);
     if (failure != null) {
@@ -822,7 +824,8 @@ final class _SectionBlock extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.surface.withValues(alpha: 0.76),
         border: Border.all(color: theme.border),
-        borderRadius: BorderRadius.circular(_VideoDetailPageState._sectionRadius),
+        borderRadius:
+            BorderRadius.circular(_VideoDetailPageState._sectionRadius),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

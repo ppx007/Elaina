@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
 class HeroCarousel extends StatefulWidget {
@@ -164,7 +166,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
                 padding: const EdgeInsets.only(right: _itemGap),
                 child: _HeroCarouselCard(
                   key: ValueKey<String>(
-                    'hero-carousel-item-${item.subjectId ?? item.title}',
+                    UiElementIds.heroCarouselItem(
+                      item.subjectId ?? item.title,
+                    ),
                   ),
                   item: item,
                   index: itemIndex,
@@ -219,10 +223,10 @@ class _HeroCarouselCard extends StatelessWidget {
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           onTap: canOpenDetail ? () => onOpenDetail!(subjectId) : null,
-              child: Ink(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16.0),
-                  color: theme.surface,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16.0),
+              color: theme.surface,
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.3),
@@ -399,7 +403,7 @@ class _HeroImageCachePin extends StatelessWidget {
           child: Opacity(
             opacity: 0,
             child: Stack(
-              key: const ValueKey<String>('hero-carousel-cache-pin'),
+              key: const ValueKey<String>(UiElementIds.heroCarouselCachePin),
               children: <Widget>[
                 for (final ImageProvider<Object> provider in providers)
                   Image(

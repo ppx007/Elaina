@@ -43,7 +43,7 @@ Run the focused smoke gate with:
 
 ```powershell
 flutter test test\domain\acg\acg_experience_runtime_test.dart
-dart run tools\acg_experience_runtime_check.dart
+dart run tools\runtime_check.dart --module acg_data_experience
 powershell -ExecutionPolicy Bypass -File "tools\check_acg_data_experience.ps1"
 ```
 

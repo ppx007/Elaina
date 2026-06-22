@@ -22,9 +22,8 @@ Runtime check modules SHALL be declared in a registry that maps module names to
 public check scripts, legacy scripts, Dart entrypoints, contracts, focused
 tests, and required files.
 
-#### Scenario: Dart runtime wrapper invokes a module
-- **WHEN** `tools/runtime_check.dart --module <name>` or a compatibility
-  `tools/*_runtime_check.dart` entrypoint runs
+#### Scenario: Dart runtime CLI invokes a module
+- **WHEN** `tools/runtime_check.dart --module <name>` runs
 - **THEN** `Invoke-ModuleCheck.ps1` resolves the module through the registry
   before falling back to filename-derived legacy script lookup
 
@@ -33,14 +32,14 @@ tests, and required files.
 - **THEN** its registry entry is added before introducing optional public
   wrapper scripts, so coverage tests can validate the module mapping
 
-### Requirement: Repository baseline SHALL keep compatibility tool entrypoints thin
-Existing public PowerShell and Dart runtime-check entrypoints SHALL remain
-available for humans and CI, but their implementation SHALL delegate to shared
-module-check runners instead of containing repeated module-specific wrapper
-classes or bespoke invocation code.
+### Requirement: Repository baseline SHALL keep tool entrypoints consolidated
+Existing public PowerShell check entrypoints SHALL remain available for humans
+and CI, while Dart runtime checks SHALL use the generic
+`tools/runtime_check.dart --module <name>` entrypoint instead of per-module
+wrapper files.
 
-#### Scenario: Wrapper coverage is tested
+#### Scenario: Tool coverage is tested
 - **WHEN** `test/tools` runs
-- **THEN** every Dart runtime-check wrapper is verified against the module
-  registry, its public check script, legacy script requirement, and contract
-  files
+- **THEN** the generic Dart runtime-check entrypoint, module registry, public
+  check scripts, legacy script requirements, and contract files are verified,
+  and per-module Dart wrapper files are rejected

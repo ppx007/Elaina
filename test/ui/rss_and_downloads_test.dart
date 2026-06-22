@@ -1,10 +1,10 @@
-import 'dart:async';
-
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/download/downloads_page.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../framework/elaina_test_framework.dart';
 
 Widget _testHost({required Widget child}) {
   return MaterialApp(
@@ -17,43 +17,8 @@ Widget _testHost({required Widget child}) {
   );
 }
 
-BtCapabilityMatrix _supportedCapabilities() {
-  return const BtCapabilityMatrix(
-    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
-      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
-      BtStreamingCapability.metadataFetching: BtCapabilityStatus.supported(),
-    },
-  );
-}
-
-BtCapabilityMatrix _taskManagementWithoutMetadataCapabilities() {
-  return const BtCapabilityMatrix(
-    capabilities: <BtStreamingCapability, BtCapabilityStatus>{
-      BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
-      BtStreamingCapability.metadataFetching:
-          BtCapabilityStatus.unsupported('Metadata projection unavailable.'),
-    },
-  );
-}
-
-final DateTime _downloadTestInstant = DateTime.utc(2026, 6, 21, 12);
-
-StoredBtTaskRecord _storedDownloadTask(
-  String id,
-  StoredBtTaskLifecycleState state,
-) {
-  return StoredBtTaskRecord(
-    id: id,
-    sourceKind: StoredBtTaskSourceKind.magnet,
-    sourceUri: 'magnet:?xt=urn:btih:$id',
-    lifecycleState: state,
-    createdAt: _downloadTestInstant,
-    updatedAt: _downloadTestInstant,
-  );
-}
-
 DownloadRuntimeAdapter _downloadRuntimeFor({
-  required _FakeDownloadEngineAdapter adapter,
+  required TestDownloadEngineAdapter adapter,
   Iterable<StoredBtTaskRecord> seedTasks = const <StoredBtTaskRecord>[],
 }) {
   final BtTaskCoreRuntime runtime = BtTaskCoreRuntime.withDependencies(
@@ -77,106 +42,14 @@ Finder _outlinedButtonWithIcon(IconData icon) {
   );
 }
 
-final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
-  _FakeDownloadEngineAdapter({BtCapabilityMatrix? capabilities})
-      : capabilities = capabilities ?? _supportedCapabilities();
-
-  @override
-  final BtCapabilityMatrix capabilities;
-
-  final List<BtTaskId> pausedTasks = <BtTaskId>[];
-  final List<BtTaskId> resumedTasks = <BtTaskId>[];
-  final List<BtTaskId> removedTasks = <BtTaskId>[];
-  final List<BtTaskCreateRequest> createdRequests = <BtTaskCreateRequest>[];
-  final List<List<BtFileIndex>> selectedFiles = <List<BtFileIndex>>[];
-  bool failMetadata = false;
-  bool includeMetadataFiles = false;
-  bool failSelection = false;
-
-  final StreamController<BtTaskStatus> _statusController =
-      StreamController<BtTaskStatus>.broadcast(sync: true);
-  final StreamController<BtTaskEvent> _eventController =
-      StreamController<BtTaskEvent>.broadcast(sync: true);
-
-  @override
-  String get displayName => 'Fake Download Engine';
-
-  @override
-  String get id => 'fake-download-engine';
-
-  @override
-  Future<BtTaskId> createTask(BtTaskCreateRequest request) {
-    createdRequests.add(request);
-    return Future<BtTaskId>.value(const BtTaskId('task-1'));
-  }
-
-  @override
-  Future<BtTaskMetadata> ensureMetadata(BtTaskId taskId) {
-    if (failMetadata) {
-      throw StateError('metadata failed');
-    }
-    return Future<BtTaskMetadata>.value(BtTaskMetadata(
-      infoHash: InfoHash('abc'),
-      name: 'My Download Task',
-      totalSizeBytes: 3072,
-      pieceLengthBytes: 1024,
-      files: includeMetadataFiles
-          ? const <BtTaskFile>[
-              BtTaskFile(
-                index: BtFileIndex(0),
-                path: 'episode-1.mkv',
-                lengthBytes: 3072,
-                offsetBytes: 0,
-                selectionState: BtFileSelectionState.skipped,
-              ),
-            ]
-          : const <BtTaskFile>[],
-    ));
-  }
-
-  @override
-  Future<void> pause(BtTaskId taskId) async {
-    pausedTasks.add(taskId);
-  }
-
-  @override
-  Future<void> resume(BtTaskId taskId) async {
-    resumedTasks.add(taskId);
-  }
-
-  @override
-  Future<void> remove(BtTaskId taskId) async {
-    removedTasks.add(taskId);
-  }
-
-  @override
-  Future<void> selectFiles(BtTaskId taskId, Iterable<BtFileIndex> files) async {
-    if (failSelection) {
-      throw StateError('selection failed');
-    }
-    selectedFiles.add(<BtFileIndex>[...files]);
-  }
-
-  @override
-  Stream<BtTaskEvent> watchEvents(BtTaskId taskId) => _eventController.stream;
-
-  @override
-  Stream<BtTaskStatus> watchStatus(BtTaskId taskId) => _statusController.stream;
-
-  void dispose() {
-    _statusController.close();
-    _eventController.close();
-  }
-}
-
 void main() {
   group('DownloadsPage Widget Tests', () {
-    late _FakeDownloadEngineAdapter fakeAdapter;
+    late TestDownloadEngineAdapter fakeAdapter;
     late DeterministicBtTaskStore btStore;
     late BtTaskCoreRuntime btTaskCoreRuntime;
 
     setUp(() async {
-      fakeAdapter = _FakeDownloadEngineAdapter();
+      fakeAdapter = TestDownloadEngineAdapter();
       btStore = DeterministicBtTaskStore();
       btTaskCoreRuntime = BtTaskCoreRuntime.withDependencies(
         adapter: fakeAdapter,
@@ -231,16 +104,16 @@ void main() {
       );
     });
 
-    tearDown(() {
-      fakeAdapter.dispose();
+    tearDown(() async {
+      await fakeAdapter.dispose();
     });
 
     testWidgets(
         'keeps add enabled without metadata capability and disables empty batch actions',
         (WidgetTester tester) async {
-      final _FakeDownloadEngineAdapter localAdapter =
-          _FakeDownloadEngineAdapter(
-        capabilities: _taskManagementWithoutMetadataCapabilities(),
+      final TestDownloadEngineAdapter localAdapter = TestDownloadEngineAdapter(
+        capabilities:
+            TestDownloadEngineAdapter.taskManagementWithoutMetadataCapabilities,
       );
       final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
         adapter: localAdapter,
@@ -285,12 +158,12 @@ void main() {
 
     testWidgets('enables pause all only when a pausable task exists',
         (WidgetTester tester) async {
-      final _FakeDownloadEngineAdapter localAdapter =
-          _FakeDownloadEngineAdapter();
+      final TestDownloadEngineAdapter localAdapter =
+          TestDownloadEngineAdapter();
       final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
         adapter: localAdapter,
         seedTasks: <StoredBtTaskRecord>[
-          _storedDownloadTask(
+          storedDownloadTask(
             'downloading',
             StoredBtTaskLifecycleState.downloading,
           ),
@@ -328,12 +201,12 @@ void main() {
 
     testWidgets('enables resume all only when a resumable task exists',
         (WidgetTester tester) async {
-      final _FakeDownloadEngineAdapter localAdapter =
-          _FakeDownloadEngineAdapter();
+      final TestDownloadEngineAdapter localAdapter =
+          TestDownloadEngineAdapter();
       final DownloadRuntimeAdapter runtime = _downloadRuntimeFor(
         adapter: localAdapter,
         seedTasks: <StoredBtTaskRecord>[
-          _storedDownloadTask('paused', StoredBtTaskLifecycleState.paused),
+          storedDownloadTask('paused', StoredBtTaskLifecycleState.paused),
         ],
       );
       addTearDown(runtime.dispose);
@@ -387,7 +260,7 @@ void main() {
       expect(find.text('My Download Task'), findsWidgets);
       expect(find.text('2.0 KiB/s / 512 B/s'), findsOneWidget);
       await tester.drag(
-        find.byKey(const ValueKey<String>('download-detail-scroll')),
+        ElainaFinders.downloadDetailScroll,
         const Offset(0, -260),
       );
       await tester.pumpAndSettle();

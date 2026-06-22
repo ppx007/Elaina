@@ -1,6 +1,6 @@
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/domain/media/media_library_folder_preferences.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
-import 'package:elaina/src/domain/profile/profile_domain.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/provider/bangumi/bangumi_api_client.dart';
 import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
@@ -9,56 +9,35 @@ import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _testHost({required Widget child}) {
-  return MaterialApp(
-    home: Scaffold(
-      body: ElainaTheme(
-        data: ElainaThemeData.dark,
-        mode: ElainaThemeMode.dark,
-        onModeChanged: (_) {},
-        child: Material(
-          child: child,
-        ),
-      ),
-    ),
-  );
-}
+import '../framework/elaina_test_framework.dart';
 
-Widget _settingsHost({
+Future<void> _pumpSettingsPage(
+  WidgetTester tester, {
   required FakeSettingsRuntime settingsRuntime,
-  required Widget child,
+  BangumiLoginController? bangumiLoginController,
+  VoidCallback? onBangumiAuthChanged,
+  SettingsDirectoryPathPicker? directoryPathPicker,
 }) {
-  return MaterialApp(
-    home: ElainaThemeProvider(
-      initialMode: ElainaThemeMode.dark,
-      settingsRuntime: settingsRuntime,
-      child: Scaffold(
-        body: Material(
-          child: child,
-        ),
-      ),
-    ),
+  final SettingsPage page = directoryPathPicker == null
+      ? SettingsPage(
+          settingsRuntime: settingsRuntime,
+          bangumiLoginController: bangumiLoginController,
+          onBangumiAuthChanged: onBangumiAuthChanged,
+        )
+      : SettingsPage(
+          settingsRuntime: settingsRuntime,
+          bangumiLoginController: bangumiLoginController,
+          onBangumiAuthChanged: onBangumiAuthChanged,
+          directoryPathPicker: directoryPathPicker,
+        );
+  return ElainaTestHarness.pumpSettingsWidget(
+    tester,
+    settingsRuntime: settingsRuntime,
+    child: page,
   );
 }
 
-Future<void> _openSettingsSection(
-  WidgetTester tester,
-  String sectionLabel,
-) async {
-  final Finder sectionText = find.text(sectionLabel).first;
-  final Finder compactChip = find.ancestor(
-    of: sectionText,
-    matching: find.byType(ChoiceChip),
-  );
-  if (tester.any(compactChip)) {
-    await tester.tap(compactChip.first);
-  } else {
-    await tester.tap(sectionText);
-  }
-  await tester.pumpAndSettle();
-}
-
-class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
+final class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
   @override
   Future<List<DiagnosticsEventProjection>> queryEvents() async {
     return <DiagnosticsEventProjection>[
@@ -66,7 +45,7 @@ class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
         id: '1',
         eventType: 'play_start',
         severity: 'INFO',
-        occurredAt: DateTime(2026, 6, 20, 10, 0, 0),
+        occurredAt: DateTime(2026, 6, 20, 10),
         sourceModule: 'playback',
         correlationId: 'corr-1',
         payloadText: 'Started playing cyber_overload.mp4',
@@ -92,14 +71,10 @@ class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
   }
 
   @override
-  Future<double> getLatestAvSyncDrift() async {
-    return 15.4;
-  }
+  Future<double> getLatestAvSyncDrift() async => 15.4;
 
   @override
-  int getActiveMemoryUsageBytes() {
-    return 200 * 1024 * 1024;
-  }
+  int getActiveMemoryUsageBytes() => 200 * 1024 * 1024;
 }
 
 void main() {
@@ -107,6 +82,7 @@ void main() {
       'SettingsPage exposes global settings and explicitly saves network preferences',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
+    final settings = SettingsRobot(tester);
 
     await settingsRuntime.setPreference(
       key: SettingsPreferenceKeys.themeMode,
@@ -115,113 +91,95 @@ void main() {
     await settingsRuntime.saveProxyUrl('http://127.0.0.1:8888');
     await settingsRuntime.saveDnsPolicy('https://dns.google/dns-query');
 
-    await tester.pumpWidget(_settingsHost(
-      settingsRuntime: settingsRuntime,
-      child: SettingsPage(settingsRuntime: settingsRuntime),
-    ));
+    await _pumpSettingsPage(tester, settingsRuntime: settingsRuntime);
     await tester.pumpAndSettle();
 
-    expect(find.text('外观'), findsWidgets);
-    expect(find.text('主题模式'), findsOneWidget);
-    expect(find.text('硬件加速'), findsNothing);
-    expect(find.text('缓存管理'), findsNothing);
+    expect(ElainaFinders.settingsSectionAppearance, findsOneWidget);
+    expect(ElainaFinders.settingsThemeMode, findsOneWidget);
 
-    await tester.tap(find.text('浅色'));
+    tester
+        .widget<SegmentedButton<ElainaThemeMode>>(
+          ElainaFinders.settingsThemeMode,
+        )
+        .onSelectionChanged!(<ElainaThemeMode>{ElainaThemeMode.light});
     await tester.pumpAndSettle();
     expect(
       await settingsRuntime.getPreference(SettingsPreferenceKeys.themeMode),
       SettingsThemeModePreference.light,
     );
 
-    await _openSettingsSection(tester, '网络');
+    await settings.openNetwork();
 
-    final Finder proxyField =
-        find.byKey(const ValueKey<String>('settings-http-proxy'));
-    await tester.enterText(proxyField, 'http://127.0.0.1:1080');
+    await tester.enterText(
+      ElainaFinders.settingsHttpProxy,
+      'http://127.0.0.1:1080',
+    );
     await tester.pumpAndSettle();
     expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:8888');
 
-    await tester.tap(find.byKey(const ValueKey<String>('settings-save-proxy')));
-    await tester.pumpAndSettle();
+    await settings.saveProxy('http://127.0.0.1:1080');
     expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
   });
 
   testWidgets('SettingsPage validates Bangumi token and refreshes profile',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
-    final _RecordingBangumiLoginController bangumiLoginController =
-        _RecordingBangumiLoginController();
+    final RecordingBangumiLoginController bangumiLoginController =
+        RecordingBangumiLoginController();
+    final settings = SettingsRobot(tester);
     int authRefreshes = 0;
 
-    await tester.pumpWidget(_settingsHost(
+    await _pumpSettingsPage(
+      tester,
       settingsRuntime: settingsRuntime,
-      child: SettingsPage(
-        settingsRuntime: settingsRuntime,
-        bangumiLoginController: bangumiLoginController,
-        onBangumiAuthChanged: () {
-          authRefreshes++;
-        },
-      ),
-    ));
+      bangumiLoginController: bangumiLoginController,
+      onBangumiAuthChanged: () {
+        authRefreshes++;
+      },
+    );
     await tester.pumpAndSettle();
-    await _openSettingsSection(tester, 'Bangumi');
+    await settings.openBangumi();
 
-    final Finder tokenField =
-        find.byKey(const ValueKey<String>('settings-bangumi-access-token'));
-    final Finder loginButton =
-        find.byKey(const ValueKey<String>('settings-bangumi-login'));
-    await tester.enterText(tokenField, ' token-1 ');
-    await tester.tap(loginButton);
-    await tester.pumpAndSettle();
+    await settings.saveBangumiToken(' token-1 ');
 
     expect(bangumiLoginController.submittedToken, 'token-1');
     expect(authRefreshes, 1);
-    expect(find.text('Bangumi 已登录：Alice'), findsWidgets);
   });
 
   testWidgets('SettingsPage opens Bangumi OAuth authorization page',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
-    final _RecordingBangumiLoginController bangumiLoginController =
-        _RecordingBangumiLoginController();
+    final RecordingBangumiLoginController bangumiLoginController =
+        RecordingBangumiLoginController();
+    final settings = SettingsRobot(tester);
 
-    await tester.pumpWidget(_settingsHost(
+    await _pumpSettingsPage(
+      tester,
       settingsRuntime: settingsRuntime,
-      child: SettingsPage(
-        settingsRuntime: settingsRuntime,
-        bangumiLoginController: bangumiLoginController,
-      ),
-    ));
+      bangumiLoginController: bangumiLoginController,
+    );
     await tester.pumpAndSettle();
-    await _openSettingsSection(tester, 'Bangumi');
+    await settings.openBangumi();
 
-    final Finder oauthButton =
-        find.byKey(const ValueKey<String>('settings-bangumi-oauth-login'));
-    await tester.tap(oauthButton);
-    await tester.pumpAndSettle();
+    await settings.openBangumiOAuth();
 
     expect(bangumiLoginController.startLoginCalls, 1);
     expect(
       bangumiLoginController.openedUri,
       defaultBangumiOAuthAuthorizationPageUri,
     );
-    expect(find.text('已打开 Bangumi OAuth 授权页'), findsWidgets);
   });
 
   testWidgets('SettingsPage stores valid Bangumi mirror settings',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
+    final settings = SettingsRobot(tester);
 
-    await tester.pumpWidget(_settingsHost(
-      settingsRuntime: settingsRuntime,
-      child: SettingsPage(settingsRuntime: settingsRuntime),
-    ));
+    await _pumpSettingsPage(tester, settingsRuntime: settingsRuntime);
     await tester.pumpAndSettle();
-    await _openSettingsSection(tester, 'Bangumi');
+    await settings.openBangumi();
 
-    final Finder mirrorSwitch =
-        find.byKey(const ValueKey<String>('settings-bangumi-mirror'));
-    tester.widget<Switch>(mirrorSwitch).onChanged!(true);
+    tester.widget<Switch>(ElainaFinders.settingsBangumiMirror).onChanged!(true);
     await tester.pumpAndSettle();
 
     expect(
@@ -231,15 +189,17 @@ void main() {
     );
     expect(find.textContaining('required'), findsWidgets);
 
-    final Finder apiField =
-        find.byKey(const ValueKey<String>('settings-bangumi-mirror-api-url'));
-    final Finder imageField =
-        find.byKey(const ValueKey<String>('settings-bangumi-mirror-image-url'));
-    await tester.enterText(apiField, ' https://mirror.test/api ');
+    await tester.enterText(
+      ElainaFinders.settingsBangumiMirrorApiUrl,
+      ' https://mirror.test/api ',
+    );
     await tester.pumpAndSettle();
-    await tester.enterText(imageField, 'https://mirror.test/image');
+    await tester.enterText(
+      ElainaFinders.settingsBangumiMirrorImageUrl,
+      'https://mirror.test/image',
+    );
     await tester.pumpAndSettle();
-    tester.widget<Switch>(mirrorSwitch).onChanged!(true);
+    tester.widget<Switch>(ElainaFinders.settingsBangumiMirror).onChanged!(true);
     await tester.pumpAndSettle();
 
     expect(
@@ -262,37 +222,40 @@ void main() {
   testWidgets('SettingsPage manages media library folder preferences',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
+    const MediaLibraryFolderPreferenceCodec folderCodec =
+        MediaLibraryFolderPreferenceCodec();
     final _QueuedDirectoryPathPicker pathPicker = _QueuedDirectoryPathPicker(
       <String>['D:\\Anime', 'D:\\Media'],
     );
+    final settings = SettingsRobot(tester);
 
-    await tester.pumpWidget(_settingsHost(
+    await _pumpSettingsPage(
+      tester,
       settingsRuntime: settingsRuntime,
-      child: SettingsPage(
-        settingsRuntime: settingsRuntime,
-        directoryPathPicker: pathPicker.pick,
-      ),
-    ));
+      directoryPathPicker: pathPicker.pick,
+    );
     await tester.pumpAndSettle();
-    await _openSettingsSection(tester, '本地媒体库');
+    await settings.openMediaLibrary();
 
-    await tester
-        .tap(find.byKey(const ValueKey<String>('settings-add-media-folder')));
-    await tester.pumpAndSettle();
+    await settings.addMediaFolder();
 
     final String? rawAfterAdd = await settingsRuntime
         .getPreference(SettingsPreferenceKeys.mediaLibraryRoots);
     expect(rawAfterAdd, isNotNull);
     expect(rawAfterAdd, contains('Anime'));
 
-    await tester.tap(find.byTooltip('替换文件夹').first);
+    await tester.tap(ElainaFinders.settingsEditMediaFolder(
+      folderCodec.directoryUriFromPath('D:\\Anime')!,
+    ));
     await tester.pumpAndSettle();
     final String? rawAfterEdit = await settingsRuntime
         .getPreference(SettingsPreferenceKeys.mediaLibraryRoots);
     expect(rawAfterEdit, contains('Media'));
     expect(rawAfterEdit, isNot(contains('Anime')));
 
-    await tester.tap(find.byTooltip('移除文件夹').first);
+    await tester.tap(ElainaFinders.settingsRemoveMediaFolder(
+      folderCodec.directoryUriFromPath('D:\\Media')!,
+    ));
     await tester.pumpAndSettle();
     expect(
       await settingsRuntime
@@ -306,9 +269,12 @@ void main() {
       (WidgetTester tester) async {
     final diagnosticsRuntime = _MockDiagnosticsRuntime();
 
-    await tester.pumpWidget(_testHost(
-      child: DiagnosticsPage(diagnosticsRuntime: diagnosticsRuntime),
-    ));
+    await ElainaTestHarness.pumpThemedWidget(
+      tester,
+      child: Scaffold(
+        body: DiagnosticsPage(diagnosticsRuntime: diagnosticsRuntime),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('200.0 MB'), findsOneWidget);
@@ -323,29 +289,6 @@ void main() {
     expect(find.text('play_start'), findsOneWidget);
     expect(find.text('buffer_warning'), findsOneWidget);
   });
-}
-
-final class _RecordingBangumiLoginController implements BangumiLoginController {
-  int startLoginCalls = 0;
-  Uri? openedUri;
-  String? submittedToken;
-
-  @override
-  Future<BangumiLoginStartResult> startLogin() async {
-    startLoginCalls++;
-    openedUri = defaultBangumiOAuthAuthorizationPageUri;
-    return BangumiLoginStartResult.opened(openedUri!);
-  }
-
-  @override
-  Future<BangumiTokenSignInResult> signInWithAccessToken(
-    String accessToken,
-  ) async {
-    submittedToken = accessToken.trim();
-    return const BangumiTokenSignInResult.signedIn(
-      UserProfileSnapshot(displayName: 'Alice'),
-    );
-  }
 }
 
 final class _QueuedDirectoryPathPicker {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
 class HotUpdatesCarousel extends StatefulWidget {
@@ -219,13 +220,13 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                     child: Row(
                       children: [
                         SizedBox(
-                        width: imageWidth,
-                        child: _HotUpdatePlaceholder(
-                          symbol: item.symbol,
-                          index: index,
-                          imageProvider: _imageProviderFor(item.coverUri),
+                          width: imageWidth,
+                          child: _HotUpdatePlaceholder(
+                            symbol: item.symbol,
+                            index: index,
+                            imageProvider: _imageProviderFor(item.coverUri),
+                          ),
                         ),
-                      ),
                         Expanded(
                           child: Padding(
                             padding: EdgeInsets.all(contentPadding),
@@ -289,6 +290,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                                   runSpacing: 12,
                                   children: [
                                     ElevatedButton.icon(
+                                      key: ValueKey<String>(
+                                        UiElementIds.homeRecentWatchingDetail(
+                                          item.subjectId,
+                                        ),
+                                      ),
                                       onPressed: hasProvidedItems
                                           ? () => widget.onOpenDetail
                                               ?.call(item.subjectId)

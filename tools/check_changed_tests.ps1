@@ -3,9 +3,9 @@
 Runs the smallest useful validation set for the current change.
 
 .DESCRIPTION
-check_changed_tests.ps1 selects focused tests from changed paths so small UI
-and provider edits do not require the full release gate on every iteration.
-Use -Scope Full for the existing release-readiness gate.
+check_changed_tests.ps1 selects focused tests from changed paths through
+tools/test_suites.json so path rules stay declarative. Use -Scope Full for the
+existing release-readiness gate.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -27,6 +27,7 @@ $script:CheckChangedDartCommand = 'dart'
 $script:CheckChangedFlutterCommand = 'flutter'
 $script:CheckChangedPowerShellCommand = 'powershell'
 $script:CheckChangedSuccessExitCode = 0
+$script:TestSuiteRegistryPath = 'tools\test_suites.json'
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
@@ -39,6 +40,18 @@ function ConvertTo-CheckPathToken {
   )
 
   return ($Path -replace '\\', '/').Trim()
+}
+
+function ConvertTo-PathPattern {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Pattern
+  )
+
+  $normalizedPattern = ConvertTo-CheckPathToken -Path $Pattern
+  return $normalizedPattern -replace '\*\*', '*'
 }
 
 function Add-CheckPath {
@@ -74,6 +87,17 @@ function Add-ExistingCheckPath {
   }
 }
 
+function Read-TestSuiteRegistry {
+  [CmdletBinding()]
+  param()
+
+  $registryPath = Join-Path $projectRoot $script:TestSuiteRegistryPath
+  if (-not (Test-Path -LiteralPath $registryPath)) {
+    throw "Test suite registry was not found: $script:TestSuiteRegistryPath"
+  }
+  return Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json
+}
+
 function Get-ChangedCheckPaths {
   [CmdletBinding()]
   param()
@@ -89,6 +113,108 @@ function Get-ChangedCheckPaths {
       Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
       ForEach-Object { ConvertTo-CheckPathToken -Path $_ }
   )
+}
+
+function Test-SuiteScope {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Suite
+  )
+
+  $suiteScopes = @($Suite.scopes)
+  if ($Scope -eq 'Fast') {
+    return $suiteScopes -contains 'Fast'
+  }
+  if ($Scope -eq 'Module') {
+    return ($suiteScopes -contains 'Fast') -or ($suiteScopes -contains 'Module')
+  }
+  return $false
+}
+
+function Test-PathMatchesSuite {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Suite
+  )
+
+  foreach ($trigger in @($Suite.triggers)) {
+    $pattern = ConvertTo-PathPattern -Pattern ([string]$trigger)
+    if ($Path -like $pattern) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Get-SelectedTestSuites {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Registry,
+
+    [Parameter(Mandatory = $true)]
+    [string[]]$Paths
+  )
+
+  $selectedByName = @{}
+  foreach ($suite in @($Registry.suites)) {
+    if (-not (Test-SuiteScope -Suite $suite)) {
+      continue
+    }
+    foreach ($path in $Paths) {
+      if (Test-PathMatchesSuite -Path $path -Suite $suite) {
+        $selectedByName[$suite.name] = $suite
+        break
+      }
+    }
+  }
+  return @($selectedByName.Values | Sort-Object -Property name)
+}
+
+function ConvertTo-RunnerGroups {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [object[]]$Suites
+  )
+
+  $dartTests = @{}
+  $flutterTests = @{}
+  $flutterExtraArgs = @{}
+
+  foreach ($suite in $Suites) {
+    $runner = [string]$suite.runner
+    foreach ($path in @($suite.paths)) {
+      if ($runner -eq 'dart') {
+        Add-ExistingCheckPath -Set $dartTests -Path ([string]$path)
+      } elseif ($runner -eq 'flutter') {
+        Add-ExistingCheckPath -Set $flutterTests -Path ([string]$path)
+      } else {
+        throw "Unsupported test suite runner '$runner' in suite '$($suite.name)'."
+      }
+    }
+
+    if ($runner -eq 'flutter' -and $suite.PSObject.Properties.Name -contains 'extraArgs') {
+      $extraArgs = @($suite.extraArgs | ForEach-Object { [string]$_ })
+      if ($extraArgs.Count -gt 0) {
+        foreach ($path in @($suite.paths)) {
+          $normalizedPath = ConvertTo-CheckPathToken -Path ([string]$path)
+          $flutterExtraArgs[$normalizedPath] = $extraArgs
+        }
+      }
+    }
+  }
+
+  return [pscustomobject]@{
+    DartTests = @($dartTests.Keys | Sort-Object)
+    FlutterTests = @($flutterTests.Keys | Sort-Object)
+    FlutterExtraArgs = $flutterExtraArgs
+  }
 }
 
 function Invoke-CheckCommand {
@@ -119,122 +245,43 @@ function Invoke-CheckCommand {
   }
 }
 
-function Add-UiCheckPaths {
+function Invoke-FlutterTestGroups {
   [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][hashtable]$FlutterTests)
+  param(
+    [Parameter(Mandatory = $true)]
+    [string[]]$Paths,
 
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/ui/hero_carousel_test.dart'
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/widget_test.dart'
-}
+    [Parameter(Mandatory = $true)]
+    [hashtable]$ExtraArgsByPath
+  )
 
-function Add-DetailUiCheckPaths {
-  [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][hashtable]$FlutterTests)
-
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/ui/playback/media_library_and_video_detail_test.dart'
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/widget_test.dart'
-}
-
-function Add-BangumiCheckPaths {
-  [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][hashtable]$FlutterTests)
-
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/provider/bangumi/bangumi_runtime_test.dart'
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/domain/profile/bangumi_tracking_local_store_test.dart'
-}
-
-function Add-DetailDomainCheckPaths {
-  [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][hashtable]$FlutterTests)
-
-  Add-ExistingCheckPath -Set $FlutterTests -Path 'test/domain/detail/video_detail_runtime_test.dart'
-}
-
-function Get-TargetedChecks {
-  [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][string[]]$Paths)
-
-  $flutterTests = @{}
-  $dartTests = @{}
-  $sawUiChange = $false
-  $sawBangumiChange = $false
-  $sawDetailChange = $false
-
-  foreach ($path in $Paths) {
-    if ($path -like 'test/tools/*') {
-      Add-ExistingCheckPath -Set $dartTests -Path 'test/tools'
-      continue
-    }
-    if ($path -like 'test/support/*') {
-      Add-UiCheckPaths -FlutterTests $flutterTests
-      Add-DetailUiCheckPaths -FlutterTests $flutterTests
-      continue
-    }
-    if ($path -like 'test/*.dart' -or $path -like 'test/*/*.dart' -or $path -like 'test/*/*/*.dart') {
-      Add-ExistingCheckPath -Set $flutterTests -Path $path
-    }
-
-    if ($path -like 'lib/src/ui/widgets/hero_carousel.dart' -or
-        $path -like 'test/ui/hero_carousel_test.dart') {
-      $sawUiChange = $true
-      Add-UiCheckPaths -FlutterTests $flutterTests
-    }
-
-    if ($path -like 'lib/src/ui/detail/*' -or
-        $path -like 'lib/src/ui/playback/shell/*' -or
-        $path -like 'test/ui/playback/media_library_and_video_detail_test.dart') {
-      $sawUiChange = $true
-      Add-DetailUiCheckPaths -FlutterTests $flutterTests
-    }
-
-    if ($path -like 'lib/src/domain/profile/bangumi_tracking_local_store.dart' -or
-        $path -like 'lib/src/provider/bangumi/*' -or
-        $path -like 'test/provider/bangumi/*' -or
-        $path -like 'test/domain/profile/bangumi_tracking_local_store_test.dart') {
-      $sawBangumiChange = $true
-      Add-BangumiCheckPaths -FlutterTests $flutterTests
-    }
-
-    if ($path -like 'lib/src/domain/detail/*' -or
-        $path -like 'test/domain/detail/*') {
-      $sawDetailChange = $true
-      Add-DetailDomainCheckPaths -FlutterTests $flutterTests
-    }
-
-    if ($path -like 'tools/runtime_check_base.dart' -or
-        $path -like 'tools/*_runtime_check.dart') {
-      Add-ExistingCheckPath -Set $dartTests -Path 'test/tools'
-    }
+  $defaultPaths = @(
+    $Paths |
+      Where-Object { -not $ExtraArgsByPath.ContainsKey($_) }
+  )
+  if ($defaultPaths.Count -gt 0) {
+    Invoke-CheckCommand `
+      -Name 'flutter targeted tests' `
+      -Executable $script:CheckChangedFlutterCommand `
+      -Arguments (@('test') + $defaultPaths)
   }
 
-  if ($Scope -eq 'Module') {
-    if ($sawUiChange) {
-      Add-UiCheckPaths -FlutterTests $flutterTests
-      Add-DetailUiCheckPaths -FlutterTests $flutterTests
-    }
-    if ($sawBangumiChange) {
-      Add-BangumiCheckPaths -FlutterTests $flutterTests
-      Add-DetailDomainCheckPaths -FlutterTests $flutterTests
-    }
-    if ($sawDetailChange) {
-      Add-DetailDomainCheckPaths -FlutterTests $flutterTests
-      Add-DetailUiCheckPaths -FlutterTests $flutterTests
-    }
-  }
-
-  return [pscustomobject]@{
-    FlutterTests = @($flutterTests.Keys | Sort-Object)
-    DartTests = @($dartTests.Keys | Sort-Object)
+  foreach ($path in @($Paths | Where-Object { $ExtraArgsByPath.ContainsKey($_) })) {
+    Invoke-CheckCommand `
+      -Name "flutter targeted test $path" `
+      -Executable $script:CheckChangedFlutterCommand `
+      -Arguments (@('test', $path) + @($ExtraArgsByPath[$path]))
   }
 }
 
 Push-Location $projectRoot
 try {
+  $registry = Read-TestSuiteRegistry
   if ($Scope -eq 'Full') {
     Invoke-CheckCommand `
       -Name 'full feature gate' `
       -Executable $script:CheckChangedPowerShellCommand `
-      -Arguments @('-ExecutionPolicy', 'Bypass', '-File', 'tools\check_full_feature_gate.ps1')
+      -Arguments @('-ExecutionPolicy', 'Bypass', '-File', $registry.fullGate)
     return
   }
 
@@ -249,7 +296,15 @@ try {
     }
   }
 
-  $checks = Get-TargetedChecks -Paths $paths
+  $suites = @(Get-SelectedTestSuites -Registry $registry -Paths $paths)
+  if ($suites.Count -gt 0) {
+    Write-Output 'Changed test gate suites:'
+    foreach ($suite in $suites) {
+      Write-Output "  $($suite.name)"
+    }
+  }
+
+  $checks = ConvertTo-RunnerGroups -Suites $suites
   Invoke-CheckCommand `
     -Name 'dart analyze' `
     -Executable $script:CheckChangedDartCommand `
@@ -263,10 +318,9 @@ try {
   }
 
   if ($checks.FlutterTests.Count -gt 0) {
-    Invoke-CheckCommand `
-      -Name 'flutter targeted tests' `
-      -Executable $script:CheckChangedFlutterCommand `
-      -Arguments (@('test') + $checks.FlutterTests)
+    Invoke-FlutterTestGroups `
+      -Paths $checks.FlutterTests `
+      -ExtraArgsByPath $checks.FlutterExtraArgs
   } else {
     Write-Output 'Changed test gate: no targeted Flutter tests selected.'
   }

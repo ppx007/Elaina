@@ -6,6 +6,8 @@ import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../framework/elaina_test_framework.dart';
+
 Widget _testHost({required Widget child}) {
   return MaterialApp(
     home: ElainaTheme(
@@ -173,7 +175,7 @@ void main() {
       expect(find.text('A new episode.'), findsOneWidget);
 
       await tester.enterText(
-        find.byKey(const ValueKey<String>('rss-item-search')),
+        ElainaFinders.rssItemSearch,
         'missing',
       );
       await tester.pumpAndSettle();

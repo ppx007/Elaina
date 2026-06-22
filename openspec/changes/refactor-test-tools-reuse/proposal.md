@@ -16,9 +16,9 @@ module wiring is inferred from filenames instead of a declared registry.
 - Add a declarative `tools/module_checks.json` registry for runtime-check
   modules, public PowerShell check scripts, legacy scripts, Dart entrypoints,
   contracts, and focused tool tests.
-- Add `tools/runtime_check.dart --module <name>` plus a shared Dart proxy so
-  existing `tools/*_runtime_check.dart` files stay as stable compatibility
-  entrypoints without per-file wrapper classes.
+- Add `tools/runtime_check.dart --module <name>` as the single Dart runtime
+  check entrypoint and remove per-module `tools/*_runtime_check.dart` wrapper
+  files.
 - Teach `Invoke-ModuleCheck.ps1` to read registry defaults before falling back
   to legacy script resolution.
 - Update README validation guidance for registry-backed runtime checks.
@@ -27,7 +27,7 @@ module wiring is inferred from filenames instead of a declared registry.
 
 - Affects test support, focused Bangumi/detail/media/seasonal/UI tests,
   runtime-check tooling, `Invoke-ModuleCheck.ps1`, README, and tool tests.
-- Keeps public `tools/check_*.ps1` and `tools/*_runtime_check.dart` entrypoints
-  available.
+- Keeps public `tools/check_*.ps1` entrypoints available while consolidating
+  Dart runtime checks behind the generic CLI.
 - Does not remove legacy PowerShell scripts yet; registry now points to them
   explicitly so later migration can delete them module by module.

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../domain/media/media_library_folder_preferences.dart';
 import '../../domain/profile/bangumi_login_domain.dart';
 import '../../domain/settings/settings_domain.dart';
+import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
 typedef SettingsDirectoryPathPicker = Future<String?> Function();
@@ -483,6 +484,7 @@ class _SettingsPageState extends State<SettingsPage> {
         children: <Widget>[
           for (final _SettingsSection section in _SettingsSection.values) ...[
             ChoiceChip(
+              key: ValueKey<String>(_settingsSectionElementId(section)),
               label: Text(section.label),
               avatar: Icon(section.icon, size: _smallIconSize),
               selected: _selectedSection == section,
@@ -534,7 +536,7 @@ class _SettingsPageState extends State<SettingsPage> {
           subtitle: '控制应用整体明暗模式，设置会在下次启动时恢复。',
           theme: theme,
           trailing: SegmentedButton<ElainaThemeMode>(
-            key: const ValueKey<String>('settings-theme-mode'),
+            key: const ValueKey<String>(UiElementIds.settingsThemeMode),
             segments: const <ButtonSegment<ElainaThemeMode>>[
               ButtonSegment<ElainaThemeMode>(
                 value: ElainaThemeMode.auto,
@@ -573,7 +575,8 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '打开 Bangumi OAuth 授权页',
             child: FilledButton.icon(
-              key: const ValueKey<String>('settings-bangumi-oauth-login'),
+              key: const ValueKey<String>(
+                  UiElementIds.settingsBangumiOAuthLogin),
               onPressed: _isBangumiOAuthOpening ? null : _startBangumiOAuth,
               icon: _isBangumiOAuthOpening
                   ? const SizedBox.square(
@@ -590,7 +593,8 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'Access token',
           subtitle: '用于读取 Bangumi 个人资料、追番状态和后续同步。',
           controller: _bangumiTokenController,
-          fieldKey: const ValueKey<String>('settings-bangumi-access-token'),
+          fieldKey:
+              const ValueKey<String>(UiElementIds.settingsBangumiAccessToken),
           obscureText: true,
           theme: theme,
           onChanged: (_) {
@@ -603,7 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '保存 token 并刷新 Bangumi 登录状态',
             child: ElevatedButton.icon(
-              key: const ValueKey<String>('settings-bangumi-login'),
+              key: const ValueKey<String>(UiElementIds.settingsBangumiLogin),
               onPressed: _isBangumiTokenSaving ? null : _submitBangumiToken,
               icon: _isBangumiTokenSaving
                   ? const SizedBox.square(
@@ -622,7 +626,7 @@ class _SettingsPageState extends State<SettingsPage> {
           subtitle: '开启后 Bangumi API 与图片请求会走自建镜像地址。',
           theme: theme,
           trailing: Switch(
-            key: const ValueKey<String>('settings-bangumi-mirror'),
+            key: const ValueKey<String>(UiElementIds.settingsBangumiMirror),
             value: _bangumiMirrorEnabled,
             onChanged: _setBangumiMirrorEnabled,
           ),
@@ -632,7 +636,8 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'API 镜像地址',
           subtitle: '例如 https://example.workers.dev/api。',
           controller: _bangumiMirrorApiController,
-          fieldKey: const ValueKey<String>('settings-bangumi-mirror-api-url'),
+          fieldKey:
+              const ValueKey<String>(UiElementIds.settingsBangumiMirrorApiUrl),
           theme: theme,
           onChanged: (_) {
             if (_bangumiMirrorMessage == null) return;
@@ -646,7 +651,8 @@ class _SettingsPageState extends State<SettingsPage> {
           title: '图片镜像地址',
           subtitle: '例如 https://example.workers.dev/image。',
           controller: _bangumiMirrorImageController,
-          fieldKey: const ValueKey<String>('settings-bangumi-mirror-image-url'),
+          fieldKey: const ValueKey<String>(
+              UiElementIds.settingsBangumiMirrorImageUrl),
           theme: theme,
           onChanged: (_) {
             if (_bangumiMirrorMessage == null) return;
@@ -657,7 +663,8 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '保存 Bangumi 镜像地址',
             child: OutlinedButton.icon(
-              key: const ValueKey<String>('settings-bangumi-mirror-save'),
+              key: const ValueKey<String>(
+                  UiElementIds.settingsBangumiMirrorSave),
               onPressed: _saveBangumiMirrorSettings,
               icon: const Icon(Icons.save_outlined, size: _smallIconSize),
               label: const Text('保存镜像地址'),
@@ -677,7 +684,7 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'HTTP 代理',
           subtitle: '供 ProviderGateway 管理的网络请求使用，例如 http://127.0.0.1:7890。',
           controller: _proxyController,
-          fieldKey: const ValueKey<String>('settings-http-proxy'),
+          fieldKey: const ValueKey<String>(UiElementIds.settingsHttpProxy),
           theme: theme,
           onChanged: (_) {
             if (_networkMessage == null) return;
@@ -688,7 +695,7 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '保存 HTTP 代理',
             child: OutlinedButton.icon(
-              key: const ValueKey<String>('settings-save-proxy'),
+              key: const ValueKey<String>(UiElementIds.settingsSaveProxy),
               onPressed: _saveProxy,
               icon: const Icon(Icons.save_outlined, size: _smallIconSize),
               label: const Text('保存代理'),
@@ -700,7 +707,7 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'DNS 策略',
           subtitle: '支持 direct、block 或 DoH 地址，例如 https://dns.google/dns-query。',
           controller: _dnsController,
-          fieldKey: const ValueKey<String>('settings-dns-policy'),
+          fieldKey: const ValueKey<String>(UiElementIds.settingsDnsPolicy),
           theme: theme,
           onChanged: (_) {
             if (_networkMessage == null) return;
@@ -711,7 +718,7 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '保存 DNS 策略',
             child: OutlinedButton.icon(
-              key: const ValueKey<String>('settings-save-dns'),
+              key: const ValueKey<String>(UiElementIds.settingsSaveDns),
               onPressed: _saveDns,
               icon: const Icon(Icons.save_outlined, size: _smallIconSize),
               label: const Text('保存 DNS'),
@@ -734,7 +741,7 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Tooltip(
             message: '添加媒体库文件夹',
             child: FilledButton.icon(
-              key: const ValueKey<String>('settings-add-media-folder'),
+              key: const ValueKey<String>(UiElementIds.settingsAddMediaFolder),
               onPressed: _pickAndAddFolder,
               icon: const Icon(Icons.create_new_folder_outlined,
                   size: _smallIconSize),
@@ -813,6 +820,7 @@ class _SectionButton extends StatelessWidget {
             : Colors.transparent,
         borderRadius: BorderRadius.circular(_panelRadius),
         child: InkWell(
+          key: ValueKey<String>(_settingsSectionElementId(section)),
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(_panelRadius),
           onTap: onTap,
@@ -1151,7 +1159,8 @@ class _MediaFolderRow extends StatelessWidget {
             message: '替换文件夹',
             child: IconButton(
               key: ValueKey<String>(
-                  'settings-edit-media-folder-${folder.toString()}'),
+                UiElementIds.settingsEditMediaFolder(folder),
+              ),
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined),
               mouseCursor: SystemMouseCursors.click,
@@ -1161,7 +1170,8 @@ class _MediaFolderRow extends StatelessWidget {
             message: '移除文件夹',
             child: IconButton(
               key: ValueKey<String>(
-                  'settings-remove-media-folder-${folder.toString()}'),
+                UiElementIds.settingsRemoveMediaFolder(folder),
+              ),
               onPressed: onRemove,
               icon: const Icon(Icons.delete_outline),
               mouseCursor: SystemMouseCursors.click,
@@ -1245,4 +1255,13 @@ class _SettingsDivider extends StatelessWidget {
 String _displayPath(Uri uri) {
   if (!uri.isScheme('file')) return uri.toString();
   return uri.toFilePath();
+}
+
+String _settingsSectionElementId(_SettingsSection section) {
+  return switch (section) {
+    _SettingsSection.appearance => UiElementIds.settingsSectionAppearance,
+    _SettingsSection.bangumi => UiElementIds.settingsSectionBangumi,
+    _SettingsSection.network => UiElementIds.settingsSectionNetwork,
+    _SettingsSection.mediaLibrary => UiElementIds.settingsSectionMediaLibrary,
+  };
 }

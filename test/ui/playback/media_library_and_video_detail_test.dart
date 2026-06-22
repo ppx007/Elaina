@@ -8,6 +8,7 @@ import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../framework/elaina_test_framework.dart';
 import '../../support/provider_test_fakes.dart';
 import '../../support/runtime_test_fakes.dart';
 import '../../support/ui_test_host.dart';
@@ -766,8 +767,7 @@ void main() {
       expect(playbackStartedCalled, isTrue);
 
       // Tap close/back button
-      await tester
-          .tap(find.byKey(const ValueKey<String>('video-detail-close')));
+      await tester.tap(ElainaFinders.videoDetailClose);
       await tester.pump();
       expect(closeCalled, isTrue);
     });
@@ -1484,10 +1484,8 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Bangumi').first);
       await tester.pump();
-      final Finder tokenField =
-          find.byKey(const ValueKey<String>('settings-bangumi-access-token'));
-      final Finder loginButton =
-          find.byKey(const ValueKey<String>('settings-bangumi-login'));
+      final Finder tokenField = ElainaFinders.settingsBangumiAccessToken;
+      final Finder loginButton = ElainaFinders.settingsBangumiLogin;
       await tester.ensureVisible(tokenField);
       await tester.pump();
       await tester.enterText(tokenField, ' token-1 ');
@@ -1517,8 +1515,7 @@ void main() {
       await playbackController.play();
       await tester.pump();
       await tester.pump();
-      await tester
-          .tap(find.byKey(const ValueKey<String>('video-detail-close')));
+      await tester.tap(ElainaFinders.videoDetailClose);
       await tester.pump();
       expect(find.text('Remote detail summary'), findsNothing);
       await playbackController.stop();

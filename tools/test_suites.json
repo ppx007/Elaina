@@ -1,0 +1,138 @@
+{
+  "fullGate": "tools\\check_full_feature_gate.ps1",
+  "suites": [
+    {
+      "name": "tools",
+      "runner": "dart",
+      "paths": ["test/tools"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/tools/**",
+        "tools/runtime_check_base.dart",
+        "tools/runtime_check.dart",
+        "Invoke-ModuleCheck.ps1",
+        "tools/module_checks.json"
+      ]
+    },
+    {
+      "name": "home-shell-ui",
+      "runner": "flutter",
+      "paths": ["test/widget_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/widget_test.dart",
+        "test/framework/**",
+        "test/support/**",
+        "integration_test/**",
+        "lib/main.dart",
+        "lib/src/ui/testing/**",
+        "lib/src/ui/playback/shell/**",
+        "lib/src/ui/widgets/**",
+        "lib/src/domain/home/**"
+      ]
+    },
+    {
+      "name": "settings-diagnostics-ui",
+      "runner": "flutter",
+      "paths": ["test/ui/settings_and_diagnostics_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/ui/settings_and_diagnostics_test.dart",
+        "test/framework/**",
+        "test/support/**",
+        "lib/src/ui/settings/**",
+        "lib/src/ui/diagnostics/**",
+        "lib/src/ui/testing/**",
+        "lib/src/domain/settings/**",
+        "lib/src/domain/diagnostics/**",
+        "lib/src/domain/media/media_library_folder_preferences.dart"
+      ]
+    },
+    {
+      "name": "video-detail-media-ui",
+      "runner": "flutter",
+      "paths": ["test/ui/playback/media_library_and_video_detail_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/ui/playback/media_library_and_video_detail_test.dart",
+        "test/framework/**",
+        "test/support/**",
+        "lib/src/ui/detail/**",
+        "lib/src/ui/media/**",
+        "lib/src/ui/playback/shell/**",
+        "lib/src/ui/testing/**",
+        "lib/src/domain/detail/**",
+        "lib/src/domain/media/**"
+      ]
+    },
+    {
+      "name": "rss-downloads-ui",
+      "runner": "flutter",
+      "paths": ["test/ui/rss_and_downloads_test.dart", "test/ui/rss_page_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/ui/rss_and_downloads_test.dart",
+        "test/ui/rss_page_test.dart",
+        "test/framework/**",
+        "test/support/**",
+        "lib/src/ui/download/**",
+        "lib/src/ui/rss/**",
+        "lib/src/ui/testing/**",
+        "lib/src/domain/download/**",
+        "lib/src/domain/rss/**",
+        "lib/src/provider/rss/**",
+        "lib/src/streaming/bt_task_core_runtime.dart"
+      ]
+    },
+    {
+      "name": "hero-carousel-ui",
+      "runner": "flutter",
+      "paths": ["test/ui/hero_carousel_test.dart", "test/widget_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "test/ui/hero_carousel_test.dart",
+        "lib/src/ui/widgets/hero_carousel.dart",
+        "lib/src/ui/testing/**"
+      ]
+    },
+    {
+      "name": "bangumi-provider",
+      "runner": "flutter",
+      "paths": [
+        "test/provider/bangumi/bangumi_runtime_test.dart",
+        "test/domain/profile/bangumi_tracking_local_store_test.dart"
+      ],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "lib/src/provider/bangumi/**",
+        "lib/src/domain/profile/bangumi_tracking_local_store.dart",
+        "test/provider/bangumi/**",
+        "test/domain/profile/bangumi_tracking_local_store_test.dart"
+      ]
+    },
+    {
+      "name": "video-detail-domain",
+      "runner": "flutter",
+      "paths": ["test/domain/detail/video_detail_runtime_test.dart"],
+      "scopes": ["Fast", "Module"],
+      "triggers": [
+        "lib/src/domain/detail/**",
+        "test/domain/detail/**"
+      ]
+    },
+    {
+      "name": "integration-smoke",
+      "runner": "flutter",
+      "paths": ["integration_test/app_smoke_test.dart"],
+      "extraArgs": ["-d", "windows"],
+      "scopes": ["Module"],
+      "triggers": [
+        "integration_test/**",
+        "test/framework/**",
+        "lib/main.dart",
+        "lib/src/ui/playback/shell/**",
+        "lib/src/ui/testing/**"
+      ]
+    }
+  ]
+}
