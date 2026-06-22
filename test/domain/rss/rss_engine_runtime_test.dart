@@ -82,6 +82,145 @@ void main() {
     await bootstrap.dispose();
   });
 
+  test('runtime stores validates and previews feed-scoped auto-download rules',
+      () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    final DeterministicRssAutoDownloadPolicyStore policyStore =
+        DeterministicRssAutoDownloadPolicyStore();
+    await store.storeSource(_storedSource());
+    await store.storeItems(<StoredFeedItemRecord>[
+      _storedItem(acceptedAt: DateTime.utc(2026, 6, 11, 12)),
+    ]);
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+            responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+        parser: _FakeFeedParser(items: const <FeedItem>[]),
+        deduplicator: DeterministicFeedDeduplicator(),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+      policyStore: policyStore,
+      clock: () => DateTime.utc(2026, 6, 11, 12),
+    );
+
+    await runtime.listSources();
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> saved =
+        await runtime.saveAutoDownloadRule(
+      const RssAutoDownloadRuleDraft(
+        sourceId: 'anime-feed',
+        label: 'Episode rule',
+        titleContains: 'Episode',
+      ),
+    );
+    final RssEngineActionResult<RssAutoDownloadRulePreview> preview =
+        await runtime.previewAutoDownloadRule(saved.value!.toDraft());
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> invalid =
+        await runtime.saveAutoDownloadRule(
+      const RssAutoDownloadRuleDraft(
+        sourceId: 'anime-feed',
+        label: 'Broken regex',
+        titleRegex: '[',
+      ),
+    );
+
+    expect(saved.isSuccess, isTrue);
+    expect(saved.value!.sourceId, 'anime-feed');
+    expect(preview.value!.matchedCount, 0);
+    expect(preview.value!.rejectedCount, 1);
+    expect(invalid.kind, RssEngineActionResultKind.failed);
+    expect(invalid.failure!.message, contains('标题正则无效'));
+    await runtime.dispose();
+  });
+
+  test('runtime evaluates enabled rules after refresh and enqueues magnet',
+      () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    final DeterministicRssAutoDownloadPolicyStore policyStore =
+        DeterministicRssAutoDownloadPolicyStore();
+    final _RecordingRssDownloadTaskEnqueuer enqueuer =
+        _RecordingRssDownloadTaskEnqueuer();
+    final FeedItem magnetItem = _item(
+      link: Uri.parse('magnet:?xt=urn:btih:episode01'),
+    );
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+          responses: <AcgProviderResult<FeedFetchResponse>>[
+            FeedFetchResponse(
+              sourceId: const FeedSourceId('anime-feed'),
+              body: '<rss />',
+            ).success,
+          ],
+        ),
+        parser: _FakeFeedParser(items: <FeedItem>[magnetItem]),
+        deduplicator: DeterministicFeedDeduplicator(),
+        clock: () => DateTime.utc(2026, 6, 11, 12),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+      policyStore: policyStore,
+      downloadTaskEnqueuer: enqueuer,
+      clock: () => DateTime.utc(2026, 6, 11, 12),
+    );
+
+    await runtime.registerSource(_source());
+    await runtime.setAutoDownloadEnabled('anime-feed', true);
+    await runtime.saveAutoDownloadRule(
+      const RssAutoDownloadRuleDraft(
+        sourceId: 'anime-feed',
+        label: 'Episode rule',
+        titleContains: 'Episode',
+      ),
+    );
+    final RssEngineActionResult<RssEngineRefreshSnapshot> refreshed =
+        await runtime.refreshSource(const FeedSourceId('anime-feed'));
+
+    expect(refreshed.isSuccess, isTrue);
+    expect(enqueuer.candidates.single.item.id.value, 'feed-item-1');
+    final List<StoredRssAutoDownloadEnqueueOutcomeRecord> outcomes =
+        <StoredRssAutoDownloadEnqueueOutcomeRecord>[
+      (await policyStore.latestEnqueueOutcome('feed-item-1'))!,
+    ];
+    expect(outcomes.single.state, StoredRssAutoDownloadEnqueueState.accepted);
+    expect(outcomes.single.taskId, 'download-feed-item-1');
+    await runtime.dispose();
+  });
+
+  test('download enqueuer resolves remote torrent URL before creating task',
+      () async {
+    final _RecordingDownloadRuntime downloadRuntime =
+        _RecordingDownloadRuntime();
+    final _FakeTorrentResolver resolver = _FakeTorrentResolver(
+      fileUri: Uri.file('D:/cache/episode.torrent'),
+    );
+    final DownloadRuntimeRssTaskEnqueuer enqueuer =
+        DownloadRuntimeRssTaskEnqueuer(
+      downloadRuntime: downloadRuntime,
+      torrentResolver: resolver,
+    );
+    final FeedItem torrentItem = _item(
+      link: Uri.parse('https://example.test/episode.torrent'),
+    );
+
+    final RssAutoDownloadEnqueueResult result = await enqueuer.enqueue(
+      RssDownloadCandidate(
+        policyId: const RssAutoDownloadPolicyId(defaultRssAutoDownloadPolicyId),
+        ruleId: const RssAutoDownloadRuleId('rule-1'),
+        item: torrentItem,
+        source: TorrentRssDownloadSource(torrentItem.link!),
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(resolver.resolved.single.toString(),
+        'https://example.test/episode.torrent');
+    expect(downloadRuntime.createdSources.single,
+        Uri.file('D:/cache/episode.torrent').toString());
+  });
+
   test(
       'runtime refresh preserves parser warnings cursor dedupe storage and updates',
       () async {
@@ -344,13 +483,13 @@ StoredFeedItemRecord _storedItem({required DateTime acceptedAt}) {
   );
 }
 
-FeedItem _item() {
+FeedItem _item({Uri? link}) {
   return FeedItem(
     id: const FeedItemId('feed-item-1'),
     sourceId: const FeedSourceId('anime-feed'),
     dedupeKey: const FeedDedupeKey('item-1'),
     title: 'Episode 1',
-    link: Uri.parse('https://example.test/episode-1'),
+    link: link ?? Uri.parse('https://example.test/episode-1'),
     publishedAt: DateTime.utc(2026, 6, 11, 11),
     summary: 'A new episode.',
     categories: const <String>['anime'],
@@ -453,6 +592,111 @@ final class _FakeFeedFetcher implements FeedFetcher {
     return ProviderRequestKey(
         providerId: const ProviderId('fake-feed-fetcher'), cacheKey: cacheKey);
   }
+}
+
+final class _RecordingRssDownloadTaskEnqueuer
+    implements RssDownloadTaskEnqueuer {
+  final List<RssDownloadCandidate> candidates = <RssDownloadCandidate>[];
+
+  @override
+  Future<RssAutoDownloadEnqueueResult> enqueue(
+      RssDownloadCandidate candidate) async {
+    candidates.add(candidate);
+    return RssAutoDownloadEnqueueResult(
+      candidate: candidate,
+      state: StoredRssAutoDownloadEnqueueState.accepted,
+      message: 'accepted',
+      taskId: 'download-${candidate.item.id.value}',
+    );
+  }
+}
+
+final class _FakeTorrentResolver implements RssTorrentUrlResolver {
+  _FakeTorrentResolver({required this.fileUri});
+
+  final Uri fileUri;
+  final List<Uri> resolved = <Uri>[];
+
+  @override
+  Future<RssTorrentUrlResolution> resolve(Uri torrentUri) async {
+    resolved.add(torrentUri);
+    return RssTorrentUrlResolution.success(fileUri);
+  }
+}
+
+final class _RecordingDownloadRuntime implements DownloadRuntime {
+  final List<String> createdSources = <String>[];
+
+  @override
+  DownloadRuntimeSnapshot get currentSnapshot => DownloadRuntimeSnapshot(
+        status: DownloadRuntimeStatus.ready,
+        tasks: const <DownloadProjection>[],
+        capabilities: const DownloadCapabilityProjection(
+          taskManagementAvailable: true,
+          metadataFetchingAvailable: true,
+          backgroundDownloadAvailable: true,
+          virtualStreamAvailable: true,
+        ),
+      );
+
+  @override
+  void addObserver(DownloadRuntimeObserver observer) {}
+
+  @override
+  Future<DownloadCreateResult> createTaskFromUri(
+    String sourceUri, {
+    DownloadCreateMode mode = DownloadCreateMode.quick,
+  }) async {
+    createdSources.add(sourceUri);
+    return DownloadCreateResult.success(
+      DownloadProjection(
+        taskId: const DownloadTaskId('task-1'),
+        sourceUri: sourceUri,
+        state: DownloadLifecycleState.queued,
+        name: 'Episode',
+        progress: 0,
+        downloadRateBytesPerSecond: 0,
+        connectedPeers: 0,
+        totalSizeBytes: 0,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<void> listTasks() async {}
+
+  @override
+  Future<DownloadCommandResult> pause(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> pauseAll() async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> remove(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
+
+  @override
+  void removeObserver(DownloadRuntimeObserver observer) {}
+
+  @override
+  Future<DownloadCommandResult> resume(DownloadTaskId taskId) async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> resumeAll() async =>
+      const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadCommandResult> selectFiles(
+    DownloadTaskId taskId,
+    Iterable<DownloadFileIndex> files,
+  ) async =>
+      const DownloadCommandResult.success();
 }
 
 final class _UnsupportedProviderGateway implements ProviderGateway {

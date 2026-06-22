@@ -19,13 +19,15 @@ const double _panelPadding = 16;
 const double _sourceRowGap = 10;
 const double _itemRowPadding = 14;
 const double _chipRadius = 6;
-const double _dialogWidth = 460;
+const double _dialogWidth = 520;
 const double _searchWidth = 280;
 const double _smallIconSize = 18;
 const int _itemSummaryMaxLines = 2;
 const int _titleMaxLines = 2;
+const int _ruleConditionMaxLines = 2;
 const int _datePartWidth = 2;
 const String _datePartPad = '0';
+const String _torrentFileExtension = '.torrent';
 
 const List<_RefreshIntervalOption> _refreshIntervalOptions =
     <_RefreshIntervalOption>[
@@ -38,7 +40,8 @@ const List<_RefreshIntervalOption> _refreshIntervalOptions =
 
 enum _RssItemFilter {
   all,
-  withEnclosure,
+  withDownloadSource,
+  autoDownloadMatched,
 }
 
 class RssPage extends StatefulWidget {
@@ -56,8 +59,14 @@ class RssPage extends StatefulWidget {
 class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   late RssEngineRuntimeSnapshot _snapshot;
   final Map<String, bool> _feedActivationStates = <String, bool>{};
+  final Map<String, List<RssAutoDownloadRuleProjection>> _rulesBySource =
+      <String, List<RssAutoDownloadRuleProjection>>{};
+  final Map<String, RssAutoDownloadRulePreview> _previewsByRuleId =
+      <String, RssAutoDownloadRulePreview>{};
+  final Set<String> _matchedAutoDownloadItemIds = <String>{};
   final Set<String> _refreshingSourceIds = <String>{};
   final Set<String> _removingSourceIds = <String>{};
+  final Set<String> _loadingRuleSourceIds = <String>{};
   final TextEditingController _searchController = TextEditingController();
   String? _selectedSourceId;
   _RssItemFilter _itemFilter = _RssItemFilter.all;
@@ -71,7 +80,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     _searchController.addListener(_onSearchChanged);
     widget.rssEngineRuntime.addObserver(this);
     unawaited(_refreshRegistry());
-    unawaited(_loadActivations(_snapshot.sources));
+    unawaited(_loadAutoDownloadState(_snapshot.sources));
   }
 
   @override
@@ -95,7 +104,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         _selectedSourceId = null;
       }
     });
-    unawaited(_loadActivations(snapshot.sources));
+    unawaited(_loadAutoDownloadState(snapshot.sources));
   }
 
   void _onSearchChanged() {
@@ -123,31 +132,75 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     }
   }
 
-  Future<void> _loadActivations(Iterable<FeedSource> sources) async {
+  Future<void> _loadAutoDownloadState(Iterable<FeedSource> sources) async {
     final List<FeedSource> sourceList = List<FeedSource>.of(sources);
     final Map<String, bool> nextStates = <String, bool>{};
+    final Map<String, List<RssAutoDownloadRuleProjection>> nextRules =
+        <String, List<RssAutoDownloadRuleProjection>>{};
     for (final FeedSource source in sourceList) {
-      nextStates[source.id.value] =
-          await widget.rssEngineRuntime.isAutoDownloadEnabled(source.id.value);
+      final String sourceId = source.id.value;
+      nextStates[sourceId] =
+          await widget.rssEngineRuntime.isAutoDownloadEnabled(sourceId);
+      final RssEngineActionResult<List<RssAutoDownloadRuleProjection>> rules =
+          await widget.rssEngineRuntime.autoDownloadRulesForSource(sourceId);
+      nextRules[sourceId] =
+          rules.value ?? const <RssAutoDownloadRuleProjection>[];
     }
+    final RssEngineActionResult<Set<String>> matched =
+        await widget.rssEngineRuntime.autoDownloadMatchedItemIds();
     if (!mounted) return;
     setState(() {
       _feedActivationStates
         ..removeWhere(
             (String sourceId, bool _) => !nextStates.containsKey(sourceId))
         ..addAll(nextStates);
+      _rulesBySource
+        ..removeWhere(
+            (String sourceId, List<RssAutoDownloadRuleProjection> _) =>
+                !nextRules.containsKey(sourceId))
+        ..addAll(nextRules);
+      _matchedAutoDownloadItemIds
+        ..clear()
+        ..addAll(matched.value ?? const <String>{});
     });
   }
 
-  Future<void> _toggleAutoDownload(String sourceIdValue, bool enabled) async {
-    await widget.rssEngineRuntime.setAutoDownloadEnabled(
-      sourceIdValue,
-      enabled,
-    );
+  Future<void> _reloadSourceRules(String sourceId) async {
+    setState(() {
+      _loadingRuleSourceIds.add(sourceId);
+    });
+    try {
+      final RssEngineActionResult<List<RssAutoDownloadRuleProjection>> rules =
+          await widget.rssEngineRuntime.autoDownloadRulesForSource(sourceId);
+      final RssEngineActionResult<Set<String>> matched =
+          await widget.rssEngineRuntime.autoDownloadMatchedItemIds();
+      if (!mounted) return;
+      if (!rules.isSuccess) {
+        _showMessage(rules.failure?.message ?? '加载自动下载规则失败');
+        return;
+      }
+      setState(() {
+        _rulesBySource[sourceId] = rules.value!;
+        _matchedAutoDownloadItemIds
+          ..clear()
+          ..addAll(matched.value ?? const <String>{});
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingRuleSourceIds.remove(sourceId);
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleAutoDownload(String sourceId, bool enabled) async {
+    await widget.rssEngineRuntime.setAutoDownloadEnabled(sourceId, enabled);
     if (!mounted) return;
     setState(() {
-      _feedActivationStates[sourceIdValue] = enabled;
+      _feedActivationStates[sourceId] = enabled;
     });
+    unawaited(_reloadSourceRules(sourceId));
   }
 
   Future<void> _refreshSource(FeedSource source) async {
@@ -159,6 +212,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     RssEngineActionResult<RssEngineRefreshSnapshot>? result;
     try {
       result = await widget.rssEngineRuntime.refreshSource(source.id);
+      await _reloadSourceRules(sourceId);
     } finally {
       if (mounted) {
         setState(() {
@@ -199,6 +253,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           failureCount += 1;
         }
       }
+      await _loadAutoDownloadState(sources);
     } finally {
       if (mounted) {
         setState(() {
@@ -269,6 +324,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
       setState(() {
         if (_selectedSourceId == sourceId) _selectedSourceId = null;
         _feedActivationStates.remove(sourceId);
+        _rulesBySource.remove(sourceId);
       });
       _showMessage('已删除订阅源');
     } else {
@@ -288,6 +344,100 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         );
       },
     );
+    unawaited(_loadAutoDownloadState(_snapshot.sources));
+  }
+
+  Future<void> _openRuleDialog(
+    FeedSource source, {
+    RssAutoDownloadRuleProjection? rule,
+  }) async {
+    final RssAutoDownloadRuleDraft? draft =
+        await showDialog<RssAutoDownloadRuleDraft>(
+      context: context,
+      builder: (BuildContext context) {
+        return _AutoDownloadRuleDialog(
+          theme: ElainaTheme.of(context),
+          source: source,
+          initialRule: rule,
+        );
+      },
+    );
+    if (draft == null) return;
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> saved =
+        await widget.rssEngineRuntime.saveAutoDownloadRule(draft);
+    if (!mounted) return;
+    if (!saved.isSuccess) {
+      _showMessage(saved.failure?.message ?? '保存自动下载规则失败');
+      return;
+    }
+    await _reloadSourceRules(source.id.value);
+    _showMessage('自动下载规则已保存');
+  }
+
+  Future<void> _deleteRule(
+    FeedSource source,
+    RssAutoDownloadRuleProjection rule,
+  ) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('删除自动下载规则'),
+          content: Text('删除「${rule.label}」后不会再匹配新的 RSS 条目。'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    final RssEngineActionResult<bool> result =
+        await widget.rssEngineRuntime.removeAutoDownloadRule(rule.ruleId);
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      _showMessage(result.failure?.message ?? '删除自动下载规则失败');
+      return;
+    }
+    _previewsByRuleId.remove(rule.ruleId);
+    await _reloadSourceRules(source.id.value);
+    _showMessage('自动下载规则已删除');
+  }
+
+  Future<void> _toggleRuleEnabled(
+    FeedSource source,
+    RssAutoDownloadRuleProjection rule,
+    bool enabled,
+  ) async {
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> result =
+        await widget.rssEngineRuntime.saveAutoDownloadRule(
+      rule.toDraft().copyWith(enabled: enabled),
+    );
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      _showMessage(result.failure?.message ?? '更新自动下载规则失败');
+      return;
+    }
+    await _reloadSourceRules(source.id.value);
+  }
+
+  Future<void> _previewRule(RssAutoDownloadRuleProjection rule) async {
+    final RssEngineActionResult<RssAutoDownloadRulePreview> result =
+        await widget.rssEngineRuntime.previewAutoDownloadRule(rule.toDraft());
+    if (!mounted) return;
+    if (!result.isSuccess || result.value == null) {
+      _showMessage(result.failure?.message ?? '预览自动下载规则失败');
+      return;
+    }
+    setState(() {
+      _previewsByRuleId[rule.ruleId] = result.value!;
+    });
   }
 
   @override
@@ -297,6 +447,11 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     final Map<String, FeedSource> sourceById = _sourceById;
     final int autoDownloadCount =
         _feedActivationStates.values.where((bool enabled) => enabled).length;
+    final int ruleCount = _rulesBySource.values.fold<int>(
+      0,
+      (int total, List<RssAutoDownloadRuleProjection> rules) =>
+          total + rules.length,
+    );
     final bool isBusy = _isRefreshingRegistry || _isRefreshingAllSources;
 
     return Padding(
@@ -306,7 +461,11 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         children: <Widget>[
           _buildToolbar(theme, isBusy: isBusy),
           const SizedBox(height: _sectionGap),
-          _buildSummary(theme, autoDownloadCount: autoDownloadCount),
+          _buildSummary(
+            theme,
+            autoDownloadCount: autoDownloadCount,
+            ruleCount: ruleCount,
+          ),
           const SizedBox(height: _sectionGap),
           Expanded(
             child: LayoutBuilder(
@@ -387,6 +546,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   Widget _buildSummary(
     ElainaThemeData theme, {
     required int autoDownloadCount,
+    required int ruleCount,
   }) {
     final int warningCount = _snapshot.latestRefreshes.values
         .where((RssRefreshOutcome outcome) => !outcome.isSuccess)
@@ -405,8 +565,17 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         Expanded(
           child: _buildMetric(
             theme,
+            icon: Icons.rule,
+            label: '自动规则',
+            value: ruleCount.toString(),
+          ),
+        ),
+        const SizedBox(width: _summaryGap),
+        Expanded(
+          child: _buildMetric(
+            theme,
             icon: Icons.download_done_outlined,
-            label: '自动下载',
+            label: '启用自动下载',
             value: autoDownloadCount.toString(),
           ),
         ),
@@ -579,6 +748,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     final RssRefreshOutcome? latestRefresh =
         _snapshot.latestRefreshes[sourceId];
     final bool latestFailed = latestRefresh != null && !latestRefresh.isSuccess;
+    final int ruleCount = _rulesBySource[sourceId]?.length ?? 0;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -610,7 +780,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                   ),
                   _buildStatusChip(
                     theme,
-                    label: latestFailed ? '失败' : '正常',
+                    label: latestFailed ? '失败' : '$itemCount 条',
                     color: latestFailed
                         ? Theme.of(context).colorScheme.error
                         : theme.primary,
@@ -645,7 +815,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                   ),
                   _buildStatusChip(
                     theme,
-                    label: '$itemCount 条',
+                    label: '$ruleCount 条规则',
                     color: theme.accentMagenta,
                   ),
                   _buildStatusChip(
@@ -761,9 +931,14 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                     label: Text('全部'),
                   ),
                   ButtonSegment<_RssItemFilter>(
-                    value: _RssItemFilter.withEnclosure,
+                    value: _RssItemFilter.withDownloadSource,
                     icon: Icon(Icons.attach_file, size: _smallIconSize),
                     label: Text('含资源'),
+                  ),
+                  ButtonSegment<_RssItemFilter>(
+                    value: _RssItemFilter.autoDownloadMatched,
+                    icon: Icon(Icons.rule, size: _smallIconSize),
+                    label: Text('命中自动下载'),
                   ),
                 ],
                 selected: <_RssItemFilter>{_itemFilter},
@@ -775,6 +950,10 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
               ),
             ],
           ),
+          if (selectedSource != null) ...<Widget>[
+            const SizedBox(height: _sourceRowGap),
+            _buildRulesSection(theme, selectedSource),
+          ],
           if (_snapshot.failures.isNotEmpty) ...<Widget>[
             const SizedBox(height: _sourceRowGap),
             _buildFailureStrip(theme, _snapshot.failures.last.message),
@@ -806,11 +985,136 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     );
   }
 
+  Widget _buildRulesSection(ElainaThemeData theme, FeedSource source) {
+    final String sourceId = source.id.value;
+    final List<RssAutoDownloadRuleProjection> rules =
+        _rulesBySource[sourceId] ?? const <RssAutoDownloadRuleProjection>[];
+    final bool loading = _loadingRuleSourceIds.contains(sourceId);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '自动下载规则',
+                style: TextStyle(
+                  color: theme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (loading) _smallProgress(theme),
+            const SizedBox(width: _toolbarGap),
+            OutlinedButton.icon(
+              onPressed: () => _openRuleDialog(source),
+              icon: const Icon(Icons.add, size: _smallIconSize),
+              label: const Text('添加规则'),
+            ),
+          ],
+        ),
+        const SizedBox(height: _sourceRowGap),
+        if (rules.isEmpty)
+          Text(
+            '未配置规则；即使打开自动下载开关，也不会自动下载全量资源。',
+            style: TextStyle(
+              color: theme.onBackground.withValues(alpha: 0.62),
+              fontSize: 12,
+            ),
+          )
+        else
+          Column(
+            children: <Widget>[
+              for (final RssAutoDownloadRuleProjection rule in rules)
+                _buildRuleRow(theme, source, rule),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRuleRow(
+    ElainaThemeData theme,
+    FeedSource source,
+    RssAutoDownloadRuleProjection rule,
+  ) {
+    final RssAutoDownloadRulePreview? preview = _previewsByRuleId[rule.ruleId];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Switch(
+            value: rule.enabled,
+            onChanged: (bool enabled) =>
+                _toggleRuleEnabled(source, rule, enabled),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  rule.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  _ruleConditionText(rule),
+                  maxLines: _ruleConditionMaxLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.onBackground.withValues(alpha: 0.62),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (preview != null) ...<Widget>[
+            const SizedBox(width: _toolbarGap),
+            _buildStatusChip(
+              theme,
+              label: '命中 ${preview.matchedCount}',
+              color: theme.primary,
+            ),
+          ],
+          Tooltip(
+            message: '预览规则',
+            child: IconButton(
+              onPressed: () => _previewRule(rule),
+              icon: const Icon(Icons.visibility_outlined, size: _smallIconSize),
+            ),
+          ),
+          Tooltip(
+            message: '编辑规则',
+            child: IconButton(
+              onPressed: () => _openRuleDialog(source, rule: rule),
+              icon: const Icon(Icons.edit_outlined, size: _smallIconSize),
+            ),
+          ),
+          Tooltip(
+            message: '删除规则',
+            child: IconButton(
+              onPressed: () => _deleteRule(source, rule),
+              icon: const Icon(Icons.delete_outline, size: _smallIconSize),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemRow(
     ElainaThemeData theme,
     FeedItem item,
     FeedSource? source,
   ) {
+    final bool matched = _matchedAutoDownloadItemIds.contains(item.id.value);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: _itemRowPadding),
       child: Column(
@@ -832,12 +1136,20 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                   ),
                 ),
               ),
-              if (item.enclosure != null)
+              if (_hasDownloadSource(item))
                 _buildStatusChip(
                   theme,
                   label: '资源',
                   color: theme.primary,
                 ),
+              if (matched) ...<Widget>[
+                const SizedBox(width: 6),
+                _buildStatusChip(
+                  theme,
+                  label: '自动下载',
+                  color: theme.accentMagenta,
+                ),
+              ],
             ],
           ),
           if (item.summary != null &&
@@ -998,12 +1310,21 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
       for (final FeedItem item in _snapshot.acceptedItems)
         if ((_selectedSourceId == null ||
                 item.sourceId.value == _selectedSourceId) &&
-            (_itemFilter == _RssItemFilter.all || item.enclosure != null) &&
+            _matchesItemFilter(item) &&
             _matchesQuery(item, query))
           item,
     ];
     items.sort(_compareFeedItemsByDate);
     return items;
+  }
+
+  bool _matchesItemFilter(FeedItem item) {
+    return switch (_itemFilter) {
+      _RssItemFilter.all => true,
+      _RssItemFilter.withDownloadSource => _hasDownloadSource(item),
+      _RssItemFilter.autoDownloadMatched =>
+        _matchedAutoDownloadItemIds.contains(item.id.value),
+    };
   }
 
   bool _matchesQuery(FeedItem item, String query) {
@@ -1032,12 +1353,12 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
 
   String _refreshResultMessage(
     String sourceName,
-    RssEngineActionResult<RssEngineRefreshSnapshot> result,
+    RssEngineActionResult<RssEngineRefreshSnapshot>? result,
   ) {
-    if (result.isSuccess && result.value != null) {
+    if (result != null && result.isSuccess && result.value != null) {
       return '$sourceName 同步完成：新增 ${result.value!.acceptedItems.length} 条';
     }
-    return '$sourceName 同步失败：${result.failure?.message ?? '未知错误'}';
+    return '$sourceName 同步失败：${result?.failure?.message ?? '未知错误'}';
   }
 
   void _showMessage(String message) {
@@ -1065,11 +1386,18 @@ class _AddFeedDialog extends StatefulWidget {
 class _AddFeedDialogState extends State<_AddFeedDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
+  late final TextEditingController _ruleLabelController;
+  late final TextEditingController _titleContainsController;
+  late final TextEditingController _titleRegexController;
+  late final TextEditingController _excludeController;
+  late final TextEditingController _categoryController;
   FeedFormat _selectedFormat = FeedFormat.rss;
   Duration _selectedRefreshInterval = _refreshIntervalOptions[1].duration;
   String? _nameErrorText;
   String? _urlErrorText;
   String? _formErrorText;
+  bool _createAutoDownloadRule = false;
+  bool _requireDownloadSource = true;
   bool _isSubmitting = false;
 
   @override
@@ -1077,12 +1405,22 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
     super.initState();
     _nameController = TextEditingController();
     _urlController = TextEditingController();
+    _ruleLabelController = TextEditingController(text: '新番自动下载');
+    _titleContainsController = TextEditingController();
+    _titleRegexController = TextEditingController();
+    _excludeController = TextEditingController();
+    _categoryController = TextEditingController();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _urlController.dispose();
+    _ruleLabelController.dispose();
+    _titleContainsController.dispose();
+    _titleRegexController.dispose();
+    _excludeController.dispose();
+    _categoryController.dispose();
     super.dispose();
   }
 
@@ -1103,90 +1441,119 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
       ),
       content: SizedBox(
         width: _dialogWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            TextField(
-              controller: _nameController,
-              style: TextStyle(color: widget.theme.onSurface),
-              onChanged: (_) => _clearNameError(),
-              decoration: InputDecoration(
-                labelText: '订阅源名称',
-                errorText: _nameErrorText,
-              ),
-            ),
-            const SizedBox(height: _toolbarGap),
-            TextField(
-              controller: _urlController,
-              style: TextStyle(color: widget.theme.onSurface),
-              onChanged: (_) => _clearUrlError(),
-              decoration: InputDecoration(
-                labelText: 'RSS / Atom 地址',
-                errorText: _urlErrorText,
-              ),
-            ),
-            const SizedBox(height: _toolbarGap),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: DropdownButtonFormField<FeedFormat>(
-                    initialValue: _selectedFormat,
-                    decoration: const InputDecoration(labelText: '格式'),
-                    items: const <DropdownMenuItem<FeedFormat>>[
-                      DropdownMenuItem<FeedFormat>(
-                        value: FeedFormat.rss,
-                        child: Text('RSS'),
-                      ),
-                      DropdownMenuItem<FeedFormat>(
-                        value: FeedFormat.atom,
-                        child: Text('Atom'),
-                      ),
-                    ],
-                    onChanged: (FeedFormat? value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedFormat = value;
-                      });
-                    },
-                  ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: _nameController,
+                style: TextStyle(color: widget.theme.onSurface),
+                onChanged: (_) => _clearNameError(),
+                decoration: InputDecoration(
+                  labelText: '订阅源名称',
+                  errorText: _nameErrorText,
                 ),
-                const SizedBox(width: _toolbarGap),
-                Expanded(
-                  child: DropdownButtonFormField<Duration>(
-                    initialValue: _selectedRefreshInterval,
-                    decoration: const InputDecoration(labelText: '刷新间隔'),
-                    items: <DropdownMenuItem<Duration>>[
-                      for (final _RefreshIntervalOption option
-                          in _refreshIntervalOptions)
-                        DropdownMenuItem<Duration>(
-                          value: option.duration,
-                          child: Text(option.label),
+              ),
+              const SizedBox(height: _toolbarGap),
+              TextField(
+                controller: _urlController,
+                style: TextStyle(color: widget.theme.onSurface),
+                onChanged: (_) => _clearUrlError(),
+                decoration: InputDecoration(
+                  labelText: 'RSS / Atom 地址',
+                  errorText: _urlErrorText,
+                ),
+              ),
+              const SizedBox(height: _toolbarGap),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: DropdownButtonFormField<FeedFormat>(
+                      initialValue: _selectedFormat,
+                      decoration: const InputDecoration(labelText: '格式'),
+                      items: const <DropdownMenuItem<FeedFormat>>[
+                        DropdownMenuItem<FeedFormat>(
+                          value: FeedFormat.rss,
+                          child: Text('RSS'),
                         ),
-                    ],
-                    onChanged: (Duration? value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedRefreshInterval = value;
-                      });
-                    },
+                        DropdownMenuItem<FeedFormat>(
+                          value: FeedFormat.atom,
+                          child: Text('Atom'),
+                        ),
+                      ],
+                      onChanged: (FeedFormat? value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedFormat = value;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: _toolbarGap),
+                  Expanded(
+                    child: DropdownButtonFormField<Duration>(
+                      initialValue: _selectedRefreshInterval,
+                      decoration: const InputDecoration(labelText: '刷新间隔'),
+                      items: <DropdownMenuItem<Duration>>[
+                        for (final _RefreshIntervalOption option
+                            in _refreshIntervalOptions)
+                          DropdownMenuItem<Duration>(
+                            value: option.duration,
+                            child: Text(option.label),
+                          ),
+                      ],
+                      onChanged: (Duration? value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedRefreshInterval = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: _toolbarGap),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('同时创建自动下载规则'),
+                value: _createAutoDownloadRule,
+                onChanged: (bool? value) {
+                  setState(() {
+                    _createAutoDownloadRule = value ?? false;
+                  });
+                },
+              ),
+              if (_createAutoDownloadRule) ...<Widget>[
+                _RuleFields(
+                  theme: widget.theme,
+                  ruleLabelController: _ruleLabelController,
+                  titleContainsController: _titleContainsController,
+                  titleRegexController: _titleRegexController,
+                  excludeController: _excludeController,
+                  categoryController: _categoryController,
+                  requireDownloadSource: _requireDownloadSource,
+                  onRequireDownloadSourceChanged: (bool value) {
+                    setState(() {
+                      _requireDownloadSource = value;
+                    });
+                  },
+                ),
+              ],
+              if (_formErrorText != null) ...<Widget>[
+                const SizedBox(height: _toolbarGap),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _formErrorText!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
-            ),
-            if (_formErrorText != null) ...<Widget>[
-              const SizedBox(height: _toolbarGap),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _formErrorText!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
       actions: <Widget>[
@@ -1239,18 +1606,48 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
       refreshInterval: _selectedRefreshInterval,
     );
     if (!mounted) return;
-    setState(() {
-      _isSubmitting = false;
-    });
-    if (!result.isSuccess) {
+    if (!result.isSuccess || result.value == null) {
       setState(() {
+        _isSubmitting = false;
         _formErrorText = result.failure?.message ?? '保存订阅失败';
       });
       return;
     }
 
+    if (_createAutoDownloadRule) {
+      final FeedSource source = result.value!;
+      await widget.rssEngineRuntime.setAutoDownloadEnabled(
+        source.id.value,
+        true,
+      );
+      final RssEngineActionResult<RssAutoDownloadRuleProjection> rule =
+          await widget.rssEngineRuntime.saveAutoDownloadRule(
+        _draftFromFields(source.id.value),
+      );
+      if (!mounted) return;
+      if (!rule.isSuccess) {
+        setState(() {
+          _isSubmitting = false;
+          _formErrorText = rule.failure?.message ?? '自动下载规则保存失败';
+        });
+        return;
+      }
+    }
+
     await widget.refreshRegistry();
     if (mounted) Navigator.of(context).pop();
+  }
+
+  RssAutoDownloadRuleDraft _draftFromFields(String sourceId) {
+    return RssAutoDownloadRuleDraft(
+      sourceId: sourceId,
+      label: _ruleLabelController.text.trim(),
+      titleContains: _titleContainsController.text.trim(),
+      titleRegex: _titleRegexController.text.trim(),
+      excludeTitleContains: _excludeController.text.trim(),
+      categoryContains: _categoryController.text.trim(),
+      requireDownloadSource: _requireDownloadSource,
+    );
   }
 
   void _clearNameError() {
@@ -1280,11 +1677,219 @@ class _AddFeedDialogState extends State<_AddFeedDialog> {
   }
 }
 
+class _AutoDownloadRuleDialog extends StatefulWidget {
+  const _AutoDownloadRuleDialog({
+    required this.theme,
+    required this.source,
+    this.initialRule,
+  });
+
+  final ElainaThemeData theme;
+  final FeedSource source;
+  final RssAutoDownloadRuleProjection? initialRule;
+
+  @override
+  State<_AutoDownloadRuleDialog> createState() =>
+      _AutoDownloadRuleDialogState();
+}
+
+class _AutoDownloadRuleDialogState extends State<_AutoDownloadRuleDialog> {
+  late final TextEditingController _ruleLabelController;
+  late final TextEditingController _titleContainsController;
+  late final TextEditingController _titleRegexController;
+  late final TextEditingController _excludeController;
+  late final TextEditingController _categoryController;
+  late bool _enabled;
+  late bool _requireDownloadSource;
+
+  @override
+  void initState() {
+    super.initState();
+    final RssAutoDownloadRuleProjection? rule = widget.initialRule;
+    _ruleLabelController = TextEditingController(text: rule?.label ?? '新番自动下载');
+    _titleContainsController =
+        TextEditingController(text: rule?.titleContains ?? '');
+    _titleRegexController = TextEditingController(text: rule?.titleRegex ?? '');
+    _excludeController =
+        TextEditingController(text: rule?.excludeTitleContains ?? '');
+    _categoryController =
+        TextEditingController(text: rule?.categoryContains ?? '');
+    _enabled = rule?.enabled ?? true;
+    _requireDownloadSource = rule?.requireDownloadSource ?? true;
+  }
+
+  @override
+  void dispose() {
+    _ruleLabelController.dispose();
+    _titleContainsController.dispose();
+    _titleRegexController.dispose();
+    _excludeController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool editing = widget.initialRule != null;
+    return AlertDialog(
+      title: Text(editing ? '编辑自动下载规则' : '添加自动下载规则'),
+      content: SizedBox(
+        width: _dialogWidth,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('启用规则'),
+                value: _enabled,
+                onChanged: (bool value) {
+                  setState(() {
+                    _enabled = value;
+                  });
+                },
+              ),
+              _RuleFields(
+                theme: widget.theme,
+                ruleLabelController: _ruleLabelController,
+                titleContainsController: _titleContainsController,
+                titleRegexController: _titleRegexController,
+                excludeController: _excludeController,
+                categoryController: _categoryController,
+                requireDownloadSource: _requireDownloadSource,
+                onRequireDownloadSourceChanged: (bool value) {
+                  setState(() {
+                    _requireDownloadSource = value;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_draft()),
+          child: const Text('保存规则'),
+        ),
+      ],
+    );
+  }
+
+  RssAutoDownloadRuleDraft _draft() {
+    final RssAutoDownloadRuleProjection? rule = widget.initialRule;
+    return RssAutoDownloadRuleDraft(
+      ruleId: rule?.ruleId,
+      sourceId: widget.source.id.value,
+      label: _ruleLabelController.text.trim(),
+      enabled: _enabled,
+      priority: rule?.priority ?? rssAutoDownloadDefaultRulePriority,
+      titleContains: _titleContainsController.text.trim(),
+      titleRegex: _titleRegexController.text.trim(),
+      excludeTitleContains: _excludeController.text.trim(),
+      categoryContains: _categoryController.text.trim(),
+      requireDownloadSource: _requireDownloadSource,
+    );
+  }
+}
+
+class _RuleFields extends StatelessWidget {
+  const _RuleFields({
+    required this.theme,
+    required this.ruleLabelController,
+    required this.titleContainsController,
+    required this.titleRegexController,
+    required this.excludeController,
+    required this.categoryController,
+    required this.requireDownloadSource,
+    required this.onRequireDownloadSourceChanged,
+  });
+
+  final ElainaThemeData theme;
+  final TextEditingController ruleLabelController;
+  final TextEditingController titleContainsController;
+  final TextEditingController titleRegexController;
+  final TextEditingController excludeController;
+  final TextEditingController categoryController;
+  final bool requireDownloadSource;
+  final ValueChanged<bool> onRequireDownloadSourceChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        TextField(
+          controller: ruleLabelController,
+          style: TextStyle(color: theme.onSurface),
+          decoration: const InputDecoration(labelText: '规则名称'),
+        ),
+        const SizedBox(height: _toolbarGap),
+        TextField(
+          controller: titleContainsController,
+          style: TextStyle(color: theme.onSurface),
+          decoration: const InputDecoration(labelText: '标题包含'),
+        ),
+        const SizedBox(height: _toolbarGap),
+        TextField(
+          controller: titleRegexController,
+          style: TextStyle(color: theme.onSurface),
+          decoration: const InputDecoration(labelText: '标题正则'),
+        ),
+        const SizedBox(height: _toolbarGap),
+        TextField(
+          controller: excludeController,
+          style: TextStyle(color: theme.onSurface),
+          decoration: const InputDecoration(labelText: '排除词（逗号或换行）'),
+          minLines: 1,
+          maxLines: 3,
+        ),
+        const SizedBox(height: _toolbarGap),
+        TextField(
+          controller: categoryController,
+          style: TextStyle(color: theme.onSurface),
+          decoration: const InputDecoration(labelText: '分类包含'),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('必须含下载资源'),
+          value: requireDownloadSource,
+          onChanged: (bool? value) {
+            onRequireDownloadSourceChanged(value ?? false);
+          },
+        ),
+      ],
+    );
+  }
+}
+
 final class _RefreshIntervalOption {
   const _RefreshIntervalOption(this.duration, this.label);
 
   final Duration duration;
   final String label;
+}
+
+extension on RssAutoDownloadRuleDraft {
+  RssAutoDownloadRuleDraft copyWith({
+    bool? enabled,
+  }) {
+    return RssAutoDownloadRuleDraft(
+      ruleId: ruleId,
+      sourceId: sourceId,
+      label: label,
+      enabled: enabled ?? this.enabled,
+      priority: priority,
+      titleContains: titleContains,
+      titleRegex: titleRegex,
+      excludeTitleContains: excludeTitleContains,
+      categoryContains: categoryContains,
+      requireDownloadSource: requireDownloadSource,
+    );
+  }
 }
 
 String _feedSourceIdForUri(Uri uri) {
@@ -1331,4 +1936,30 @@ int _compareFeedItemsByDate(FeedItem left, FeedItem right) {
   if (leftDate == null) return 1;
   if (rightDate == null) return -1;
   return rightDate.compareTo(leftDate);
+}
+
+bool _hasDownloadSource(FeedItem item) {
+  final Uri? enclosureUri = item.enclosure?.uri;
+  if (enclosureUri != null && _isDownloadUri(enclosureUri)) return true;
+  final Uri? link = item.link;
+  return link != null && _isDownloadUri(link);
+}
+
+bool _isDownloadUri(Uri uri) {
+  return uri.scheme == 'magnet' ||
+      uri.path.toLowerCase().endsWith(_torrentFileExtension);
+}
+
+String _ruleConditionText(RssAutoDownloadRuleProjection rule) {
+  final List<String> parts = <String>[
+    if (rule.titleContains.trim().isNotEmpty)
+      '标题包含「${rule.titleContains.trim()}」',
+    if (rule.titleRegex.trim().isNotEmpty) '正则 /${rule.titleRegex.trim()}/',
+    if (rule.categoryContains.trim().isNotEmpty)
+      '分类包含「${rule.categoryContains.trim()}」',
+    if (rule.excludeTitleContains.trim().isNotEmpty)
+      '排除「${rule.excludeTitleContains.trim()}」',
+    if (rule.requireDownloadSource) '必须含资源',
+  ];
+  return parts.isEmpty ? '未配置条件' : parts.join(' · ');
 }

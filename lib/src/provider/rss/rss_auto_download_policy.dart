@@ -27,6 +27,7 @@ enum RssMatcherField {
   sizeBytes,
   category,
   sourceId,
+  downloadSource,
   metadata,
 }
 
@@ -637,6 +638,7 @@ final class DeterministicRssAutoDownloadPolicyEvaluator
       RssMatcherField.sizeBytes => item.enclosure?.lengthBytes?.toString(),
       RssMatcherField.category => item.categories.join(' '),
       RssMatcherField.sourceId => item.sourceId.value,
+      RssMatcherField.downloadSource => _downloadSourceValue(item),
       RssMatcherField.metadata => null,
     };
   }
@@ -688,6 +690,15 @@ final class DeterministicRssAutoDownloadPolicyEvaluator
 
   String _normalize(String value, RssMatcherPredicate predicate) {
     return predicate.caseSensitive ? value : value.toLowerCase();
+  }
+
+  String? _downloadSourceValue(FeedItem item) {
+    final RssDownloadSource? source = _downloadSourceFor(item);
+    return switch (source) {
+      null => null,
+      MagnetRssDownloadSource(uri: final String uri) => uri,
+      TorrentRssDownloadSource(uri: final Uri uri) => uri.toString(),
+    };
   }
 
   RssDownloadSource? _downloadSourceFor(FeedItem item) {

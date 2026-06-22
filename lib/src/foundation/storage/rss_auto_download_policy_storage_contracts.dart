@@ -10,6 +10,7 @@ enum StoredRssAutoDownloadMatcherField {
   sizeBytes,
   category,
   sourceId,
+  downloadSource,
   metadata,
 }
 

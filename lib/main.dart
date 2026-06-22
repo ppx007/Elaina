@@ -72,6 +72,7 @@ class _MyAppState extends State<MyApp> {
   late final RssEngineRuntime _rssEngineRuntime;
   late final BtTaskCoreRuntime _btTaskCoreRuntime;
   late final DownloadRuntime _downloadRuntime;
+  late final bool _ownsDownloadRuntime;
   late final SettingsRuntime _settingsRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
   late final UserProfileProvider? _profileProvider;
@@ -104,6 +105,8 @@ class _MyAppState extends State<MyApp> {
       _bangumiLoginController = widget.bangumiLoginController;
       _homeRecommendationProvider = widget.homeRecommendationProvider;
       _homeSearchProvider = widget.homeSearchProvider;
+      _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
+      _ownsDownloadRuntime = true;
     } else {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
@@ -115,6 +118,7 @@ class _MyAppState extends State<MyApp> {
       _videoDetailPageContract = _composition!.videoDetailPageContract;
       _rssEngineRuntime = _composition!.rssEngineRuntime;
       _btTaskCoreRuntime = _composition!.btTaskCoreRuntime;
+      _downloadRuntime = _composition!.downloadRuntime;
       _settingsRuntime = _composition!.settingsRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
       _profileProvider = _composition!.profileProvider;
@@ -122,13 +126,13 @@ class _MyAppState extends State<MyApp> {
       _bangumiLoginController = _composition!.bangumiLoginController;
       _homeRecommendationProvider = _composition!.homeRecommendationProvider;
       _homeSearchProvider = _composition!.homeSearchProvider;
+      _ownsDownloadRuntime = false;
     }
-    _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
   }
 
   @override
   void dispose() {
-    _downloadRuntime.dispose();
+    if (_ownsDownloadRuntime) _downloadRuntime.dispose();
     _bootstrap?.dispose();
     _composition?.dispose();
     super.dispose();

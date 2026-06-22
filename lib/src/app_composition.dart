@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
+import 'domain/download/download_domain.dart';
 import 'domain/home/home_recommendation_domain.dart';
 import 'domain/home/home_search_domain.dart';
 import 'domain/media/local_file_media_scanner.dart';
@@ -37,6 +39,12 @@ import 'ui/detail/video_detail_page_contract.dart';
 
 const String _bangumiMirrorApiUrlFieldName = 'Bangumi API mirror URL';
 const String _bangumiMirrorImageUrlFieldName = 'Bangumi image mirror URL';
+const String _rssTorrentCacheDirectoryName = 'elaina-rss-torrent-cache';
+const String _rssTorrentCacheFileExtension = '.torrent';
+const String _rssTorrentAcceptHeader =
+    'application/x-bittorrent, application/octet-stream;q=0.9, */*;q=0.1';
+const String _rssTorrentUserAgent = 'Elaina RSS Torrent Resolver';
+const int _rssTorrentCacheKeyLength = 96;
 
 final class PeriodicFeedScheduler implements FeedScheduler {
   const PeriodicFeedScheduler(
@@ -50,6 +58,75 @@ final class PeriodicFeedScheduler implements FeedScheduler {
     for (final FeedSource source in sources) {
       yield FeedScheduleDecision(source: source, dueAt: now);
     }
+  }
+}
+
+final class HttpRssTorrentUrlResolver implements RssTorrentUrlResolver {
+  HttpRssTorrentUrlResolver({
+    HttpClient? httpClient,
+    Directory? cacheDirectory,
+  })  : _httpClient = httpClient ?? HttpClient(),
+        _cacheDirectory = cacheDirectory;
+
+  final HttpClient _httpClient;
+  final Directory? _cacheDirectory;
+
+  void dispose() {
+    _httpClient.close(force: true);
+  }
+
+  @override
+  Future<RssTorrentUrlResolution> resolve(Uri torrentUri) async {
+    final Directory directory = _cacheDirectory ??
+        Directory(
+          '${Directory.systemTemp.path}${Platform.pathSeparator}'
+          '$_rssTorrentCacheDirectoryName',
+        );
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    final File cached = File(
+      '${directory.path}${Platform.pathSeparator}'
+      '${_torrentCacheKey(torrentUri)}$_rssTorrentCacheFileExtension',
+    );
+    if (await cached.exists() && await cached.length() > 0) {
+      return RssTorrentUrlResolution.success(cached.uri);
+    }
+
+    try {
+      final HttpClientRequest request = await _httpClient.getUrl(torrentUri);
+      request.headers.set(HttpHeaders.acceptHeader, _rssTorrentAcceptHeader);
+      request.headers.set(HttpHeaders.userAgentHeader, _rssTorrentUserAgent);
+      final HttpClientResponse response = await request.close();
+      if (response.statusCode < HttpStatus.ok ||
+          response.statusCode >= HttpStatus.multipleChoices) {
+        return RssTorrentUrlResolution.failure(
+          'RSS torrent 下载失败：HTTP ${response.statusCode}。',
+        );
+      }
+      final List<int> bytes = await response.fold<List<int>>(
+        <int>[],
+        (List<int> previous, List<int> chunk) => previous..addAll(chunk),
+      );
+      if (bytes.isEmpty) {
+        return const RssTorrentUrlResolution.failure(
+          'RSS torrent 下载失败：响应为空。',
+        );
+      }
+      await cached.writeAsBytes(bytes, flush: true);
+      return RssTorrentUrlResolution.success(cached.uri);
+    } on Object catch (error) {
+      return RssTorrentUrlResolution.failure(
+        'RSS torrent 下载失败：$error',
+      );
+    }
+  }
+
+  String _torrentCacheKey(Uri uri) {
+    final String encoded =
+        base64Url.encode(utf8.encode(uri.toString())).replaceAll('=', '');
+    if (encoded.length <= _rssTorrentCacheKeyLength) return encoded;
+    return encoded.substring(0, _rssTorrentCacheKeyLength);
   }
 }
 
@@ -185,23 +262,6 @@ class AppComposition {
       controller: videoDetailBootstrap.controller,
     );
 
-    // 6. RSS Engine Runtime
-    final transport = HttpFeedHttpTransport();
-    final fetcher = HttpFeedFetcher(
-      gateway: providerGateway,
-      transport: transport,
-    );
-    const parser = AutoXmlFeedParser();
-    const scheduler = PeriodicFeedScheduler();
-
-    rssEngineRuntime = RssEngineBootstrap(
-      store: foundation.storage.rssFeed,
-      fetcher: fetcher,
-      parser: parser,
-      scheduler: scheduler,
-      policyStore: foundation.storage.rssAutoDownloadPolicy,
-    ).runtime;
-
     // 6. BT Task Core Runtime
     final btTaskComposition = libtorrentBtTaskRuntimeComposition(
       store: foundation.storage.btTask,
@@ -210,8 +270,31 @@ class AppComposition {
     btTaskCoreRuntime = BtTaskCoreBootstrap.withComposition(
       composition: btTaskComposition,
     ).runtime;
+    downloadRuntime = DownloadRuntimeAdapter(btTaskCoreRuntime);
 
-    // 7. Settings Runtime
+    // 7. RSS Engine Runtime
+    final transport = HttpFeedHttpTransport();
+    final fetcher = HttpFeedFetcher(
+      gateway: providerGateway,
+      transport: transport,
+    );
+    const parser = AutoXmlFeedParser();
+    const scheduler = PeriodicFeedScheduler();
+    rssTorrentUrlResolver = HttpRssTorrentUrlResolver();
+
+    rssEngineRuntime = RssEngineBootstrap(
+      store: foundation.storage.rssFeed,
+      fetcher: fetcher,
+      parser: parser,
+      scheduler: scheduler,
+      policyStore: foundation.storage.rssAutoDownloadPolicy,
+      downloadTaskEnqueuer: DownloadRuntimeRssTaskEnqueuer(
+        downloadRuntime: downloadRuntime,
+        torrentResolver: rssTorrentUrlResolver,
+      ),
+    ).runtime;
+
+    // 8. Settings Runtime
     settingsRuntime = SettingsRuntimeAdapter(
       settingsStore: foundation.storage.settings,
       networkPolicyStore: foundation.storage.networkPolicy,
@@ -223,7 +306,7 @@ class AppComposition {
       openExternalUri: SystemExternalUriLauncher().open,
     );
 
-    // 8. Diagnostics Runtime
+    // 9. Diagnostics Runtime
     final diagnosticsCapabilityMatrix = DiagnosticsCapabilityMatrix(
       capabilities: <DiagnosticsCapability, DiagnosticsCapabilityStatus>{
         for (final DiagnosticsCapability cap in DiagnosticsCapability.values)
@@ -259,6 +342,8 @@ class AppComposition {
   late final VideoDetailPageContract videoDetailPageContract;
   late final RssEngineRuntime rssEngineRuntime;
   late final BtTaskCoreRuntime btTaskCoreRuntime;
+  late final DownloadRuntime downloadRuntime;
+  late final HttpRssTorrentUrlResolver rssTorrentUrlResolver;
   late final SettingsRuntime settingsRuntime;
   late final DiagnosticsRuntime diagnosticsRuntime;
   late final BangumiProviderRuntime bangumiProviderRuntime;
@@ -276,6 +361,8 @@ class AppComposition {
   }
 
   void dispose() {
+    rssTorrentUrlResolver.dispose();
+    downloadRuntime.dispose();
     mediaLibraryRuntime.dispose();
     videoDetailBootstrap.dispose();
     bangumiProviderRuntime.dispose();

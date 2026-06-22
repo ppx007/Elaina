@@ -35,6 +35,7 @@ void main() {
         store: feedStore,
         scheduler: _FakeFeedScheduler(),
         policyStore: policyStore,
+        clock: () => _rssTestInstant,
       );
     });
 
@@ -88,6 +89,45 @@ void main() {
         'https://anime.com/feed.xml',
       );
       expect(find.text('My Anime Feed'), findsOneWidget);
+    });
+
+    testWidgets('adds a feed with an initial auto-download rule',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('添加订阅'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '订阅源名称'),
+        'Anime Feed',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'RSS / Atom 地址'),
+        'https://anime.com/feed.xml',
+      );
+      await tester.tap(find.text('同时创建自动下载规则'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '标题包含'),
+        'Episode',
+      );
+
+      await tester.tap(find.text('保存订阅'));
+      await tester.pumpAndSettle();
+
+      final List<StoredRssAutoDownloadFeedActivationRecord> activations =
+          await policyStore.activationsForPolicy(
+        defaultRssAutoDownloadPolicyId,
+      );
+      final List<StoredRssAutoDownloadRuleRecord> rules =
+          await policyStore.rulesForPolicy(defaultRssAutoDownloadPolicyId);
+      expect(activations.single.enabled, isTrue);
+      expect(rules.single.label, '新番自动下载');
+      expect(rules.single.scopedSourceIds.single,
+          fakeEngine.registered.single.id.value);
     });
 
     testWidgets('shows validation error for invalid RSS URL',
@@ -159,6 +199,50 @@ void main() {
       expect(fakeEngine.refreshed.single.value, 'anime-feed');
       expect(find.text('Fresh Episode'), findsOneWidget);
       expect(find.textContaining('新增 1 条'), findsOneWidget);
+    });
+
+    testWidgets('manages auto-download rules and filters matched items',
+        (WidgetTester tester) async {
+      await feedStore.storeSource(_storedRssSource());
+      await feedStore.storeItems(<StoredFeedItemRecord>[
+        _storedFeedItemRecord(_rssItem(), acceptedAt: _rssTestInstant),
+        _storedFeedItemRecord(
+          _rssItem(id: 'item-2', title: 'Special 2'),
+          acceptedAt: _rssTestInstant,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      tester.widget<Switch>(find.byType(Switch).first).onChanged!(true);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Anime Feed').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('添加规则'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '规则名称'),
+        'Episode only',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '标题包含'),
+        'Episode',
+      );
+      await tester.tap(find.text('保存规则'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Episode only'), findsOneWidget);
+      await tester.tap(find.byTooltip('预览规则'));
+      await tester.pumpAndSettle();
+      expect(find.text('命中 1'), findsOneWidget);
+
+      await tester.tap(find.text('命中自动下载'));
+      await tester.pumpAndSettle();
+      expect(find.text('Episode 1'), findsOneWidget);
+      expect(find.text('Special 2'), findsNothing);
     });
 
     testWidgets('toggles auto download and removes a feed source',
