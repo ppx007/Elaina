@@ -220,7 +220,7 @@ class AppComposition {
       settingsRuntime: settingsRuntime,
       authProvider: bangumiAuthProvider,
       oauthAuthorizationUri: bangumiApiClient.oauthAuthorizationPageUri(),
-      openExternalUri: const _SystemExternalUriLauncher().open,
+      openExternalUri: SystemExternalUriLauncher().open,
     );
 
     // 8. Diagnostics Runtime
@@ -286,6 +286,10 @@ class AppComposition {
 }
 
 typedef _OpenExternalUri = Future<bool> Function(Uri uri);
+typedef StartExternalProcess = Future<Process> Function(
+  String executable,
+  List<String> arguments,
+);
 
 final class _BangumiLoginController implements BangumiLoginController {
   const _BangumiLoginController({
@@ -353,8 +357,11 @@ final class _BangumiLoginController implements BangumiLoginController {
   }
 }
 
-final class _SystemExternalUriLauncher {
-  const _SystemExternalUriLauncher();
+final class SystemExternalUriLauncher {
+  SystemExternalUriLauncher({StartExternalProcess? startProcess})
+      : _startProcess = startProcess ?? _startDetachedProcess;
+
+  final StartExternalProcess _startProcess;
 
   Future<bool> open(Uri uri) async {
     final String target = uri.toString();
@@ -373,13 +380,19 @@ final class _SystemExternalUriLauncher {
     return false;
   }
 
-  Future<bool> _startDetached(String executable, List<String> arguments) async {
-    final Process process = await Process.start(
+  static Future<Process> _startDetachedProcess(
+    String executable,
+    List<String> arguments,
+  ) {
+    return Process.start(
       executable,
       arguments,
       mode: ProcessStartMode.detached,
     );
-    unawaited(process.exitCode);
+  }
+
+  Future<bool> _startDetached(String executable, List<String> arguments) async {
+    await _startProcess(executable, arguments);
     return true;
   }
 }
