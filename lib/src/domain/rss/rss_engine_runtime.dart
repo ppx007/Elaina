@@ -286,9 +286,10 @@ final class RssEngineRuntime {
   Future<RssEngineActionResult<List<FeedSource>>> listSources() async {
     if (_disposed) return _disposedResult();
     try {
-      final List<FeedSource> sources = await _loadSources();
-      _publish(status: RssEngineRuntimeStatus.ready, sources: sources);
-      return RssEngineActionResult<List<FeedSource>>.success(sources);
+      await _refreshRegistry(status: RssEngineRuntimeStatus.ready);
+      return RssEngineActionResult<List<FeedSource>>.success(
+        _snapshot.sources,
+      );
     } on Object catch (error) {
       return _failedResult(
           RssEngineRuntimeFailureKind.storageFailure, error.toString());
@@ -470,6 +471,7 @@ final class RssEngineRuntime {
   Future<void> _refreshRegistry(
       {required RssEngineRuntimeStatus status}) async {
     final List<FeedSource> sources = await _loadSources();
+    final List<FeedItem> acceptedItems = await _loadAcceptedItems(sources);
     final List<RssEngineCursorSnapshot> cursors = <RssEngineCursorSnapshot>[];
     final List<RssEngineDedupeSnapshot> dedupe = <RssEngineDedupeSnapshot>[];
     for (final FeedSource source in sources) {
@@ -481,6 +483,9 @@ final class RssEngineRuntime {
         records: await _store.dedupeKeysForSource(source.id.value),
       ));
     }
+    _acceptedItems
+      ..clear()
+      ..addAll(acceptedItems);
     _publish(
         status: status, sources: sources, cursors: cursors, dedupe: dedupe);
   }
@@ -490,6 +495,18 @@ final class RssEngineRuntime {
       for (final StoredFeedSourceRecord record in await _store.listSources())
         _feedSourceFromRecord(record),
     ];
+  }
+
+  Future<List<FeedItem>> _loadAcceptedItems(List<FeedSource> sources) async {
+    final List<FeedItem> items = <FeedItem>[];
+    for (final FeedSource source in sources) {
+      items.addAll(<FeedItem>[
+        for (final StoredFeedItemRecord record
+            in await _store.itemsForSource(source.id.value))
+          feedItemFromStoredRecord(record),
+      ]);
+    }
+    return List<FeedItem>.unmodifiable(items);
   }
 
   void _recordAcceptedUpdate(FeedItem item) {

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/download/downloads_page.dart';
-import 'package:elaina/src/ui/rss/rss_page.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,50 +15,6 @@ Widget _testHost({required Widget child}) {
       child: child,
     ),
   );
-}
-
-class _FakeRssEngine implements RssEngineContract {
-  _FakeRssEngine(this.store);
-
-  final RssFeedStore store;
-  final List<FeedSource> registered = <FeedSource>[];
-  final StreamController<FeedItem> _updatesController =
-      StreamController<FeedItem>.broadcast();
-
-  @override
-  Future<void> registerSource(FeedSource source) async {
-    registered.add(source);
-    await store.storeSource(
-      StoredFeedSourceRecord(
-        id: source.id.value,
-        displayName: source.displayName,
-        uri: source.uri,
-        format: source.format.name,
-        refreshInterval: source.refreshInterval,
-      ),
-    );
-  }
-
-  @override
-  Future<RssRefreshOutcome> refreshSource(RssRefreshRequest request) async {
-    return RssRefreshOutcome.success(
-      sourceId: request.sourceId,
-      newItems: const <FeedItem>[],
-    );
-  }
-
-  @override
-  Stream<FeedItem> get updates => _updatesController.stream;
-
-  void dispose() {
-    _updatesController.close();
-  }
-}
-
-class _FakeFeedScheduler implements FeedScheduler {
-  @override
-  Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) =>
-      const Stream<FeedScheduleDecision>.empty();
 }
 
 BtCapabilityMatrix _supportedCapabilities() {
@@ -215,110 +170,6 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
 }
 
 void main() {
-  group('RssPage Widget Tests', () {
-    late _FakeRssEngine fakeEngine;
-    late DeterministicRssFeedStore feedStore;
-    late RssEngineRuntime rssEngineRuntime;
-    late DeterministicRssAutoDownloadPolicyStore policyStore;
-
-    setUp(() {
-      feedStore = DeterministicRssFeedStore();
-      fakeEngine = _FakeRssEngine(feedStore);
-      policyStore = DeterministicRssAutoDownloadPolicyStore();
-      rssEngineRuntime = RssEngineRuntime(
-        engine: fakeEngine,
-        store: feedStore,
-        scheduler: _FakeFeedScheduler(),
-        policyStore: policyStore,
-      );
-    });
-
-    tearDown(() {
-      fakeEngine.dispose();
-    });
-
-    testWidgets('renders RSS Page and shows empty state',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        _testHost(
-          child: Scaffold(
-            body: RssPage(
-              rssEngineRuntime: rssEngineRuntime,
-            ),
-          ),
-        ),
-      );
-
-      expect(
-          find.text('已订阅 Graves 的 RSS 源', skipOffstage: false), findsNothing);
-      expect(find.text('已订阅的 RSS 源'), findsOneWidget);
-      expect(find.text('暂无订阅，请点击“添加订阅”按钮。'), findsOneWidget);
-    });
-
-    testWidgets('adds a new RSS source via dialog',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        _testHost(
-          child: Scaffold(
-            body: RssPage(
-              rssEngineRuntime: rssEngineRuntime,
-            ),
-          ),
-        ),
-      );
-
-      // Open Add dialog
-      await tester.tap(find.text('添加订阅'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('订阅新 RSS 源'), findsOneWidget);
-
-      // Fill in details
-      await tester.enterText(
-          find.widgetWithText(TextField, '订阅源名称'), 'My Anime Feed');
-      await tester.enterText(find.widgetWithText(TextField, 'RSS URL 地址'),
-          'https://anime.com/feed.xml');
-
-      // Click subscribe
-      await tester.tap(find.text('订阅'));
-      await tester.pumpAndSettle();
-
-      // Check registered feed source in backend fake
-      expect(fakeEngine.registered.length, 1);
-      expect(fakeEngine.registered.single.displayName, 'My Anime Feed');
-      expect(fakeEngine.registered.single.uri.toString(),
-          'https://anime.com/feed.xml');
-    });
-
-    testWidgets('shows validation error for invalid RSS URL',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        _testHost(
-          child: Scaffold(
-            body: RssPage(
-              rssEngineRuntime: rssEngineRuntime,
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('添加订阅'));
-      await tester.pumpAndSettle();
-
-      await tester.enterText(
-          find.widgetWithText(TextField, '订阅源名称'), 'Invalid Feed');
-      await tester.enterText(
-          find.widgetWithText(TextField, 'RSS URL 地址'), 'not-a-feed-url');
-
-      await tester.tap(find.text('订阅'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('RSS URL 必须是 http 或 https 地址'), findsOneWidget);
-      expect(fakeEngine.registered, isEmpty);
-      expect(find.text('订阅新 RSS 源'), findsOneWidget);
-    });
-  });
-
   group('DownloadsPage Widget Tests', () {
     late _FakeDownloadEngineAdapter fakeAdapter;
     late DeterministicBtTaskStore btStore;

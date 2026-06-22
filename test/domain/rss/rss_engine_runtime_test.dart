@@ -58,6 +58,30 @@ void main() {
     await bootstrap.dispose();
   });
 
+  test('runtime snapshots persisted accepted items when registry is listed',
+      () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    await store.storeSource(_storedSource());
+    await store.storeItems(<StoredFeedItemRecord>[
+      _storedItem(acceptedAt: DateTime.utc(2026, 6, 11, 12)),
+    ]);
+    final RssEngineBootstrap bootstrap = _bootstrap(
+      store: store,
+      fetcher: _FakeFeedFetcher(
+          responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+      parser: _FakeFeedParser(items: const <FeedItem>[]),
+      scheduler: _FiniteFeedScheduler(),
+    );
+
+    final RssEngineActionResult<List<FeedSource>> listed =
+        await bootstrap.listSources();
+
+    expect(listed.isSuccess, isTrue);
+    expect(bootstrap.runtime.currentSnapshot.acceptedItems.single.title,
+        'Episode 1');
+    await bootstrap.dispose();
+  });
+
   test(
       'runtime refresh preserves parser warnings cursor dedupe storage and updates',
       () async {
@@ -302,6 +326,21 @@ StoredFeedSourceRecord _storedSource() {
     format: source.format.name,
     refreshInterval: source.refreshInterval,
     defaultHeaders: source.defaultHeaders,
+  );
+}
+
+StoredFeedItemRecord _storedItem({required DateTime acceptedAt}) {
+  final FeedItem item = _item();
+  return StoredFeedItemRecord(
+    id: item.id.value,
+    sourceId: item.sourceId.value,
+    dedupeKey: item.dedupeKey.value,
+    title: item.title,
+    link: item.link,
+    publishedAt: item.publishedAt,
+    summary: item.summary,
+    categories: item.categories,
+    acceptedAt: acceptedAt,
   );
 }
 
