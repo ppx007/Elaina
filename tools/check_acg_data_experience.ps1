@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'acg_data_experience' -CheckScriptPath 'tools/module-checks/legacy/check_acg_data_experience.ps1' -ScriptArguments $args

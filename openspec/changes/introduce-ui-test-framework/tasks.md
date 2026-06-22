@@ -25,7 +25,8 @@
 ## 4. Validation Control
 
 - [x] 4.1 Add `tools/test_suites.json`.
-- [x] 4.2 Refactor `tools/check_changed_tests.ps1` to read the registry.
+- [x] 4.2 Refactor changed-test selection to read the registry through the
+  Dart CLI.
 - [x] 4.3 Preserve `Fast`, `Module`, `Full`, `ChangedPath`, and `DryRun`
   behavior.
 
@@ -33,5 +34,5 @@
 
 - [x] 5.1 Run `dart analyze`.
 - [x] 5.2 Run migrated focused widget tests.
-- [x] 5.3 Run `tools/check_changed_tests.ps1 -Scope Fast`.
+- [x] 5.3 Run `dart run tools/elaina_tool.dart check changed --scope Fast`.
 - [x] 5.4 Run `openspec.cmd validate --all`.

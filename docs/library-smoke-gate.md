@@ -9,7 +9,7 @@ scan -> import -> detail -> playback handoff -> history -> continue-watching rep
 Run it directly with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_library_smoke_gate.ps1"
+dart run tools\elaina_tool.dart check module --module library_smoke_gate
 ```
 
 ## Coverage

@@ -315,25 +315,25 @@ Run the core baseline before starting or after rebasing:
 
 ```powershell
 openspec.cmd validate --all
-powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1"
+dart run tools\elaina_tool.dart check full
 ```
 
 Focused playback checks:
 
 ```powershell
 flutter test test\ui\playback\flutter_playback_shell_test.dart
-powershell -ExecutionPolicy Bypass -File "tools\check_player_core.ps1"
-powershell -ExecutionPolicy Bypass -File "tools\check_player_smoke_gate.ps1"
+dart run tools\elaina_tool.dart check module --module player_core
+dart run tools\elaina_tool.dart check full --skip-native-player-smoke
 ```
 
 The non-strict smoke gate may skip native playback when `libmpv-2.dll` is not
 available. Release readiness requires strict native smoke:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1" `
-  -RequireNativeSmoke `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -SampleMediaPath "<sample-local-video-file>"
+dart run tools\elaina_tool.dart check full `
+  --require-native-smoke `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --sample-media-path "<sample-local-video-file>"
 ```
 
 ## Packaged Release Check
@@ -342,10 +342,10 @@ After the frontend runner exists, package the Windows release output with the
 bundled libmpv DLL:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
-  -ReleaseDir "<build-windows-release-dir>" `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "<artifact-dir>\elaina-windows.zip"
+dart run tools\elaina_tool.dart package windows-release `
+  --release-dir "<build-windows-release-dir>" `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --output-zip "<artifact-dir>\elaina-windows.zip"
 ```
 
 The release zip must contain the app executable and `libmpv-2.dll` in the same
@@ -399,7 +399,7 @@ inspection alone.
 | 4 | File picker → `LocalPlaybackSourceHandoff` → `controller.open` | Manual: pick a local file, playback starts |
 | 5 | Controls derived from `PlaybackPageSurfaceDescriptor` / capability matrix | No control shown for an unsupported capability |
 | 6 | `ignored`/`unsupported` intent results handled without crashing | Manual: trigger an unsupported control |
-| 7 | Non-UI full gate still green | `tools\check_full_feature_gate.ps1` |
+| 7 | Non-UI full gate still green | `dart run tools\elaina_tool.dart check full` |
 | 8 | UI widget smoke present and green | `flutter test test\ui\playback\flutter_playback_shell_test.dart` |
 | 9 | `dart analyze` clean for the whole repo | `dart analyze` → "No issues found" |
 
@@ -409,8 +409,8 @@ Everything in Tier 1, plus:
 
 | # | Criterion | How it is verified |
 | --- | --- | --- |
-| 1 | Strict native smoke proven | `check_full_feature_gate.ps1 -RequireNativeSmoke -LibMpvPath ... -SampleMediaPath ...` |
-| 2 | Windows release packages cleanly | `tools\package_windows_release.ps1 ...` produces the zip |
+| 1 | Strict native smoke proven | `dart run tools\elaina_tool.dart check full --require-native-smoke --libmpv-path ... --sample-media-path ...` |
+| 2 | Windows release packages cleanly | `dart run tools\elaina_tool.dart package windows-release ...` produces the zip |
 | 3 | Zip contains app exe + `libmpv-2.dll` in the same directory | Inspect the produced artifact |
 | 4 | Unzip-and-run on a clean machine plays a local file | Manual on a machine without MPV installed / no `PATH` edits |
 | 5 | App starts, opens, plays, seeks, pauses, stops without unhandled errors | Manual playback session |

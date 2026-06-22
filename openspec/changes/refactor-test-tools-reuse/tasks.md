@@ -16,11 +16,11 @@
 ## 3. Tools Refactor
 
 - [x] 3.1 Add `tools/module_checks.json`.
-- [x] 3.2 Add generic Dart runtime-check CLI and shared proxy.
+- [x] 3.2 Add unified Dart validation and packaging CLI.
 - [x] 3.3 Remove per-module Dart runtime-check entrypoints after adding the
-  generic `tools/runtime_check.dart --module <name>` CLI.
-- [x] 3.4 Teach `Invoke-ModuleCheck.ps1` to consume registry defaults and
-  fallback to legacy scripts.
+  generic `tools/elaina_tool.dart check module --module <name>` CLI.
+- [x] 3.4 Replace PowerShell module orchestration with registry-backed Dart
+  runners.
 - [x] 3.5 Update tool tests to validate registry coverage.
 
 ## 4. Documentation And Validation

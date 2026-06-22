@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'bt_streaming_smoke_gate' -CheckScriptPath 'tools/module-checks/legacy/check_bt_streaming_smoke_gate.ps1' -ScriptArguments $args

@@ -1,284 +1,451 @@
-﻿{
-    "version":  1,
-    "modules":  {
-                    "acg_data_experience":  {
-                                                "publicCheckScript":  "tools/check_acg_data_experience.ps1",
-                                                "legacyScriptPath":  "tools/module-checks/legacy/check_acg_data_experience.ps1",
-                                                "legacyRequired":  true,
-                                                "contracts":  [
-                                                                  "tools/runtime_checks/acg_experience_runtime_contract.dart",
-                                                                  "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
-                                                              ],
-                                                "dartCheckScripts":  [
-                                                                         "tools/runtime_checks/acg_experience_runtime_contract.dart",
-                                                                         "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
-                                                                     ]
-                                            },
-                    "advanced_caption_rendering_runtime":  {
-                                                               "publicCheckScript":  "tools/check_advanced_caption_rendering_runtime.ps1",
-                                                               "legacyScriptPath":  "tools/module-checks/legacy/check_advanced_caption_rendering_runtime.ps1",
-                                                               "legacyRequired":  true,
-                                                               "contracts":  [
-                                                                                 "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
-                                                                             ],
-                                                               "dartCheckScripts":  [
-                                                                                        "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
-                                                                                    ]
-                                                           },
-                    "av_sync_guard_runtime":  {
-                                                  "publicCheckScript":  "tools/check_av_sync_guard_runtime.ps1",
-                                                  "legacyScriptPath":  "tools/module-checks/legacy/check_av_sync_guard_runtime.ps1",
-                                                  "legacyRequired":  true,
-                                                  "contracts":  [
-                                                                    "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
-                                                                ],
-                                                  "dartCheckScripts":  [
-                                                                           "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
-                                                                       ]
-                                              },
-                    "bangumi_runtime":  {
-                                            "publicCheckScript":  "tools/check_bangumi_runtime.ps1",
-                                            "legacyScriptPath":  "tools/module-checks/legacy/check_bangumi_runtime.ps1",
-                                            "legacyRequired":  true,
-                                            "contracts":  [
-                                                              "tools/runtime_checks/bangumi_runtime_contract.dart"
-                                                          ],
-                                            "dartCheckScripts":  [
-                                                                     "tools/runtime_checks/bangumi_runtime_contract.dart"
-                                                                 ]
-                                        },
-                    "bt_task_core_runtime":  {
-                                                 "publicCheckScript":  "tools/check_bt_task_core_runtime.ps1",
-                                                 "legacyScriptPath":  "tools/module-checks/legacy/check_bt_task_core_runtime.ps1",
-                                                 "legacyRequired":  true,
-                                                 "contracts":  [
-                                                                   "tools/runtime_checks/bt_task_core_runtime_contract.dart"
-                                                               ],
-                                                 "dartCheckScripts":  [
-                                                                          "tools/runtime_checks/bt_task_core_runtime_contract.dart"
-                                                                      ]
-                                             },
-                    "dandanplay_runtime":  {
-                                               "publicCheckScript":  "tools/check_dandanplay_runtime.ps1",
-                                               "legacyScriptPath":  "tools/module-checks/legacy/check_dandanplay_runtime.ps1",
-                                               "legacyRequired":  true,
-                                               "contracts":  [
-                                                                 "tools/runtime_checks/dandanplay_runtime_contract.dart"
-                                                             ],
-                                               "dartCheckScripts":  [
-                                                                        "tools/runtime_checks/dandanplay_runtime_contract.dart"
-                                                                    ]
-                                           },
-                    "danmaku_runtime":  {
-                                            "publicCheckScript":  "tools/check_danmaku_runtime.ps1",
-                                            "legacyScriptPath":  "tools/module-checks/legacy/check_danmaku_runtime.ps1",
-                                            "legacyRequired":  true,
-                                            "contracts":  [
-                                                              "tools/runtime_checks/danmaku_runtime_contract.dart"
-                                                          ],
-                                            "dartCheckScripts":  [
-                                                                     "tools/runtime_checks/danmaku_runtime_contract.dart"
-                                                                 ]
-                                        },
-                    "diagnostics_center_runtime":  {
-                                                       "publicCheckScript":  "tools/check_diagnostics_center_runtime.ps1",
-                                                       "legacyScriptPath":  "tools/module-checks/legacy/check_diagnostics_center_runtime.ps1",
-                                                       "legacyRequired":  true,
-                                                       "contracts":  [
-                                                                         "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
-                                                                     ],
-                                                       "dartCheckScripts":  [
-                                                                                "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
-                                                                            ]
-                                                   },
-                    "fallback_adapter_runtime":  {
-                                                     "publicCheckScript":  "tools/check_fallback_adapter_runtime.ps1",
-                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_fallback_adapter_runtime.ps1",
-                                                     "legacyRequired":  true,
-                                                     "contracts":  [
-                                                                       "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
-                                                                   ],
-                                                     "dartCheckScripts":  [
-                                                                              "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
-                                                                          ]
-                                                 },
-                    "media_library_runtime":  {
-                                                  "publicCheckScript":  "tools/check_media_library_runtime.ps1",
-                                                  "legacyScriptPath":  "tools/module-checks/legacy/check_media_library_runtime.ps1",
-                                                  "legacyRequired":  true,
-                                                  "contracts":  [
-                                                                    "tools/runtime_checks/media_library_runtime_contract.dart"
-                                                                ],
-                                                  "dartCheckScripts":  [
-                                                                           "tools/runtime_checks/media_library_runtime_contract.dart"
-                                                                       ]
-                                              },
-                    "network_policy_runtime":  {
-                                                   "publicCheckScript":  "tools/check_network_policy_runtime.ps1",
-                                                   "legacyScriptPath":  "tools/module-checks/legacy/check_network_policy_runtime.ps1",
-                                                   "legacyRequired":  true,
-                                                   "contracts":  [
-                                                                     "tools/runtime_checks/network_policy_runtime_contract.dart"
-                                                                 ],
-                                                   "dartCheckScripts":  [
-                                                                            "tools/runtime_checks/network_policy_runtime_contract.dart"
-                                                                        ]
-                                               },
-                    "online_rule_source_runtime":  {
-                                                       "publicCheckScript":  "tools/check_online_rule_source_runtime.ps1",
-                                                       "legacyScriptPath":  "tools/module-checks/legacy/check_online_rule_source_runtime.ps1",
-                                                       "legacyRequired":  true,
-                                                       "contracts":  [
-                                                                         "tools/runtime_checks/online_rule_source_runtime_contract.dart"
-                                                                     ],
-                                                       "dartCheckScripts":  [
-                                                                                "tools/runtime_checks/online_rule_source_runtime_contract.dart"
-                                                                            ]
-                                                   },
-                    "piece_priority_scheduler_runtime":  {
-                                                             "publicCheckScript":  "tools/check_piece_priority_scheduler_runtime.ps1",
-                                                             "legacyScriptPath":  "tools/module-checks/legacy/check_piece_priority_scheduler_runtime.ps1",
-                                                             "legacyRequired":  true,
-                                                             "contracts":  [
-                                                                               "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
-                                                                           ],
-                                                             "dartCheckScripts":  [
-                                                                                      "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
-                                                                                  ]
-                                                         },
-                    "player_core":  {
-                                        "publicCheckScript":  "tools/check_player_core.ps1",
-                                        "legacyScriptPath":  "tools/module-checks/legacy/check_player_core.ps1",
-                                        "legacyRequired":  true,
-                                        "contracts":  [
-                                                          "tools/runtime_checks/player_core_runtime_contract.dart"
-                                                      ],
-                                        "dartCheckScripts":  [
-                                                                 "tools/runtime_checks/player_core_runtime_contract.dart"
-                                                             ]
-                                    },
-                    "rss_auto_download_runtime":  {
-                                                      "publicCheckScript":  "tools/check_rss_auto_download_runtime.ps1",
-                                                      "legacyScriptPath":  "tools/module-checks/legacy/check_rss_auto_download_runtime.ps1",
-                                                      "legacyRequired":  true,
-                                                      "contracts":  [
-                                                                        "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
-                                                                    ],
-                                                      "dartCheckScripts":  [
-                                                                               "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
-                                                                           ]
-                                                  },
-                    "rss_engine_runtime":  {
-                                               "publicCheckScript":  "tools/check_rss_engine_runtime.ps1",
-                                               "legacyScriptPath":  "tools/module-checks/legacy/check_rss_engine_runtime.ps1",
-                                               "legacyRequired":  true,
-                                               "contracts":  [
-                                                                 "tools/runtime_checks/rss_engine_runtime_contract.dart"
-                                                             ],
-                                               "dartCheckScripts":  [
-                                                                        "tools/runtime_checks/rss_engine_runtime_contract.dart"
-                                                                    ]
-                                           },
-                    "runtime_check_base":  {
-                                               "publicCheckScript":  "tools/check_runtime_check_base.ps1",
-                                               "legacyRequired":  false,
-                                               "requiredFiles":  [
-                                                                     "tools/runtime_check_base.dart",
-                                                                     "tools/runtime_check.dart",
-                                                                     "test/tools/base_runtime_check_test.dart",
-                                                                     "tools/module_checks.json"
-                                                                 ],
-                                               "dartTestPaths":  [
-                                                                     "test/tools"
-                                                                 ]
-                                           },
-                    "seasonal_indexer_runtime":  {
-                                                     "publicCheckScript":  "tools/check_seasonal_indexer_runtime.ps1",
-                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_seasonal_indexer_runtime.ps1",
-                                                     "legacyRequired":  true,
-                                                     "contracts":  [
-                                                                       "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
-                                                                   ],
-                                                     "dartCheckScripts":  [
-                                                                              "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
-                                                                          ]
-                                                 },
-                    "subtitle_provider_runtime":  {
-                                                      "publicCheckScript":  "tools/check_subtitle_provider_runtime.ps1",
-                                                      "legacyScriptPath":  "tools/module-checks/legacy/check_subtitle_provider_runtime.ps1",
-                                                      "legacyRequired":  true,
-                                                      "contracts":  [
-                                                                        "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
-                                                                    ],
-                                                      "dartCheckScripts":  [
-                                                                               "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
-                                                                           ]
-                                                  },
-                    "subtitle_runtime":  {
-                                             "publicCheckScript":  "tools/check_subtitle_runtime.ps1",
-                                             "legacyScriptPath":  "tools/module-checks/legacy/check_subtitle_runtime.ps1",
-                                             "legacyRequired":  true,
-                                             "contracts":  [
-                                                               "tools/runtime_checks/subtitle_runtime_contract.dart"
-                                                           ],
-                                             "dartCheckScripts":  [
-                                                                      "tools/runtime_checks/subtitle_runtime_contract.dart"
-                                                                  ]
-                                         },
-                    "timeline_overlay_runtime":  {
-                                                     "publicCheckScript":  "tools/check_timeline_overlay_runtime.ps1",
-                                                     "legacyScriptPath":  "tools/module-checks/legacy/check_timeline_overlay_runtime.ps1",
-                                                     "legacyRequired":  true,
-                                                     "contracts":  [
-                                                                       "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
-                                                                   ],
-                                                     "dartCheckScripts":  [
-                                                                              "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
-                                                                          ]
-                                                 },
-                    "video_detail_runtime":  {
-                                                 "publicCheckScript":  "tools/check_video_detail_runtime.ps1",
-                                                 "legacyScriptPath":  "tools/module-checks/legacy/check_video_detail_runtime.ps1",
-                                                 "legacyRequired":  true,
-                                                 "contracts":  [
-                                                                   "tools/runtime_checks/video_detail_runtime_contract.dart"
-                                                               ],
-                                                 "dartCheckScripts":  [
-                                                                          "tools/runtime_checks/video_detail_runtime_contract.dart"
-                                                                      ]
-                                             },
-                    "video_enhancement_pipeline_runtime":  {
-                                                               "publicCheckScript":  "tools/check_video_enhancement_pipeline_runtime.ps1",
-                                                               "legacyScriptPath":  "tools/module-checks/legacy/check_video_enhancement_pipeline_runtime.ps1",
-                                                               "legacyRequired":  true,
-                                                               "contracts":  [
-                                                                                 "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
-                                                                             ],
-                                                               "dartCheckScripts":  [
-                                                                                        "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
-                                                                                    ]
-                                                           },
-                    "virtual_media_stream_runtime":  {
-                                                         "publicCheckScript":  "tools/check_virtual_media_stream_runtime.ps1",
-                                                         "legacyScriptPath":  "tools/module-checks/legacy/check_virtual_media_stream_runtime.ps1",
-                                                         "legacyRequired":  true,
-                                                         "contracts":  [
-                                                                           "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
-                                                                       ],
-                                                         "dartCheckScripts":  [
-                                                                                  "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
-                                                                              ]
-                                                     },
-                    "webview_session_backfill_runtime":  {
-                                                             "publicCheckScript":  "tools/check_webview_session_backfill_runtime.ps1",
-                                                             "legacyScriptPath":  "tools/module-checks/legacy/check_webview_session_backfill_runtime.ps1",
-                                                             "legacyRequired":  true,
-                                                             "contracts":  [
-                                                                               "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
-                                                                           ],
-                                                             "dartCheckScripts":  [
-                                                                                      "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
-                                                                                  ]
-                                                         }
-                }
+{
+  "version": 1,
+  "modules": {
+    "acg_data_experience": {
+      "contracts": [
+        "tools/runtime_checks/acg_experience_runtime_contract.dart",
+        "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/acg_experience_runtime_contract.dart",
+        "tools/runtime_checks/playback_metadata_bridge_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "player_core"
+      ]
+    },
+    "advanced_caption_rendering_runtime": {
+      "contracts": [
+        "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/advanced_caption_rendering_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "advanced_playback_core"
+      ]
+    },
+    "advanced_playback_core": {
+      "dependsOnChecks": [
+        "player_core"
+      ],
+      "requiredFiles": [
+        "lib/src/playback/capability_matrix.dart",
+        "lib/src/playback/player_adapter.dart",
+        "tools/media_kit_mpv_binding_smoke.dart"
+      ],
+      "recursiveForbiddenTermsByPath": {
+        "lib/src/ui": [
+          "dart:ffi",
+          "libmpv",
+          "MpvAdapterBinding",
+          "media_kit"
+        ]
+      }
+    },
+    "automation_extension_core": {
+      "requiredFiles": [
+        "lib/src/provider/rss/rss_auto_download_policy.dart",
+        "lib/src/provider/online/online_rule_runtime.dart",
+        "lib/src/network/network_policy.dart",
+        "lib/src/foundation/diagnostics/diagnostics_center.dart"
+      ],
+      "recursiveForbiddenTermsByPath": {
+        "lib/src/ui": [
+          "captchaSolver",
+          "headlessBrowser",
+          "remoteTelemetry",
+          "supportBundleUpload"
+        ]
+      }
+    },
+    "automation_smoke_gate": {
+      "requiredFiles": [
+        "tools/automation_smoke_gate.dart",
+        "test/domain/automation/automation_smoke_gate_test.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/automation_smoke_gate.dart"
+      ],
+      "flutterTestPaths": [
+        "test/domain/automation/automation_smoke_gate_test.dart"
+      ]
+    },
+    "av_sync_guard_runtime": {
+      "contracts": [
+        "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/av_sync_guard_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "advanced_playback_core"
+      ]
+    },
+    "bangumi_runtime": {
+      "contracts": [
+        "tools/runtime_checks/bangumi_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/bangumi_runtime_contract.dart"
+      ]
+    },
+    "bt_streaming_core": {
+      "requiredFiles": [
+        "lib/src/streaming",
+        "tools/bt_streaming_smoke_gate.dart"
+      ],
+      "recursiveForbiddenTermsByPath": {
+        "lib/src/ui": [
+          "libtorrent",
+          "ServerSocket",
+          "HttpServer"
+        ]
+      }
+    },
+    "bt_streaming_smoke_gate": {
+      "requiredFiles": [
+        "tools/bt_streaming_smoke_gate.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/bt_streaming_smoke_gate.dart"
+      ]
+    },
+    "bt_task_core_runtime": {
+      "contracts": [
+        "tools/runtime_checks/bt_task_core_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/bt_task_core_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "bt_streaming_core"
+      ]
+    },
+    "concrete_storage_foundation": {
+      "requiredFiles": [
+        "tools/sqlite_storage_foundation_check.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/sqlite_storage_foundation_check.dart"
+      ]
+    },
+    "dandanplay_runtime": {
+      "contracts": [
+        "tools/runtime_checks/dandanplay_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/dandanplay_runtime_contract.dart"
+      ]
+    },
+    "danmaku_runtime": {
+      "contracts": [
+        "tools/runtime_checks/danmaku_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/danmaku_runtime_contract.dart"
+      ]
+    },
+    "detail_library_seasonal": {
+      "requiredFiles": [
+        "lib/src/domain/detail",
+        "lib/src/domain/media",
+        "lib/src/domain/seasonal"
+      ],
+      "recursiveForbiddenTermsByPath": {
+        "lib/src/domain": [
+          "package:flutter/material.dart",
+          "dart:ui"
+        ]
+      }
+    },
+    "diagnostics_center_runtime": {
+      "contracts": [
+        "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/diagnostics_center_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "automation_extension_core"
+      ]
+    },
+    "fallback_adapter_runtime": {
+      "contracts": [
+        "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/fallback_adapter_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "advanced_playback_core"
+      ]
+    },
+    "full_feature_gate_contract": {
+      "requiredFiles": [
+        "tools/elaina_tool.dart",
+        "docs/full-feature-gate.md"
+      ],
+      "requiredTermsByFile": {
+        "tools/elaina_tool.dart": [
+          "check",
+          "full",
+          "package",
+          "windows-release"
+        ],
+        "docs/full-feature-gate.md": [
+          "non-UI",
+          "dart run tools/elaina_tool.dart check full"
+        ]
+      },
+      "recursiveForbiddenTermsByPath": {
+        "lib/src/ui": [
+          "FullFeatureGate",
+          "require-native-smoke"
+        ]
+      }
+    },
+    "library_smoke_gate": {
+      "requiredFiles": [
+        "tools/library_smoke_gate.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/library_smoke_gate.dart"
+      ]
+    },
+    "media_library_runtime": {
+      "contracts": [
+        "tools/runtime_checks/media_library_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/media_library_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "video_detail_runtime"
+      ]
+    },
+    "network_policy_runtime": {
+      "contracts": [
+        "tools/runtime_checks/network_policy_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/network_policy_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "automation_extension_core"
+      ]
+    },
+    "online_rule_source_runtime": {
+      "contracts": [
+        "tools/runtime_checks/online_rule_source_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/online_rule_source_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "automation_extension_core"
+      ]
+    },
+    "online_rule_test_harness": {
+      "requiredFiles": [
+        "tools/online_rule_test_harness_check.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/online_rule_test_harness_check.dart"
+      ]
+    },
+    "phase0_foundation": {
+      "requiredFiles": [
+        "lib/elaina.dart",
+        "analysis_options.yaml",
+        "pubspec.yaml"
+      ],
+      "forbiddenTermsByFile": {
+        "lib/elaina.dart": [
+          "dart:ffi",
+          "package:flutter/material.dart"
+        ]
+      }
+    },
+    "piece_priority_scheduler_runtime": {
+      "contracts": [
+        "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/piece_priority_scheduler_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "bt_task_core_runtime"
+      ]
+    },
+    "player_core": {
+      "contracts": [
+        "tools/runtime_checks/player_core_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/player_core_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "phase0_foundation"
+      ]
+    },
+    "player_smoke_gate": {
+      "requiredFiles": [
+        "tools/media_kit_mpv_binding_smoke.dart",
+        "tools/elaina_tool.dart"
+      ],
+      "requiredTermsByFile": {
+        "tools/tooling/full_gate_runner.dart": [
+          "runPlayerSmokeGate",
+          "media_kit_mpv_binding_smoke.dart",
+          "libmpv-2.dll"
+        ]
+      }
+    },
+    "rss_auto_download_runtime": {
+      "contracts": [
+        "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/rss_auto_download_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "automation_extension_core"
+      ]
+    },
+    "rss_engine_runtime": {
+      "contracts": [
+        "tools/runtime_checks/rss_engine_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/rss_engine_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "subtitle_provider_runtime",
+        "rss_feed_fetcher_parser"
+      ]
+    },
+    "rss_feed_fetcher_parser": {
+      "requiredFiles": [
+        "tools/rss_feed_fetcher_parser_check.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/rss_feed_fetcher_parser_check.dart"
+      ]
+    },
+    "runtime_check_base": {
+      "requiredFiles": [
+        "tools/elaina_tool.dart",
+        "tools/tooling/process_runner.dart",
+        "tools/tooling/module_check_runner.dart",
+        "tools/tooling/changed_test_runner.dart",
+        "tools/tooling/full_gate_runner.dart",
+        "tools/tooling/windows_release_packager.dart",
+        "tools/tooling/tool_exception.dart",
+        "tools/tooling/tool_paths.dart",
+        "tools/module_checks.json",
+        "tools/test_suites.json",
+        "test/tools/elaina_tool_test.dart"
+      ],
+      "dartTestPaths": [
+        "test/tools"
+      ]
+    },
+    "seasonal_feed_flow": {
+      "requiredFiles": [
+        "tools/seasonal_feed_flow_check.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/seasonal_feed_flow_check.dart"
+      ]
+    },
+    "seasonal_indexer_runtime": {
+      "contracts": [
+        "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/seasonal_indexer_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "rss_engine_runtime"
+      ]
+    },
+    "subtitle_provider_runtime": {
+      "contracts": [
+        "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/subtitle_provider_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "media_library_runtime"
+      ]
+    },
+    "subtitle_runtime": {
+      "contracts": [
+        "tools/runtime_checks/subtitle_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/subtitle_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "player_core"
+      ]
+    },
+    "timeline_overlay_runtime": {
+      "contracts": [
+        "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/timeline_overlay_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "bt_task_core_runtime"
+      ]
+    },
+    "video_detail_runtime": {
+      "contracts": [
+        "tools/runtime_checks/video_detail_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/video_detail_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "detail_library_seasonal"
+      ]
+    },
+    "video_enhancement_pipeline_runtime": {
+      "contracts": [
+        "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/video_enhancement_pipeline_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "advanced_playback_core"
+      ]
+    },
+    "virtual_media_stream_runtime": {
+      "contracts": [
+        "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/virtual_media_stream_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "bt_task_core_runtime"
+      ]
+    },
+    "webview_session_backfill_runtime": {
+      "contracts": [
+        "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
+      ],
+      "dartCheckScripts": [
+        "tools/runtime_checks/webview_session_backfill_runtime_contract.dart"
+      ],
+      "dependsOnChecks": [
+        "automation_extension_core"
+      ]
+    }
+  }
 }

@@ -57,10 +57,10 @@ After the external UI model adds a Windows desktop runner, produce a release
 directory and run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
-  -ReleaseDirectory "<build-windows-release-dir>" `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "<artifact-dir>\elaina-windows.zip"
+dart run tools\elaina_tool.dart package windows-release `
+  --release-dir "<build-windows-release-dir>" `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --output-zip "<artifact-dir>\elaina-windows.zip"
 ```
 
 The generated zip must contain the app executable and `libmpv-2.dll` in the

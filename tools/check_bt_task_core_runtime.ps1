@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'bt_task_core_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_bt_task_core_runtime.ps1' -ScriptArguments $args

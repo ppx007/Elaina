@@ -45,7 +45,7 @@ pages are reachable.
 
 ### Requirement: Repository baseline SHALL select changed tests declaratively
 The changed-test gate SHALL read test-suite selection from a registry file
-instead of hardcoding path rules inside the PowerShell script.
+instead of hardcoding path rules inside command code.
 
 #### Scenario: Fast changed-test gate runs
 - **WHEN** changed paths match registered suite triggers
@@ -53,10 +53,10 @@ instead of hardcoding path rules inside the PowerShell script.
   suites from `tools/test_suites.json`
 
 #### Scenario: Module changed-test gate runs
-- **WHEN** `-Scope Module` is selected
+- **WHEN** `--scope Module` is selected
 - **THEN** suites registered for module scope are eligible in addition to fast
   suites
 
 #### Scenario: Full changed-test gate runs
-- **WHEN** `-Scope Full` is selected
-- **THEN** the gate delegates to the existing full feature gate
+- **WHEN** `--scope Full` is selected
+- **THEN** the gate delegates to the Dart full feature gate

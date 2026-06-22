@@ -1,24 +1,32 @@
 {
-  "fullGate": "tools\\check_full_feature_gate.ps1",
   "suites": [
     {
       "name": "tools",
       "runner": "dart",
-      "paths": ["test/tools"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/tools"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/tools/**",
-        "tools/runtime_check_base.dart",
-        "tools/runtime_check.dart",
-        "Invoke-ModuleCheck.ps1",
+        "tools/elaina_tool.dart",
+        "tools/tooling/**",
         "tools/module_checks.json"
       ]
     },
     {
       "name": "home-shell-ui",
       "runner": "flutter",
-      "paths": ["test/widget_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/widget_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/widget_test.dart",
         "test/framework/**",
@@ -34,8 +42,13 @@
     {
       "name": "settings-diagnostics-ui",
       "runner": "flutter",
-      "paths": ["test/ui/settings_and_diagnostics_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/ui/settings_and_diagnostics_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/ui/settings_and_diagnostics_test.dart",
         "test/framework/**",
@@ -51,8 +64,13 @@
     {
       "name": "video-detail-media-ui",
       "runner": "flutter",
-      "paths": ["test/ui/playback/media_library_and_video_detail_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/ui/playback/media_library_and_video_detail_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/ui/playback/media_library_and_video_detail_test.dart",
         "test/framework/**",
@@ -68,8 +86,14 @@
     {
       "name": "rss-downloads-ui",
       "runner": "flutter",
-      "paths": ["test/ui/rss_and_downloads_test.dart", "test/ui/rss_page_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/ui/rss_and_downloads_test.dart",
+        "test/ui/rss_page_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/ui/rss_and_downloads_test.dart",
         "test/ui/rss_page_test.dart",
@@ -87,8 +111,14 @@
     {
       "name": "hero-carousel-ui",
       "runner": "flutter",
-      "paths": ["test/ui/hero_carousel_test.dart", "test/widget_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/ui/hero_carousel_test.dart",
+        "test/widget_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "test/ui/hero_carousel_test.dart",
         "lib/src/ui/widgets/hero_carousel.dart",
@@ -102,7 +132,10 @@
         "test/provider/bangumi/bangumi_runtime_test.dart",
         "test/domain/profile/bangumi_tracking_local_store_test.dart"
       ],
-      "scopes": ["Fast", "Module"],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "lib/src/provider/bangumi/**",
         "lib/src/domain/profile/bangumi_tracking_local_store.dart",
@@ -113,8 +146,13 @@
     {
       "name": "video-detail-domain",
       "runner": "flutter",
-      "paths": ["test/domain/detail/video_detail_runtime_test.dart"],
-      "scopes": ["Fast", "Module"],
+      "paths": [
+        "test/domain/detail/video_detail_runtime_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
       "triggers": [
         "lib/src/domain/detail/**",
         "test/domain/detail/**"
@@ -123,9 +161,16 @@
     {
       "name": "integration-smoke",
       "runner": "flutter",
-      "paths": ["integration_test/app_smoke_test.dart"],
-      "extraArgs": ["-d", "windows"],
-      "scopes": ["Module"],
+      "paths": [
+        "integration_test/app_smoke_test.dart"
+      ],
+      "extraArgs": [
+        "-d",
+        "windows"
+      ],
+      "scopes": [
+        "Module"
+      ],
       "triggers": [
         "integration_test/**",
         "test/framework/**",

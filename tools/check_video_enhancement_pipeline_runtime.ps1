@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'video_enhancement_pipeline_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_video_enhancement_pipeline_runtime.ps1' -ScriptArguments $args

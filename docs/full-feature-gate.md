@@ -6,7 +6,7 @@ baseline.
 Run it from the repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1"
+dart run tools\elaina_tool.dart check full
 ```
 
 The gate composes the existing validators instead of replacing them:
@@ -17,17 +17,17 @@ The gate composes the existing validators instead of replacing them:
 - `flutter test`
 - player core and player smoke gates
 - ACG experience, library, automation, BT streaming, advanced playback, and
-  diagnostics runtime checker coverage through existing scripts
+  diagnostics runtime checker coverage through the Dart tool registry
 
 Native player smoke remains explicit. On developer machines without `libmpv`,
 the player smoke gate can report a skipped native step. For release readiness,
 require native playback smoke:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_full_feature_gate.ps1" -RequireNativeSmoke -LibMpvPath "D:\path\to\libmpv-2.dll" -SampleMediaPath "D:\path\to\sample.mp4"
+dart run tools\elaina_tool.dart check full --require-native-smoke --libmpv-path "D:\path\to\libmpv-2.dll" --sample-media-path "D:\path\to\sample.mp4"
 ```
 
-Use `-SkipNativePlayerSmoke` only when validating non-native packaging or
+Use `--skip-native-player-smoke` only when validating non-native packaging or
 contract-only changes.
 
 ## UI Boundary

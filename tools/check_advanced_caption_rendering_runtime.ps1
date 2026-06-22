@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'advanced_caption_rendering_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_advanced_caption_rendering_runtime.ps1' -ScriptArguments $args

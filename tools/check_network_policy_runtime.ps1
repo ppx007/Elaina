@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'network_policy_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_network_policy_runtime.ps1' -ScriptArguments $args

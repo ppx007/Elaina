@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'virtual_media_stream_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_virtual_media_stream_runtime.ps1' -ScriptArguments $args

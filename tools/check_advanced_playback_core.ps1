@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'advanced_playback_core' -CheckScriptPath 'tools/module-checks/legacy/check_advanced_playback_core.ps1' -ScriptArguments $args

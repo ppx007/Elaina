@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'fallback_adapter_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_fallback_adapter_runtime.ps1' -ScriptArguments $args

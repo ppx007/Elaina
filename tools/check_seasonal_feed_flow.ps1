@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'seasonal_feed_flow' -CheckScriptPath 'tools/module-checks/legacy/check_seasonal_feed_flow.ps1' -ScriptArguments $args

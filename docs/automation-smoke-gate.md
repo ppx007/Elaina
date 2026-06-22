@@ -50,5 +50,5 @@ The smoke gate does not implement:
 Run the focused gate with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_automation_smoke_gate.ps1"
+dart run tools\elaina_tool.dart check module --module automation_smoke_gate
 ```

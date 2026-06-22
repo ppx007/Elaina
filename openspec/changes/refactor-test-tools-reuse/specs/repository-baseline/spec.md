@@ -19,27 +19,25 @@ file.
 
 ### Requirement: Repository baseline SHALL register module checks declaratively
 Runtime check modules SHALL be declared in a registry that maps module names to
-public check scripts, legacy scripts, Dart entrypoints, contracts, focused
-tests, and required files.
+contracts, focused tests, required files, dependency checks, and boundary term
+checks.
 
 #### Scenario: Dart runtime CLI invokes a module
-- **WHEN** `tools/runtime_check.dart --module <name>` runs
-- **THEN** `Invoke-ModuleCheck.ps1` resolves the module through the registry
-  before falling back to filename-derived legacy script lookup
+- **WHEN** `dart run tools/elaina_tool.dart check module --module <name>` runs
+- **THEN** the Dart module runner resolves the module through
+  `tools/module_checks.json` and executes only registry-declared checks
 
 #### Scenario: A new runtime check module is introduced
 - **WHEN** a new module check is added
-- **THEN** its registry entry is added before introducing optional public
-  wrapper scripts, so coverage tests can validate the module mapping
+- **THEN** its registry entry is added before depending on it from another
+  module or the full gate
 
 ### Requirement: Repository baseline SHALL keep tool entrypoints consolidated
-Existing public PowerShell check entrypoints SHALL remain available for humans
-and CI, while Dart runtime checks SHALL use the generic
-`tools/runtime_check.dart --module <name>` entrypoint instead of per-module
-wrapper files.
+Active repository tooling SHALL use `tools/elaina_tool.dart` instead of tracked
+PowerShell scripts or per-module Dart wrapper files.
 
 #### Scenario: Tool coverage is tested
 - **WHEN** `test/tools` runs
-- **THEN** the generic Dart runtime-check entrypoint, module registry, public
-  check scripts, legacy script requirements, and contract files are verified,
-  and per-module Dart wrapper files are rejected
+- **THEN** the Dart CLI, module registry, changed-test selector, Windows
+  release packager, contract files, and absence of tracked PowerShell scripts
+  are verified

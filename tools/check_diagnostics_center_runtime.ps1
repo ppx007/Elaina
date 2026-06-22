@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'diagnostics_center_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_diagnostics_center_runtime.ps1' -ScriptArguments $args

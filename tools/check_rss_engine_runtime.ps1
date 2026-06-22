@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'rss_engine_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_rss_engine_runtime.ps1' -ScriptArguments $args

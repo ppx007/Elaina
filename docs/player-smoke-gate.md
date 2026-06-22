@@ -14,9 +14,9 @@ track joins:
 Run the smoke gate with an explicit libmpv DLL or a directory containing it:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_player_smoke_gate.ps1" `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -RequireNativeSmoke
+dart run tools\elaina_tool.dart check full `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --require-native-smoke
 ```
 
 If `-SampleMediaPath` is omitted and `ffmpeg` is available, the gate generates
@@ -24,15 +24,15 @@ a temporary MP4 outside the repository. If `ffmpeg` is unavailable, provide a
 local sample file:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_player_smoke_gate.ps1" `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -SampleMediaPath "<sample-local-video-file>" `
-  -RequireNativeSmoke
+dart run tools\elaina_tool.dart check full `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --sample-media-path "<sample-local-video-file>" `
+  --require-native-smoke
 ```
 
-The script reuses:
+The Dart gate reuses:
 
-- `tools/package_windows_release.ps1`
+- `tools/elaina_tool.dart package windows-release`
 - `tools/media_kit_mpv_binding_smoke.dart`
 
 Temporary release directories, zips, and generated sample media are created
@@ -46,7 +46,7 @@ For machines without native dependencies, the same script may run without
 instead of being mistaken for a successful native playback check:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_player_smoke_gate.ps1"
+dart run tools\elaina_tool.dart check full
 ```
 
 This mode is acceptable for generic baseline checks. Release readiness requires
@@ -58,10 +58,10 @@ After the external UI model adds `lib/main.dart`, app shell, file picker,
 playback page, video surface, and Windows runner, use the real release output:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\package_windows_release.ps1" `
-  -ReleaseDir "build\windows\x64\runner\Release" `
-  -LibMpvPath "<path-to-libmpv-2.dll-or-directory>" `
-  -OutputZip "build\dist\elaina-windows-x64.zip"
+dart run tools\elaina_tool.dart package windows-release `
+  --release-dir "build\windows\x64\runner\Release" `
+  --libmpv-path "<path-to-libmpv-2.dll-or-directory>" `
+  --output-zip "build\dist\elaina-windows-x64.zip"
 ```
 
 The zip must allow unzip-and-run local playback without customer MPV

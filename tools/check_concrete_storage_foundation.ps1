@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'concrete_storage_foundation' -CheckScriptPath 'tools/module-checks/legacy/check_concrete_storage_foundation.ps1' -ScriptArguments $args

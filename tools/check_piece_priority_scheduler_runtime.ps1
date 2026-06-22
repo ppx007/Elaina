@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'piece_priority_scheduler_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_piece_priority_scheduler_runtime.ps1' -ScriptArguments $args

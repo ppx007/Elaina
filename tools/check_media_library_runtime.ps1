@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'media_library_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_media_library_runtime.ps1' -ScriptArguments $args

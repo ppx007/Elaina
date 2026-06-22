@@ -6,7 +6,7 @@ Elaina (code name 1017) is an end-side-first cross-platform ACG player planned a
 
 - OpenSpec is the active workflow authority for proposal, apply, validation, and archive work.
 - The Step 1-30 contract bootstrap has been archived into `openspec/changes/archive/` and synced into `openspec/specs/`.
-- Dart contract scaffolding lives under `lib/` and is validated with `dart analyze` plus project checker scripts in `tools/`.
+- Dart contract scaffolding lives under `lib/` and is validated with `dart analyze` plus the Dart CLI in `tools/`.
 - Trellis files remain in `.trellis/` as legacy context only; do not route new work through Trellis unless a future change explicitly re-enables it.
 
 ## Workflow
@@ -26,30 +26,27 @@ Use focused validation while iterating. Small changes should start with the
 fast changed-path gate instead of a repository-wide Flutter test run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Fast
+dart run tools\elaina_tool.dart check changed --scope Fast
 ```
 
 Use the module scope when a change crosses related UI/domain/provider files:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Module
+dart run tools\elaina_tool.dart check changed --scope Module
 ```
 
 Tooling-only Dart tests intentionally live under `test/tools` and can run with
 the Dart test runner:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_runtime_check_base.ps1"
-dart test test\tools
+dart run tools\elaina_tool.dart check module --module runtime_check_base
 ```
 
 Runtime check modules are registered in `tools\module_checks.json`. New modules
-should add a registry entry first, then expose any stable public wrapper through
-`tools\check_*.ps1` only when humans or CI need that named PowerShell entry.
-The generic Dart entrypoint is:
+should add a registry entry first. The generic Dart entrypoint is:
 
 ```powershell
-dart run tools\runtime_check.dart --module bangumi_runtime
+dart run tools\elaina_tool.dart check module --module bangumi_runtime
 ```
 
 Project tests that import `flutter_test` require the Flutter test runner; do not
@@ -61,12 +58,11 @@ flutter test test\ui\hero_carousel_test.dart test\widget_test.dart
 ```
 
 Run the full release-readiness gate before treating the current baseline as
-complete. This scope delegates to `tools\check_full_feature_gate.ps1`, which
-already includes OpenSpec validation, analysis, full Flutter tests, and module
-checks:
+complete. The full gate includes OpenSpec validation, analysis, full Flutter
+tests, module checks, and the non-UI player smoke gate:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_changed_tests.ps1" -Scope Full
+dart run tools\elaina_tool.dart check full
 ```
 
 Frontend implementation should start from the handoff document:
@@ -97,8 +93,8 @@ The Phase 0 foundation runtime bootstrap is now implemented:
 Run bootstrap validation:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "tools\check_phase0_foundation.ps1"
-dart run tools\runtime_check.dart --module player_core
+dart run tools\elaina_tool.dart check module --module phase0_foundation
+dart run tools\elaina_tool.dart check module --module player_core
 openspec.cmd validate "bootstrap-phase0-foundation-runtime" --strict
 ```
 

@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'timeline_overlay_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_timeline_overlay_runtime.ps1' -ScriptArguments $args

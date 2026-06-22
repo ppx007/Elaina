@@ -19,8 +19,8 @@ app harness, screen robots, and a declarative test-suite selector.
   the harness and robots for navigation and controls while keeping
   user-visible content assertions where they carry behavior.
 - Add official Flutter `integration_test` as the desktop smoke-test entry.
-- Replace hardcoded changed-test selection in `tools/check_changed_tests.ps1`
-  with `tools/test_suites.json`.
+- Replace hardcoded changed-test selection with `tools/test_suites.json` and
+  the Dart `tools/elaina_tool.dart check changed` command.
 
 ## Impact
 

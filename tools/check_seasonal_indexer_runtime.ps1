@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'seasonal_indexer_runtime' -CheckScriptPath 'tools/module-checks/legacy/check_seasonal_indexer_runtime.ps1' -ScriptArguments $args

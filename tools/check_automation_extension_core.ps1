@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'automation_extension_core' -CheckScriptPath 'tools/module-checks/legacy/check_automation_extension_core.ps1' -ScriptArguments $args

@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'rss_feed_fetcher_parser' -CheckScriptPath 'tools/module-checks/legacy/check_rss_feed_fetcher_parser.ps1' -ScriptArguments $args

@@ -43,8 +43,7 @@ Run the focused smoke gate with:
 
 ```powershell
 flutter test test\domain\acg\acg_experience_runtime_test.dart
-dart run tools\runtime_check.dart --module acg_data_experience
-powershell -ExecutionPolicy Bypass -File "tools\check_acg_data_experience.ps1"
+dart run tools\elaina_tool.dart check module --module acg_data_experience
 ```
 
 This validates the deterministic Step 36-40 composition path. A later UI-owned

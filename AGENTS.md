@@ -67,7 +67,7 @@ elaina/
 | Active specs | `openspec/specs/*/spec.md` |
 | Archived changes | `openspec/changes/archive/` |
 | Public Dart exports | `lib/elaina.dart` |
-| Local validation scripts | `tools/check_*.ps1` and `tools/*_runtime_check.dart` |
+| Local validation CLI | `tools/elaina_tool.dart`, `tools/module_checks.json`, and `tools/test_suites.json` |
 
 ## Conventions
 
@@ -108,7 +108,7 @@ openspec.cmd archive "<change-name>" -y
 
 # Dart/Flutter validation
 dart analyze
-powershell -ExecutionPolicy Bypass -File "tools\check_automation_extension_core.ps1"
+dart run tools\elaina_tool.dart check changed --scope Fast
 ```
 
 ## Notes

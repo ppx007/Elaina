@@ -1,1 +1,0 @@
-﻿& (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-ModuleCheck.ps1') -Module 'online_rule_test_harness' -CheckScriptPath 'tools/module-checks/legacy/check_online_rule_test_harness.ps1' -ScriptArguments $args
