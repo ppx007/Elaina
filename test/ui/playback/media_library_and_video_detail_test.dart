@@ -1482,6 +1482,8 @@ void main() {
 
       await tester.tap(find.text('设置'));
       await tester.pump();
+      await tester.tap(find.text('Bangumi').first);
+      await tester.pump();
       final Finder tokenField =
           find.byKey(const ValueKey<String>('settings-bangumi-access-token'));
       final Finder loginButton =

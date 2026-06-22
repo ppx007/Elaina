@@ -4,13 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/media/media_library.dart';
+import '../../domain/media/media_library_folder_preferences.dart';
 import '../../domain/media/media_library_runtime.dart';
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_source_handoff.dart';
 import '../../domain/settings/settings_domain.dart';
 import '../../foundation/constants.dart';
 import '../theme/elaina_theme.dart';
-import 'media_library_folder_preferences.dart';
 
 typedef DirectoryPathPicker = Future<String?> Function();
 

@@ -4,12 +4,28 @@ import '../../foundation/constants.dart';
 import '../../foundation/storage/storage_contracts.dart';
 
 abstract final class SettingsPreferenceKeys {
+  static const String themeMode = 'theme_mode';
   static const String bangumiAccessToken = 'bangumi_access_token';
   static const String bangumiMirrorEnabled = 'bangumi_mirror_enabled';
   static const String bangumiMirrorApiBaseUrl = 'bangumi_mirror_api_base_url';
   static const String bangumiMirrorImageBaseUrl =
       'bangumi_mirror_image_base_url';
   static const String mediaLibraryRoots = 'media_library_roots';
+}
+
+abstract final class SettingsThemeModePreference {
+  static const String auto = 'auto';
+  static const String light = 'light';
+  static const String dark = 'dark';
+
+  static String parse(String? value) {
+    final String normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) return auto;
+    return switch (normalized) {
+      auto || light || dark => normalized,
+      _ => throw FormatException('Invalid theme mode: $value'),
+    };
+  }
 }
 
 abstract final class BangumiMirrorSettings {

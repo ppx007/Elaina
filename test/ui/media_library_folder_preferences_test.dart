@@ -1,4 +1,4 @@
-import 'package:elaina/src/ui/media/media_library_folder_preferences.dart';
+import 'package:elaina/src/domain/media/media_library_folder_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

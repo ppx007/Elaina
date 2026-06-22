@@ -142,6 +142,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return ElainaThemeProvider(
       initialMode: ElainaThemeMode.auto,
+      settingsRuntime: _settingsRuntime,
       child: Builder(
         builder: (BuildContext context) {
           final ElainaThemeData theme = ElainaTheme.of(context);

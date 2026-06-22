@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
+import '../../domain/settings/settings_domain.dart';
 
 enum ElainaThemeMode {
   light,
@@ -157,11 +160,13 @@ class ElainaTheme extends InheritedWidget {
 class ElainaThemeProvider extends StatefulWidget {
   final Widget child;
   final ElainaThemeMode initialMode;
+  final SettingsRuntime? settingsRuntime;
 
   const ElainaThemeProvider({
     super.key,
     required this.child,
     this.initialMode = ElainaThemeMode.auto,
+    this.settingsRuntime,
   });
 
   @override
@@ -177,6 +182,7 @@ class _ElainaThemeProviderState extends State<ElainaThemeProvider>
     super.initState();
     _mode = widget.initialMode;
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_loadPersistedMode());
   }
 
   @override
@@ -192,11 +198,33 @@ class _ElainaThemeProviderState extends State<ElainaThemeProvider>
     }
   }
 
+  Future<void> _loadPersistedMode() async {
+    final SettingsRuntime? settingsRuntime = widget.settingsRuntime;
+    if (settingsRuntime == null) return;
+    final String rawMode = SettingsThemeModePreference.parse(
+      await settingsRuntime.getPreference(SettingsPreferenceKeys.themeMode),
+    );
+    final ElainaThemeMode mode = _themeModeFromPreference(rawMode);
+    if (!mounted || mode == _mode) return;
+    setState(() {
+      _mode = mode;
+    });
+  }
+
   void _changeMode(ElainaThemeMode newMode) {
     if (_mode != newMode) {
       setState(() {
         _mode = newMode;
       });
+      final SettingsRuntime? settingsRuntime = widget.settingsRuntime;
+      if (settingsRuntime != null) {
+        unawaited(
+          settingsRuntime.setPreference(
+            key: SettingsPreferenceKeys.themeMode,
+            value: _themeModeToPreference(newMode),
+          ),
+        );
+      }
     }
   }
 
@@ -227,6 +255,23 @@ class _ElainaThemeProviderState extends State<ElainaThemeProvider>
       child: widget.child,
     );
   }
+}
+
+ElainaThemeMode _themeModeFromPreference(String value) {
+  return switch (value) {
+    SettingsThemeModePreference.light => ElainaThemeMode.light,
+    SettingsThemeModePreference.dark => ElainaThemeMode.dark,
+    SettingsThemeModePreference.auto => ElainaThemeMode.auto,
+    _ => throw FormatException('Invalid theme mode: $value'),
+  };
+}
+
+String _themeModeToPreference(ElainaThemeMode mode) {
+  return switch (mode) {
+    ElainaThemeMode.light => SettingsThemeModePreference.light,
+    ElainaThemeMode.dark => SettingsThemeModePreference.dark,
+    ElainaThemeMode.auto => SettingsThemeModePreference.auto,
+  };
 }
 
 /// Custom painter that draws ACG paint splatters and ink drips on the canvas.
