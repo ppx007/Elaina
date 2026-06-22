@@ -1,39 +1,30 @@
-# Frontend Development Guidelines
+# Frontend Supplemental Conventions
 
-> Best practices for frontend development in this project.
+OpenSpec is the authority for UI behavior, page requirements, and cross-layer
+contracts. This directory is only a supplemental convention library for Flutter
+UI implementation and tests.
 
----
+Do not treat generic placeholder files as authoritative. Prefer the active
+codebase, OpenSpec specs, and stable UI test framework over old Trellis
+templates.
 
-## Overview
+## Read When Relevant
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
+| Guide | Use When |
+| --- | --- |
+| [Component Guidelines](./component-guidelines.md) | Changing shared UI composition |
+| [State Management](./state-management.md) | Moving state across UI/domain/runtime boundaries |
+| [Quality Guidelines](./quality-guidelines.md) | Reviewing widget tests, dense layouts, and validation tiers |
+| [Type Safety](./type-safety.md) | Changing projection or view-model types |
 
----
+`hook-guidelines.md` is historical template material unless it has been updated
+for Dart/Flutter. Elaina does not use React hooks.
 
-## Guidelines Index
+## Validation
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
-
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+```powershell
+dart analyze
+dart run tools\elaina_tool.dart check changed --scope Fast
+dart run tools\elaina_tool.dart check module --module <name>
+openspec.cmd validate --all
+```

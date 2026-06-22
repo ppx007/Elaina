@@ -21,10 +21,10 @@ When you copy-paste or rewrite existing logic:
 
 ```bash
 # Search for similar function names
-grep -r "functionName" .
+rg "functionName"
 
 # Search for similar logic
-grep -r "keyword" .
+rg "keyword"
 ```
 
 ### Step 2: Ask These Questions

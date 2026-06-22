@@ -75,23 +75,15 @@ terminal with no parent agent, use the workflow guidance below normally.
 </sub-agent-notice>"""
 
 
-# Bootstrap notice for Codex while the session has no active task. Replaces the
-# heavyweight SessionStart context injection — instead of pushing 9.5 KB of
-# workflow text up front, we just nudge the AI to read the `trellis-start` skill once.
-# The nudge keeps showing up while status == "no_task" (cheap text, AI won't
-# re-read after the first time). Once a task is created the breadcrumb status
-# flips and this notice stops appearing automatically. Sub-agents are warded
-# off by the <sub-agent-notice> above plus the explicit exemption below.
+# Bootstrap notice for Codex while there is no active legacy Trellis task. The
+# repository is OpenSpec-managed; this notice only points to optional Trellis
+# context without making Trellis the workflow authority.
 CODEX_NO_TASK_BOOTSTRAP_NOTICE = """<trellis-bootstrap>
-You are running in a Trellis-managed Codex session and there is no active task yet.
-If you have not already loaded Trellis context this session, read the `trellis-start` skill once:
+This repository is OpenSpec-managed. Trellis is supplemental context only.
+Follow AGENTS.md, README.md, and OpenSpec for normal work.
 
-  $trellis-start
-
-(equivalent to reading `.agents/skills/trellis-start/SKILL.md` and following its Steps 1-3)
-
-The skill walks you through workflow.md, dev profile, git status, active tasks, and spec
-indexes. Then route the user's request per the <workflow-state> A/B/C rules below.
+If you need legacy Trellis context, read `.agents/skills/trellis-start/SKILL.md`.
+Do not create Trellis tasks or launch legacy Trellis agents unless the user explicitly asks.
 
 Sub-agent exemption: if you are a sub-agent (spawned via spawn_agent with a parent task
 message), DO NOT read `$trellis-start`. Execute the parent message directly as instructed by the
@@ -346,8 +338,8 @@ def main() -> int:
     config = _read_trellis_config(root)
     task = get_active_task(root, data)
     if task is None:
-        # No active task — still emit a breadcrumb nudging AI toward
-        # trellis-brainstorm + task.py create when user describes real work.
+        # No active legacy Trellis task. This is normal for the current
+        # OpenSpec-managed Elaina workflow.
         no_task_key = resolve_breadcrumb_key("no_task", platform, config)
         breadcrumb = build_breadcrumb(
             None, "no_task", templates, breadcrumb_key=no_task_key

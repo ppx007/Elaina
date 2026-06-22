@@ -53,9 +53,8 @@ These guides help you **ask the right questions before coding**.
 
 > **Before changing ANY value, ALWAYS search first!**
 
-```bash
-# Search for the value you're about to change
-grep -r "value_to_change" .
+```powershell
+rg "value_to_change"
 ```
 
 This single habit prevents most "forgot to update X" bugs.

@@ -1,38 +1,31 @@
-# Backend Development Guidelines
+# Backend Supplemental Conventions
 
-> Best practices for backend development in this project.
+OpenSpec is the authority for Elaina behavior and cross-layer contracts. This
+directory is only a supplemental convention library for backend-shaped Dart
+code such as provider, gateway, storage, streaming, playback, diagnostics, and
+tooling runtimes.
 
----
+Do not treat generic placeholder files as authoritative. If a linked file has
+not been made Elaina-specific, use the active code and OpenSpec instead.
 
-## Overview
+## Read When Relevant
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+| Guide | Use When |
+| --- | --- |
+| [Directory Structure](./directory-structure.md) | Moving or adding backend/runtime files |
+| [Error Handling](./error-handling.md) | Changing failure normalization or runtime boundaries |
+| [Quality Guidelines](./quality-guidelines.md) | Reviewing magic values, fallback behavior, and validation |
+| [Logging Guidelines](./logging-guidelines.md) | Touching diagnostics or runtime events |
 
----
+`database-guidelines.md` is retained as historical template material. Elaina
+does not currently use it as an active storage authority; storage behavior
+belongs in OpenSpec and the Dart code.
 
-## Guidelines Index
+## Validation
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
-
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+```powershell
+dart analyze
+dart run tools\elaina_tool.dart check changed --scope Fast
+dart run tools\elaina_tool.dart check module --module <name>
+openspec.cmd validate --all
+```

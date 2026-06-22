@@ -63,10 +63,11 @@ files.
 
 Use focused validation while iterating:
 
-- `tools/check_changed_tests.ps1 -Scope Fast` for normal small changes.
-- `tools/check_changed_tests.ps1 -Scope Module` when UI/domain/provider files
-  change together.
-- `tools/check_changed_tests.ps1 -Scope Full` only for release-readiness or
+- `dart run tools\elaina_tool.dart check changed --scope Fast` for normal
+  small changes.
+- `dart run tools\elaina_tool.dart check changed --scope Module` when
+  UI/domain/provider files change together.
+- `dart run tools\elaina_tool.dart check full` only for release-readiness or
   broad refactors.
 
 ### Dense Tool Surfaces

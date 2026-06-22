@@ -1,34 +1,33 @@
 ---
 name: trellis-before-dev
-description: "Discovers and injects project-specific coding guidelines from .trellis/spec/ before implementation begins. Reads spec indexes, pre-development checklists, and shared thinking guides for the target package. Use when starting a new coding task, before writing any code, switching to a different package, or needing to refresh project conventions and standards."
+description: "Loads supplemental project-local conventions from .trellis/spec before implementation when they are relevant. OpenSpec remains the active workflow and behavior authority."
 ---
 
-Read the relevant development guidelines before starting your task.
+# Supplemental Trellis Spec Read
 
-Execute these steps:
+Use this skill only to refresh local coding conventions. It is not a gate that
+blocks straightforward implementation, and it does not replace OpenSpec.
 
-1. **Discover packages and their spec layers**:
-   ```bash
-   python ./.trellis/scripts/get_context.py --mode packages
+## Authority
+
+- Follow `AGENTS.md`, `README.md`, OpenSpec, and the latest user request first.
+- Use `.trellis/spec/` for implementation habits, testing heuristics, and
+  historical gotchas.
+- Ignore generic "to fill" Trellis template content.
+
+## Steps
+
+1. Discover available Trellis spec indexes:
+
+   ```powershell
+   python .\.trellis\scripts\get_context.py --mode packages
    ```
 
-2. **Identify which specs apply** to your task based on:
-   - Which package you're modifying (e.g., `cli/`, `docs-site/`)
-   - What type of work (backend, frontend, unit-test, docs, etc.)
+2. Pick only the indexes relevant to the files you are about to touch.
 
-3. **Read the spec index** for each relevant module:
-   ```bash
-   cat .trellis/spec/<package>/<layer>/index.md
-   ```
-   Follow the **"Pre-Development Checklist"** section in the index.
+3. Read those indexes and any linked guideline files that contain concrete
+   Elaina-specific rules.
 
-4. **Read the specific guideline files** listed in the Pre-Development Checklist that are relevant to your task. The index is NOT the goal — it points you to the actual guideline files (e.g., `error-handling.md`, `conventions.md`, `mock-strategies.md`). Read those files to understand the coding standards and patterns.
+4. Return to normal OpenSpec-first development and validate with the Dart CLI.
 
-5. **Always read shared guides**:
-   ```bash
-   cat .trellis/spec/guides/index.md
-   ```
-
-6. Understand the coding standards and patterns you need to follow, then proceed with your development plan.
-
-This step is **mandatory** before writing any code.
+Do not create Trellis tasks or launch legacy Trellis agents from this skill.
