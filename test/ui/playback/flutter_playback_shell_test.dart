@@ -1,7 +1,11 @@
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/ui/playback/flutter_playback_shell.dart';
+import 'package:elaina/src/ui/playback/production_playback_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../framework/elaina_finders.dart';
+import '../../support/widget_test_waiters.dart';
 
 void main() {
   testWidgets('renders playback state and active surface controls',
@@ -133,6 +137,60 @@ void main() {
     expect(find.text('Progress'), findsNothing);
     expect(find.text('Tracks'), findsNothing);
   });
+
+  testWidgets('production page renders transport overlays and metadata',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+
+    expect(ElainaFinders.playbackPage, findsOneWidget);
+    expect(ElainaFinders.playbackPlayPause, findsOneWidget);
+    expect(ElainaFinders.playbackSeekBar, findsOneWidget);
+    expect(ElainaFinders.playbackSubtitleOverlay, findsOneWidget);
+    expect(ElainaFinders.playbackDanmakuOverlay, findsOneWidget);
+    expect(find.text('主字幕对白'), findsWidgets);
+    expect(find.text('滚动弹幕'), findsOneWidget);
+    expect(find.text('episode-1.mkv'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production inspector discovers and switches tracks',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+    await tester.pumpUntilFound(ElainaFinders.playbackTrack('audio-main'));
+
+    await tester.tap(ElainaFinders.playbackTrack('audio-main'));
+    await tester.pump();
+
+    expect(
+        controller.currentState.activeTracks.audioTrackId?.value, 'audio-main');
+    expect(ElainaFinders.playbackTrackPanel, findsOneWidget);
+    expect(find.text('音轨'), findsWidgets);
+    expect(find.text('字幕轨'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production page exposes failure state',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = MockPlaybackController(
+      matrix: _productionMatrix(),
+      initialState: const PlaybackStateSnapshot(
+        status: PlaybackLifecycleStatus.failed,
+        failureReason: '解码器初始化失败',
+      ),
+    );
+
+    await tester.pumpWidget(_productionHost(controller));
+
+    expect(find.text('加载失败'), findsOneWidget);
+    expect(find.text('解码器初始化失败'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Widget _host(FlutterPlaybackShellDriver driver) {
@@ -184,5 +242,95 @@ MockFlutterPlaybackShellDriver _driver() {
         PlaybackPagePanelDescriptor(id: PlaybackPagePanelId.tracks),
       ],
     ),
+  );
+}
+
+Widget _productionHost(MockPlaybackController controller) {
+  return MaterialApp(
+    home: ProductionPlaybackPage(
+      controller: controller,
+      videoSurface: const ColoredBox(color: Colors.black),
+    ),
+  );
+}
+
+MockPlaybackController _productionController() {
+  return MockPlaybackController(
+    matrix: _productionMatrix(),
+    initialState: PlaybackStateSnapshot(
+      status: PlaybackLifecycleStatus.paused,
+      sourceUri: Uri.file('D:/Anime/episode-1.mkv'),
+      timeline: const PlaybackTimelineState(
+        position: Duration(minutes: 1, seconds: 20),
+        duration: Duration(minutes: 24),
+      ),
+      buffering: const PlaybackBufferingState(
+        isBuffering: false,
+        bufferedFraction: 0.4,
+      ),
+      subtitles: PlaybackSubtitleStateSnapshot(
+        selectedTrackId: 'subtitle-ja',
+        activeCues: <DomainSubtitleCueDescriptor>[
+          DomainSubtitleCueDescriptor(
+            start: Duration(minutes: 1, seconds: 19),
+            end: Duration(minutes: 1, seconds: 24),
+            text: '主字幕对白',
+          ),
+        ],
+      ),
+      danmaku: PlaybackDanmakuStateSnapshot(
+        clockPosition: const Duration(minutes: 1, seconds: 20),
+        lanes: <DomainDanmakuLaneDescriptor>[
+          DomainDanmakuLaneDescriptor(
+            mode: DomainDanmakuMode.scrolling,
+            comments: const <DomainDanmakuCommentDescriptor>[
+              DomainDanmakuCommentDescriptor(
+                id: 'comment-1',
+                timestamp: Duration(minutes: 1, seconds: 20),
+                text: '滚动弹幕',
+                mode: DomainDanmakuMode.scrolling,
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+    tracks: const <MediaTrackDescriptor>[
+      MediaTrackDescriptor(
+        id: MediaTrackId('audio-main'),
+        type: MediaTrackType.audio,
+        label: '日语主音轨',
+        languageCode: 'ja',
+      ),
+      MediaTrackDescriptor(
+        id: MediaTrackId('subtitle-ja'),
+        type: MediaTrackType.subtitle,
+        label: '日语字幕',
+        languageCode: 'ja',
+      ),
+    ],
+  );
+}
+
+PlaybackCapabilityMatrix _productionMatrix() {
+  return PlaybackCapabilityMatrix(
+    capabilities: const <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+      PlaybackCapability.playPause: CapabilityStatus.supported(),
+      PlaybackCapability.seek: CapabilityStatus.supported(),
+      PlaybackCapability.stop: CapabilityStatus.supported(),
+      PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+      PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
+      PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+      PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
+      PlaybackCapability.danmakuRendering: CapabilityStatus.supported(),
+      PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
+      PlaybackCapability.avSyncGuard:
+          CapabilityStatus.unsupported('当前后端未上报音画同步指标。'),
+      PlaybackCapability.fallbackAdapter:
+          CapabilityStatus.unsupported('未配置备用播放后端。'),
+    },
   );
 }

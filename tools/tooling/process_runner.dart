@@ -24,6 +24,7 @@ final class SystemToolProcessRunner implements ToolProcessRunner {
       executable,
       arguments,
       workingDirectory: workingDirectory,
+      runInShell: Platform.isWindows,
     );
     return ToolProcessResult(
       executable: executable,

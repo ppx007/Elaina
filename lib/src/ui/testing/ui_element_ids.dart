@@ -52,6 +52,19 @@ abstract final class UiElementIds {
   static const String rssItemSearch = 'rss-item-search';
   static const String heroCarouselCachePin = 'hero-carousel-cache-pin';
 
+  static const String playbackPage = 'playback-page';
+  static const String playbackPlayPause = 'playback-play-pause';
+  static const String playbackSeekBar = 'playback-seek-bar';
+  static const String playbackStop = 'playback-stop';
+  static const String playbackInspector = 'playback-inspector';
+  static const String playbackTrackPanel = 'playback-track-panel';
+  static const String playbackSubtitleOverlay = 'playback-subtitle-overlay';
+  static const String playbackDanmakuOverlay = 'playback-danmaku-overlay';
+
+  static String playbackTrack(String trackId) {
+    return 'playback-track-$trackId';
+  }
+
   static String homeSearchResult(String subjectId) {
     return 'home-search-result-$subjectId';
   }

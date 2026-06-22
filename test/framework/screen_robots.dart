@@ -13,6 +13,7 @@ final class ElainaRobots {
         settings = SettingsRobot(tester),
         mediaLibrary = MediaLibraryRobot(tester),
         detail = VideoDetailRobot(tester),
+        playback = PlaybackRobot(tester),
         downloads = DownloadsRobot(tester),
         rss = RssRobot(tester);
 
@@ -22,6 +23,7 @@ final class ElainaRobots {
   final SettingsRobot settings;
   final MediaLibraryRobot mediaLibrary;
   final VideoDetailRobot detail;
+  final PlaybackRobot playback;
   final DownloadsRobot downloads;
   final RssRobot rss;
 }
@@ -160,6 +162,22 @@ final class VideoDetailRobot extends ScreenRobot {
   void expectLoaded(String title) {
     expect(find.text(title), findsWidgets);
   }
+}
+
+final class PlaybackRobot extends ScreenRobot {
+  PlaybackRobot(super.tester);
+
+  Future<void> openInspector() async {
+    await tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+    await tester.pumpUntilFound(ElainaFinders.playbackInspector);
+  }
+
+  Future<void> selectTrack(String trackId) async {
+    await tap(ElainaFinders.playbackTrack(trackId));
+  }
+
+  Future<void> stop() => tap(ElainaFinders.playbackStop);
 }
 
 final class DownloadsRobot extends ScreenRobot {

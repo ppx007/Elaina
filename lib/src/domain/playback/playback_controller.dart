@@ -178,11 +178,14 @@ final class MockPlaybackController implements PlaybackControllerContract {
     required PlaybackCapabilityMatrix matrix,
     PlaybackStateSnapshot initialState =
         const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle),
+    List<MediaTrackDescriptor> tracks = const <MediaTrackDescriptor>[],
   })  : _matrix = matrix,
-        _currentState = initialState;
+        _currentState = initialState,
+        _tracks = List<MediaTrackDescriptor>.unmodifiable(tracks);
 
   final PlaybackCapabilityMatrix _matrix;
   final List<PlaybackStateObserver> _observers = <PlaybackStateObserver>[];
+  final List<MediaTrackDescriptor> _tracks;
   PlaybackStateSnapshot _currentState;
 
   @override
@@ -270,7 +273,7 @@ final class MockPlaybackController implements PlaybackControllerContract {
   Future<TrackDiscoveryResult> discoverTracks() {
     return Future<TrackDiscoveryResult>.value(
       TrackDiscoveryResult(
-        tracks: const <MediaTrackDescriptor>[],
+        tracks: _tracks,
         capabilityMatrix: matrix,
       ),
     );
@@ -311,6 +314,8 @@ final class MockPlaybackController implements PlaybackControllerContract {
     PlaybackTimelineState? timeline,
     PlaybackBufferingState? buffering,
     ActivePlaybackTrackState? activeTracks,
+    PlaybackSubtitleStateSnapshot? subtitles,
+    PlaybackDanmakuStateSnapshot? danmaku,
     Uri? sourceUri,
     String? failureReason,
   }) {
@@ -319,6 +324,8 @@ final class MockPlaybackController implements PlaybackControllerContract {
       timeline: timeline ?? currentState.timeline,
       buffering: buffering ?? currentState.buffering,
       activeTracks: activeTracks ?? currentState.activeTracks,
+      subtitles: subtitles ?? currentState.subtitles,
+      danmaku: danmaku ?? currentState.danmaku,
       sourceUri: sourceUri ?? currentState.sourceUri,
       failureReason: failureReason,
     );

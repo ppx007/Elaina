@@ -133,3 +133,4 @@ export 'src/streaming/virtual_media_stream.dart';
 export 'src/streaming/virtual_media_stream_runtime.dart';
 export 'src/ui/detail/video_detail_page_contract.dart';
 export 'src/ui/playback/playback_page_contract.dart';
+export 'src/ui/playback/playback_page_driver.dart';

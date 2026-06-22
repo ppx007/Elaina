@@ -126,6 +126,29 @@
       ]
     },
     {
+      "name": "playback-ui",
+      "runner": "flutter",
+      "paths": [
+        "test/ui/playback/flutter_playback_shell_test.dart",
+        "test/ui/playback/media_library_and_video_detail_test.dart",
+        "test/widget_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
+      "triggers": [
+        "test/ui/playback/**",
+        "test/framework/**",
+        "test/support/**",
+        "lib/src/ui/playback/**",
+        "lib/src/ui/testing/**",
+        "lib/src/domain/playback/**",
+        "lib/src/playback/capability_matrix.dart",
+        "lib/src/playback/track_management.dart"
+      ]
+    },
+    {
       "name": "bangumi-provider",
       "runner": "flutter",
       "paths": [

@@ -86,7 +86,22 @@ abstract final class ElainaFinders {
   static Finder get heroCarouselCachePin =>
       byId(UiElementIds.heroCarouselCachePin);
 
+  static Finder get playbackPage => byId(UiElementIds.playbackPage);
+  static Finder get playbackPlayPause => byId(UiElementIds.playbackPlayPause);
+  static Finder get playbackSeekBar => byId(UiElementIds.playbackSeekBar);
+  static Finder get playbackStop => byId(UiElementIds.playbackStop);
+  static Finder get playbackInspector => byId(UiElementIds.playbackInspector);
+  static Finder get playbackTrackPanel => byId(UiElementIds.playbackTrackPanel);
+  static Finder get playbackSubtitleOverlay =>
+      byId(UiElementIds.playbackSubtitleOverlay);
+  static Finder get playbackDanmakuOverlay =>
+      byId(UiElementIds.playbackDanmakuOverlay);
+
   static Finder heroCarouselItem(String subjectId) {
     return byId(UiElementIds.heroCarouselItem(subjectId));
+  }
+
+  static Finder playbackTrack(String trackId) {
+    return byId(UiElementIds.playbackTrack(trackId));
   }
 }
