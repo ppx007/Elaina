@@ -41,9 +41,24 @@ Future<void> _pumpSettingsPage(
 }
 
 final class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
-  @override
-  Future<List<DiagnosticsEventProjection>> queryEvents() async {
-    return <DiagnosticsEventProjection>[
+  _MockDiagnosticsRuntime({
+    List<List<DiagnosticsEventProjection>>? eventSnapshots,
+    List<double>? driftSnapshots,
+    List<int>? memorySnapshots,
+    Map<String, String>? capabilities,
+    this.failQueryAtCall,
+  })  : _eventSnapshots = eventSnapshots ?? _defaultEventSnapshots,
+        _driftSnapshots = driftSnapshots ?? const <double>[15.4],
+        _memorySnapshots = memorySnapshots ?? const <int>[200 * 1024 * 1024],
+        _capabilities = capabilities ??
+            const <String, String>{
+              'schemaRegistration': 'Supported',
+              'snapshotQuery': 'Unsupported',
+            };
+
+  static final List<List<DiagnosticsEventProjection>> _defaultEventSnapshots =
+      <List<DiagnosticsEventProjection>>[
+    <DiagnosticsEventProjection>[
       DiagnosticsEventProjection(
         id: '1',
         eventType: 'play_start',
@@ -62,22 +77,51 @@ final class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
         correlationId: 'corr-1',
         payloadText: 'Buffer low, speed: 10KB/s',
       ),
-    ];
+    ],
+  ];
+
+  final List<List<DiagnosticsEventProjection>> _eventSnapshots;
+  final List<double> _driftSnapshots;
+  final List<int> _memorySnapshots;
+  final Map<String, String> _capabilities;
+  final int? failQueryAtCall;
+
+  int queryEventsCalls = 0;
+  int driftCalls = 0;
+  int memoryCalls = 0;
+
+  @override
+  Future<List<DiagnosticsEventProjection>> queryEvents() async {
+    queryEventsCalls += 1;
+    final int? failingCall = failQueryAtCall;
+    if (failingCall != null && queryEventsCalls >= failingCall) {
+      throw StateError('diagnostics unavailable');
+    }
+    return _eventSnapshots[
+        _snapshotIndex(queryEventsCalls, _eventSnapshots.length)];
   }
 
   @override
   Map<String, String> getCapabilitiesSupportStatus() {
-    return <String, String>{
-      'schemaRegistration': 'Supported',
-      'snapshotQuery': 'Unsupported',
-    };
+    return _capabilities;
   }
 
   @override
-  Future<double> getLatestAvSyncDrift() async => 15.4;
+  Future<double> getLatestAvSyncDrift() async {
+    driftCalls += 1;
+    return _driftSnapshots[_snapshotIndex(driftCalls, _driftSnapshots.length)];
+  }
 
   @override
-  int getActiveMemoryUsageBytes() => 200 * 1024 * 1024;
+  int getActiveMemoryUsageBytes() {
+    memoryCalls += 1;
+    return _memorySnapshots[
+        _snapshotIndex(memoryCalls, _memorySnapshots.length)];
+  }
+
+  int _snapshotIndex(int callCount, int snapshotCount) {
+    return (callCount - 1).clamp(0, snapshotCount - 1);
+  }
 }
 
 void main() {
@@ -305,7 +349,7 @@ void main() {
   });
 
   testWidgets(
-      'DiagnosticsPage displays capability checklist, memory usage, drift and chronological log table',
+      'DiagnosticsPage displays auto-refresh dashboard charts and event table',
       (WidgetTester tester) async {
     final diagnosticsRuntime = _MockDiagnosticsRuntime();
 
@@ -317,17 +361,126 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('200.0 MB'), findsOneWidget);
-    expect(find.text('15.4 ms'), findsOneWidget);
+    expect(find.text('诊断中心'), findsOneWidget);
+    expect(ElainaFinders.diagnosticsAutoRefreshStatus, findsOneWidget);
+    expect(ElainaFinders.diagnosticsMemoryChart, findsOneWidget);
+    expect(ElainaFinders.diagnosticsDriftChart, findsOneWidget);
+    expect(ElainaFinders.diagnosticsSeverityChart, findsOneWidget);
+    expect(ElainaFinders.diagnosticsModuleChart, findsOneWidget);
+    expect(find.text('200.0 MB'), findsWidgets);
+    expect(find.text('15.4 ms'), findsWidgets);
 
-    expect(find.text('schemaRegistration'), findsOneWidget);
-    expect(find.text('snapshotQuery'), findsOneWidget);
-
-    await tester.tap(find.byType(Tab).at(1));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
     await tester.pumpAndSettle();
+    expect(ElainaFinders.diagnosticsCapabilityChart, findsWidgets);
+    expect(find.textContaining('schemaRegistration'), findsOneWidget);
+    expect(find.textContaining('snapshotQuery'), findsOneWidget);
 
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.diagnosticsEventTable, findsWidgets);
     expect(find.text('play_start'), findsOneWidget);
     expect(find.text('buffer_warning'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('DiagnosticsPage auto refreshes visible telemetry',
+      (WidgetTester tester) async {
+    final diagnosticsRuntime = _MockDiagnosticsRuntime(
+      memorySnapshots: <int>[200 * 1024 * 1024, 240 * 1024 * 1024],
+      driftSnapshots: const <double>[15.4, 42.0],
+    );
+
+    await ElainaTestHarness.pumpThemedWidget(
+      tester,
+      child: Scaffold(
+        body: DiagnosticsPage(
+          diagnosticsRuntime: diagnosticsRuntime,
+          refreshInterval: const Duration(seconds: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('200.0 MB'), findsWidgets);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(diagnosticsRuntime.queryEventsCalls, greaterThanOrEqualTo(2));
+    expect(find.text('240.0 MB'), findsWidgets);
+    expect(find.text('42.0 ms'), findsWidgets);
+  });
+
+  testWidgets(
+      'DiagnosticsPage pauses refresh while inactive and refreshes when active',
+      (WidgetTester tester) async {
+    final diagnosticsRuntime = _MockDiagnosticsRuntime(
+      memorySnapshots: <int>[200 * 1024 * 1024, 260 * 1024 * 1024],
+    );
+
+    await ElainaTestHarness.pumpThemedWidget(
+      tester,
+      child: Scaffold(
+        body: DiagnosticsPage(
+          diagnosticsRuntime: diagnosticsRuntime,
+          isActive: false,
+          refreshInterval: const Duration(milliseconds: 100),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final int callsWhileInactive = diagnosticsRuntime.queryEventsCalls;
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(diagnosticsRuntime.queryEventsCalls, callsWhileInactive);
+
+    await ElainaTestHarness.pumpThemedWidget(
+      tester,
+      child: Scaffold(
+        body: DiagnosticsPage(
+          diagnosticsRuntime: diagnosticsRuntime,
+          refreshInterval: const Duration(milliseconds: 100),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+        diagnosticsRuntime.queryEventsCalls, greaterThan(callsWhileInactive));
+    expect(find.text('200.0 MB'), findsWidgets);
+  });
+
+  testWidgets('DiagnosticsPage keeps last snapshot when refresh fails',
+      (WidgetTester tester) async {
+    final diagnosticsRuntime = _MockDiagnosticsRuntime(
+      failQueryAtCall: 2,
+    );
+
+    await ElainaTestHarness.pumpThemedWidget(
+      tester,
+      child: Scaffold(
+        body: DiagnosticsPage(
+          diagnosticsRuntime: diagnosticsRuntime,
+          refreshInterval: const Duration(milliseconds: 100),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('200.0 MB'), findsWidgets);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+
+    expect(ElainaFinders.diagnosticsErrorBanner, findsOneWidget);
+    expect(find.text('200.0 MB'), findsWidgets);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(find.text('play_start'), findsOneWidget);
   });
 }
 

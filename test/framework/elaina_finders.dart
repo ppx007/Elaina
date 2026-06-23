@@ -77,6 +77,23 @@ abstract final class ElainaFinders {
   static Finder get settingsSaveDns => byId(UiElementIds.settingsSaveDns);
   static Finder get settingsAddMediaFolder =>
       byId(UiElementIds.settingsAddMediaFolder);
+  static Finder get diagnosticsRefresh => byId(UiElementIds.diagnosticsRefresh);
+  static Finder get diagnosticsAutoRefreshStatus =>
+      byId(UiElementIds.diagnosticsAutoRefreshStatus);
+  static Finder get diagnosticsErrorBanner =>
+      byId(UiElementIds.diagnosticsErrorBanner);
+  static Finder get diagnosticsMemoryChart =>
+      byId(UiElementIds.diagnosticsMemoryChart);
+  static Finder get diagnosticsDriftChart =>
+      byId(UiElementIds.diagnosticsDriftChart);
+  static Finder get diagnosticsSeverityChart =>
+      byId(UiElementIds.diagnosticsSeverityChart);
+  static Finder get diagnosticsModuleChart =>
+      byId(UiElementIds.diagnosticsModuleChart);
+  static Finder get diagnosticsCapabilityChart =>
+      byId(UiElementIds.diagnosticsCapabilityChart);
+  static Finder get diagnosticsEventTable =>
+      byId(UiElementIds.diagnosticsEventTable);
 
   static Finder settingsEditMediaFolder(Uri folder) {
     return byId(UiElementIds.settingsEditMediaFolder(folder));

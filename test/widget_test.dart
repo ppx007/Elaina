@@ -4,6 +4,8 @@ import 'dart:async';
 // Page-specific behavior belongs in focused UI suites to keep this file stable.
 // Add broad shell coverage here only when multiple pages must boot together.
 import 'package:elaina/elaina.dart';
+import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +20,40 @@ void main() {
     expect(find.text('Elaina'), findsOneWidget);
     expect(ElainaFinders.navHome, findsOneWidget);
     expect(ElainaFinders.navSettings, findsOneWidget);
+  });
+
+  testWidgets(
+      'diagnostics refresh starts only while diagnostics page is active',
+      (WidgetTester tester) async {
+    final _CountingDiagnosticsRuntime diagnosticsRuntime =
+        _CountingDiagnosticsRuntime();
+    final ElainaAppFixture fixture = await ElainaTestHarness.pumpShell(
+      tester,
+      diagnosticsRuntime: diagnosticsRuntime,
+    );
+    addTearDown(fixture.dispose);
+
+    expect(diagnosticsRuntime.queryEventsCalls, 0);
+
+    await fixture.robot.shell.openDiagnostics();
+    await tester.pumpUntilFound(ElainaFinders.pageDiagnostics);
+    await tester.pump();
+
+    expect(diagnosticsRuntime.queryEventsCalls, greaterThanOrEqualTo(1));
+    final int callsAfterOpen = diagnosticsRuntime.queryEventsCalls;
+
+    await tester.pump(diagnosticsDefaultRefreshInterval);
+    await tester.pump();
+    expect(diagnosticsRuntime.queryEventsCalls, greaterThan(callsAfterOpen));
+
+    await fixture.robot.shell.openHome();
+    await tester.pump();
+    final int callsAfterLeaving = diagnosticsRuntime.queryEventsCalls;
+
+    await tester.pump(diagnosticsDefaultRefreshInterval);
+    await tester.pump();
+
+    expect(diagnosticsRuntime.queryEventsCalls, callsAfterLeaving);
   });
 
   testWidgets('home search opens typeahead and Enter opens first result',
@@ -385,4 +421,35 @@ void main() {
     expect(trackingProvider.currentAnimeCollectionCalls, trackingCalls);
     expect(find.text('Theme Tracking Anime'), findsOneWidget);
   });
+}
+
+final class _CountingDiagnosticsRuntime implements DiagnosticsRuntime {
+  int queryEventsCalls = 0;
+
+  @override
+  Future<List<DiagnosticsEventProjection>> queryEvents() async {
+    queryEventsCalls += 1;
+    return <DiagnosticsEventProjection>[
+      DiagnosticsEventProjection(
+        id: 'shell-diagnostics-event',
+        eventType: 'shell_probe',
+        severity: 'INFO',
+        occurredAt: DateTime(2026, 6, 23, 12),
+        sourceModule: 'shell',
+        correlationId: 'shell-correlation',
+        payloadText: 'Shell diagnostics probe.',
+      ),
+    ];
+  }
+
+  @override
+  Map<String, String> getCapabilitiesSupportStatus() {
+    return const <String, String>{'snapshotQuery': 'Supported'};
+  }
+
+  @override
+  Future<double> getLatestAvSyncDrift() async => 8.0;
+
+  @override
+  int getActiveMemoryUsageBytes() => 128 * 1024 * 1024;
 }

@@ -52,6 +52,18 @@ abstract final class UiElementIds {
   static const String settingsSaveDns = 'settings-save-dns';
   static const String settingsAddMediaFolder = 'settings-add-media-folder';
 
+  static const String diagnosticsRefresh = 'diagnostics-refresh';
+  static const String diagnosticsAutoRefreshStatus =
+      'diagnostics-auto-refresh-status';
+  static const String diagnosticsErrorBanner = 'diagnostics-error-banner';
+  static const String diagnosticsMemoryChart = 'diagnostics-memory-chart';
+  static const String diagnosticsDriftChart = 'diagnostics-drift-chart';
+  static const String diagnosticsSeverityChart = 'diagnostics-severity-chart';
+  static const String diagnosticsModuleChart = 'diagnostics-module-chart';
+  static const String diagnosticsCapabilityChart =
+      'diagnostics-capability-chart';
+  static const String diagnosticsEventTable = 'diagnostics-event-table';
+
   static const String downloadDetailScroll = 'download-detail-scroll';
   static const String rssItemSearch = 'rss-item-search';
   static const String rssSelectVisibleDownloadable =

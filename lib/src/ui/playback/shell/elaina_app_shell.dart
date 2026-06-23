@@ -1956,6 +1956,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       key: const ValueKey<String>(UiElementIds.pageDiagnostics),
       child: DiagnosticsPage(
         diagnosticsRuntime: widget.diagnosticsRuntime,
+        isActive: _currentIndex == _diagnosticsNavIndex,
       ),
     );
   }
