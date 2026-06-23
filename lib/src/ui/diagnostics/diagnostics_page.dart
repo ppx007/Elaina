@@ -459,8 +459,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
         _buildTelemetryPanel(theme),
         const SizedBox(height: _sectionGap),
         _buildEventDistributionPanel(theme, buckets),
-        const SizedBox(height: _sectionGap),
-        _buildModuleHealthPanel(theme),
       ],
     );
   }
@@ -580,21 +578,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildModuleHealthPanel(ElainaThemeData theme) {
-    return _Panel(
-      title: '模块健康',
-      theme: theme,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: <Widget>[
-          for (final DiagnosticsModuleSnapshot module in _snapshot.modules)
-            _HealthChip(module: module, theme: theme),
-        ],
       ),
     );
   }
@@ -1306,43 +1289,6 @@ class _ModuleNavItem extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HealthChip extends StatelessWidget {
-  const _HealthChip({required this.module, required this.theme});
-
-  final DiagnosticsModuleSnapshot module;
-  final ElainaThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = _moduleColor(theme, module.health);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(_healthIcon(module.health), color: color, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              '${module.label}: ${module.summary}',
-              style: TextStyle(
-                color: theme.onSurface,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );
