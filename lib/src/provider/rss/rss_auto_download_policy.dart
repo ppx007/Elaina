@@ -147,6 +147,29 @@ final class RssDownloadCandidate {
   final Map<String, String> metadata;
 }
 
+RssDownloadSource? rssDownloadSourceForFeedItem(FeedItem item) {
+  final Uri? enclosureUri = item.enclosure?.uri;
+  if (enclosureUri != null) {
+    if (enclosureUri.scheme == 'magnet') {
+      return MagnetRssDownloadSource(enclosureUri.toString());
+    }
+    if (_isRssTorrentUri(enclosureUri, item.enclosure?.mimeType)) {
+      return TorrentRssDownloadSource(enclosureUri);
+    }
+  }
+  final Uri? link = item.link;
+  if (link == null) {
+    return null;
+  }
+  if (link.scheme == 'magnet') {
+    return MagnetRssDownloadSource(link.toString());
+  }
+  if (_isRssTorrentUri(link, null)) {
+    return TorrentRssDownloadSource(link);
+  }
+  return null;
+}
+
 enum RssAutomationRejectionKind {
   automationDisabled,
   policyDisabled,
@@ -502,7 +525,7 @@ final class DeterministicRssAutoDownloadPolicyEvaluator
             current: mostSpecificRejection, candidate: rejection);
         continue;
       }
-      final RssDownloadSource? source = _downloadSourceFor(item);
+      final RssDownloadSource? source = rssDownloadSourceForFeedItem(item);
       if (source == null) {
         return RssAutomationRejected(
           item: item,
@@ -698,41 +721,18 @@ final class DeterministicRssAutoDownloadPolicyEvaluator
   }
 
   String? _downloadSourceValue(FeedItem item) {
-    final RssDownloadSource? source = _downloadSourceFor(item);
+    final RssDownloadSource? source = rssDownloadSourceForFeedItem(item);
     return switch (source) {
       null => null,
       MagnetRssDownloadSource(uri: final String uri) => uri,
       TorrentRssDownloadSource(uri: final Uri uri) => uri.toString(),
     };
   }
+}
 
-  RssDownloadSource? _downloadSourceFor(FeedItem item) {
-    final Uri? enclosureUri = item.enclosure?.uri;
-    if (enclosureUri != null) {
-      if (enclosureUri.scheme == 'magnet') {
-        return MagnetRssDownloadSource(enclosureUri.toString());
-      }
-      if (_isTorrentUri(enclosureUri, item.enclosure?.mimeType)) {
-        return TorrentRssDownloadSource(enclosureUri);
-      }
-    }
-    final Uri? link = item.link;
-    if (link == null) {
-      return null;
-    }
-    if (link.scheme == 'magnet') {
-      return MagnetRssDownloadSource(link.toString());
-    }
-    if (_isTorrentUri(link, null)) {
-      return TorrentRssDownloadSource(link);
-    }
-    return null;
-  }
-
-  bool _isTorrentUri(Uri uri, String? mimeType) {
-    return mimeType == 'application/x-bittorrent' ||
-        uri.path.toLowerCase().endsWith('.torrent');
-  }
+bool _isRssTorrentUri(Uri uri, String? mimeType) {
+  return mimeType == 'application/x-bittorrent' ||
+      uri.path.toLowerCase().endsWith('.torrent');
 }
 
 RssAutomationHandoffOutcome rssAutomationHandoffFromCandidate(

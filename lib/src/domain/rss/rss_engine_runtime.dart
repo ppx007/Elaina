@@ -9,6 +9,8 @@ import '../download/download_domain.dart';
 import 'rss_engine.dart';
 
 export '../../provider/rss/feed_contracts.dart';
+export '../../provider/rss/rss_auto_download_policy.dart'
+    show rssDownloadSourceForFeedItem;
 
 enum RssEngineRuntimeStatus {
   idle,
@@ -164,6 +166,14 @@ const String rssAutoDownloadDefaultPolicyLabel = '默认 RSS 自动下载规则'
 
 const String _rssAutoDownloadRuleIdPrefix = 'rss-rule';
 const String _rssAutoDownloadEnqueueIdPrefix = 'enqueue';
+const String _rssManualDownloadRuleId = 'manual-download';
+const String _rssManualDownloadDedupePrefix = 'manual';
+const String _rssManualDownloadUnavailableMessage =
+    'RSS download task enqueuer is not available.';
+const String _rssManualDownloadMissingItemMessage =
+    'RSS feed item is not available in the runtime snapshot.';
+const String _rssManualDownloadUnsupportedSourceMessage =
+    'RSS feed item does not expose a magnet or torrent source.';
 
 final class RssAutoDownloadRuleDraft {
   const RssAutoDownloadRuleDraft({
@@ -271,6 +281,46 @@ final class RssAutoDownloadExecutionReport {
   int get acceptedCount => enqueueResults
       .where((RssAutoDownloadEnqueueResult result) => result.isSuccess)
       .length;
+}
+
+enum RssManualDownloadItemState {
+  accepted,
+  rejected,
+  failed,
+}
+
+final class RssManualDownloadItemResult {
+  const RssManualDownloadItemResult({
+    required this.itemId,
+    required this.state,
+    required this.message,
+    this.taskId,
+  }) : assert(message != '',
+            'RSS manual download item result message must not be empty.');
+
+  final FeedItemId itemId;
+  final RssManualDownloadItemState state;
+  final String message;
+  final String? taskId;
+
+  bool get isSuccess => state == RssManualDownloadItemState.accepted;
+}
+
+final class RssManualDownloadReport {
+  RssManualDownloadReport({
+    required Iterable<RssManualDownloadItemResult> itemResults,
+  }) : itemResults =
+            List<RssManualDownloadItemResult>.unmodifiable(itemResults);
+
+  final List<RssManualDownloadItemResult> itemResults;
+
+  int get totalCount => itemResults.length;
+
+  int get acceptedCount => itemResults
+      .where((RssManualDownloadItemResult result) => result.isSuccess)
+      .length;
+
+  int get failedCount => totalCount - acceptedCount;
 }
 
 final class RssTorrentUrlResolution {
@@ -899,6 +949,43 @@ final class RssEngineRuntime {
     return RssEngineActionResult<Stream<FeedItem>>.success(updates);
   }
 
+  Future<RssEngineActionResult<RssManualDownloadReport>>
+      enqueueFeedItemDownloads(Iterable<FeedItemId> itemIds) async {
+    if (_disposed) return _disposedResult();
+    final RssDownloadTaskEnqueuer? enqueuer = _downloadTaskEnqueuer;
+    if (enqueuer == null) {
+      return _unavailableResult(_rssManualDownloadUnavailableMessage);
+    }
+
+    final List<RssManualDownloadItemResult> itemResults =
+        <RssManualDownloadItemResult>[];
+    for (final FeedItemId itemId in _uniqueFeedItemIds(itemIds)) {
+      final FeedItem? item = _acceptedItemById(itemId);
+      if (item == null) {
+        itemResults.add(RssManualDownloadItemResult(
+          itemId: itemId,
+          state: RssManualDownloadItemState.rejected,
+          message: _rssManualDownloadMissingItemMessage,
+        ));
+        continue;
+      }
+      final RssDownloadSource? source = rssDownloadSourceForFeedItem(item);
+      if (source == null) {
+        itemResults.add(RssManualDownloadItemResult(
+          itemId: itemId,
+          state: RssManualDownloadItemState.rejected,
+          message: _rssManualDownloadUnsupportedSourceMessage,
+        ));
+        continue;
+      }
+      itemResults.add(await _enqueueManualDownload(enqueuer, item, source));
+    }
+
+    return RssEngineActionResult<RssManualDownloadReport>.success(
+      RssManualDownloadReport(itemResults: itemResults),
+    );
+  }
+
   Future<RssAutoDownloadExecutionReport> _executeAutoDownloadsForItems(
     FeedSourceId sourceId,
     Iterable<FeedItem> items,
@@ -984,6 +1071,70 @@ final class RssEngineRuntime {
     return RssAutoDownloadExecutionReport(
       previews: previews,
       enqueueResults: enqueueResults,
+    );
+  }
+
+  List<FeedItemId> _uniqueFeedItemIds(Iterable<FeedItemId> itemIds) {
+    final Set<String> seen = <String>{};
+    final List<FeedItemId> unique = <FeedItemId>[];
+    for (final FeedItemId itemId in itemIds) {
+      if (seen.add(itemId.value)) unique.add(itemId);
+    }
+    return unique;
+  }
+
+  FeedItem? _acceptedItemById(FeedItemId itemId) {
+    for (final FeedItem item in _acceptedItems) {
+      if (item.id.value == itemId.value) return item;
+    }
+    return null;
+  }
+
+  Future<RssManualDownloadItemResult> _enqueueManualDownload(
+    RssDownloadTaskEnqueuer enqueuer,
+    FeedItem item,
+    RssDownloadSource source,
+  ) async {
+    final RssDownloadCandidate candidate = _manualDownloadCandidate(
+      item: item,
+      source: source,
+    );
+    try {
+      final RssAutoDownloadEnqueueResult enqueued =
+          await enqueuer.enqueue(candidate);
+      return RssManualDownloadItemResult(
+        itemId: item.id,
+        state: enqueued.isSuccess
+            ? RssManualDownloadItemState.accepted
+            : RssManualDownloadItemState.failed,
+        message: enqueued.message,
+        taskId: enqueued.taskId,
+      );
+    } on Object catch (error) {
+      return RssManualDownloadItemResult(
+        itemId: item.id,
+        state: RssManualDownloadItemState.failed,
+        message: error.toString(),
+      );
+    }
+  }
+
+  RssDownloadCandidate _manualDownloadCandidate({
+    required FeedItem item,
+    required RssDownloadSource source,
+  }) {
+    return RssDownloadCandidate(
+      policyId: const RssAutoDownloadPolicyId(defaultRssAutoDownloadPolicyId),
+      ruleId: const RssAutoDownloadRuleId(_rssManualDownloadRuleId),
+      item: item,
+      source: source,
+      dedupeKey: '$_rssManualDownloadDedupePrefix::${item.dedupeKey.value}',
+      metadata: <String, String>{
+        'feedSourceId': item.sourceId.value,
+        'feedItemId': item.id.value,
+        'itemDedupeKey': item.dedupeKey.value,
+        'trigger': _rssManualDownloadRuleId,
+      },
     );
   }
 

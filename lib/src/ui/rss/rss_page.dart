@@ -22,13 +22,14 @@ const double _itemRowPadding = 14;
 const double _chipRadius = 6;
 const double _dialogWidth = 520;
 const double _searchWidth = 280;
+const double _rulesSectionMaxHeight = 112;
 const double _smallIconSize = 18;
+const double _compactIconButtonSize = 32;
 const int _itemSummaryMaxLines = 2;
 const int _titleMaxLines = 2;
 const int _ruleConditionMaxLines = 2;
 const int _datePartWidth = 2;
 const String _datePartPad = '0';
-const String _torrentFileExtension = '.torrent';
 
 const List<_RefreshIntervalOption> _refreshIntervalOptions =
     <_RefreshIntervalOption>[
@@ -71,6 +72,8 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   final Map<String, RssAutoDownloadRulePreview> _previewsByRuleId =
       <String, RssAutoDownloadRulePreview>{};
   final Set<String> _matchedAutoDownloadItemIds = <String>{};
+  final Set<String> _selectedDownloadItemIds = <String>{};
+  final Set<String> _downloadingItemIds = <String>{};
   final Set<String> _refreshingSourceIds = <String>{};
   final Set<String> _removingSourceIds = <String>{};
   final Set<String> _loadingRuleSourceIds = <String>{};
@@ -79,6 +82,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
   _RssItemFilter _itemFilter = _RssItemFilter.all;
   bool _isRefreshingRegistry = false;
   bool _isRefreshingAllSources = false;
+  bool _isDownloadingSelected = false;
 
   @override
   void initState() {
@@ -110,12 +114,17 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           )) {
         _selectedSourceId = null;
       }
+      _trimDownloadSelectionToVisible();
     });
     unawaited(_loadAutoDownloadState(snapshot.sources));
   }
 
   void _onSearchChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        _trimDownloadSelectionToVisible();
+      });
+    }
   }
 
   Future<void> _refreshRegistry() async {
@@ -280,6 +289,59 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     } else {
       _showMessage('同步完成：$successCount 个成功，$failureCount 个失败');
     }
+  }
+
+  void _selectVisibleDownloadableItems() {
+    setState(() {
+      _selectedDownloadItemIds
+        ..clear()
+        ..addAll(_visibleDownloadableItemIds);
+    });
+  }
+
+  void _clearDownloadSelection() {
+    setState(_selectedDownloadItemIds.clear);
+  }
+
+  Future<void> _downloadSelectedItems() async {
+    final List<FeedItemId> itemIds = <FeedItemId>[
+      for (final String itemId in _selectedVisibleDownloadItemIds)
+        FeedItemId(itemId),
+    ];
+    if (itemIds.isEmpty || _isDownloadingSelected) return;
+    setState(() {
+      _isDownloadingSelected = true;
+    });
+    final RssEngineActionResult<RssManualDownloadReport> result =
+        await widget.rssEngineRuntime.enqueueFeedItemDownloads(itemIds);
+    if (!mounted) return;
+    setState(() {
+      _isDownloadingSelected = false;
+      _selectedDownloadItemIds.removeAll(
+        itemIds.map((FeedItemId itemId) => itemId.value),
+      );
+    });
+    _showMessage(_manualDownloadResultMessage(result));
+  }
+
+  Future<void> _downloadSingleItem(FeedItem item) async {
+    final String itemId = item.id.value;
+    if (_downloadingItemIds.contains(itemId)) return;
+    setState(() {
+      _downloadingItemIds.add(itemId);
+    });
+    final RssEngineActionResult<RssManualDownloadReport> result =
+        await widget.rssEngineRuntime.enqueueFeedItemDownloads(<FeedItemId>[
+      item.id,
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _downloadingItemIds.remove(itemId);
+      if (result.value?.acceptedCount == 1) {
+        _selectedDownloadItemIds.remove(itemId);
+      }
+    });
+    _showMessage(_manualDownloadResultMessage(result));
   }
 
   Future<void> _removeSource(FeedSource source) async {
@@ -710,6 +772,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         onTap: () {
           setState(() {
             _selectedSourceId = null;
+            _trimDownloadSelectionToVisible();
           });
         },
         child: Container(
@@ -765,6 +828,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         onTap: () {
           setState(() {
             _selectedSourceId = sourceId;
+            _trimDownloadSelectionToVisible();
           });
         },
         child: Container(
@@ -954,14 +1018,79 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                 onSelectionChanged: (Set<_RssItemFilter> selection) {
                   setState(() {
                     _itemFilter = selection.single;
+                    _trimDownloadSelectionToVisible();
                   });
                 },
+              ),
+              if (_selectedVisibleDownloadItemIds.isNotEmpty)
+                _buildStatusChip(
+                  theme,
+                  label: '已选 ${_selectedVisibleDownloadItemIds.length}',
+                  color: theme.accentMagenta,
+                ),
+              Tooltip(
+                message: '选择当前可见资源',
+                child: IconButton(
+                  key: const ValueKey<String>(
+                      UiElementIds.rssSelectVisibleDownloadable),
+                  constraints: const BoxConstraints.tightFor(
+                    width: _compactIconButtonSize,
+                    height: _compactIconButtonSize,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: _visibleDownloadableItems.isEmpty
+                      ? null
+                      : _selectVisibleDownloadableItems,
+                  icon: const Icon(Icons.select_all, size: _smallIconSize),
+                ),
+              ),
+              Tooltip(
+                message: '清空选择',
+                child: IconButton(
+                  key: const ValueKey<String>(UiElementIds.rssClearSelection),
+                  constraints: const BoxConstraints.tightFor(
+                    width: _compactIconButtonSize,
+                    height: _compactIconButtonSize,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: _selectedDownloadItemIds.isEmpty
+                      ? null
+                      : _clearDownloadSelection,
+                  icon: const Icon(Icons.clear_all, size: _smallIconSize),
+                ),
+              ),
+              Tooltip(
+                message: '下载所选',
+                child: IconButton(
+                  key: const ValueKey<String>(UiElementIds.rssDownloadSelected),
+                  constraints: const BoxConstraints.tightFor(
+                    width: _compactIconButtonSize,
+                    height: _compactIconButtonSize,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: _selectedVisibleDownloadItemIds.isEmpty ||
+                          _isDownloadingSelected
+                      ? null
+                      : _downloadSelectedItems,
+                  icon: _isDownloadingSelected
+                      ? const SizedBox.square(
+                          dimension: _smallIconSize,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download, size: _smallIconSize),
+                ),
               ),
             ],
           ),
           if (selectedSource != null) ...<Widget>[
             const SizedBox(height: _sourceRowGap),
-            _buildRulesSection(theme, selectedSource),
+            ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxHeight: _rulesSectionMaxHeight),
+              child: SingleChildScrollView(
+                child: _buildRulesSection(theme, selectedSource),
+              ),
+            ),
           ],
           if (_snapshot.failures.isNotEmpty) ...<Widget>[
             const SizedBox(height: _sourceRowGap),
@@ -1124,6 +1253,9 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     FeedSource? source,
   ) {
     final bool matched = _matchedAutoDownloadItemIds.contains(item.id.value);
+    final bool downloadable = _hasDownloadSource(item);
+    final bool selected = _selectedDownloadItemIds.contains(item.id.value);
+    final bool downloading = _downloadingItemIds.contains(item.id.value);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: _itemRowPadding),
       child: Column(
@@ -1132,6 +1264,22 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              if (downloadable)
+                Checkbox(
+                  key: ValueKey<String>(
+                    UiElementIds.rssItemSelect(item.id.value),
+                  ),
+                  value: selected,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value ?? false) {
+                        _selectedDownloadItemIds.add(item.id.value);
+                      } else {
+                        _selectedDownloadItemIds.remove(item.id.value);
+                      }
+                    });
+                  },
+                ),
               Expanded(
                 child: Text(
                   item.title,
@@ -1145,7 +1293,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                   ),
                 ),
               ),
-              if (_hasDownloadSource(item))
+              if (downloadable)
                 _buildStatusChip(
                   theme,
                   label: '资源',
@@ -1157,6 +1305,28 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
                   theme,
                   label: '自动下载',
                   color: theme.accentMagenta,
+                ),
+              ],
+              if (downloadable) ...<Widget>[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: '下载条目',
+                  child: IconButton(
+                    key: ValueKey<String>(
+                      UiElementIds.rssItemDownload(item.id.value),
+                    ),
+                    onPressed:
+                        downloading ? null : () => _downloadSingleItem(item),
+                    icon: downloading
+                        ? const SizedBox.square(
+                            dimension: _smallIconSize,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.download_outlined,
+                            size: _smallIconSize,
+                          ),
+                  ),
                 ),
               ],
             ],
@@ -1303,6 +1473,34 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
         strokeWidth: 2,
         color: theme.primary,
       ),
+    );
+  }
+
+  List<FeedItem> get _visibleDownloadableItems {
+    return <FeedItem>[
+      for (final FeedItem item in _visibleItems)
+        if (_hasDownloadSource(item)) item,
+    ];
+  }
+
+  Set<String> get _visibleDownloadableItemIds {
+    return <String>{
+      for (final FeedItem item in _visibleDownloadableItems) item.id.value,
+    };
+  }
+
+  List<String> get _selectedVisibleDownloadItemIds {
+    final Set<String> visibleDownloadableIds = _visibleDownloadableItemIds;
+    return <String>[
+      for (final String itemId in _selectedDownloadItemIds)
+        if (visibleDownloadableIds.contains(itemId)) itemId,
+    ];
+  }
+
+  void _trimDownloadSelectionToVisible() {
+    final Set<String> visibleDownloadableIds = _visibleDownloadableItemIds;
+    _selectedDownloadItemIds.removeWhere(
+      (String itemId) => !visibleDownloadableIds.contains(itemId),
     );
   }
 
@@ -1948,15 +2146,17 @@ int _compareFeedItemsByDate(FeedItem left, FeedItem right) {
 }
 
 bool _hasDownloadSource(FeedItem item) {
-  final Uri? enclosureUri = item.enclosure?.uri;
-  if (enclosureUri != null && _isDownloadUri(enclosureUri)) return true;
-  final Uri? link = item.link;
-  return link != null && _isDownloadUri(link);
+  return rssDownloadSourceForFeedItem(item) != null;
 }
 
-bool _isDownloadUri(Uri uri) {
-  return uri.scheme == 'magnet' ||
-      uri.path.toLowerCase().endsWith(_torrentFileExtension);
+String _manualDownloadResultMessage(
+  RssEngineActionResult<RssManualDownloadReport> result,
+) {
+  if (!result.isSuccess || result.value == null) {
+    return result.failure?.message ?? 'RSS 条目下载入队失败';
+  }
+  final RssManualDownloadReport report = result.value!;
+  return 'RSS 条目下载：成功 ${report.acceptedCount}，失败 ${report.failedCount}';
 }
 
 String _ruleConditionText(RssAutoDownloadRuleProjection rule) {

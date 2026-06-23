@@ -224,6 +224,133 @@ void main() {
         Uri.file('D:/cache/episode.torrent').toString());
   });
 
+  test('runtime manually enqueues a magnet item without auto rules', () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    final _RecordingRssDownloadTaskEnqueuer enqueuer =
+        _RecordingRssDownloadTaskEnqueuer();
+    final FeedItem magnetItem = _item(
+      link: Uri.parse('magnet:?xt=urn:btih:manual01'),
+    );
+    await store.storeSource(_storedSource());
+    await store.storeItems(<StoredFeedItemRecord>[
+      _storedItemFrom(magnetItem, acceptedAt: DateTime.utc(2026, 6, 11, 12)),
+    ]);
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+            responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+        parser: _FakeFeedParser(items: const <FeedItem>[]),
+        deduplicator: DeterministicFeedDeduplicator(),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+      downloadTaskEnqueuer: enqueuer,
+    );
+
+    await runtime.listSources();
+    final RssEngineActionResult<RssManualDownloadReport> result =
+        await runtime.enqueueFeedItemDownloads(<FeedItemId>[magnetItem.id]);
+
+    expect(result.isSuccess, isTrue);
+    expect(result.value!.acceptedCount, 1);
+    expect(enqueuer.candidates.single.item.id.value, 'feed-item-1');
+    expect(enqueuer.candidates.single.ruleId.value, 'manual-download');
+    expect(enqueuer.candidates.single.dedupeKey, 'manual::item-1');
+    expect(enqueuer.candidates.single.source, isA<MagnetRssDownloadSource>());
+    await runtime.dispose();
+  });
+
+  test('runtime reports manual download unavailable without enqueuer',
+      () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    await store.storeSource(_storedSource());
+    await store.storeItems(<StoredFeedItemRecord>[
+      _storedItemFrom(
+        _item(link: Uri.parse('magnet:?xt=urn:btih:manual01')),
+        acceptedAt: DateTime.utc(2026, 6, 11, 12),
+      ),
+    ]);
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+            responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+        parser: _FakeFeedParser(items: const <FeedItem>[]),
+        deduplicator: DeterministicFeedDeduplicator(),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+    );
+
+    await runtime.listSources();
+    final RssEngineActionResult<RssManualDownloadReport> result =
+        await runtime.enqueueFeedItemDownloads(
+      const <FeedItemId>[FeedItemId('feed-item-1')],
+    );
+
+    expect(result.kind, RssEngineActionResultKind.unavailable);
+    expect(result.failure!.message, contains('enqueuer'));
+    await runtime.dispose();
+  });
+
+  test('runtime reports mixed manual batch results per item', () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    final _RecordingRssDownloadTaskEnqueuer enqueuer =
+        _RecordingRssDownloadTaskEnqueuer();
+    final FeedItem magnetItem = _item(
+      link: Uri.parse('magnet:?xt=urn:btih:manual01'),
+    );
+    final FeedItem plainItem = _item(
+      id: 'plain-item',
+      dedupeKey: 'plain-key',
+      link: Uri.parse('https://example.test/plain'),
+    );
+    await store.storeSource(_storedSource());
+    await store.storeItems(<StoredFeedItemRecord>[
+      _storedItemFrom(magnetItem, acceptedAt: DateTime.utc(2026, 6, 11, 12)),
+      _storedItemFrom(plainItem, acceptedAt: DateTime.utc(2026, 6, 11, 12)),
+    ]);
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+            responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+        parser: _FakeFeedParser(items: const <FeedItem>[]),
+        deduplicator: DeterministicFeedDeduplicator(),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+      downloadTaskEnqueuer: enqueuer,
+    );
+
+    await runtime.listSources();
+    final RssEngineActionResult<RssManualDownloadReport> result =
+        await runtime.enqueueFeedItemDownloads(
+      const <FeedItemId>[
+        FeedItemId('feed-item-1'),
+        FeedItemId('plain-item'),
+        FeedItemId('missing-item'),
+      ],
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.value!.acceptedCount, 1);
+    expect(result.value!.failedCount, 2);
+    expect(enqueuer.candidates, hasLength(1));
+    expect(
+      result.value!.itemResults.map(
+        (RssManualDownloadItemResult itemResult) => itemResult.state,
+      ),
+      <RssManualDownloadItemState>[
+        RssManualDownloadItemState.accepted,
+        RssManualDownloadItemState.rejected,
+        RssManualDownloadItemState.rejected,
+      ],
+    );
+    await runtime.dispose();
+  });
+
   test(
       'runtime refresh preserves parser warnings cursor dedupe storage and updates',
       () async {
@@ -473,6 +600,13 @@ StoredFeedSourceRecord _storedSource() {
 
 StoredFeedItemRecord _storedItem({required DateTime acceptedAt}) {
   final FeedItem item = _item();
+  return _storedItemFrom(item, acceptedAt: acceptedAt);
+}
+
+StoredFeedItemRecord _storedItemFrom(
+  FeedItem item, {
+  required DateTime acceptedAt,
+}) {
   return StoredFeedItemRecord(
     id: item.id.value,
     sourceId: item.sourceId.value,
@@ -486,11 +620,15 @@ StoredFeedItemRecord _storedItem({required DateTime acceptedAt}) {
   );
 }
 
-FeedItem _item({Uri? link}) {
+FeedItem _item({
+  String id = 'feed-item-1',
+  String dedupeKey = 'item-1',
+  Uri? link,
+}) {
   return FeedItem(
-    id: const FeedItemId('feed-item-1'),
+    id: FeedItemId(id),
     sourceId: const FeedSourceId('anime-feed'),
-    dedupeKey: const FeedDedupeKey('item-1'),
+    dedupeKey: FeedDedupeKey(dedupeKey),
     title: 'Episode 1',
     link: link ?? Uri.parse('https://example.test/episode-1'),
     publishedAt: DateTime.utc(2026, 6, 11, 11),

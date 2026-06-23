@@ -83,6 +83,11 @@ abstract final class ElainaFinders {
   static Finder get downloadDetailScroll =>
       byId(UiElementIds.downloadDetailScroll);
   static Finder get rssItemSearch => byId(UiElementIds.rssItemSearch);
+  static Finder get rssSelectVisibleDownloadable =>
+      byId(UiElementIds.rssSelectVisibleDownloadable);
+  static Finder get rssClearSelection => byId(UiElementIds.rssClearSelection);
+  static Finder get rssDownloadSelected =>
+      byId(UiElementIds.rssDownloadSelected);
   static Finder get heroCarouselCachePin =>
       byId(UiElementIds.heroCarouselCachePin);
 
@@ -103,5 +108,13 @@ abstract final class ElainaFinders {
 
   static Finder playbackTrack(String trackId) {
     return byId(UiElementIds.playbackTrack(trackId));
+  }
+
+  static Finder rssItemSelect(String itemId) {
+    return byId(UiElementIds.rssItemSelect(itemId));
+  }
+
+  static Finder rssItemDownload(String itemId) {
+    return byId(UiElementIds.rssItemDownload(itemId));
   }
 }

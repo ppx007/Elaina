@@ -50,6 +50,10 @@ abstract final class UiElementIds {
 
   static const String downloadDetailScroll = 'download-detail-scroll';
   static const String rssItemSearch = 'rss-item-search';
+  static const String rssSelectVisibleDownloadable =
+      'rss-select-visible-downloadable';
+  static const String rssClearSelection = 'rss-clear-selection';
+  static const String rssDownloadSelected = 'rss-download-selected';
   static const String heroCarouselCachePin = 'hero-carousel-cache-pin';
 
   static const String playbackPage = 'playback-page';
@@ -87,5 +91,13 @@ abstract final class UiElementIds {
 
   static String settingsRemoveMediaFolder(Uri folder) {
     return 'settings-remove-media-folder-${folder.toString()}';
+  }
+
+  static String rssItemSelect(String itemId) {
+    return 'rss-item-select-$itemId';
+  }
+
+  static String rssItemDownload(String itemId) {
+    return 'rss-item-download-$itemId';
   }
 }

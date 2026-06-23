@@ -30,16 +30,19 @@ void main() {
     late DeterministicRssFeedStore feedStore;
     late RssEngineRuntime rssEngineRuntime;
     late DeterministicRssAutoDownloadPolicyStore policyStore;
+    late _RecordingRssDownloadTaskEnqueuer downloadEnqueuer;
 
     setUp(() {
       feedStore = DeterministicRssFeedStore();
       fakeEngine = _FakeRssEngine(feedStore);
       policyStore = DeterministicRssAutoDownloadPolicyStore();
+      downloadEnqueuer = _RecordingRssDownloadTaskEnqueuer();
       rssEngineRuntime = RssEngineRuntime(
         engine: fakeEngine,
         store: feedStore,
         scheduler: _FakeFeedScheduler(),
         policyStore: policyStore,
+        downloadTaskEnqueuer: downloadEnqueuer,
         clock: () => _rssTestInstant,
       );
     });
@@ -186,6 +189,88 @@ void main() {
       expect(find.text('暂无条目'), findsOneWidget);
     });
 
+    testWidgets('downloads a single RSS item through runtime',
+        (WidgetTester tester) async {
+      await feedStore.storeSource(_storedRssSource());
+      await feedStore.storeItems(<StoredFeedItemRecord>[
+        _storedFeedItemRecord(_rssItem(), acceptedAt: _rssTestInstant),
+      ]);
+
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(ElainaFinders.rssItemDownload('item-1'));
+      await tester.pumpAndSettle();
+
+      expect(downloadEnqueuer.candidates.single.item.id.value, 'item-1');
+      expect(
+          downloadEnqueuer.candidates.single.ruleId.value, 'manual-download');
+    });
+
+    testWidgets('selects visible downloadable RSS items for batch download',
+        (WidgetTester tester) async {
+      await feedStore.storeSource(_storedRssSource());
+      await feedStore.storeItems(<StoredFeedItemRecord>[
+        _storedFeedItemRecord(_rssItem(), acceptedAt: _rssTestInstant),
+        _storedFeedItemRecord(
+          _rssItem(
+            id: 'item-2',
+            title: 'Episode without source',
+            withEnclosure: false,
+          ),
+          acceptedAt: _rssTestInstant,
+        ),
+        _storedFeedItemRecord(
+          _rssItem(id: 'item-3', title: 'Special resource'),
+          acceptedAt: _rssTestInstant,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pumpAndSettle();
+      await tester.enterText(ElainaFinders.rssItemSearch, 'Episode 1');
+      await tester.pumpAndSettle();
+      await tester.tap(ElainaFinders.rssSelectVisibleDownloadable);
+      await tester.pumpAndSettle();
+      await tester.tap(ElainaFinders.rssDownloadSelected);
+      await tester.pumpAndSettle();
+
+      expect(
+        downloadEnqueuer.candidates
+            .map((RssDownloadCandidate candidate) => candidate.item.id.value),
+        <String>['item-1'],
+      );
+    });
+
+    testWidgets('hides manual download controls for non-download RSS items',
+        (WidgetTester tester) async {
+      await feedStore.storeSource(_storedRssSource());
+      await feedStore.storeItems(<StoredFeedItemRecord>[
+        _storedFeedItemRecord(
+          _rssItem(withEnclosure: false),
+          acceptedAt: _rssTestInstant,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(ElainaFinders.rssItemSelect('item-1'), findsNothing);
+      expect(ElainaFinders.rssItemDownload('item-1'), findsNothing);
+      final IconButton downloadSelected =
+          tester.widget<IconButton>(ElainaFinders.rssDownloadSelected);
+      expect(downloadSelected.onPressed, isNull);
+    });
+
     testWidgets('refreshes a source and renders accepted items',
         (WidgetTester tester) async {
       await feedStore.storeSource(_storedRssSource());
@@ -240,7 +325,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Episode only'), findsOneWidget);
-      await tester.tap(find.byTooltip('预览规则'));
+      tester
+          .widget<IconButton>(
+            find.descendant(
+              of: find.byTooltip('预览规则'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed!();
       await tester.pumpAndSettle();
       expect(find.text('命中 1'), findsOneWidget);
 
@@ -346,6 +438,23 @@ final class _FakeFeedScheduler implements FeedScheduler {
   @override
   Stream<FeedScheduleDecision> dueSources(Iterable<FeedSource> sources) {
     return const Stream<FeedScheduleDecision>.empty();
+  }
+}
+
+final class _RecordingRssDownloadTaskEnqueuer
+    implements RssDownloadTaskEnqueuer {
+  final List<RssDownloadCandidate> candidates = <RssDownloadCandidate>[];
+
+  @override
+  Future<RssAutoDownloadEnqueueResult> enqueue(
+      RssDownloadCandidate candidate) async {
+    candidates.add(candidate);
+    return RssAutoDownloadEnqueueResult(
+      candidate: candidate,
+      state: StoredRssAutoDownloadEnqueueState.accepted,
+      message: 'accepted',
+      taskId: 'download-${candidate.item.id.value}',
+    );
   }
 }
 
