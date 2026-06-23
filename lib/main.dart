@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'src/app_composition.dart';
 import 'src/domain/diagnostics/diagnostics_domain.dart';
+import 'src/domain/diagnostics/diagnostics_workbench.dart';
 import 'src/domain/download/download_domain.dart';
 import 'src/domain/home/home_recommendation_domain.dart';
 import 'src/domain/home/home_search_domain.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatefulWidget {
     this.policyStore,
     this.settingsRuntime,
     this.diagnosticsRuntime,
+    this.diagnosticsWorkbenchRuntime,
     this.profileProvider,
     this.bangumiTrackingProvider,
     this.bangumiLoginController,
@@ -54,6 +56,7 @@ class MyApp extends StatefulWidget {
   final RssAutoDownloadPolicyStore? policyStore;
   final SettingsRuntime? settingsRuntime;
   final DiagnosticsRuntime? diagnosticsRuntime;
+  final DiagnosticsWorkbenchRuntime? diagnosticsWorkbenchRuntime;
   final UserProfileProvider? profileProvider;
   final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
@@ -77,6 +80,7 @@ class _MyAppState extends State<MyApp> {
   late final bool _ownsDownloadRuntime;
   late final SettingsRuntime _settingsRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
+  late final DiagnosticsWorkbenchRuntime _diagnosticsWorkbenchRuntime;
   late final UserProfileProvider? _profileProvider;
   late final BangumiTrackingProvider? _bangumiTrackingProvider;
   late final BangumiLoginController? _bangumiLoginController;
@@ -102,13 +106,22 @@ class _MyAppState extends State<MyApp> {
       _settingsRuntime = widget.settingsRuntime ?? FakeSettingsRuntime();
       _diagnosticsRuntime =
           widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
+      _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
+      _ownsDownloadRuntime = true;
+      _diagnosticsWorkbenchRuntime = widget.diagnosticsWorkbenchRuntime ??
+          DefaultDiagnosticsWorkbenchRuntime(
+            diagnosticsRuntime: _diagnosticsRuntime,
+            playbackController: _playbackController,
+            downloadRuntime: _downloadRuntime,
+            rssEngineRuntime: _rssEngineRuntime,
+            mediaLibraryRuntime: _mediaLibraryRuntime,
+            settingsRuntime: _settingsRuntime,
+          );
       _profileProvider = widget.profileProvider;
       _bangumiTrackingProvider = widget.bangumiTrackingProvider;
       _bangumiLoginController = widget.bangumiLoginController;
       _homeRecommendationProvider = widget.homeRecommendationProvider;
       _homeSearchProvider = widget.homeSearchProvider;
-      _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
-      _ownsDownloadRuntime = true;
     } else {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
@@ -123,6 +136,10 @@ class _MyAppState extends State<MyApp> {
       _downloadRuntime = _composition!.downloadRuntime;
       _settingsRuntime = _composition!.settingsRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
+      _diagnosticsWorkbenchRuntime = widget.diagnosticsWorkbenchRuntime ??
+          _composition!.buildDiagnosticsWorkbenchRuntime(
+            playbackController: _playbackController,
+          );
       _profileProvider = _composition!.profileProvider;
       _bangumiTrackingProvider = _composition!.trackingProvider;
       _bangumiLoginController = _composition!.bangumiLoginController;
@@ -162,6 +179,7 @@ class _MyAppState extends State<MyApp> {
               downloadRuntime: _downloadRuntime,
               settingsRuntime: _settingsRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
+              diagnosticsWorkbenchRuntime: _diagnosticsWorkbenchRuntime,
               profileProvider: _profileProvider,
               bangumiTrackingProvider: _bangumiTrackingProvider,
               bangumiLoginController: _bangumiLoginController,

@@ -2,8 +2,13 @@
 // read-only diagnostic projections, not individual provider internals.
 // Provider-specific settings should still be verified through their runtimes.
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
+import 'package:elaina/src/domain/diagnostics/diagnostics_workbench.dart';
+import 'package:elaina/src/domain/download/download_domain.dart';
 import 'package:elaina/src/domain/media/media_library_folder_preferences.dart';
+import 'package:elaina/src/domain/media/media_library_runtime.dart';
+import 'package:elaina/src/domain/playback/playback_state.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
+import 'package:elaina/src/domain/rss/rss_engine_runtime.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/provider/bangumi/bangumi_api_client.dart';
 import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
@@ -121,6 +126,174 @@ final class _MockDiagnosticsRuntime implements DiagnosticsRuntime {
 
   int _snapshotIndex(int callCount, int snapshotCount) {
     return (callCount - 1).clamp(0, snapshotCount - 1);
+  }
+}
+
+final class _MockDiagnosticsWorkbenchRuntime
+    implements DiagnosticsWorkbenchRuntime {
+  const _MockDiagnosticsWorkbenchRuntime(this.diagnosticsRuntime);
+
+  final DiagnosticsRuntime diagnosticsRuntime;
+
+  @override
+  Future<DiagnosticsWorkbenchSnapshot> snapshot() async {
+    final List<DiagnosticsEventProjection> events =
+        await diagnosticsRuntime.queryEvents();
+    final DiagnosticsTelemetrySample sample = DiagnosticsTelemetrySample(
+      sampledAt: DateTime(2026, 6, 20, 10, 2),
+      memoryUsageBytes: diagnosticsRuntime.getActiveMemoryUsageBytes(),
+      avSyncDriftMillis: await diagnosticsRuntime.getLatestAvSyncDrift(),
+    );
+    final DiagnosticsPlaybackSnapshot playback = DiagnosticsPlaybackSnapshot(
+      status: PlaybackLifecycleStatus.playing,
+      position: const Duration(minutes: 3, seconds: 12),
+      duration: const Duration(minutes: 24),
+      isBuffering: false,
+      bufferedFraction: 0.42,
+      sourceUri: 'file:///D:/Anime/cyber_overload.mp4',
+      failureReason: null,
+      activeAudioTrackId: 'audio-jpn',
+      activeSubtitleTrackId: 'subtitle-zh',
+      subtitleTrackCount: 2,
+      activeSubtitleCueCount: 1,
+      subtitleOffset: const Duration(milliseconds: 250),
+      subtitleWarnings: const <String>['字幕时间轴存在轻微偏移'],
+      subtitleFailure: null,
+      danmakuClockPosition: const Duration(minutes: 3, seconds: 12),
+      danmakuLaneCount: 3,
+      visibleDanmakuCommentCount: 18,
+      danmakuWarnings: const <String>['弹幕密度接近上限'],
+      danmakuFailure: null,
+      capabilities: const <DiagnosticsCapabilityEntry>[
+        DiagnosticsCapabilityEntry(
+          id: 'playPause',
+          label: '播放/暂停',
+          supported: true,
+        ),
+        DiagnosticsCapabilityEntry(
+          id: 'audioTrackDiscovery',
+          label: '音轨发现',
+          supported: false,
+          reason: '当前测试后端未声明音轨发现。',
+        ),
+      ],
+    );
+    final DiagnosticsDownloadSnapshot downloads = DiagnosticsDownloadSnapshot(
+      status: DownloadRuntimeStatus.ready,
+      totalTasks: 1,
+      activeTasks: 1,
+      pausedTasks: 0,
+      completedTasks: 0,
+      failedTasks: 0,
+      totalDownloadRateBytesPerSecond: 512 * 1024,
+      totalUploadRateBytesPerSecond: 64 * 1024,
+      totalPeers: 9,
+      capabilities: const <DiagnosticsCapabilityEntry>[
+        DiagnosticsCapabilityEntry(
+          id: 'taskManagement',
+          label: '任务管理',
+          supported: true,
+        ),
+      ],
+      tasks: const <DiagnosticsDownloadTaskSnapshot>[
+        DiagnosticsDownloadTaskSnapshot(
+          name: 'Cyber Overload 01',
+          state: DownloadLifecycleState.downloading,
+          progress: 0.58,
+          downloadRateBytesPerSecond: 512 * 1024,
+          uploadRateBytesPerSecond: 64 * 1024,
+          connectedPeers: 9,
+          totalSizeBytes: 1024 * 1024 * 1024,
+          selectedFileCount: 1,
+          fileCount: 2,
+        ),
+      ],
+    );
+    final DiagnosticsRssSnapshot rss = DiagnosticsRssSnapshot(
+      status: RssEngineRuntimeStatus.ready,
+      sourceCount: 2,
+      dueSourceCount: 1,
+      acceptedItemCount: 5,
+      latestRefreshCount: 2,
+      refreshFailureCount: 0,
+      autoRuleCount: 3,
+      failures: const <String>[],
+    );
+    final DiagnosticsMediaLibrarySnapshot mediaLibrary =
+        DiagnosticsMediaLibrarySnapshot(
+      status: MediaLibraryRuntimeStatus.ready,
+      catalogItemCount: 12,
+      continueWatchingCount: 4,
+      bangumiBoundCount: 8,
+      scanEventCount: 6,
+      failureMessages: const <String>[],
+    );
+    const DiagnosticsProviderNetworkSnapshot providerNetwork =
+        DiagnosticsProviderNetworkSnapshot(
+      bangumiTokenConfigured: true,
+      bangumiMirrorEnabled: true,
+      bangumiMirrorApiBaseUrl: 'https://bgm-api.example.test',
+      bangumiMirrorImageBaseUrl: 'https://bgm-img.example.test',
+      bangumiMirrorValid: true,
+      httpProxyUrl: 'http://127.0.0.1:8888',
+      dnsPolicy: 'https://dns.google/dns-query',
+      providerNetworkEventCount: 1,
+    );
+    return DiagnosticsWorkbenchSnapshot(
+      sample: sample,
+      events: events.reversed.toList(growable: false),
+      diagnosticsCapabilities:
+          diagnosticsRuntime.getCapabilitiesSupportStatus(),
+      modules: <DiagnosticsModuleSnapshot>[
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleOverview,
+          label: '总览',
+          health: DiagnosticsModuleHealth.warning,
+          summary: '2 条事件',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModulePlayback,
+          label: '播放',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: 'playing',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleDownloads,
+          label: '下载',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: '1 个任务',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleRss,
+          label: 'RSS',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: '2 个订阅',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleMediaLibrary,
+          label: '本地媒体库',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: '12 个索引',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleProviderNetwork,
+          label: 'Provider/网络',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: '镜像开启',
+        ),
+        DiagnosticsModuleSnapshot(
+          id: diagnosticsModuleEvents,
+          label: '事件日志',
+          health: DiagnosticsModuleHealth.healthy,
+          summary: '2 条事件',
+        ),
+      ],
+      playback: playback,
+      downloads: downloads,
+      rss: rss,
+      mediaLibrary: mediaLibrary,
+      providerNetwork: providerNetwork,
+    );
   }
 }
 
@@ -356,13 +529,18 @@ void main() {
     await ElainaTestHarness.pumpThemedWidget(
       tester,
       child: Scaffold(
-        body: DiagnosticsPage(diagnosticsRuntime: diagnosticsRuntime),
+        body: DiagnosticsPage(
+          diagnosticsWorkbenchRuntime:
+              _MockDiagnosticsWorkbenchRuntime(diagnosticsRuntime),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('诊断中心'), findsOneWidget);
+    expect(find.text('诊断工作台'), findsOneWidget);
     expect(ElainaFinders.diagnosticsAutoRefreshStatus, findsOneWidget);
+    expect(ElainaFinders.diagnosticsModuleNav, findsOneWidget);
+    expect(ElainaFinders.diagnosticsOverviewPanel, findsOneWidget);
     expect(ElainaFinders.diagnosticsMemoryChart, findsOneWidget);
     expect(ElainaFinders.diagnosticsDriftChart, findsOneWidget);
     expect(ElainaFinders.diagnosticsSeverityChart, findsOneWidget);
@@ -370,17 +548,29 @@ void main() {
     expect(find.text('200.0 MB'), findsWidgets);
     expect(find.text('15.4 ms'), findsWidgets);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+    await tester.tap(find.text('播放').first);
     await tester.pumpAndSettle();
     expect(ElainaFinders.diagnosticsCapabilityChart, findsWidgets);
-    expect(find.textContaining('schemaRegistration'), findsOneWidget);
-    expect(find.textContaining('snapshotQuery'), findsOneWidget);
+    expect(ElainaFinders.diagnosticsPlaybackPanel, findsOneWidget);
+    expect(find.text('播放诊断'), findsOneWidget);
+    expect(find.text('file:///D:/Anime/cyber_overload.mp4'), findsOneWidget);
+    expect(find.text('audio-jpn'), findsOneWidget);
+    expect(find.text('subtitle-zh'), findsOneWidget);
+    expect(find.textContaining('弹幕密度接近上限'), findsOneWidget);
+    expect(find.text('音轨发现'), findsOneWidget);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+    await tester.tap(find.text('事件日志').first);
     await tester.pumpAndSettle();
     expect(ElainaFinders.diagnosticsEventTable, findsWidgets);
+    expect(ElainaFinders.diagnosticsEventFilter, findsOneWidget);
     expect(find.text('play_start'), findsOneWidget);
     expect(find.text('buffer_warning'), findsOneWidget);
+    await tester.ensureVisible(find.text('buffer_warning'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('buffer_warning'));
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.diagnosticsEventPayload, findsOneWidget);
+    expect(find.textContaining('Buffer low'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -395,7 +585,8 @@ void main() {
       tester,
       child: Scaffold(
         body: DiagnosticsPage(
-          diagnosticsRuntime: diagnosticsRuntime,
+          diagnosticsWorkbenchRuntime:
+              _MockDiagnosticsWorkbenchRuntime(diagnosticsRuntime),
           refreshInterval: const Duration(seconds: 1),
         ),
       ),
@@ -423,7 +614,8 @@ void main() {
       tester,
       child: Scaffold(
         body: DiagnosticsPage(
-          diagnosticsRuntime: diagnosticsRuntime,
+          diagnosticsWorkbenchRuntime:
+              _MockDiagnosticsWorkbenchRuntime(diagnosticsRuntime),
           isActive: false,
           refreshInterval: const Duration(milliseconds: 100),
         ),
@@ -441,7 +633,8 @@ void main() {
       tester,
       child: Scaffold(
         body: DiagnosticsPage(
-          diagnosticsRuntime: diagnosticsRuntime,
+          diagnosticsWorkbenchRuntime:
+              _MockDiagnosticsWorkbenchRuntime(diagnosticsRuntime),
           refreshInterval: const Duration(milliseconds: 100),
         ),
       ),
@@ -464,7 +657,8 @@ void main() {
       tester,
       child: Scaffold(
         body: DiagnosticsPage(
-          diagnosticsRuntime: diagnosticsRuntime,
+          diagnosticsWorkbenchRuntime:
+              _MockDiagnosticsWorkbenchRuntime(diagnosticsRuntime),
           refreshInterval: const Duration(milliseconds: 100),
         ),
       ),
@@ -478,7 +672,7 @@ void main() {
 
     expect(ElainaFinders.diagnosticsErrorBanner, findsOneWidget);
     expect(find.text('200.0 MB'), findsWidgets);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
+    await tester.tap(find.text('事件日志').first);
     await tester.pumpAndSettle();
     expect(find.text('play_start'), findsOneWidget);
   });

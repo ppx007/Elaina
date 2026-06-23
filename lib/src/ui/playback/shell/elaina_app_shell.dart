@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../domain/detail/video_detail.dart';
 import '../../../domain/diagnostics/diagnostics_domain.dart';
+import '../../../domain/diagnostics/diagnostics_workbench.dart';
 import '../../../domain/download/download_domain.dart';
 import '../../../domain/home/home_recommendation_domain.dart';
 import '../../../domain/home/home_search_domain.dart';
@@ -42,6 +43,7 @@ class ElainaAppShell extends StatefulWidget {
     required this.downloadRuntime,
     required this.settingsRuntime,
     required this.diagnosticsRuntime,
+    this.diagnosticsWorkbenchRuntime,
     this.profileProvider,
     this.bangumiTrackingProvider,
     this.bangumiLoginController,
@@ -58,6 +60,7 @@ class ElainaAppShell extends StatefulWidget {
   final DownloadRuntime downloadRuntime;
   final SettingsRuntime settingsRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
+  final DiagnosticsWorkbenchRuntime? diagnosticsWorkbenchRuntime;
   final UserProfileProvider? profileProvider;
   final BangumiTrackingProvider? bangumiTrackingProvider;
   final BangumiLoginController? bangumiLoginController;
@@ -2049,7 +2052,15 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     return KeyedSubtree(
       key: const ValueKey<String>(UiElementIds.pageDiagnostics),
       child: DiagnosticsPage(
-        diagnosticsRuntime: widget.diagnosticsRuntime,
+        diagnosticsWorkbenchRuntime: widget.diagnosticsWorkbenchRuntime ??
+            DefaultDiagnosticsWorkbenchRuntime(
+              diagnosticsRuntime: widget.diagnosticsRuntime,
+              playbackController: widget.playbackController,
+              downloadRuntime: widget.downloadRuntime,
+              rssEngineRuntime: widget.rssEngineRuntime,
+              mediaLibraryRuntime: widget.mediaLibraryRuntime,
+              settingsRuntime: widget.settingsRuntime,
+            ),
         isActive: _currentIndex == _diagnosticsNavIndex,
       ),
     );

@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
+import 'domain/diagnostics/diagnostics_workbench.dart';
 import 'domain/download/download_domain.dart';
 import 'domain/home/home_recommendation_domain.dart';
 import 'domain/home/home_search_domain.dart';
 import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
+import 'domain/playback/playback_controller.dart';
 import 'domain/playback/playback_source_handoff.dart';
 import 'domain/profile/bangumi_login_domain.dart';
 import 'domain/profile/bangumi_tracking_domain.dart';
@@ -366,6 +368,19 @@ class AppComposition {
 
   Widget buildVideoSurface(BuildContext context) {
     return Video(controller: videoController);
+  }
+
+  DiagnosticsWorkbenchRuntime buildDiagnosticsWorkbenchRuntime({
+    required PlaybackControllerContract playbackController,
+  }) {
+    return DefaultDiagnosticsWorkbenchRuntime(
+      diagnosticsRuntime: diagnosticsRuntime,
+      playbackController: playbackController,
+      downloadRuntime: downloadRuntime,
+      rssEngineRuntime: rssEngineRuntime,
+      mediaLibraryRuntime: mediaLibraryRuntime,
+      settingsRuntime: settingsRuntime,
+    );
   }
 
   void dispose() {

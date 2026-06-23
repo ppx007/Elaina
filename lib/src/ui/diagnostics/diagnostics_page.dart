@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/diagnostics/diagnostics_domain.dart';
+import '../../domain/diagnostics/diagnostics_workbench.dart';
+import '../../domain/playback/playback_state.dart';
 import '../../foundation/constants.dart';
 import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
@@ -16,32 +18,36 @@ const double _sectionGap = 16;
 const double _panelGap = 16;
 const double _panelPadding = 16;
 const double _panelRadius = 8;
-const double _compactBreakpoint = 860;
-const double _metricMinWidth = 170;
+const double _compactBreakpoint = 900;
+const double _moduleRailWidth = 236;
+const double _metricMinWidth = 172;
 const double _chartHeight = 132;
-const double _eventTableMinWidth = 760;
-const double _eventRowHeight = 42;
+const double _tableMinWidth = 780;
+const double _tableRowHeight = 44;
 const double _smallIconSize = 18;
 const double _avExcellentDriftMillis = 40;
 const double _avDegradedDriftMillis = 120;
 const int _bytesPerMegabyte = 1024 * 1024;
+const int _bytesPerKilobyte = 1024;
 const int _timePartWidth = 2;
 const String _timePartPad = '0';
 
-/// Read-only diagnostics dashboard for local runtime observations.
+/// Read-only diagnostics workbench.
 ///
-/// The page polls [DiagnosticsRuntime] while visible because the diagnostics
-/// boundary currently exposes query methods rather than a push stream.
+/// The page intentionally receives one aggregated workbench snapshot instead of
+/// constructing business runtimes itself. Diagnostics should explain the system
+/// state with high detail, but it must not become a second control surface for
+/// playback, downloads, RSS, providers, or storage.
 class DiagnosticsPage extends StatefulWidget {
   const DiagnosticsPage({
     super.key,
-    required this.diagnosticsRuntime,
+    required this.diagnosticsWorkbenchRuntime,
     this.isActive = true,
     this.refreshInterval = diagnosticsDefaultRefreshInterval,
     this.historyLimit = diagnosticsDefaultHistoryLimit,
   });
 
-  final DiagnosticsRuntime diagnosticsRuntime;
+  final DiagnosticsWorkbenchRuntime diagnosticsWorkbenchRuntime;
   final bool isActive;
   final Duration refreshInterval;
   final int historyLimit;
@@ -51,19 +57,23 @@ class DiagnosticsPage extends StatefulWidget {
 }
 
 class _DiagnosticsPageState extends State<DiagnosticsPage> {
+  final TextEditingController _eventFilterController = TextEditingController();
+  final List<DiagnosticsTelemetrySample> _history =
+      <DiagnosticsTelemetrySample>[];
   Timer? _refreshTimer;
   bool _refreshInFlight = false;
   bool _isRefreshing = false;
   bool _hasLoaded = false;
   String? _lastError;
   DateTime? _lastRefreshedAt;
-  DiagnosticsDashboardSnapshot _snapshot = DiagnosticsDashboardSnapshot.empty();
-  final List<DiagnosticsTelemetrySample> _history =
-      <DiagnosticsTelemetrySample>[];
+  String _selectedModuleId = diagnosticsModuleOverview;
+  String? _selectedEventId;
+  DiagnosticsWorkbenchSnapshot _snapshot = DiagnosticsWorkbenchSnapshot.empty();
 
   @override
   void initState() {
     super.initState();
+    _eventFilterController.addListener(_onFilterChanged);
     if (widget.isActive) {
       unawaited(_refreshData(showInitialLoading: true));
     }
@@ -85,6 +95,9 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _eventFilterController
+      ..removeListener(_onFilterChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -97,6 +110,10 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     });
   }
 
+  void _onFilterChanged() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _refreshData({bool showInitialLoading = false}) async {
     if (_refreshInFlight) return;
     _refreshInFlight = true;
@@ -107,35 +124,24 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     }
 
     try {
-      final List<DiagnosticsEventProjection> allEvents =
-          await widget.diagnosticsRuntime.queryEvents();
-      final List<DiagnosticsEventProjection> cappedEvents =
-          _capEvents(allEvents).reversed.toList(growable: false);
-      final Map<String, String> capabilities =
-          widget.diagnosticsRuntime.getCapabilitiesSupportStatus();
-      final double drift =
-          await widget.diagnosticsRuntime.getLatestAvSyncDrift();
-      final int memory = widget.diagnosticsRuntime.getActiveMemoryUsageBytes();
-      final DateTime sampledAt = DateTime.now();
-      final DiagnosticsTelemetrySample sample = DiagnosticsTelemetrySample(
-        sampledAt: sampledAt,
-        memoryUsageBytes: memory,
-        avSyncDriftMillis: drift,
-      );
-
+      final DiagnosticsWorkbenchSnapshot rawSnapshot =
+          await widget.diagnosticsWorkbenchRuntime.snapshot();
+      final DiagnosticsWorkbenchSnapshot cappedSnapshot =
+          _withCappedEvents(rawSnapshot);
       if (!mounted) return;
       setState(() {
-        _history.add(sample);
+        _snapshot = cappedSnapshot;
+        _history.add(cappedSnapshot.sample);
         _trimHistory();
-        _snapshot = DiagnosticsDashboardSnapshot(
-          events: cappedEvents,
-          capabilities: capabilities,
-          currentSample: sample,
-        );
         _lastError = null;
-        _lastRefreshedAt = sampledAt;
+        _lastRefreshedAt = cappedSnapshot.sample.sampledAt;
         _hasLoaded = true;
         _isRefreshing = false;
+        _selectedEventId = _visibleEvents().any(
+          (DiagnosticsEventProjection event) => event.id == _selectedEventId,
+        )
+            ? _selectedEventId
+            : null;
       });
     } catch (error) {
       if (!mounted) return;
@@ -149,14 +155,26 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     }
   }
 
-  List<DiagnosticsEventProjection> _capEvents(
-      List<DiagnosticsEventProjection> events) {
-    if (events.length <= AppConstants.diagnosticsPageMaxDisplayEvents) {
-      return List<DiagnosticsEventProjection>.unmodifiable(events);
-    }
-    return List<DiagnosticsEventProjection>.unmodifiable(
-      events.sublist(
-          events.length - AppConstants.diagnosticsPageMaxDisplayEvents),
+  DiagnosticsWorkbenchSnapshot _withCappedEvents(
+    DiagnosticsWorkbenchSnapshot snapshot,
+  ) {
+    final List<DiagnosticsEventProjection> events = snapshot.events;
+    final List<DiagnosticsEventProjection> capped =
+        events.length <= AppConstants.diagnosticsPageMaxDisplayEvents
+            ? events
+            : events
+                .take(AppConstants.diagnosticsPageMaxDisplayEvents)
+                .toList(growable: false);
+    return DiagnosticsWorkbenchSnapshot(
+      sample: snapshot.sample,
+      events: List<DiagnosticsEventProjection>.unmodifiable(capped),
+      diagnosticsCapabilities: snapshot.diagnosticsCapabilities,
+      modules: snapshot.modules,
+      playback: snapshot.playback,
+      downloads: snapshot.downloads,
+      rss: snapshot.rss,
+      mediaLibrary: snapshot.mediaLibrary,
+      providerNetwork: snapshot.providerNetwork,
     );
   }
 
@@ -169,7 +187,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
   @override
   Widget build(BuildContext context) {
     final ElainaThemeData theme = ElainaTheme.of(context);
-    if (!_hasLoaded && _snapshot.events.isEmpty && _isRefreshing) {
+    if (!_hasLoaded && _isRefreshing) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -186,27 +204,9 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: _sectionGap),
-                  child: _buildMetrics(theme),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: _sectionGap),
                   child: compact
-                      ? _buildCompactCharts(theme)
-                      : _buildWideCharts(theme),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: _sectionGap),
-                  child: _buildCapabilities(theme),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: _sectionGap),
-                  child: _buildEventTable(theme),
+                      ? _buildCompactWorkbench(theme)
+                      : _buildWideWorkbench(theme),
                 ),
               ),
             ],
@@ -228,7 +228,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                '诊断中心',
+                '诊断工作台',
                 style: TextStyle(
                   color: theme.onSurface,
                   fontSize: 28,
@@ -241,15 +241,15 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                 runSpacing: 8,
                 children: <Widget>[
                   _StatusPill(
+                    key: const ValueKey<String>(
+                      UiElementIds.diagnosticsAutoRefreshStatus,
+                    ),
                     label: widget.isActive ? '自动刷新中' : '自动刷新已暂停',
                     icon: widget.isActive
                         ? Icons.sync_outlined
                         : Icons.pause_circle_outline,
                     color: widget.isActive ? theme.primary : theme.secondary,
                     theme: theme,
-                    key: const ValueKey<String>(
-                      UiElementIds.diagnosticsAutoRefreshStatus,
-                    ),
                   ),
                   _StatusPill(
                     label: refreshText,
@@ -316,75 +316,156 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     );
   }
 
-  Widget _buildMetrics(ElainaThemeData theme) {
-    final DiagnosticsEventBuckets buckets =
-        DiagnosticsEventBuckets.fromEvents(_snapshot.events);
-    final int warningCount = buckets.severityCounts[_Severity.warning.key] ?? 0;
-    final int errorCount = buckets.severityCounts[_Severity.error.key] ?? 0;
-    return Wrap(
-      spacing: _panelGap,
-      runSpacing: _panelGap,
-      children: <Widget>[
-        _MetricTile(
-          width: _metricMinWidth,
-          title: '内存占用',
-          value: _formatMemory(_snapshot.currentSample.memoryUsageBytes),
-          icon: Icons.memory_outlined,
-          color: theme.primary,
-          theme: theme,
-        ),
-        _MetricTile(
-          width: _metricMinWidth,
-          title: 'AV 漂移',
-          value:
-              '${_snapshot.currentSample.avSyncDriftMillis.toStringAsFixed(1)} ms',
-          subtitle: _driftStatus(_snapshot.currentSample.avSyncDriftMillis),
-          icon: Icons.graphic_eq_outlined,
-          color: _driftColor(theme, _snapshot.currentSample.avSyncDriftMillis),
-          theme: theme,
-        ),
-        _MetricTile(
-          width: _metricMinWidth,
-          title: '事件总数',
-          value: _snapshot.events.length.toString(),
-          icon: Icons.receipt_long_outlined,
-          color: theme.secondary,
-          theme: theme,
-        ),
-        _MetricTile(
-          width: _metricMinWidth,
-          title: '警告 / 错误',
-          value: '$warningCount / $errorCount',
-          icon: Icons.warning_amber_outlined,
-          color: errorCount > 0 ? theme.accentMagenta : theme.secondary,
-          theme: theme,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWideCharts(ElainaThemeData theme) {
+  Widget _buildWideWorkbench(ElainaThemeData theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Expanded(child: _buildTelemetryCharts(theme)),
+        SizedBox(width: _moduleRailWidth, child: _buildModuleRail(theme)),
         const SizedBox(width: _panelGap),
-        Expanded(child: _buildEventCharts(theme)),
+        Expanded(child: _buildSelectedModule(theme)),
       ],
     );
   }
 
-  Widget _buildCompactCharts(ElainaThemeData theme) {
+  Widget _buildCompactWorkbench(ElainaThemeData theme) {
     return Column(
       children: <Widget>[
-        _buildTelemetryCharts(theme),
+        _buildModuleRail(theme, horizontal: true),
         const SizedBox(height: _panelGap),
-        _buildEventCharts(theme),
+        _buildSelectedModule(theme),
       ],
     );
   }
 
-  Widget _buildTelemetryCharts(ElainaThemeData theme) {
+  Widget _buildModuleRail(ElainaThemeData theme, {bool horizontal = false}) {
+    final List<DiagnosticsModuleSnapshot> modules = _snapshot.modules.isEmpty
+        ? const <DiagnosticsModuleSnapshot>[
+            DiagnosticsModuleSnapshot(
+              id: diagnosticsModuleOverview,
+              label: '总览',
+              health: DiagnosticsModuleHealth.warning,
+              summary: '等待首次采样',
+            ),
+          ]
+        : _snapshot.modules;
+
+    // The rail is the page's information architecture. Keeping modules here
+    // prevents the workbench from regressing into a single endless diagnostics
+    // feed where playback, RSS, downloads, and provider state compete for space.
+    final Widget content = horizontal
+        ? Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              for (final DiagnosticsModuleSnapshot module in modules)
+                _ModuleNavItem(
+                  module: module,
+                  selected: module.id == _selectedModuleId,
+                  theme: theme,
+                  onTap: () => setState(() {
+                    _selectedModuleId = module.id;
+                  }),
+                ),
+            ],
+          )
+        : Column(
+            children: <Widget>[
+              for (final DiagnosticsModuleSnapshot module in modules) ...[
+                _ModuleNavItem(
+                  module: module,
+                  selected: module.id == _selectedModuleId,
+                  theme: theme,
+                  onTap: () => setState(() {
+                    _selectedModuleId = module.id;
+                  }),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          );
+
+    return _Panel(
+      key: const ValueKey<String>(UiElementIds.diagnosticsModuleNav),
+      title: '模块',
+      theme: theme,
+      child: content,
+    );
+  }
+
+  Widget _buildSelectedModule(ElainaThemeData theme) {
+    return switch (_selectedModuleId) {
+      diagnosticsModulePlayback => _buildPlaybackPanel(theme),
+      diagnosticsModuleDownloads => _buildDownloadPanel(theme),
+      diagnosticsModuleRss => _buildRssPanel(theme),
+      diagnosticsModuleMediaLibrary => _buildMediaLibraryPanel(theme),
+      diagnosticsModuleProviderNetwork => _buildProviderNetworkPanel(theme),
+      diagnosticsModuleEvents => _buildEventsPanel(theme),
+      _ => _buildOverviewPanel(theme),
+    };
+  }
+
+  Widget _buildOverviewPanel(ElainaThemeData theme) {
+    final DiagnosticsEventBuckets buckets =
+        DiagnosticsEventBuckets.fromEvents(_snapshot.events);
+    final DiagnosticsCapabilitySummary summary =
+        DiagnosticsCapabilitySummary.fromCapabilities(
+      _snapshot.diagnosticsCapabilities,
+    );
+    return Column(
+      key: const ValueKey<String>(UiElementIds.diagnosticsOverviewPanel),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: _panelGap,
+          runSpacing: _panelGap,
+          children: <Widget>[
+            _MetricTile(
+              width: _metricMinWidth,
+              title: '内存占用',
+              value: _formatMemory(_snapshot.sample.memoryUsageBytes),
+              icon: Icons.memory_outlined,
+              color: theme.primary,
+              theme: theme,
+            ),
+            _MetricTile(
+              width: _metricMinWidth,
+              title: 'AV 漂移',
+              value:
+                  '${_snapshot.sample.avSyncDriftMillis.toStringAsFixed(1)} ms',
+              subtitle: _driftStatus(_snapshot.sample.avSyncDriftMillis),
+              icon: Icons.graphic_eq_outlined,
+              color: _driftColor(theme, _snapshot.sample.avSyncDriftMillis),
+              theme: theme,
+            ),
+            _MetricTile(
+              width: _metricMinWidth,
+              title: '事件总数',
+              value: _snapshot.events.length.toString(),
+              icon: Icons.receipt_long_outlined,
+              color: theme.secondary,
+              theme: theme,
+            ),
+            _MetricTile(
+              width: _metricMinWidth,
+              title: '能力支持',
+              value: '${summary.supported}/${summary.total}',
+              icon: Icons.fact_check_outlined,
+              color: theme.primary,
+              theme: theme,
+            ),
+          ],
+        ),
+        const SizedBox(height: _sectionGap),
+        _buildTelemetryPanel(theme),
+        const SizedBox(height: _sectionGap),
+        _buildEventDistributionPanel(theme, buckets),
+        const SizedBox(height: _sectionGap),
+        _buildModuleHealthPanel(theme),
+      ],
+    );
+  }
+
+  Widget _buildTelemetryPanel(ElainaThemeData theme) {
     final List<double> memoryValues = <double>[
       for (final DiagnosticsTelemetrySample sample in _history)
         sample.memoryUsageBytes / _bytesPerMegabyte,
@@ -401,7 +482,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
           _ChartFrame(
             key: const ValueKey<String>(UiElementIds.diagnosticsMemoryChart),
             title: '内存趋势',
-            valueLabel: _formatMemory(_snapshot.currentSample.memoryUsageBytes),
+            valueLabel: _formatMemory(_snapshot.sample.memoryUsageBytes),
             theme: theme,
             child: CustomPaint(
               painter: _LineChartPainter(
@@ -410,7 +491,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                 fillColor: theme.primary.withValues(alpha: 0.12),
                 gridColor: theme.border.withValues(alpha: 0.45),
               ),
-              size: const Size(double.infinity, _chartHeight),
             ),
           ),
           const SizedBox(height: _panelGap),
@@ -418,22 +498,21 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
             key: const ValueKey<String>(UiElementIds.diagnosticsDriftChart),
             title: 'AV 漂移趋势',
             valueLabel:
-                '${_snapshot.currentSample.avSyncDriftMillis.toStringAsFixed(1)} ms',
+                '${_snapshot.sample.avSyncDriftMillis.toStringAsFixed(1)} ms',
             theme: theme,
             child: CustomPaint(
               painter: _LineChartPainter(
                 values: driftValues,
-                lineColor: _driftColor(
-                    theme, _snapshot.currentSample.avSyncDriftMillis),
+                lineColor:
+                    _driftColor(theme, _snapshot.sample.avSyncDriftMillis),
                 fillColor: _driftColor(
                   theme,
-                  _snapshot.currentSample.avSyncDriftMillis,
+                  _snapshot.sample.avSyncDriftMillis,
                 ).withValues(alpha: 0.12),
                 gridColor: theme.border.withValues(alpha: 0.45),
                 threshold: _avDegradedDriftMillis,
                 thresholdColor: theme.accentMagenta.withValues(alpha: 0.65),
               ),
-              size: const Size(double.infinity, _chartHeight),
             ),
           ),
         ],
@@ -441,117 +520,63 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     );
   }
 
-  Widget _buildEventCharts(ElainaThemeData theme) {
-    final DiagnosticsEventBuckets buckets =
-        DiagnosticsEventBuckets.fromEvents(_snapshot.events);
+  Widget _buildEventDistributionPanel(
+    ElainaThemeData theme,
+    DiagnosticsEventBuckets buckets,
+  ) {
     return _Panel(
       title: '事件分布',
-      theme: theme,
-      child: Column(
-        children: <Widget>[
-          _ChartFrame(
-            key: const ValueKey<String>(UiElementIds.diagnosticsSeverityChart),
-            title: '级别分布',
-            valueLabel: '${_snapshot.events.length} 条',
-            theme: theme,
-            child: CustomPaint(
-              painter: _BarChartPainter(
-                values: buckets.severityCounts,
-                colors: _severityColors(theme),
-                labelColor: theme.onBackground.withValues(alpha: 0.74),
-                gridColor: theme.border.withValues(alpha: 0.45),
-              ),
-              size: const Size(double.infinity, _chartHeight),
-            ),
-          ),
-          const SizedBox(height: _panelGap),
-          _ChartFrame(
-            key: const ValueKey<String>(UiElementIds.diagnosticsModuleChart),
-            title: '模块分布',
-            valueLabel: '${buckets.moduleCounts.length} 个模块',
-            theme: theme,
-            child: CustomPaint(
-              painter: _HorizontalBarChartPainter(
-                values: buckets.topModuleCounts,
-                barColor: theme.secondary,
-                labelColor: theme.onBackground.withValues(alpha: 0.74),
-                gridColor: theme.border.withValues(alpha: 0.45),
-              ),
-              size: const Size(double.infinity, _chartHeight),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCapabilities(ElainaThemeData theme) {
-    final DiagnosticsCapabilitySummary summary =
-        DiagnosticsCapabilitySummary.fromCapabilities(_snapshot.capabilities);
-    return _Panel(
-      key: const ValueKey<String>(UiElementIds.diagnosticsCapabilityChart),
-      title: '能力矩阵',
       theme: theme,
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final bool compact = constraints.maxWidth < _compactBreakpoint;
-          final Widget chart = SizedBox(
-            width: compact ? double.infinity : 220,
-            height: 180,
-            child: CustomPaint(
-              painter: _DonutChartPainter(
-                supported: summary.supported,
-                unsupported: summary.unsupported,
-                supportedColor: theme.primary,
-                unsupportedColor: theme.accentMagenta,
-                trackColor: theme.border.withValues(alpha: 0.45),
+          final List<Widget> charts = <Widget>[
+            _ChartFrame(
+              key: const ValueKey<String>(
+                UiElementIds.diagnosticsSeverityChart,
               ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      '${summary.supported}/${summary.total}',
-                      style: TextStyle(
-                        color: theme.onSurface,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      'Supported',
-                      style: TextStyle(
-                        color: theme.onBackground.withValues(alpha: 0.58),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+              title: '级别分布',
+              valueLabel: '${_snapshot.events.length} 条',
+              theme: theme,
+              child: CustomPaint(
+                painter: _BarChartPainter(
+                  values: buckets.severityCounts,
+                  colors: _severityColors(theme),
+                  labelColor: theme.onBackground.withValues(alpha: 0.74),
+                  gridColor: theme.border.withValues(alpha: 0.45),
                 ),
               ),
             ),
-          );
-          final Widget matrix = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              for (final MapEntry<String, String> entry
-                  in _snapshot.capabilities.entries)
-                _CapabilityChip(entry: entry, theme: theme),
-            ],
-          );
+            _ChartFrame(
+              key: const ValueKey<String>(UiElementIds.diagnosticsModuleChart),
+              title: '模块分布',
+              valueLabel: '${buckets.moduleCounts.length} 个模块',
+              theme: theme,
+              child: CustomPaint(
+                painter: _HorizontalBarChartPainter(
+                  values: buckets.topModuleCounts,
+                  barColor: theme.secondary,
+                  labelColor: theme.onBackground.withValues(alpha: 0.74),
+                  gridColor: theme.border.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          ];
           if (compact) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[chart, const SizedBox(height: 12), matrix],
+              children: <Widget>[
+                charts[0],
+                const SizedBox(height: _panelGap),
+                charts[1],
+              ],
             );
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              chart,
+              Expanded(child: charts[0]),
               const SizedBox(width: _panelGap),
-              Expanded(child: matrix),
+              Expanded(child: charts[1]),
             ],
           );
         },
@@ -559,77 +584,520 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     );
   }
 
-  Widget _buildEventTable(ElainaThemeData theme) {
-    if (_snapshot.events.isEmpty) {
-      return _Panel(
-        key: const ValueKey<String>(UiElementIds.diagnosticsEventTable),
-        title: '事件日志',
+  Widget _buildModuleHealthPanel(ElainaThemeData theme) {
+    return _Panel(
+      title: '模块健康',
+      theme: theme,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: <Widget>[
+          for (final DiagnosticsModuleSnapshot module in _snapshot.modules)
+            _HealthChip(module: module, theme: theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaybackPanel(ElainaThemeData theme) {
+    final DiagnosticsPlaybackSnapshot? playback = _snapshot.playback;
+    if (playback == null) {
+      return _missingModulePanel(
+        key: UiElementIds.diagnosticsPlaybackPanel,
+        title: '播放',
         theme: theme,
-        child: Text(
-          '暂无诊断事件',
-          style: TextStyle(
-            color: theme.onBackground.withValues(alpha: 0.62),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       );
     }
+    return _Panel(
+      key: const ValueKey<String>(UiElementIds.diagnosticsPlaybackPanel),
+      title: '播放诊断',
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: _panelGap,
+            runSpacing: _panelGap,
+            children: <Widget>[
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '状态',
+                value: _playbackStatusLabel(playback.status),
+                icon: Icons.play_circle_outline,
+                color: _moduleColor(theme, _playbackHealth(playback)),
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '进度',
+                value:
+                    '${_formatDuration(playback.position)} / ${_formatOptionalDuration(playback.duration)}',
+                icon: Icons.timeline_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '缓冲',
+                value: playback.isBuffering ? '缓冲中' : '正常',
+                subtitle: _formatFraction(playback.bufferedFraction),
+                icon: Icons.slow_motion_video_outlined,
+                color: playback.isBuffering ? theme.secondary : theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '弹幕',
+                value: '${playback.visibleDanmakuCommentCount} 条',
+                subtitle: '${playback.danmakuLaneCount} 轨道',
+                icon: Icons.chat_bubble_outline,
+                color: theme.secondary,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _panelGap),
+          _InfoGrid(
+            rows: <_InfoRow>[
+              _InfoRow('播放源', playback.sourceUri ?? '无播放源'),
+              _InfoRow('音轨', playback.activeAudioTrackId ?? '未选择'),
+              _InfoRow('字幕轨', playback.activeSubtitleTrackId ?? '未选择'),
+              _InfoRow('字幕文件', '${playback.subtitleTrackCount} 条可用轨'),
+              _InfoRow('当前字幕', '${playback.activeSubtitleCueCount} 条 cue'),
+              _InfoRow('字幕偏移', _formatDuration(playback.subtitleOffset)),
+              _InfoRow('弹幕时钟', _formatDuration(playback.danmakuClockPosition)),
+              if (playback.failureReason != null)
+                _InfoRow('播放失败', playback.failureReason!),
+              if (playback.subtitleFailure != null)
+                _InfoRow('字幕失败', playback.subtitleFailure!),
+              if (playback.danmakuFailure != null)
+                _InfoRow('弹幕失败', playback.danmakuFailure!),
+            ],
+            theme: theme,
+          ),
+          const SizedBox(height: _panelGap),
+          _WarningList(
+            title: '字幕 / 弹幕警告',
+            warnings: <String>[
+              ...playback.subtitleWarnings,
+              ...playback.danmakuWarnings,
+            ],
+            emptyText: '没有字幕或弹幕警告。',
+            theme: theme,
+          ),
+          const SizedBox(height: _panelGap),
+          _CapabilityList(
+            key:
+                const ValueKey<String>(UiElementIds.diagnosticsCapabilityChart),
+            title: '播放能力矩阵',
+            capabilities: playback.capabilities,
+            theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildDownloadPanel(ElainaThemeData theme) {
+    final DiagnosticsDownloadSnapshot? downloads = _snapshot.downloads;
+    if (downloads == null) {
+      return _missingModulePanel(
+        key: UiElementIds.diagnosticsDownloadPanel,
+        title: '下载',
+        theme: theme,
+      );
+    }
+    return _Panel(
+      key: const ValueKey<String>(UiElementIds.diagnosticsDownloadPanel),
+      title: '下载诊断',
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: _panelGap,
+            runSpacing: _panelGap,
+            children: <Widget>[
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '任务',
+                value: downloads.totalTasks.toString(),
+                subtitle: '${downloads.failedTasks} 失败',
+                icon: Icons.downloading_outlined,
+                color: downloads.failedTasks > 0
+                    ? theme.accentMagenta
+                    : theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '下载速度',
+                value: _formatRate(downloads.totalDownloadRateBytesPerSecond),
+                icon: Icons.south_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '上传速度',
+                value: _formatRate(downloads.totalUploadRateBytesPerSecond),
+                icon: Icons.north_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '连接',
+                value: '${downloads.totalPeers} peers',
+                icon: Icons.hub_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _panelGap),
+          _CapabilityList(
+            title: '下载能力',
+            capabilities: downloads.capabilities,
+            theme: theme,
+          ),
+          const SizedBox(height: _panelGap),
+          _DownloadTaskTable(downloads: downloads, theme: theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRssPanel(ElainaThemeData theme) {
+    final DiagnosticsRssSnapshot? rss = _snapshot.rss;
+    if (rss == null) {
+      return _missingModulePanel(
+        key: UiElementIds.diagnosticsRssPanel,
+        title: 'RSS',
+        theme: theme,
+      );
+    }
+    return _Panel(
+      key: const ValueKey<String>(UiElementIds.diagnosticsRssPanel),
+      title: 'RSS 诊断',
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: _panelGap,
+            runSpacing: _panelGap,
+            children: <Widget>[
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '订阅源',
+                value: rss.sourceCount.toString(),
+                subtitle: '${rss.dueSourceCount} 待刷新',
+                icon: Icons.rss_feed_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '新条目',
+                value: rss.acceptedItemCount.toString(),
+                icon: Icons.article_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '自动规则',
+                value: rss.autoRuleCount.toString(),
+                icon: Icons.rule_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '刷新失败',
+                value: rss.refreshFailureCount.toString(),
+                icon: Icons.error_outline,
+                color: rss.refreshFailureCount > 0
+                    ? theme.accentMagenta
+                    : theme.primary,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _panelGap),
+          _InfoGrid(
+            rows: <_InfoRow>[
+              _InfoRow('运行状态', rss.status.name),
+              _InfoRow('最近刷新记录', '${rss.latestRefreshCount} 个源'),
+            ],
+            theme: theme,
+          ),
+          const SizedBox(height: _panelGap),
+          _WarningList(
+            title: 'RSS 失败',
+            warnings: rss.failures,
+            emptyText: '没有 RSS 失败记录。',
+            theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaLibraryPanel(ElainaThemeData theme) {
+    final DiagnosticsMediaLibrarySnapshot? library = _snapshot.mediaLibrary;
+    if (library == null) {
+      return _missingModulePanel(
+        key: UiElementIds.diagnosticsMediaLibraryPanel,
+        title: '本地媒体库',
+        theme: theme,
+      );
+    }
+    return _Panel(
+      key: const ValueKey<String>(UiElementIds.diagnosticsMediaLibraryPanel),
+      title: '本地媒体库诊断',
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: _panelGap,
+            runSpacing: _panelGap,
+            children: <Widget>[
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '索引媒体',
+                value: library.catalogItemCount.toString(),
+                icon: Icons.video_library_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '继续观看',
+                value: library.continueWatchingCount.toString(),
+                icon: Icons.history_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: 'Bangumi 绑定',
+                value: library.bangumiBoundCount.toString(),
+                icon: Icons.link_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '扫描事件',
+                value: library.scanEventCount.toString(),
+                icon: Icons.manage_search_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _panelGap),
+          _InfoGrid(
+            rows: <_InfoRow>[
+              _InfoRow('运行状态', library.status.name),
+            ],
+            theme: theme,
+          ),
+          const SizedBox(height: _panelGap),
+          _WarningList(
+            title: '媒体库失败',
+            warnings: library.failureMessages,
+            emptyText: '没有媒体库失败记录。',
+            theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderNetworkPanel(ElainaThemeData theme) {
+    final DiagnosticsProviderNetworkSnapshot? providerNetwork =
+        _snapshot.providerNetwork;
+    if (providerNetwork == null) {
+      return _missingModulePanel(
+        key: UiElementIds.diagnosticsProviderNetworkPanel,
+        title: 'Provider/网络',
+        theme: theme,
+      );
+    }
+    return _Panel(
+      key: const ValueKey<String>(
+        UiElementIds.diagnosticsProviderNetworkPanel,
+      ),
+      title: 'Provider / 网络诊断',
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: _panelGap,
+            runSpacing: _panelGap,
+            children: <Widget>[
+              _MetricTile(
+                width: _metricMinWidth,
+                title: 'Bangumi Token',
+                value: providerNetwork.bangumiTokenConfigured ? '已配置' : '未配置',
+                icon: Icons.key_outlined,
+                color: providerNetwork.bangumiTokenConfigured
+                    ? theme.primary
+                    : theme.secondary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: 'Bangumi 镜像',
+                value: providerNetwork.bangumiMirrorEnabled ? '开启' : '关闭',
+                subtitle: providerNetwork.bangumiMirrorValid ? '有效' : '无效',
+                icon: Icons.public_outlined,
+                color: providerNetwork.bangumiMirrorValid
+                    ? theme.primary
+                    : theme.accentMagenta,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: 'HTTP 代理',
+                value: _configuredLabel(providerNetwork.httpProxyUrl),
+                icon: Icons.route_outlined,
+                color: theme.secondary,
+                theme: theme,
+              ),
+              _MetricTile(
+                width: _metricMinWidth,
+                title: '网络事件',
+                value: providerNetwork.providerNetworkEventCount.toString(),
+                icon: Icons.receipt_long_outlined,
+                color: theme.primary,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _panelGap),
+          _InfoGrid(
+            rows: <_InfoRow>[
+              _InfoRow(
+                  'API 镜像', providerNetwork.bangumiMirrorApiBaseUrl ?? '未配置'),
+              _InfoRow(
+                  '图片镜像', providerNetwork.bangumiMirrorImageBaseUrl ?? '未配置'),
+              _InfoRow('DNS 策略', providerNetwork.dnsPolicy ?? '未配置'),
+              _InfoRow('HTTP 代理', providerNetwork.httpProxyUrl ?? '未配置'),
+              if (providerNetwork.failureMessage != null)
+                _InfoRow('配置错误', providerNetwork.failureMessage!),
+            ],
+            theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventsPanel(ElainaThemeData theme) {
+    final List<DiagnosticsEventProjection> visibleEvents = _visibleEvents();
+    final DiagnosticsEventProjection? selectedEvent =
+        _selectedEvent(visibleEvents);
     return _Panel(
       key: const ValueKey<String>(UiElementIds.diagnosticsEventTable),
       title: '事件日志',
       theme: theme,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: _eventTableMinWidth,
-          child: Column(
-            children: <Widget>[
-              _EventHeader(theme: theme),
-              for (final DiagnosticsEventProjection event in _snapshot.events)
-                _EventRow(event: event, theme: theme),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          TextField(
+            key: const ValueKey<String>(UiElementIds.diagnosticsEventFilter),
+            controller: _eventFilterController,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              labelText: '过滤模块、级别、事件或详情',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
           ),
+          const SizedBox(height: _panelGap),
+          if (visibleEvents.isEmpty)
+            Text(
+              '没有匹配的诊断事件。',
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            _EventTable(
+              events: visibleEvents,
+              selectedEventId: _selectedEventId,
+              theme: theme,
+              onSelect: (DiagnosticsEventProjection event) {
+                setState(() {
+                  _selectedEventId = event.id;
+                });
+              },
+            ),
+          if (selectedEvent != null) ...<Widget>[
+            const SizedBox(height: _panelGap),
+            _EventPayloadPanel(event: selectedEvent, theme: theme),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _missingModulePanel({
+    required String key,
+    required String title,
+    required ElainaThemeData theme,
+  }) {
+    DiagnosticsModuleSnapshot? module;
+    for (final DiagnosticsModuleSnapshot candidate in _snapshot.modules) {
+      if (candidate.id == _selectedModuleId) {
+        module = candidate;
+        break;
+      }
+    }
+    return _Panel(
+      key: ValueKey<String>(key),
+      title: title,
+      theme: theme,
+      child: Text(
+        module?.failureMessage ?? '该模块暂时没有可用诊断数据。',
+        style: TextStyle(
+          color: theme.onBackground.withValues(alpha: 0.68),
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
-}
 
-final class DiagnosticsDashboardSnapshot {
-  const DiagnosticsDashboardSnapshot({
-    required this.events,
-    required this.capabilities,
-    required this.currentSample,
-  });
-
-  factory DiagnosticsDashboardSnapshot.empty() {
-    return DiagnosticsDashboardSnapshot(
-      events: const <DiagnosticsEventProjection>[],
-      capabilities: const <String, String>{},
-      currentSample: DiagnosticsTelemetrySample(
-        sampledAt: DateTime.fromMillisecondsSinceEpoch(0),
-        memoryUsageBytes: 0,
-        avSyncDriftMillis: 0,
-      ),
-    );
+  List<DiagnosticsEventProjection> _visibleEvents() {
+    final String query = _eventFilterController.text.trim().toLowerCase();
+    if (query.isEmpty) return _snapshot.events;
+    return <DiagnosticsEventProjection>[
+      for (final DiagnosticsEventProjection event in _snapshot.events)
+        if (event.sourceModule.toLowerCase().contains(query) ||
+            event.severity.toLowerCase().contains(query) ||
+            event.eventType.toLowerCase().contains(query) ||
+            event.payloadText.toLowerCase().contains(query))
+          event,
+    ];
   }
 
-  final List<DiagnosticsEventProjection> events;
-  final Map<String, String> capabilities;
-  final DiagnosticsTelemetrySample currentSample;
-}
-
-final class DiagnosticsTelemetrySample {
-  const DiagnosticsTelemetrySample({
-    required this.sampledAt,
-    required this.memoryUsageBytes,
-    required this.avSyncDriftMillis,
-  });
-
-  final DateTime sampledAt;
-  final int memoryUsageBytes;
-  final double avSyncDriftMillis;
+  DiagnosticsEventProjection? _selectedEvent(
+    List<DiagnosticsEventProjection> visibleEvents,
+  ) {
+    final String? selectedId = _selectedEventId;
+    if (selectedId == null) return null;
+    for (final DiagnosticsEventProjection event in visibleEvents) {
+      if (event.id == selectedId) return event;
+    }
+    return null;
+  }
 }
 
 final class DiagnosticsEventBuckets {
@@ -639,7 +1107,8 @@ final class DiagnosticsEventBuckets {
   });
 
   factory DiagnosticsEventBuckets.fromEvents(
-      Iterable<DiagnosticsEventProjection> events) {
+    Iterable<DiagnosticsEventProjection> events,
+  ) {
     final Map<String, int> severityCounts = <String, int>{
       for (final _Severity severity in _Severity.values) severity.key: 0,
     };
@@ -680,7 +1149,8 @@ final class DiagnosticsCapabilitySummary {
   });
 
   factory DiagnosticsCapabilitySummary.fromCapabilities(
-      Map<String, String> capabilities) {
+    Map<String, String> capabilities,
+  ) {
     int supported = 0;
     int unsupported = 0;
     for (final String value in capabilities.values) {
@@ -711,6 +1181,13 @@ enum _Severity {
   const _Severity(this.key);
 
   final String key;
+}
+
+final class _InfoRow {
+  const _InfoRow(this.label, this.value);
+
+  final String label;
+  final String value;
 }
 
 class _Panel extends StatelessWidget {
@@ -748,6 +1225,123 @@ class _Panel extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModuleNavItem extends StatelessWidget {
+  const _ModuleNavItem({
+    required this.module,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final DiagnosticsModuleSnapshot module;
+  final bool selected;
+  final ElainaThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = _moduleColor(theme, module.health);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(_panelRadius),
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: selected
+                ? color.withValues(alpha: 0.14)
+                : theme.background.withValues(alpha: 0.34),
+            borderRadius: BorderRadius.circular(_panelRadius),
+            border: Border.all(
+              color: selected
+                  ? color.withValues(alpha: 0.52)
+                  : theme.border.withValues(alpha: 0.62),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 170),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(_healthIcon(module.health), color: color, size: 18),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          module.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: theme.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          module.failureMessage ?? module.summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: theme.onBackground.withValues(alpha: 0.62),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HealthChip extends StatelessWidget {
+  const _HealthChip({required this.module, required this.theme});
+
+  final DiagnosticsModuleSnapshot module;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = _moduleColor(theme, module.health);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(_healthIcon(module.health), color: color, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              '${module.label}: ${module.summary}',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
@@ -926,42 +1520,346 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _CapabilityChip extends StatelessWidget {
-  const _CapabilityChip({
-    required this.entry,
-    required this.theme,
-  });
+class _InfoGrid extends StatelessWidget {
+  const _InfoGrid({required this.rows, required this.theme});
 
-  final MapEntry<String, String> entry;
+  final List<_InfoRow> rows;
   final ElainaThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    final bool supported = _isSupported(entry.value);
-    final Color color = supported ? theme.primary : theme.accentMagenta;
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: <Widget>[
+        for (final _InfoRow row in rows)
+          SizedBox(
+            width: 260,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.background.withValues(alpha: 0.38),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: theme.border.withValues(alpha: 0.6)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      row.label,
+                      style: TextStyle(
+                        color: theme.onBackground.withValues(alpha: 0.56),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      row.value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WarningList extends StatelessWidget {
+  const _WarningList({
+    required this.title,
+    required this.warnings,
+    required this.emptyText,
+    required this.theme,
+  });
+
+  final String title;
+  final List<String> warnings;
+  final String emptyText;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      title: title,
+      theme: theme,
+      child: warnings.isEmpty
+          ? Text(
+              emptyText,
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (final String warning in warnings)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '• $warning',
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _CapabilityList extends StatelessWidget {
+  const _CapabilityList({
+    super.key,
+    required this.title,
+    required this.capabilities,
+    required this.theme,
+  });
+
+  final String title;
+  final List<DiagnosticsCapabilityEntry> capabilities;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      title: title,
+      theme: theme,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: <Widget>[
+          for (final DiagnosticsCapabilityEntry capability in capabilities)
+            _CapabilityChip(capability: capability, theme: theme),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapabilityChip extends StatelessWidget {
+  const _CapabilityChip({required this.capability, required this.theme});
+
+  final DiagnosticsCapabilityEntry capability;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color =
+        capability.supported ? theme.primary : theme.accentMagenta;
+    return Tooltip(
+      message: capability.reason ?? capability.label,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                capability.supported
+                    ? Icons.check_circle_outline
+                    : Icons.highlight_off,
+                color: color,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                capability.label,
+                style: TextStyle(
+                  color: theme.onSurface,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DownloadTaskTable extends StatelessWidget {
+  const _DownloadTaskTable({required this.downloads, required this.theme});
+
+  final DiagnosticsDownloadSnapshot downloads;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    if (downloads.tasks.isEmpty) {
+      return Text(
+        '没有下载任务。',
+        style: TextStyle(
+          color: theme.onBackground.withValues(alpha: 0.62),
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: _tableMinWidth,
+        child: Column(
+          children: <Widget>[
+            _DenseGrid(
+              theme: theme,
+              backgroundColor: theme.background.withValues(alpha: 0.44),
+              widths: const <double>[220, 96, 88, 100, 100, 80, 96],
+              children: const <Widget>[
+                _HeaderCell('名称'),
+                _HeaderCell('状态'),
+                _HeaderCell('进度'),
+                _HeaderCell('下载'),
+                _HeaderCell('上传'),
+                _HeaderCell('Peer'),
+                _HeaderCell('文件'),
+              ],
+            ),
+            for (final DiagnosticsDownloadTaskSnapshot task in downloads.tasks)
+              _DenseGrid(
+                theme: theme,
+                widths: const <double>[220, 96, 88, 100, 100, 80, 96],
+                children: <Widget>[
+                  _BodyCell(task.name, theme: theme, bold: true),
+                  _BodyCell(task.state.name, theme: theme),
+                  _BodyCell(_formatPercent(task.progress), theme: theme),
+                  _BodyCell(
+                    _formatRate(task.downloadRateBytesPerSecond),
+                    theme: theme,
+                  ),
+                  _BodyCell(
+                    _formatRate(task.uploadRateBytesPerSecond),
+                    theme: theme,
+                  ),
+                  _BodyCell(task.connectedPeers.toString(), theme: theme),
+                  _BodyCell(
+                    '${task.selectedFileCount}/${task.fileCount}',
+                    theme: theme,
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventTable extends StatelessWidget {
+  const _EventTable({
+    required this.events,
+    required this.selectedEventId,
+    required this.theme,
+    required this.onSelect,
+  });
+
+  final List<DiagnosticsEventProjection> events;
+  final String? selectedEventId;
+  final ElainaThemeData theme;
+  final ValueChanged<DiagnosticsEventProjection> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: _tableMinWidth,
+        child: Column(
+          children: <Widget>[
+            _DenseGrid(
+              theme: theme,
+              backgroundColor: theme.background.withValues(alpha: 0.44),
+              widths: const <double>[90, 128, 90, 170, 302],
+              children: const <Widget>[
+                _HeaderCell('时间'),
+                _HeaderCell('模块'),
+                _HeaderCell('级别'),
+                _HeaderCell('事件'),
+                _HeaderCell('详情'),
+              ],
+            ),
+            for (final DiagnosticsEventProjection event in events)
+              Material(
+                color: event.id == selectedEventId
+                    ? theme.primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                child: InkWell(
+                  onTap: () => onSelect(event),
+                  child: _DenseGrid(
+                    theme: theme,
+                    widths: const <double>[90, 128, 90, 170, 302],
+                    children: <Widget>[
+                      _BodyCell(_formatClock(event.occurredAt), theme: theme),
+                      _BodyCell(event.sourceModule, theme: theme, bold: true),
+                      _SeverityCell(event: event, theme: theme),
+                      _BodyCell(event.eventType, theme: theme),
+                      _BodyCell(event.payloadText, theme: theme, maxLines: 2),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventPayloadPanel extends StatelessWidget {
+  const _EventPayloadPanel({required this.event, required this.theme});
+
+  final DiagnosticsEventProjection event;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const ValueKey<String>(UiElementIds.diagnosticsEventPayload),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: theme.background.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(_panelRadius),
+        border: Border.all(color: theme.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(
-              supported ? Icons.check_circle_outline : Icons.highlight_off,
-              color: color,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
             Text(
-              '${entry.key}: ${entry.value}',
+              '事件详情：${event.eventType}',
               style: TextStyle(
                 color: theme.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              event.payloadText,
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.78),
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -971,81 +1869,16 @@ class _CapabilityChip extends StatelessWidget {
   }
 }
 
-class _EventHeader extends StatelessWidget {
-  const _EventHeader({required this.theme});
-
-  final ElainaThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return _EventGrid(
-      theme: theme,
-      backgroundColor: theme.background.withValues(alpha: 0.44),
-      children: const <Widget>[
-        _EventHeaderCell('时间'),
-        _EventHeaderCell('模块'),
-        _EventHeaderCell('级别'),
-        _EventHeaderCell('事件'),
-        _EventHeaderCell('详情'),
-      ],
-    );
-  }
-}
-
-class _EventRow extends StatelessWidget {
-  const _EventRow({
-    required this.event,
+class _DenseGrid extends StatelessWidget {
+  const _DenseGrid({
     required this.theme,
-  });
-
-  final DiagnosticsEventProjection event;
-  final ElainaThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color severityColor = _severityColor(theme, event.severity);
-    return _EventGrid(
-      theme: theme,
-      children: <Widget>[
-        _EventBodyCell(_formatClock(event.occurredAt), theme: theme),
-        _EventBodyCell(event.sourceModule, theme: theme, bold: true),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: severityColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                event.severity,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: severityColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ),
-        _EventBodyCell(event.eventType, theme: theme),
-        _EventBodyCell(event.payloadText, theme: theme, maxLines: 2),
-      ],
-    );
-  }
-}
-
-class _EventGrid extends StatelessWidget {
-  const _EventGrid({
-    required this.theme,
+    required this.widths,
     required this.children,
     this.backgroundColor,
   });
 
   final ElainaThemeData theme;
+  final List<double> widths;
   final List<Widget> children;
   final Color? backgroundColor;
 
@@ -1059,14 +1892,11 @@ class _EventGrid extends StatelessWidget {
         ),
       ),
       child: SizedBox(
-        height: _eventRowHeight,
+        height: _tableRowHeight,
         child: Row(
           children: <Widget>[
-            SizedBox(width: 84, child: children[0]),
-            SizedBox(width: 120, child: children[1]),
-            SizedBox(width: 96, child: children[2]),
-            SizedBox(width: 150, child: children[3]),
-            Expanded(child: children[4]),
+            for (int index = 0; index < children.length; index += 1)
+              SizedBox(width: widths[index], child: children[index]),
           ],
         ),
       ),
@@ -1074,8 +1904,8 @@ class _EventGrid extends StatelessWidget {
   }
 }
 
-class _EventHeaderCell extends StatelessWidget {
-  const _EventHeaderCell(this.label);
+class _HeaderCell extends StatelessWidget {
+  const _HeaderCell(this.label);
 
   final String label;
 
@@ -1094,8 +1924,8 @@ class _EventHeaderCell extends StatelessWidget {
   }
 }
 
-class _EventBodyCell extends StatelessWidget {
-  const _EventBodyCell(
+class _BodyCell extends StatelessWidget {
+  const _BodyCell(
     this.label, {
     required this.theme,
     this.bold = false,
@@ -1128,6 +1958,40 @@ class _EventBodyCell extends StatelessWidget {
   }
 }
 
+class _SeverityCell extends StatelessWidget {
+  const _SeverityCell({required this.event, required this.theme});
+
+  final DiagnosticsEventProjection event;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color severityColor = _severityColor(theme, event.severity);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: severityColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            event.severity,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: severityColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LineChartPainter extends CustomPainter {
   const _LineChartPainter({
     required this.values,
@@ -1149,15 +2013,12 @@ class _LineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     _drawGrid(canvas, size, gridColor);
     if (values.isEmpty) return;
-    final double maxValue = math.max(
-      values.reduce(math.max),
-      threshold ?? 0,
-    );
+    final double maxValue = math.max(values.reduce(math.max), threshold ?? 0);
     final double minValue = values.reduce(math.min);
     final double range = math.max(1, maxValue - minValue);
     final Path linePath = Path();
     final Path fillPath = Path();
-    for (int index = 0; index < values.length; index++) {
+    for (int index = 0; index < values.length; index += 1) {
       final double x = values.length == 1
           ? size.width
           : size.width * index / (values.length - 1);
@@ -1165,38 +2026,37 @@ class _LineChartPainter extends CustomPainter {
           size.height - ((values[index] - minValue) / range) * size.height;
       if (index == 0) {
         linePath.moveTo(x, y);
-        fillPath.moveTo(x, size.height);
-        fillPath.lineTo(x, y);
+        fillPath
+          ..moveTo(x, size.height)
+          ..lineTo(x, y);
       } else {
         linePath.lineTo(x, y);
         fillPath.lineTo(x, y);
       }
     }
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
+    fillPath
+      ..lineTo(size.width, size.height)
+      ..close();
     canvas.drawPath(fillPath, Paint()..color = fillColor);
     canvas.drawPath(
       linePath,
       Paint()
         ..color = lineColor
         ..strokeWidth = 2
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
+        ..style = PaintingStyle.stroke,
     );
     final double? thresholdValue = threshold;
-    final Color? lineThresholdColor = thresholdColor;
-    if (thresholdValue != null && lineThresholdColor != null) {
+    final Color? thresholdPaintColor = thresholdColor;
+    if (thresholdValue != null && thresholdPaintColor != null) {
       final double y =
           size.height - ((thresholdValue - minValue) / range) * size.height;
-      if (y >= 0 && y <= size.height) {
-        canvas.drawLine(
-          Offset(0, y),
-          Offset(size.width, y),
-          Paint()
-            ..color = lineThresholdColor
-            ..strokeWidth = 1,
-        );
-      }
+      canvas.drawLine(
+        Offset(0, y.clamp(0, size.height)),
+        Offset(size.width, y.clamp(0, size.height)),
+        Paint()
+          ..color = thresholdPaintColor
+          ..strokeWidth = 1,
+      );
     }
   }
 
@@ -1229,34 +2089,23 @@ class _BarChartPainter extends CustomPainter {
     _drawGrid(canvas, size, gridColor);
     if (values.isEmpty) return;
     final int maxValue = math.max(1, values.values.reduce(math.max));
-    final double barWidth = size.width / values.length;
-    final TextPainter textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
+    final double slotWidth = size.width / values.length;
     int index = 0;
     for (final MapEntry<String, int> entry in values.entries) {
-      final double height = (entry.value / maxValue) * (size.height - 28);
+      final double height = size.height * entry.value / maxValue;
       final Rect rect = Rect.fromLTWH(
-        index * barWidth + 8,
-        size.height - height - 24,
-        math.max(8, barWidth - 16),
+        index * slotWidth + slotWidth * 0.18,
+        size.height - height,
+        slotWidth * 0.64,
         height,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(5)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
         Paint()..color = colors[entry.key] ?? labelColor,
       );
-      textPainter.text = TextSpan(
-        text: '${entry.key}\n${entry.value}',
-        style: TextStyle(color: labelColor, fontSize: 10),
-      );
-      textPainter.layout(maxWidth: barWidth);
-      textPainter.paint(
-        canvas,
-        Offset(index * barWidth, size.height - 22),
-      );
-      index++;
+      _drawSmallLabel(canvas, entry.key,
+          Offset(index * slotWidth, size.height - 14), labelColor);
+      index += 1;
     }
   }
 
@@ -1288,33 +2137,26 @@ class _HorizontalBarChartPainter extends CustomPainter {
     if (values.isEmpty) return;
     final int maxValue = math.max(1, values.values.reduce(math.max));
     final double rowHeight = size.height / values.length;
-    final TextPainter textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
     int index = 0;
     for (final MapEntry<String, int> entry in values.entries) {
-      final double y = index * rowHeight + 6;
-      final double width = (entry.value / maxValue) * (size.width - 116);
+      final double width = size.width * entry.value / maxValue;
+      final Rect rect = Rect.fromLTWH(
+        0,
+        index * rowHeight + rowHeight * 0.25,
+        width,
+        rowHeight * 0.5,
+      );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(104, y, math.max(4, width), rowHeight - 12),
-          const Radius.circular(5),
-        ),
+        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
         Paint()..color = barColor,
       );
-      textPainter.text = TextSpan(
-        text: entry.key,
-        style: TextStyle(color: labelColor, fontSize: 10),
+      _drawSmallLabel(
+        canvas,
+        '${entry.key} ${entry.value}',
+        Offset(4, index * rowHeight + 2),
+        labelColor,
       );
-      textPainter.layout(maxWidth: 96);
-      textPainter.paint(canvas, Offset(0, y + 2));
-      textPainter.text = TextSpan(
-        text: entry.value.toString(),
-        style: TextStyle(color: labelColor, fontSize: 10),
-      );
-      textPainter.layout(maxWidth: 32);
-      textPainter.paint(canvas, Offset(size.width - 28, y + 2));
-      index++;
+      index += 1;
     }
   }
 
@@ -1327,106 +2169,97 @@ class _HorizontalBarChartPainter extends CustomPainter {
   }
 }
 
-class _DonutChartPainter extends CustomPainter {
-  const _DonutChartPainter({
-    required this.supported,
-    required this.unsupported,
-    required this.supportedColor,
-    required this.unsupportedColor,
-    required this.trackColor,
-  });
-
-  final int supported;
-  final int unsupported;
-  final Color supportedColor;
-  final Color unsupportedColor;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(size.width / 2, size.height / 2);
-    final double radius = math.min(size.width, size.height) / 2 - 10;
-    final Rect rect = Rect.fromCircle(center: center, radius: radius);
-    final Paint paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-        rect, -math.pi / 2, math.pi * 2, false, paint..color = trackColor);
-    final int total = supported + unsupported;
-    if (total == 0) return;
-    final double supportedSweep = math.pi * 2 * supported / total;
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      supportedSweep,
-      false,
-      paint..color = supportedColor,
-    );
-    if (unsupported > 0) {
-      canvas.drawArc(
-        rect,
-        -math.pi / 2 + supportedSweep,
-        math.pi * 2 - supportedSweep,
-        false,
-        paint..color = unsupportedColor,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
-    return oldDelegate.supported != supported ||
-        oldDelegate.unsupported != unsupported ||
-        oldDelegate.supportedColor != supportedColor ||
-        oldDelegate.unsupportedColor != unsupportedColor ||
-        oldDelegate.trackColor != trackColor;
+void _drawGrid(Canvas canvas, Size size, Color color) {
+  final Paint paint = Paint()
+    ..color = color
+    ..strokeWidth = 1;
+  for (int index = 1; index <= 3; index += 1) {
+    final double y = size.height * index / 4;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
   }
 }
 
-void _drawGrid(Canvas canvas, Size size, Color color) {
-  final Paint gridPaint = Paint()
-    ..color = color
-    ..strokeWidth = 1;
-  for (final double fraction in const <double>[0.25, 0.5, 0.75]) {
-    final double y = size.height * fraction;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-  }
+void _drawSmallLabel(Canvas canvas, String label, Offset offset, Color color) {
+  final TextPainter painter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+    ),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    ellipsis: '…',
+  )..layout(maxWidth: 120);
+  painter.paint(canvas, offset);
 }
 
 String _formatMemory(int bytes) {
   return '${(bytes / _bytesPerMegabyte).toStringAsFixed(1)} MB';
 }
 
+String _formatRate(int bytesPerSecond) {
+  if (bytesPerSecond >= _bytesPerMegabyte) {
+    return '${(bytesPerSecond / _bytesPerMegabyte).toStringAsFixed(1)} MB/s';
+  }
+  return '${(bytesPerSecond / _bytesPerKilobyte).toStringAsFixed(1)} KB/s';
+}
+
+String _formatPercent(double value) {
+  return '${(value * 100).clamp(0, 100).toStringAsFixed(1)}%';
+}
+
+String _formatFraction(double? value) {
+  if (value == null) return '未知';
+  return _formatPercent(value);
+}
+
+String _formatDuration(Duration duration) {
+  final int hours = duration.inHours;
+  final int minutes = duration.inMinutes.remainder(60);
+  final int seconds = duration.inSeconds.remainder(60);
+  final String minuteText =
+      minutes.toString().padLeft(_timePartWidth, _timePartPad);
+  final String secondText =
+      seconds.toString().padLeft(_timePartWidth, _timePartPad);
+  if (hours > 0) return '$hours:$minuteText:$secondText';
+  return '$minuteText:$secondText';
+}
+
+String _formatOptionalDuration(Duration? duration) {
+  if (duration == null) return '--:--';
+  return _formatDuration(duration);
+}
+
 String _formatClock(DateTime time) {
-  return '${time.hour.toString().padLeft(_timePartWidth, _timePartPad)}:'
-      '${time.minute.toString().padLeft(_timePartWidth, _timePartPad)}:'
-      '${time.second.toString().padLeft(_timePartWidth, _timePartPad)}';
+  final String hour =
+      time.hour.toString().padLeft(_timePartWidth, _timePartPad);
+  final String minute =
+      time.minute.toString().padLeft(_timePartWidth, _timePartPad);
+  final String second =
+      time.second.toString().padLeft(_timePartWidth, _timePartPad);
+  return '$hour:$minute:$second';
 }
 
 String _driftStatus(double driftMillis) {
   final double absolute = driftMillis.abs();
-  if (absolute < _avExcellentDriftMillis) return '优秀';
-  if (absolute < _avDegradedDriftMillis) return '正常';
-  return '需降级';
+  if (absolute <= _avExcellentDriftMillis) return '优秀';
+  if (absolute <= _avDegradedDriftMillis) return '可接受';
+  return '需要关注';
 }
 
 Color _driftColor(ElainaThemeData theme, double driftMillis) {
   final double absolute = driftMillis.abs();
-  if (absolute < _avExcellentDriftMillis) return theme.primary;
-  if (absolute < _avDegradedDriftMillis) return theme.secondary;
+  if (absolute <= _avExcellentDriftMillis) return theme.primary;
+  if (absolute <= _avDegradedDriftMillis) return theme.secondary;
   return theme.accentMagenta;
 }
 
 String _normalizedSeverity(String severity) {
   final String value = severity.toLowerCase();
-  if (value == _Severity.info.key) return _Severity.info.key;
-  if (value == _Severity.warning.key || value == 'warn') {
-    return _Severity.warning.key;
-  }
-  if (value == _Severity.error.key || value == 'fatal') {
+  if (value.contains('warn')) return _Severity.warning.key;
+  if (value.contains('error') || value.contains('fail')) {
     return _Severity.error.key;
   }
+  if (value.contains('info')) return _Severity.info.key;
   return _Severity.other.key;
 }
 
@@ -1435,7 +2268,7 @@ Color _severityColor(ElainaThemeData theme, String severity) {
     'info' => theme.primary,
     'warning' => theme.secondary,
     'error' => theme.accentMagenta,
-    _ => theme.onBackground.withValues(alpha: 0.72),
+    _ => theme.onBackground.withValues(alpha: 0.66),
   };
 }
 
@@ -1444,10 +2277,48 @@ Map<String, Color> _severityColors(ElainaThemeData theme) {
     _Severity.info.key: theme.primary,
     _Severity.warning.key: theme.secondary,
     _Severity.error.key: theme.accentMagenta,
-    _Severity.other.key: theme.onBackground.withValues(alpha: 0.72),
+    _Severity.other.key: theme.onBackground.withValues(alpha: 0.66),
   };
 }
 
 bool _isSupported(String value) {
   return value.toLowerCase() == 'supported';
+}
+
+DiagnosticsModuleHealth _playbackHealth(DiagnosticsPlaybackSnapshot playback) {
+  return playback.failureReason == null
+      ? DiagnosticsModuleHealth.healthy
+      : DiagnosticsModuleHealth.failed;
+}
+
+Color _moduleColor(ElainaThemeData theme, DiagnosticsModuleHealth health) {
+  return switch (health) {
+    DiagnosticsModuleHealth.healthy => theme.primary,
+    DiagnosticsModuleHealth.warning => theme.secondary,
+    DiagnosticsModuleHealth.failed => theme.accentMagenta,
+  };
+}
+
+IconData _healthIcon(DiagnosticsModuleHealth health) {
+  return switch (health) {
+    DiagnosticsModuleHealth.healthy => Icons.check_circle_outline,
+    DiagnosticsModuleHealth.warning => Icons.warning_amber_outlined,
+    DiagnosticsModuleHealth.failed => Icons.error_outline,
+  };
+}
+
+String _playbackStatusLabel(PlaybackLifecycleStatus status) {
+  return switch (status) {
+    PlaybackLifecycleStatus.idle => '空闲',
+    PlaybackLifecycleStatus.opening => '打开中',
+    PlaybackLifecycleStatus.playing => '播放中',
+    PlaybackLifecycleStatus.paused => '已暂停',
+    PlaybackLifecycleStatus.buffering => '缓冲中',
+    PlaybackLifecycleStatus.ended => '已结束',
+    PlaybackLifecycleStatus.failed => '失败',
+  };
+}
+
+String _configuredLabel(String? value) {
+  return value == null || value.trim().isEmpty ? '未配置' : '已配置';
 }

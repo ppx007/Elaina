@@ -65,6 +65,17 @@ abstract final class UiElementIds {
   static const String diagnosticsCapabilityChart =
       'diagnostics-capability-chart';
   static const String diagnosticsEventTable = 'diagnostics-event-table';
+  static const String diagnosticsModuleNav = 'diagnostics-module-nav';
+  static const String diagnosticsOverviewPanel = 'diagnostics-overview-panel';
+  static const String diagnosticsPlaybackPanel = 'diagnostics-playback-panel';
+  static const String diagnosticsDownloadPanel = 'diagnostics-download-panel';
+  static const String diagnosticsRssPanel = 'diagnostics-rss-panel';
+  static const String diagnosticsMediaLibraryPanel =
+      'diagnostics-media-library-panel';
+  static const String diagnosticsProviderNetworkPanel =
+      'diagnostics-provider-network-panel';
+  static const String diagnosticsEventFilter = 'diagnostics-event-filter';
+  static const String diagnosticsEventPayload = 'diagnostics-event-payload';
 
   static const String downloadDetailScroll = 'download-detail-scroll';
   static const String rssItemSearch = 'rss-item-search';

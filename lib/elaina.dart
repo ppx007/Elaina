@@ -9,6 +9,7 @@ export 'src/domain/detail/video_detail.dart';
 export 'src/domain/detail/video_detail_bootstrap.dart';
 export 'src/domain/detail/video_detail_runtime.dart';
 export 'src/domain/detail/video_detail_storage_adapters.dart';
+export 'src/domain/diagnostics/diagnostics_workbench.dart';
 export 'src/domain/download/download_domain.dart';
 export 'src/domain/home/home_recommendation_domain.dart';
 export 'src/domain/home/home_search_domain.dart';

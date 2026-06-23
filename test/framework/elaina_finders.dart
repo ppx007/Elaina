@@ -104,6 +104,24 @@ abstract final class ElainaFinders {
       byId(UiElementIds.diagnosticsCapabilityChart);
   static Finder get diagnosticsEventTable =>
       byId(UiElementIds.diagnosticsEventTable);
+  static Finder get diagnosticsModuleNav =>
+      byId(UiElementIds.diagnosticsModuleNav);
+  static Finder get diagnosticsOverviewPanel =>
+      byId(UiElementIds.diagnosticsOverviewPanel);
+  static Finder get diagnosticsPlaybackPanel =>
+      byId(UiElementIds.diagnosticsPlaybackPanel);
+  static Finder get diagnosticsDownloadPanel =>
+      byId(UiElementIds.diagnosticsDownloadPanel);
+  static Finder get diagnosticsRssPanel =>
+      byId(UiElementIds.diagnosticsRssPanel);
+  static Finder get diagnosticsMediaLibraryPanel =>
+      byId(UiElementIds.diagnosticsMediaLibraryPanel);
+  static Finder get diagnosticsProviderNetworkPanel =>
+      byId(UiElementIds.diagnosticsProviderNetworkPanel);
+  static Finder get diagnosticsEventFilter =>
+      byId(UiElementIds.diagnosticsEventFilter);
+  static Finder get diagnosticsEventPayload =>
+      byId(UiElementIds.diagnosticsEventPayload);
 
   static Finder settingsEditMediaFolder(Uri folder) {
     return byId(UiElementIds.settingsEditMediaFolder(folder));
