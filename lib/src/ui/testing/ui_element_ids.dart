@@ -58,6 +58,16 @@ abstract final class UiElementIds {
       'rss-select-visible-downloadable';
   static const String rssClearSelection = 'rss-clear-selection';
   static const String rssDownloadSelected = 'rss-download-selected';
+  static const String rssRuleLabelInput = 'rss-rule-label-input';
+  static const String rssRuleTitleContainsInput =
+      'rss-rule-title-contains-input';
+  static const String rssRuleTitleRegexInput = 'rss-rule-title-regex-input';
+  static const String rssRuleExcludeInput = 'rss-rule-exclude-input';
+  static const String rssRuleCategoryInput = 'rss-rule-category-input';
+  static const String rssRuleRequireDownloadSource =
+      'rss-rule-require-download-source';
+  static const String rssAddRule = 'rss-add-rule';
+  static const String rssRuleSave = 'rss-rule-save';
   static const String heroCarouselCachePin = 'hero-carousel-cache-pin';
 
   static const String playbackPage = 'playback-page';
@@ -103,5 +113,21 @@ abstract final class UiElementIds {
 
   static String rssItemDownload(String itemId) {
     return 'rss-item-download-$itemId';
+  }
+
+  static String rssSource(String sourceId) {
+    return 'rss-source-$sourceId';
+  }
+
+  static String rssRuleEdit(String ruleId) {
+    return 'rss-rule-edit-$ruleId';
+  }
+
+  static String rssRulePreview(String ruleId) {
+    return 'rss-rule-preview-$ruleId';
+  }
+
+  static String rssRuleDelete(String ruleId) {
+    return 'rss-rule-delete-$ruleId';
   }
 }

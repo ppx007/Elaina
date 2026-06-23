@@ -825,6 +825,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: InkWell(
+        key: ValueKey<String>(UiElementIds.rssSource(sourceId)),
         onTap: () {
           setState(() {
             _selectedSourceId = sourceId;
@@ -1145,6 +1146,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
             if (loading) _smallProgress(theme),
             const SizedBox(width: _toolbarGap),
             OutlinedButton.icon(
+              key: const ValueKey<String>(UiElementIds.rssAddRule),
               onPressed: () => _openRuleDialog(source),
               icon: const Icon(Icons.add, size: _smallIconSize),
               label: const Text('添加规则'),
@@ -1224,6 +1226,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           Tooltip(
             message: '预览规则',
             child: IconButton(
+              key: ValueKey<String>(UiElementIds.rssRulePreview(rule.ruleId)),
               onPressed: () => _previewRule(rule),
               icon: const Icon(Icons.visibility_outlined, size: _smallIconSize),
             ),
@@ -1231,6 +1234,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           Tooltip(
             message: '编辑规则',
             child: IconButton(
+              key: ValueKey<String>(UiElementIds.rssRuleEdit(rule.ruleId)),
               onPressed: () => _openRuleDialog(source, rule: rule),
               icon: const Icon(Icons.edit_outlined, size: _smallIconSize),
             ),
@@ -1238,6 +1242,7 @@ class _RssPageState extends State<RssPage> implements RssEngineRuntimeObserver {
           Tooltip(
             message: '删除规则',
             child: IconButton(
+              key: ValueKey<String>(UiElementIds.rssRuleDelete(rule.ruleId)),
               onPressed: () => _deleteRule(source, rule),
               icon: const Icon(Icons.delete_outline, size: _smallIconSize),
             ),
@@ -1980,6 +1985,7 @@ class _AutoDownloadRuleDialogState extends State<_AutoDownloadRuleDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
+          key: const ValueKey<String>(UiElementIds.rssRuleSave),
           onPressed: () => Navigator.of(context).pop(_draft()),
           child: const Text('保存规则'),
         ),
@@ -2030,24 +2036,28 @@ class _RuleFields extends StatelessWidget {
     return Column(
       children: <Widget>[
         TextField(
+          key: const ValueKey<String>(UiElementIds.rssRuleLabelInput),
           controller: ruleLabelController,
           style: TextStyle(color: theme.onSurface),
           decoration: const InputDecoration(labelText: '规则名称'),
         ),
         const SizedBox(height: _toolbarGap),
         TextField(
+          key: const ValueKey<String>(UiElementIds.rssRuleTitleContainsInput),
           controller: titleContainsController,
           style: TextStyle(color: theme.onSurface),
           decoration: const InputDecoration(labelText: '标题包含'),
         ),
         const SizedBox(height: _toolbarGap),
         TextField(
+          key: const ValueKey<String>(UiElementIds.rssRuleTitleRegexInput),
           controller: titleRegexController,
           style: TextStyle(color: theme.onSurface),
           decoration: const InputDecoration(labelText: '标题正则'),
         ),
         const SizedBox(height: _toolbarGap),
         TextField(
+          key: const ValueKey<String>(UiElementIds.rssRuleExcludeInput),
           controller: excludeController,
           style: TextStyle(color: theme.onSurface),
           decoration: const InputDecoration(labelText: '排除词（逗号或换行）'),
@@ -2056,11 +2066,15 @@ class _RuleFields extends StatelessWidget {
         ),
         const SizedBox(height: _toolbarGap),
         TextField(
+          key: const ValueKey<String>(UiElementIds.rssRuleCategoryInput),
           controller: categoryController,
           style: TextStyle(color: theme.onSurface),
           decoration: const InputDecoration(labelText: '分类包含'),
         ),
         CheckboxListTile(
+          key: const ValueKey<String>(
+            UiElementIds.rssRuleRequireDownloadSource,
+          ),
           contentPadding: EdgeInsets.zero,
           title: const Text('必须含下载资源'),
           value: requireDownloadSource,

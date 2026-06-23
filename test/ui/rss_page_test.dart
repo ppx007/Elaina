@@ -309,9 +309,9 @@ void main() {
 
       tester.widget<Switch>(find.byType(Switch).first).onChanged!(true);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Anime Feed').first);
+      await tester.tap(ElainaFinders.rssSource('anime-feed'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('添加规则'));
+      await tester.tap(ElainaFinders.rssAddRule);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, '规则名称'),
@@ -340,6 +340,90 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Episode 1'), findsOneWidget);
       expect(find.text('Special 2'), findsNothing);
+    });
+
+    testWidgets('edits an auto-download rule after it is created',
+        (WidgetTester tester) async {
+      await feedStore.storeSource(_storedRssSource());
+      await feedStore.storeItems(<StoredFeedItemRecord>[
+        _storedFeedItemRecord(_rssItem(), acceptedAt: _rssTestInstant),
+        _storedFeedItemRecord(
+          _rssItem(id: 'item-2', title: 'Special 2'),
+          acceptedAt: _rssTestInstant,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        _testHost(child: RssPage(rssEngineRuntime: rssEngineRuntime)),
+      );
+      await tester.pumpAndSettle();
+
+      tester.widget<Switch>(find.byType(Switch).first).onChanged!(true);
+      await tester.pumpAndSettle();
+      await tester.tap(ElainaFinders.rssSource('anime-feed'));
+      await tester.pumpAndSettle();
+      await tester.tap(ElainaFinders.rssAddRule);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        ElainaFinders.rssRuleLabelInput,
+        'Episode only',
+      );
+      await tester.enterText(
+        ElainaFinders.rssRuleTitleContainsInput,
+        'Episode',
+      );
+      await tester.tap(ElainaFinders.rssRuleSave);
+      await tester.pumpAndSettle();
+
+      final String createdRuleId = (await policyStore.rulesForPolicy(
+        defaultRssAutoDownloadPolicyId,
+      ))
+          .single
+          .id;
+      await tester.ensureVisible(ElainaFinders.rssRuleEdit(createdRuleId));
+      await tester.tap(ElainaFinders.rssRuleEdit(createdRuleId));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(ElainaFinders.rssRuleLabelInput)
+            .controller!
+            .text,
+        'Episode only',
+      );
+      expect(
+        tester
+            .widget<TextField>(ElainaFinders.rssRuleTitleContainsInput)
+            .controller!
+            .text,
+        'Episode',
+      );
+
+      await tester.enterText(
+        ElainaFinders.rssRuleLabelInput,
+        'Special only',
+      );
+      await tester.enterText(
+        ElainaFinders.rssRuleTitleContainsInput,
+        'Special',
+      );
+      await tester.tap(ElainaFinders.rssRuleSave);
+      await tester.pumpAndSettle();
+
+      final List<StoredRssAutoDownloadRuleRecord> updatedRules =
+          await policyStore.rulesForPolicy(defaultRssAutoDownloadPolicyId);
+      expect(updatedRules, hasLength(1));
+      expect(updatedRules.single.id, createdRuleId);
+      expect(updatedRules.single.label, 'Special only');
+      expect(
+        updatedRules.single.includeMatcher.predicates.map(
+          (StoredRssAutoDownloadMatcherPredicateRecord predicate) =>
+              predicate.value,
+        ),
+        contains('Special'),
+      );
+      expect(find.text('Episode only'), findsNothing);
+      expect(find.text('Special only'), findsOneWidget);
     });
 
     testWidgets('toggles auto download and removes a feed source',

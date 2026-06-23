@@ -137,6 +137,59 @@ void main() {
     await runtime.dispose();
   });
 
+  test('runtime updates an existing feed-scoped auto-download rule', () async {
+    final DeterministicRssFeedStore store = DeterministicRssFeedStore();
+    final DeterministicRssAutoDownloadPolicyStore policyStore =
+        DeterministicRssAutoDownloadPolicyStore();
+    await store.storeSource(_storedSource());
+    final RssEngineRuntime runtime = RssEngineRuntime(
+      engine: DeterministicRssEngine(
+        store: store,
+        fetcher: _FakeFeedFetcher(
+            responses: const <AcgProviderResult<FeedFetchResponse>>[]),
+        parser: _FakeFeedParser(items: const <FeedItem>[]),
+        deduplicator: DeterministicFeedDeduplicator(),
+      ),
+      store: store,
+      scheduler: _FiniteFeedScheduler(),
+      policyStore: policyStore,
+      clock: () => DateTime.utc(2026, 6, 11, 12),
+    );
+
+    await runtime.listSources();
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> created =
+        await runtime.saveAutoDownloadRule(
+      const RssAutoDownloadRuleDraft(
+        sourceId: 'anime-feed',
+        label: 'Episode rule',
+        titleContains: 'Episode',
+      ),
+    );
+    final RssEngineActionResult<RssAutoDownloadRuleProjection> updated =
+        await runtime.saveAutoDownloadRule(
+      RssAutoDownloadRuleDraft(
+        ruleId: created.value!.ruleId,
+        sourceId: 'anime-feed',
+        label: 'Special rule',
+        enabled: false,
+        titleContains: 'Special',
+      ),
+    );
+    final RssEngineActionResult<List<RssAutoDownloadRuleProjection>> listed =
+        await runtime.autoDownloadRulesForSource('anime-feed');
+    final List<StoredRssAutoDownloadRuleRecord> stored =
+        await policyStore.rulesForPolicy(defaultRssAutoDownloadPolicyId);
+
+    expect(created.isSuccess, isTrue);
+    expect(updated.isSuccess, isTrue);
+    expect(updated.value!.ruleId, created.value!.ruleId);
+    expect(stored, hasLength(1));
+    expect(listed.value!.single.label, 'Special rule');
+    expect(listed.value!.single.enabled, isFalse);
+    expect(listed.value!.single.titleContains, 'Special');
+    await runtime.dispose();
+  });
+
   test('runtime evaluates enabled rules after refresh and enqueues magnet',
       () async {
     final DeterministicRssFeedStore store = DeterministicRssFeedStore();

@@ -94,6 +94,19 @@ abstract final class ElainaFinders {
   static Finder get rssClearSelection => byId(UiElementIds.rssClearSelection);
   static Finder get rssDownloadSelected =>
       byId(UiElementIds.rssDownloadSelected);
+  static Finder get rssRuleLabelInput => byId(UiElementIds.rssRuleLabelInput);
+  static Finder get rssRuleTitleContainsInput =>
+      byId(UiElementIds.rssRuleTitleContainsInput);
+  static Finder get rssRuleTitleRegexInput =>
+      byId(UiElementIds.rssRuleTitleRegexInput);
+  static Finder get rssRuleExcludeInput =>
+      byId(UiElementIds.rssRuleExcludeInput);
+  static Finder get rssRuleCategoryInput =>
+      byId(UiElementIds.rssRuleCategoryInput);
+  static Finder get rssRuleRequireDownloadSource =>
+      byId(UiElementIds.rssRuleRequireDownloadSource);
+  static Finder get rssAddRule => byId(UiElementIds.rssAddRule);
+  static Finder get rssRuleSave => byId(UiElementIds.rssRuleSave);
   static Finder get heroCarouselCachePin =>
       byId(UiElementIds.heroCarouselCachePin);
 
@@ -122,5 +135,21 @@ abstract final class ElainaFinders {
 
   static Finder rssItemDownload(String itemId) {
     return byId(UiElementIds.rssItemDownload(itemId));
+  }
+
+  static Finder rssSource(String sourceId) {
+    return byId(UiElementIds.rssSource(sourceId));
+  }
+
+  static Finder rssRuleEdit(String ruleId) {
+    return byId(UiElementIds.rssRuleEdit(ruleId));
+  }
+
+  static Finder rssRulePreview(String ruleId) {
+    return byId(UiElementIds.rssRulePreview(ruleId));
+  }
+
+  static Finder rssRuleDelete(String ruleId) {
+    return byId(UiElementIds.rssRuleDelete(ruleId));
   }
 }
