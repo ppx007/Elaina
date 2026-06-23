@@ -152,6 +152,14 @@ abstract final class ElainaFinders {
     return byId(UiElementIds.heroCarouselItem(subjectId));
   }
 
+  static Finder heroCarouselPoster(String subjectId) {
+    return byId(UiElementIds.heroCarouselPoster(subjectId));
+  }
+
+  static Finder heroCarouselMeta(String subjectId) {
+    return byId(UiElementIds.heroCarouselMeta(subjectId));
+  }
+
   static Finder playbackTrack(String trackId) {
     return byId(UiElementIds.playbackTrack(trackId));
   }

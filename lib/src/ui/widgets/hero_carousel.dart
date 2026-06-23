@@ -44,6 +44,7 @@ final class HeroCarouselItem {
 class _HeroCarouselState extends State<HeroCarousel> {
   final ScrollController _scrollController = ScrollController();
   Timer? _timer;
+  static const double _carouselHeight = 400.0;
   static const double _itemWidth = 500.0;
   static const double _itemGap = 24.0;
   static const double _cachePinSize = 1.0;
@@ -157,7 +158,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
     final List<HeroCarouselItem> items = _effectiveItems();
 
     return SizedBox(
-      height: 400,
+      height: _carouselHeight,
       child: Stack(
         children: <Widget>[
           ListView.builder(
@@ -212,11 +213,22 @@ class _HeroCarouselCard extends StatelessWidget {
   final ElainaThemeData theme;
   final ImageProvider<Object>? imageProvider;
   final ValueChanged<String>? onOpenDetail;
+  static const double _overlayInset = 24.0;
+  static const double _metadataGap = 10.0;
+  static const double _titleFontSize = 32.0;
+  static const double _popularityFontSize = 13.0;
+  static const double _accentLineWidth = 48.0;
+  static const double _accentLineHeight = 4.0;
+  static const double _accentLineRadius = 2.0;
+  static const double _overlayGradientStart = 0.48;
+  static const double _overlayGradientEnd = 1.0;
+  static const double _overlayOpacity = 0.78;
 
   @override
   Widget build(BuildContext context) {
     final String? subjectId = item.subjectId;
     final bool canOpenDetail = subjectId != null && onOpenDetail != null;
+    final String itemId = subjectId ?? item.title;
     return SizedBox(
       width: width,
       child: Material(
@@ -244,9 +256,82 @@ class _HeroCarouselCard extends StatelessWidget {
               fit: StackFit.expand,
               children: <Widget>[
                 RepaintBoundary(
-                  child: _HeroPosterPlaceholder(
-                    index: index,
-                    imageProvider: imageProvider,
+                  child: KeyedSubtree(
+                    key: ValueKey<String>(
+                      UiElementIds.heroCarouselPoster(itemId),
+                    ),
+                    child: _HeroPosterPlaceholder(
+                      index: index,
+                      imageProvider: imageProvider,
+                    ),
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: <Color>[
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: _overlayOpacity),
+                      ],
+                      stops: const <double>[
+                        _overlayGradientStart,
+                        _overlayGradientEnd,
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  key: ValueKey<String>(UiElementIds.heroCarouselMeta(itemId)),
+                  left: _overlayInset,
+                  right: _overlayInset,
+                  bottom: _overlayInset,
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(
+                      color: Colors.white,
+                      shadows: <Shadow>[
+                        Shadow(color: Colors.black54, blurRadius: 10),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: _titleFontSize,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (item.popularitySentence != null) ...<Widget>[
+                          const SizedBox(height: _metadataGap),
+                          Text(
+                            item.popularitySentence!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: _popularityFontSize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: _metadataGap),
+                        Container(
+                          height: _accentLineHeight,
+                          width: _accentLineWidth,
+                          decoration: BoxDecoration(
+                            color: theme.primary,
+                            borderRadius:
+                                BorderRadius.circular(_accentLineRadius),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

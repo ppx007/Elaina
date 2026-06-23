@@ -92,6 +92,11 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _recommendationThreeColumnWidth = 900;
   static const double _recommendationTwoColumnWidth = 560;
   static const double _recommendationWaterfallGap = 24;
+  static const double _recommendationCategoryRadius = 8;
+  static const double _recommendationCategoryHorizontalPadding = 14;
+  static const double _recommendationCategoryVerticalPadding = 10;
+  static const double _recommendationCategoryFontSize = 18;
+  static const double _recommendationCategoryIconSize = 20;
   static const double _recentWatchingPanelHeight = 400;
   static const double _homeSearchEntryMaxWidth = 420;
   static const double _homeSearchEntryHeight = 44;
@@ -908,16 +913,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             const SizedBox(height: 32),
             Row(
               children: <Widget>[
-                Text(
-                  HomeRecommendationCategory.popular.label,
-                  style: TextStyle(
-                    color: theme.onSurface,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
                 _buildRecommendationCategoryPicker(theme),
+                const Spacer(),
               ],
             ),
             const SizedBox(height: 12),
@@ -1336,11 +1333,14 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: theme.border),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(_recommendationCategoryRadius),
           color: theme.surface.withValues(alpha: 0.72),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: _recommendationCategoryHorizontalPadding,
+            vertical: _recommendationCategoryVerticalPadding,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -1348,15 +1348,15 @@ class _ElainaAppShellState extends State<ElainaAppShell>
                 selected.label,
                 style: TextStyle(
                   color: theme.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontSize: _recommendationCategoryFontSize,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 8),
               Icon(
                 Icons.keyboard_arrow_down,
                 color: theme.onSurface.withValues(alpha: 0.72),
-                size: 18,
+                size: _recommendationCategoryIconSize,
               ),
             ],
           ),

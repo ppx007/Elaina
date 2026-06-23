@@ -20,6 +20,7 @@ void main() {
             subjectId: 'subject-$index',
             title: 'Anime $index',
             symbol: 'A$index',
+            popularitySentence: index == 0 ? 'Score 9.1' : null,
             coverUri: Uri.parse('https://example.invalid/cover-$index.jpg'),
           ),
       ];
@@ -48,10 +49,27 @@ void main() {
         findsNWidgets(expectedCyclicHeroItemCount),
       );
       final Finder firstCard = ElainaFinders.heroCarouselItem('subject-0');
+      final Finder firstPoster = ElainaFinders.heroCarouselPoster('subject-0');
+      final Finder firstMeta = ElainaFinders.heroCarouselMeta('subject-0');
       expect(firstCard, findsOneWidget);
+      expect(firstPoster, findsOneWidget);
+      expect(firstMeta, findsOneWidget);
       expect(
-        find.descendant(of: firstCard, matching: find.text('Anime 0')),
+        find.descendant(of: firstPoster, matching: find.text('Anime 0')),
         findsNothing,
+      );
+      expect(
+        find.descendant(of: firstPoster, matching: find.text('Score 9.1')),
+        findsNothing,
+      );
+      expect(find.text('A0'), findsNothing);
+      expect(
+        find.descendant(of: firstMeta, matching: find.text('Anime 0')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: firstMeta, matching: find.text('Score 9.1')),
+        findsOneWidget,
       );
     });
   });
@@ -100,13 +118,24 @@ void main() {
 
       final Finder secondLoopFirstCard =
           ElainaFinders.heroCarouselItem('subject-0');
+      final Finder secondLoopFirstPoster =
+          ElainaFinders.heroCarouselPoster('subject-0');
+      final Finder secondLoopFirstMeta =
+          ElainaFinders.heroCarouselMeta('subject-0');
       expect(secondLoopFirstCard, findsOneWidget);
       expect(
         find.descendant(
-          of: secondLoopFirstCard,
+          of: secondLoopFirstPoster,
           matching: find.text('Anime 0'),
         ),
         findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: secondLoopFirstMeta,
+          matching: find.text('Anime 0'),
+        ),
+        findsOneWidget,
       );
       expect(
         find.descendant(
@@ -184,10 +213,18 @@ void main() {
       }
       final Finder firstCard =
           ElainaFinders.heroCarouselItem('theme-subject-0');
+      final Finder firstPoster =
+          ElainaFinders.heroCarouselPoster('theme-subject-0');
+      final Finder firstMeta =
+          ElainaFinders.heroCarouselMeta('theme-subject-0');
       expect(firstCard, findsOneWidget);
       expect(
-        find.descendant(of: firstCard, matching: find.text('Theme Anime 0')),
+        find.descendant(of: firstPoster, matching: find.text('Theme Anime 0')),
         findsNothing,
+      );
+      expect(
+        find.descendant(of: firstMeta, matching: find.text('Theme Anime 0')),
+        findsOneWidget,
       );
     });
   });

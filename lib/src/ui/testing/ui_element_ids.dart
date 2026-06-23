@@ -121,6 +121,14 @@ abstract final class UiElementIds {
     return 'hero-carousel-item-$subjectId';
   }
 
+  static String heroCarouselPoster(String subjectId) {
+    return 'hero-carousel-poster-$subjectId';
+  }
+
+  static String heroCarouselMeta(String subjectId) {
+    return 'hero-carousel-meta-$subjectId';
+  }
+
   static String settingsEditMediaFolder(Uri folder) {
     return 'settings-edit-media-folder-${folder.toString()}';
   }

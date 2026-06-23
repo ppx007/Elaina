@@ -310,7 +310,7 @@ void main() {
 
     await tester.pumpUntilFound(find.text('Recent API Popular Anime'));
 
-    expect(find.text('热门番组'), findsWidgets);
+    expect(find.text(HomeRecommendationCategory.popular.label), findsOneWidget);
     expect(ElainaFinders.homeRecommendationCategoryMenu, findsOneWidget);
     expect(
       homeRecommendationProvider.recentPopularCategories.first.id,
@@ -320,6 +320,13 @@ void main() {
     expect(
       find.descendant(
         of: ElainaFinders.heroCarouselItem('100'),
+        matching: find.text('Official Trends Hero Anime'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: ElainaFinders.heroCarouselPoster('100'),
         matching: find.text('Official Trends Hero Anime'),
       ),
       findsNothing,
