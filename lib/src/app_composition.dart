@@ -47,6 +47,9 @@ const String _rssTorrentAcceptHeader =
     'application/x-bittorrent, application/octet-stream;q=0.9, */*;q=0.1';
 const String _rssTorrentUserAgent = 'Elaina RSS Torrent Resolver';
 const int _rssTorrentCacheKeyLength = 96;
+// media_kit exposes NoVideoControls as a dynamic null; keep a typed constant
+// here so analyzer can protect the production surface configuration.
+const VideoControlsBuilder? elainaMediaKitVideoControls = null;
 
 final class PeriodicFeedScheduler implements FeedScheduler {
   const PeriodicFeedScheduler(
@@ -367,7 +370,7 @@ class AppComposition {
   late final HomeSearchProvider homeSearchProvider;
 
   Widget buildVideoSurface(BuildContext context) {
-    return Video(controller: videoController);
+    return buildElainaMediaKitVideoSurface(videoController);
   }
 
   DiagnosticsWorkbenchRuntime buildDiagnosticsWorkbenchRuntime({
@@ -393,6 +396,19 @@ class AppComposition {
     btTaskCoreRuntime.dispose();
     foundation.dispose();
   }
+}
+
+/// Builds the native media-kit video surface used under Elaina's own controls.
+///
+/// media_kit's adaptive controls listen to the same player and draw their own
+/// dark hover/pause layer. The production playback page already owns transport
+/// controls, so enabling both control systems makes pause look like the entire
+/// page turned black.
+Video buildElainaMediaKitVideoSurface(VideoController controller) {
+  return Video(
+    controller: controller,
+    controls: elainaMediaKitVideoControls,
+  );
 }
 
 typedef _OpenExternalUri = Future<bool> Function(Uri uri);

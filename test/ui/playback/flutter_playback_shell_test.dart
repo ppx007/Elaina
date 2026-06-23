@@ -194,6 +194,32 @@ void main() {
     expect(find.text('解码器初始化失败'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('production page keeps video surface mounted after pause',
+      (WidgetTester tester) async {
+    const ValueKey<String> videoSurfaceKey =
+        ValueKey<String>('production-video-surface');
+    final MockPlaybackController controller = _productionController(
+      status: PlaybackLifecycleStatus.playing,
+    );
+
+    await tester.pumpWidget(
+      _productionHost(
+        controller,
+        videoSurface: const ColoredBox(
+          key: videoSurfaceKey,
+          color: Color(0xFF244C7A),
+        ),
+      ),
+    );
+    expect(find.byKey(videoSurfaceKey), findsOneWidget);
+
+    await tester.tap(ElainaFinders.playbackPlayPause);
+    await tester.pump();
+
+    expect(controller.currentState.status, PlaybackLifecycleStatus.paused);
+    expect(find.byKey(videoSurfaceKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Widget _host(FlutterPlaybackShellDriver driver) {
@@ -248,20 +274,25 @@ MockFlutterPlaybackShellDriver _driver() {
   );
 }
 
-Widget _productionHost(MockPlaybackController controller) {
+Widget _productionHost(
+  MockPlaybackController controller, {
+  Widget videoSurface = const ColoredBox(color: Colors.black),
+}) {
   return MaterialApp(
     home: ProductionPlaybackPage(
       controller: controller,
-      videoSurface: const ColoredBox(color: Colors.black),
+      videoSurface: videoSurface,
     ),
   );
 }
 
-MockPlaybackController _productionController() {
+MockPlaybackController _productionController({
+  PlaybackLifecycleStatus status = PlaybackLifecycleStatus.paused,
+}) {
   return MockPlaybackController(
     matrix: _productionMatrix(),
     initialState: PlaybackStateSnapshot(
-      status: PlaybackLifecycleStatus.paused,
+      status: status,
       sourceUri: Uri.file('D:/Anime/episode-1.mkv'),
       timeline: const PlaybackTimelineState(
         position: Duration(minutes: 1, seconds: 20),

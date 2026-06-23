@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:elaina/src/app_composition.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 const String _externalLaunchTestUri =
     'https://bgm.tv/oauth/authorize?client_id=elaina-test';
@@ -39,6 +43,14 @@ void main() {
       expect(calls, isEmpty);
     }
   });
+
+  test('production media-kit surface leaves controls to playback page', () {
+    final Video surface =
+        buildElainaMediaKitVideoSurface(_FakeVideoController());
+
+    expect(surface.controls, isNull);
+    expect(elainaMediaKitVideoControls, isNull);
+  });
 }
 
 final class _ProcessLaunchCall {
@@ -71,4 +83,30 @@ final class _DetachedProcessSentinel implements Process {
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
     return true;
   }
+}
+
+final class _FakeVideoController implements VideoController {
+  @override
+  ValueNotifier<int?> get id => throw UnimplementedError();
+
+  @override
+  ValueNotifier<PlatformVideoController?> get notifier =>
+      throw UnimplementedError();
+
+  @override
+  Completer<PlatformVideoController> get platform => throw UnimplementedError();
+
+  @override
+  Player get player => throw UnimplementedError();
+
+  @override
+  ValueNotifier<Rect?> get rect => throw UnimplementedError();
+
+  @override
+  Future<void> setSize({int? width, int? height}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> get waitUntilFirstFrameRendered => throw UnimplementedError();
 }
