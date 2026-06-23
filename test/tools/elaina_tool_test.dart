@@ -168,9 +168,8 @@ void main() {
       ).run(scope: ChangedTestScope.full);
 
       expect(
-        processRunner.commands.take(4),
+        processRunner.commands.take(3),
         <String>[
-          'openspec.cmd validate --all',
           'dart analyze',
           'flutter analyze',
           'flutter test',

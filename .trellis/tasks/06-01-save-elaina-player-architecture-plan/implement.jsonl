@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "The saved architecture plan defines backend-facing boundaries such as storage, gateway, provider, network, and diagnostics; implement agents should load the backend spec index before expanding the plan into execution work."}
-{"file": ".trellis/spec/frontend/index.md", "reason": "The architecture plan also constrains UI/page responsibilities and playback UX boundaries, so implement agents should load the frontend spec index for later phase decomposition."}

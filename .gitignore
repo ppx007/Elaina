@@ -70,30 +70,33 @@ temp/
 .cache/
 **/.cache/
 
-# Trellis legacy runtime state
-.trellis/.developer
-.trellis/.current-task
-.trellis/.runtime/
-.trellis/.backup-*/
-.trellis/worktrees/
-.trellis/.template-hashes.json
-.trellis/.cache/
-.trellis/**/*.pyc
-.trellis/**/__pycache__/
-
-# AI session runtime state
-.sisyphus/
+# Local AI, agent, and Trellis configuration/state
+AGENTS.md
+.agents/
+.agent/
 .agent-shell/
-.agents/rules/personal-*
-.agents/skills/personal-*
-.opencode/index/
-.opencode/tmp-*
+.claude/
+.codebuddy/
+.codex/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.pi/
+.qoder/
+.sisyphus/
+.trellis/
+.windsurf/
+
+# Local planning notes and specification workspaces
+docs/
+openspec/
 
 # Source-of-truth project artifacts are intentionally tracked:
-# - openspec/
-# - docs/
+# - README.md
 # - lib/
 # - tools/
-# - AGENTS.md
 # - pubspec.yaml
 # - analysis_options.yaml

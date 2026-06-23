@@ -21,7 +21,6 @@ final class FullGateRunner {
           dryRun: dryRun,
         );
 
-  static const String _openspecExecutable = 'openspec.cmd';
   static const String _dartExecutable = 'dart';
   static const String _flutterExecutable = 'flutter';
   static const String _ffmpegExecutable = 'ffmpeg';
@@ -53,11 +52,6 @@ final class FullGateRunner {
     bool requireNativeSmoke = false,
     bool skipNativePlayerSmoke = false,
   }) async {
-    await _executor.run(
-      'openspec validate --all',
-      _openspecExecutable,
-      const <String>['validate', '--all'],
-    );
     await _executor.run(
       'dart analyze',
       _dartExecutable,
