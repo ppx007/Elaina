@@ -113,7 +113,16 @@ void main() {
     );
     expect(
       recentPopularKey.cacheKey,
-      'subject-recent-popular-anime:180d:20260621:20:40',
+      'subject-recent-popular-anime:180d:popular:20260621:20:40',
+    );
+    expect(
+      bangumiRecentPopularAnimeRequestKey(
+        now: DateTime.utc(2026, 6, 21),
+        limit: 20,
+        offset: 40,
+        categoryId: 'daily',
+      ).cacheKey,
+      'subject-recent-popular-anime:180d:daily:20260621:20:40',
     );
     expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(subjectCollectionSyncKey.cacheKey, 'subject-collection:42:dropped');
@@ -511,7 +520,7 @@ void main() {
     final BangumiApiRequest recentPopularRequest = transport.requests.last;
     expect(
       gateway.lastCacheKey,
-      'subject-recent-popular-anime:180d:20260621:20:20',
+      'subject-recent-popular-anime:180d:popular:20260621:20:20',
     );
     expect(
       gateway.lastNetworkPolicyUri,
@@ -532,6 +541,7 @@ void main() {
       recentPopularFilter['air_date'],
       <String>['>=2025-12-24', '<2026-06-22'],
     );
+    expect(recentPopularFilter.containsKey('meta_tags'), isFalse);
     expect(
       (recentPopular as AcgProviderSuccess<List<BangumiSubject>>)
           .value
@@ -539,6 +549,26 @@ void main() {
           .title,
       'Recent Popular Title',
     );
+
+    await runtime.recentPopularAnime(
+      limit: 20,
+      offset: 0,
+      categoryId: 'daily',
+      metaTag: '日常',
+    );
+    final BangumiApiRequest taggedRecentPopularRequest =
+        transport.requests.last;
+    expect(
+      gateway.lastCacheKey,
+      'subject-recent-popular-anime:180d:daily:20260621:20:0',
+    );
+    final Map<String, Object?> taggedRecentPopularBody =
+        jsonDecode(taggedRecentPopularRequest.body!) as Map<String, Object?>;
+    final Map<String, Object?> taggedRecentPopularFilter =
+        taggedRecentPopularBody['filter']! as Map<String, Object?>;
+    expect(taggedRecentPopularBody['sort'], 'heat');
+    expect(taggedRecentPopularFilter['type'], <int>[bangumiAnimeSubjectType]);
+    expect(taggedRecentPopularFilter['meta_tags'], <String>['日常']);
 
     final AcgProviderResult<BangumiEpisode> episode =
         await runtime.lookupEpisode(const BangumiEpisodeId('7'));

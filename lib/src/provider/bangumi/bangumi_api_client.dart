@@ -520,6 +520,7 @@ final class BangumiApiClient {
     required DateTime now,
     int limit = bangumiApiRecentPopularAnimeLimit,
     int offset = bangumiApiRecentPopularAnimeOffset,
+    String? metaTag,
     String? proxyUrl,
   }) async {
     final _BangumiAirDateRange airDateRange =
@@ -538,6 +539,7 @@ final class BangumiApiClient {
       body: _animeSubjectSearchBody(
         sort: bangumiApiRecentPopularAnimeSort,
         airDateFilters: airDateRange.filters,
+        metaTags: metaTag == null ? const <String>[] : <String>[metaTag],
       ),
     );
     return _subjectsFromJsonList(
@@ -1276,6 +1278,8 @@ final class BangumiApiProvider
   Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
     required int limit,
     required int offset,
+    String categoryId = bangumiRecentPopularAnimeDefaultCategoryId,
+    String? metaTag,
   }) async {
     final DateTime now = (_now ?? DateTime.now)();
     final AcgProviderResult<List<BangumiSubject>> result =
@@ -1284,6 +1288,7 @@ final class BangumiApiProvider
         now: now,
         limit: limit,
         offset: offset,
+        categoryId: categoryId,
       ),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.recentPopularAnimeNetworkPolicyUri(
@@ -1295,6 +1300,7 @@ final class BangumiApiProvider
         now: now,
         limit: limit,
         offset: offset,
+        metaTag: metaTag,
         proxyUrl: context.proxyUrl,
       ),
     );
@@ -1560,6 +1566,7 @@ Map<String, Object?> _animeSubjectSearchBody({
   required String sort,
   String? keyword,
   List<String> airDateFilters = const <String>[],
+  List<String> metaTags = const <String>[],
 }) {
   return <String, Object?>{
     if (keyword != null) 'keyword': keyword,
@@ -1567,6 +1574,7 @@ Map<String, Object?> _animeSubjectSearchBody({
     'filter': <String, Object?>{
       'type': const <int>[bangumiAnimeSubjectType],
       if (airDateFilters.isNotEmpty) 'air_date': airDateFilters,
+      if (metaTags.isNotEmpty) 'meta_tags': metaTags,
     },
   };
 }

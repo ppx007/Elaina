@@ -25,6 +25,8 @@ abstract final class ElainaFinders {
   static Finder get homeSearchInput => byId(UiElementIds.homeSearchInput);
   static Finder get homeSearchClose => byId(UiElementIds.homeSearchClose);
   static Finder get homeSearchRetry => byId(UiElementIds.homeSearchRetry);
+  static Finder get homeRecommendationCategoryMenu =>
+      byId(UiElementIds.homeRecommendationCategoryMenu);
   static Finder get homeRecommendationWaterfall =>
       byId(UiElementIds.homeRecommendationWaterfall);
 
@@ -32,8 +34,16 @@ abstract final class ElainaFinders {
     return byId(UiElementIds.homeSearchResult(subjectId));
   }
 
+  static Finder homeRecommendationCategory(String categoryId) {
+    return byId(UiElementIds.homeRecommendationCategory(categoryId));
+  }
+
   static Finder homeRecentWatchingDetail(String subjectId) {
     return byId(UiElementIds.homeRecentWatchingDetail(subjectId));
+  }
+
+  static Finder homeRecentWatchingPoster(String subjectId) {
+    return byId(UiElementIds.homeRecentWatchingPoster(subjectId));
   }
 
   static Finder trackingItem(String subjectId) {

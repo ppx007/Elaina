@@ -187,5 +187,9 @@ abstract interface class BangumiDiscoveryProvider {
   Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
     required int limit,
     required int offset,
+    String categoryId = bangumiRecentPopularAnimeDefaultCategoryId,
+    String? metaTag,
   });
 }
+
+const String bangumiRecentPopularAnimeDefaultCategoryId = 'popular';

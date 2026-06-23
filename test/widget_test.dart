@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'framework/elaina_test_framework.dart';
 import 'support/widget_test_waiters.dart';
 
+const Duration popupMenuTransitionWait = Duration(milliseconds: 300);
+
 void main() {
   testWidgets('Elaina app shell smoke test', (WidgetTester tester) async {
     final ElainaAppFixture fixture = await ElainaTestHarness.pumpApp(tester);
@@ -255,23 +257,11 @@ void main() {
   testWidgets(
       'Elaina app shell shows popular hero and signed-out recent watching state',
       (WidgetTester tester) async {
-    final ElainaAppFixture fixture = await ElainaTestHarness.pumpShell(
-      tester,
-      homeRecommendationProvider: RecordingHomeRecommendationProvider(
-        popularSnapshot: HomeRecommendationSnapshot.loaded(
-          <HomeRecommendationItem>[
-            const HomeRecommendationItem(
-              subjectId: '100',
-              title: 'Official Trends Hero Anime',
-              rank: 1,
-              score: 9.3,
-              collectionTotal: 120000,
-              episodeCount: 12,
-            ),
-          ],
-        ),
-        recentItems: const <HomeRecommendationItem>[
-          HomeRecommendationItem(
+    final RecordingHomeRecommendationProvider homeRecommendationProvider =
+        RecordingHomeRecommendationProvider(
+      popularSnapshot: HomeRecommendationSnapshot.loaded(
+        <HomeRecommendationItem>[
+          const HomeRecommendationItem(
             subjectId: '100',
             title: 'Official Trends Hero Anime',
             rank: 1,
@@ -279,26 +269,65 @@ void main() {
             collectionTotal: 120000,
             episodeCount: 12,
           ),
+        ],
+      ),
+      recentItems: const <HomeRecommendationItem>[
+        HomeRecommendationItem(
+          subjectId: '100',
+          title: 'Official Trends Hero Anime',
+          rank: 1,
+          score: 9.3,
+          collectionTotal: 120000,
+          episodeCount: 12,
+        ),
+        HomeRecommendationItem(
+          subjectId: '101',
+          title: 'Recent API Popular Anime',
+          score: 8.1,
+          collectionTotal: 42000,
+          episodeCount: 13,
+        ),
+      ],
+      recentItemsByCategory: const <HomeRecommendationCategory,
+          Iterable<HomeRecommendationItem>>{
+        HomeRecommendationCategory.yuri: <HomeRecommendationItem>[
           HomeRecommendationItem(
-            subjectId: '101',
-            title: 'Recent API Popular Anime',
-            score: 8.1,
-            collectionTotal: 42000,
-            episodeCount: 13,
+            subjectId: '102',
+            title: 'Yuri API Popular Anime',
+            score: 8.4,
+            collectionTotal: 52000,
+            episodeCount: 12,
           ),
         ],
-        recentPageLimit: 1,
-      ),
+      },
+      recentPageLimit: 1,
+    );
+    final ElainaAppFixture fixture = await ElainaTestHarness.pumpShell(
+      tester,
+      homeRecommendationProvider: homeRecommendationProvider,
     );
     addTearDown(fixture.dispose);
 
     await tester.pumpUntilFound(find.text('Recent API Popular Anime'));
 
-    expect(find.text('Official Trends Hero Anime'), findsWidgets);
+    expect(find.text('热门番组'), findsWidgets);
+    expect(ElainaFinders.homeRecommendationCategoryMenu, findsOneWidget);
+    expect(
+      homeRecommendationProvider.recentPopularCategories.first.id,
+      HomeRecommendationCategory.popular.id,
+    );
+    expect(ElainaFinders.heroCarouselItem('100'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: ElainaFinders.heroCarouselItem('100'),
+        matching: find.text('Official Trends Hero Anime'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Recent API Popular Anime'), findsOneWidget);
     expect(ElainaFinders.homeRecommendationWaterfall, findsOneWidget);
 
-    await tester.tap(find.text('Official Trends Hero Anime').first);
+    await tester.tap(ElainaFinders.heroCarouselItem('100'));
     await tester.pump();
     await tester.pumpUntilFound(find.text('Mock Title'));
     fixture.robot.detail.expectLoaded('Mock Title');
@@ -311,6 +340,33 @@ void main() {
     );
     await tester.pumpUntilFound(find.text('Mock Title'));
     fixture.robot.detail.expectLoaded('Mock Title');
+
+    await fixture.robot.detail.close();
+    await tester.pumpUntilGone(find.text('Mock Title'));
+
+    await tester.scrollUntilVisible(
+      ElainaFinders.homeRecommendationCategoryMenu,
+      300,
+      scrollable: find
+          .descendant(
+            of: ElainaFinders.pageHome,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump(defaultWidgetWaitPumpStep);
+    await tester.tap(ElainaFinders.homeRecommendationCategoryMenu);
+    await tester
+        .pumpUntilFound(ElainaFinders.homeRecommendationCategory('yuri'));
+    await tester.pump(popupMenuTransitionWait);
+    await tester.tap(find.text(HomeRecommendationCategory.yuri.label).last);
+    await tester.pumpUntilFound(find.text('Yuri API Popular Anime'));
+
+    expect(find.text('Recent API Popular Anime'), findsNothing);
+    expect(
+      homeRecommendationProvider.recentPopularCategories.last.id,
+      HomeRecommendationCategory.yuri.id,
+    );
   });
 
   testWidgets('Elaina app shell shows signed-in recent watching items',
@@ -348,6 +404,14 @@ void main() {
     await tester.pumpUntilFound(find.text('Recently Watched Anime'));
 
     expect(find.text('Recently Watched Anime'), findsOneWidget);
+    expect(ElainaFinders.homeRecentWatchingPoster('200'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: ElainaFinders.homeRecentWatchingPoster('200'),
+        matching: find.text('Recently Watched Anime'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Planned Anime'), findsNothing);
 
     await fixture.robot.home.openRecentWatchingDetail('200');

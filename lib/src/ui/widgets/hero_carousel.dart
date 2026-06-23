@@ -245,70 +245,8 @@ class _HeroCarouselCard extends StatelessWidget {
               children: <Widget>[
                 RepaintBoundary(
                   child: _HeroPosterPlaceholder(
-                    symbol: item.symbol,
                     index: index,
                     imageProvider: imageProvider,
-                  ),
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: <Color>[
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.8),
-                      ],
-                      stops: const <double>[0.5, 1.0],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 24,
-                  left: 24,
-                  right: 24,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          shadows: <Shadow>[
-                            Shadow(color: Colors.black54, blurRadius: 10),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (item.popularitySentence != null) ...<Widget>[
-                        Text(
-                          item.popularitySentence!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.78),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            shadows: const <Shadow>[
-                              Shadow(color: Colors.black54, blurRadius: 8),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                      Container(
-                        height: 4,
-                        width: 48,
-                        decoration: BoxDecoration(
-                          color: theme.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
@@ -322,12 +260,10 @@ class _HeroCarouselCard extends StatelessWidget {
 
 class _HeroPosterPlaceholder extends StatelessWidget {
   const _HeroPosterPlaceholder({
-    required this.symbol,
     required this.index,
     this.imageProvider,
   });
 
-  final String symbol;
   final int index;
   final ImageProvider<Object>? imageProvider;
 
@@ -366,18 +302,6 @@ class _HeroPosterPlaceholder extends StatelessWidget {
               Icons.blur_on,
               size: 220,
               color: Colors.white.withValues(alpha: 0.16),
-            ),
-          ),
-          Positioned(
-            left: 32,
-            top: 32,
-            child: Text(
-              symbol,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.22),
-                fontSize: 96,
-                fontWeight: FontWeight.w900,
-              ),
             ),
           ),
         ],

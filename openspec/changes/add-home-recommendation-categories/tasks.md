@@ -1,0 +1,5 @@
+- [x] 1.1 Add home recommendation category domain model and fixed categories.
+- [x] 1.2 Extend Bangumi recent-popular discovery with optional meta tag and category-aware cache keys.
+- [x] 1.3 Add the home category picker and reset only waterfall pagination when the category changes.
+- [x] 1.4 Update focused provider and widget tests.
+- [x] 1.5 Validate with Dart analysis, focused tests, changed-test gate, and OpenSpec.

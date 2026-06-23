@@ -47,7 +47,12 @@ void main() {
         find.descendant(of: cachePin, matching: find.byType(Image)),
         findsNWidgets(expectedCyclicHeroItemCount),
       );
-      expect(find.text('Anime 0'), findsOneWidget);
+      final Finder firstCard = ElainaFinders.heroCarouselItem('subject-0');
+      expect(firstCard, findsOneWidget);
+      expect(
+        find.descendant(of: firstCard, matching: find.text('Anime 0')),
+        findsNothing,
+      );
     });
   });
 
@@ -96,7 +101,13 @@ void main() {
       final Finder secondLoopFirstCard =
           ElainaFinders.heroCarouselItem('subject-0');
       expect(secondLoopFirstCard, findsOneWidget);
-      expect(find.text('Anime 0'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: secondLoopFirstCard,
+          matching: find.text('Anime 0'),
+        ),
+        findsNothing,
+      );
       expect(
         find.descendant(
           of: secondLoopFirstCard,
@@ -171,7 +182,13 @@ void main() {
       for (int index = 0; index < darkProviders.length; index++) {
         expect(identical(lightProviders[index], darkProviders[index]), isTrue);
       }
-      expect(find.text('Theme Anime 0'), findsOneWidget);
+      final Finder firstCard =
+          ElainaFinders.heroCarouselItem('theme-subject-0');
+      expect(firstCard, findsOneWidget);
+      expect(
+        find.descendant(of: firstCard, matching: find.text('Theme Anime 0')),
+        findsNothing,
+      );
     });
   });
 }

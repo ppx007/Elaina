@@ -606,6 +606,7 @@ final class _BangumiHomeRecommendationProvider
   Future<HomeRecommendationSnapshot> recentPopularAnime({
     required int limit,
     required int offset,
+    HomeRecommendationCategory category = HomeRecommendationCategory.popular,
   }) async {
     if (limit <= 0 || offset < 0) {
       return const HomeRecommendationSnapshot.failed(
@@ -616,6 +617,8 @@ final class _BangumiHomeRecommendationProvider
         await _discoveryProvider.recentPopularAnime(
       limit: limit,
       offset: offset,
+      categoryId: category.id,
+      metaTag: category.metaTag,
     );
     if (result is AcgProviderSuccess<List<BangumiSubject>>) {
       return HomeRecommendationSnapshot.loaded(

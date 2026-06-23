@@ -49,12 +49,14 @@ ProviderRequestKey bangumiRecentPopularAnimeRequestKey({
   required DateTime now,
   required int limit,
   required int offset,
+  String categoryId = bangumiRecentPopularAnimeDefaultCategoryId,
 }) {
+  assert(categoryId != '', 'Bangumi recent popular category id is required.');
   return ProviderRequestKey(
     providerId: bangumiProviderId,
     cacheKey:
         'subject-recent-popular-anime:$_bangumiRecentPopularAnimeCacheSegment:'
-        '${_dateCacheKey(now)}:$limit:$offset',
+        '$categoryId:${_dateCacheKey(now)}:$limit:$offset',
   );
 }
 
@@ -285,6 +287,8 @@ final class DeterministicBangumiProvider
   Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
     required int limit,
     required int offset,
+    String categoryId = bangumiRecentPopularAnimeDefaultCategoryId,
+    String? metaTag,
   }) {
     final DateTime now = (_now ?? DateTime.now)();
     return _execute(
@@ -292,6 +296,7 @@ final class DeterministicBangumiProvider
         now: now,
         limit: limit,
         offset: offset,
+        categoryId: categoryId,
       ),
       cachePolicy: ProviderCachePolicy.networkFirst,
       load: () async {
@@ -826,12 +831,16 @@ final class BangumiProviderRuntime
   Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
     required int limit,
     required int offset,
+    String categoryId = bangumiRecentPopularAnimeDefaultCategoryId,
+    String? metaTag,
   }) async {
     if (_disposed) return _disposedFailure<List<BangumiSubject>>();
     await _ensureRegistered();
     return _discoveryProvider.recentPopularAnime(
       limit: limit,
       offset: offset,
+      categoryId: categoryId,
+      metaTag: metaTag,
     );
   }
 

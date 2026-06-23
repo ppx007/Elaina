@@ -228,7 +228,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
                         SizedBox(
                           width: imageWidth,
                           child: _HotUpdatePlaceholder(
-                            symbol: item.symbol,
+                            key: ValueKey<String>(
+                              UiElementIds.homeRecentWatchingPoster(
+                                item.subjectId,
+                              ),
+                            ),
                             index: index,
                             imageProvider: _imageProviderFor(item.coverUri),
                           ),
@@ -389,12 +393,11 @@ class _HotUpdatesCarouselState extends State<HotUpdatesCarousel> {
 
 class _HotUpdatePlaceholder extends StatelessWidget {
   const _HotUpdatePlaceholder({
-    required this.symbol,
+    super.key,
     required this.index,
     this.imageProvider,
   });
 
-  final String symbol;
   final int index;
   final ImageProvider<Object>? imageProvider;
 
@@ -428,16 +431,6 @@ class _HotUpdatePlaceholder extends StatelessWidget {
               Icons.auto_awesome,
               size: 180,
               color: Colors.white.withValues(alpha: 0.18),
-            ),
-            Center(
-              child: Text(
-                symbol,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 56,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
             ),
           ],
         ),

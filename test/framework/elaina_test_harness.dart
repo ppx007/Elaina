@@ -326,14 +326,26 @@ final class RecordingHomeRecommendationProvider
     required this.popularSnapshot,
     Iterable<HomeRecommendationItem> recentItems =
         const <HomeRecommendationItem>[],
+    Map<HomeRecommendationCategory, Iterable<HomeRecommendationItem>> recentItemsByCategory =
+        const <HomeRecommendationCategory, Iterable<HomeRecommendationItem>>{},
     this.recentPageLimit,
-  }) : _recentItems = List<HomeRecommendationItem>.unmodifiable(recentItems);
+  })  : _recentItems = List<HomeRecommendationItem>.unmodifiable(recentItems),
+        _recentItemsByCategory = <String, List<HomeRecommendationItem>>{
+          for (final MapEntry<HomeRecommendationCategory,
+                  Iterable<HomeRecommendationItem>> entry
+              in recentItemsByCategory.entries)
+            entry.key.id:
+                List<HomeRecommendationItem>.unmodifiable(entry.value),
+        };
 
   final HomeRecommendationSnapshot popularSnapshot;
   final List<HomeRecommendationItem> _recentItems;
+  final Map<String, List<HomeRecommendationItem>> _recentItemsByCategory;
   final int? recentPageLimit;
   int heroTrendCalls = 0;
   int waterfallRecentPopularCalls = 0;
+  final List<HomeRecommendationCategory> recentPopularCategories =
+      <HomeRecommendationCategory>[];
 
   @override
   Future<HomeRecommendationSnapshot> trendingAnime({
@@ -348,11 +360,15 @@ final class RecordingHomeRecommendationProvider
   Future<HomeRecommendationSnapshot> recentPopularAnime({
     required int limit,
     required int offset,
+    HomeRecommendationCategory category = HomeRecommendationCategory.popular,
   }) async {
     waterfallRecentPopularCalls++;
+    recentPopularCategories.add(category);
+    final List<HomeRecommendationItem> items =
+        _recentItemsByCategory[category.id] ?? _recentItems;
     final int effectiveLimit = recentPageLimit ?? limit;
     return HomeRecommendationSnapshot.loaded(
-      _recentItems.skip(offset).take(effectiveLimit),
+      items.skip(offset).take(effectiveLimit),
     );
   }
 }

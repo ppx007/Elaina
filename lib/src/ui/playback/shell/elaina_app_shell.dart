@@ -107,6 +107,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   VideoDetailId? _activeDetailId;
   int _bangumiAuthRevision = 0;
   int _homeRecommendationRevision = 0;
+  int _moreRecommendationRevision = 0;
   late MediaLibraryRuntimeSnapshot _librarySnapshot;
   late final ScrollController _homeScrollController;
   Future<UserProfileSnapshot?>? _profileFuture;
@@ -123,6 +124,8 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   bool _moreRecommendationIsLoading = false;
   bool _moreRecommendationHasMore = true;
   String? _moreRecommendationMessage;
+  HomeRecommendationCategory _selectedHomeRecommendationCategory =
+      HomeRecommendationCategory.popular;
   bool _homeSearchOverlayActive = false;
   bool _homeSearchIsLoading = false;
   int _homeSearchRevision = 0;
@@ -231,6 +234,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
   void _reloadHomeRecommendations() {
     _homeRecommendationRevision += 1;
+    _moreRecommendationRevision += 1;
     final int revision = _homeRecommendationRevision;
     final Future<HomeRecommendationSnapshot>? heroFuture =
         widget.homeRecommendationProvider?.trendingAnime(
@@ -239,12 +243,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     );
     _homeRecommendationFuture = heroFuture;
     _homeHeroSubjectIds = <String>{};
-    _moreRecommendationItems.clear();
-    _moreRecommendationSubjectIds.clear();
-    _moreRecommendationOffset = 0;
-    _moreRecommendationIsLoading = false;
-    _moreRecommendationHasMore = heroFuture != null;
-    _moreRecommendationMessage = null;
+    _resetMoreRecommendationPaging();
 
     if (heroFuture == null) return;
     unawaited(
@@ -287,8 +286,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       return;
     }
 
-    final int revision = _homeRecommendationRevision;
+    final int revision = _moreRecommendationRevision;
     final int offset = _moreRecommendationOffset;
+    final HomeRecommendationCategory category =
+        _selectedHomeRecommendationCategory;
     setState(() {
       _moreRecommendationIsLoading = true;
       _moreRecommendationMessage = null;
@@ -299,9 +300,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       snapshot = await provider.recentPopularAnime(
         limit: _homeMoreRecommendationPageSize,
         offset: offset,
+        category: category,
       );
     } catch (error) {
-      if (!mounted || revision != _homeRecommendationRevision) return;
+      if (!mounted || revision != _moreRecommendationRevision) return;
       setState(() {
         _moreRecommendationIsLoading = false;
         _moreRecommendationHasMore = true;
@@ -309,7 +311,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       });
       return;
     }
-    if (!mounted || revision != _homeRecommendationRevision) return;
+    if (!mounted || revision != _moreRecommendationRevision) return;
 
     if (snapshot.status == HomeRecommendationLoadStatus.failed) {
       setState(() {
@@ -345,6 +347,25 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       _moreRecommendationMessage = null;
     });
     unawaited(_loadMoreRecommendations());
+  }
+
+  void _selectHomeRecommendationCategory(HomeRecommendationCategory category) {
+    if (_selectedHomeRecommendationCategory.id == category.id) return;
+    setState(() {
+      _selectedHomeRecommendationCategory = category;
+      _resetMoreRecommendationPaging();
+    });
+    unawaited(_loadMoreRecommendations());
+  }
+
+  void _resetMoreRecommendationPaging() {
+    _moreRecommendationRevision += 1;
+    _moreRecommendationItems.clear();
+    _moreRecommendationSubjectIds.clear();
+    _moreRecommendationOffset = 0;
+    _moreRecommendationIsLoading = false;
+    _moreRecommendationHasMore = widget.homeRecommendationProvider != null;
+    _moreRecommendationMessage = null;
   }
 
   void _openBangumiSettings() {
@@ -885,13 +906,19 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             const SizedBox(height: 32),
             _buildRecentWatchingSection(theme),
             const SizedBox(height: 32),
-            Text(
-              '更多推荐',
-              style: TextStyle(
-                color: theme.onSurface,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: <Widget>[
+                Text(
+                  HomeRecommendationCategory.popular.label,
+                  style: TextStyle(
+                    color: theme.onSurface,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                _buildRecommendationCategoryPicker(theme),
+              ],
             ),
             const SizedBox(height: 12),
             _buildRecommendationsWaterfall(
@@ -1267,6 +1294,73 @@ class _ElainaAppShellState extends State<ElainaAppShell>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCategoryPicker(ElainaThemeData theme) {
+    final HomeRecommendationCategory selected =
+        _selectedHomeRecommendationCategory;
+    return PopupMenuButton<HomeRecommendationCategory>(
+      key: const ValueKey<String>(UiElementIds.homeRecommendationCategoryMenu),
+      tooltip: '选择推荐分类',
+      onSelected: _selectHomeRecommendationCategory,
+      itemBuilder: (BuildContext context) {
+        return <PopupMenuEntry<HomeRecommendationCategory>>[
+          for (final HomeRecommendationCategory category
+              in HomeRecommendationCategory.values)
+            PopupMenuItem<HomeRecommendationCategory>(
+              key: ValueKey<String>(
+                UiElementIds.homeRecommendationCategory(category.id),
+              ),
+              value: category,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    selected.id == category.id
+                        ? Icons.check_circle
+                        : Icons.circle_outlined,
+                    size: 18,
+                    color: selected.id == category.id
+                        ? theme.primary
+                        : theme.onSurface.withValues(alpha: 0.56),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(category.label),
+                ],
+              ),
+            ),
+        ];
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.border),
+          borderRadius: BorderRadius.circular(8),
+          color: theme.surface.withValues(alpha: 0.72),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                selected.label,
+                style: TextStyle(
+                  color: theme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down,
+                color: theme.onSurface.withValues(alpha: 0.72),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

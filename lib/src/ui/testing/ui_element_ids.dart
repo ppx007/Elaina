@@ -19,6 +19,8 @@ abstract final class UiElementIds {
   static const String homeSearchInput = 'home-search-input';
   static const String homeSearchClose = 'home-search-close';
   static const String homeSearchRetry = 'home-search-retry';
+  static const String homeRecommendationCategoryMenu =
+      'home-recommendation-category-menu';
   static const String homeRecommendationWaterfall =
       'home-recommendation-waterfall';
 
@@ -99,8 +101,16 @@ abstract final class UiElementIds {
     return 'home-search-result-$subjectId';
   }
 
+  static String homeRecommendationCategory(String categoryId) {
+    return 'home-recommendation-category-$categoryId';
+  }
+
   static String homeRecentWatchingDetail(String subjectId) {
     return 'home-recent-watching-detail-$subjectId';
+  }
+
+  static String homeRecentWatchingPoster(String subjectId) {
+    return 'home-recent-watching-poster-$subjectId';
   }
 
   static String trackingItem(String subjectId) {
