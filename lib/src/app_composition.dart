@@ -572,31 +572,12 @@ final class _BangumiTrackingStatusSyncProvider
 
 final class _BangumiHomeRecommendationProvider
     implements HomeRecommendationProvider {
-  _BangumiHomeRecommendationProvider(
-    this._discoveryProvider, {
-    DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  const _BangumiHomeRecommendationProvider(this._discoveryProvider);
 
   final BangumiDiscoveryProvider _discoveryProvider;
-  final DateTime Function() _now;
 
   @override
-  Future<HomeRecommendationSnapshot> popularAnime() async {
-    final AcgProviderResult<List<BangumiSubject>> result =
-        await _discoveryProvider.popularAnime();
-    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
-      return HomeRecommendationSnapshot.loaded(
-        result.value.map(_homeRecommendationItemFromSubject),
-      );
-    }
-    if (result is AcgProviderFailure<List<BangumiSubject>>) {
-      return HomeRecommendationSnapshot.failed(result.message);
-    }
-    return const HomeRecommendationSnapshot.failed('Bangumi 近30天注目状态未知。');
-  }
-
-  @override
-  Future<HomeRecommendationSnapshot> recentPopularAnime({
+  Future<HomeRecommendationSnapshot> trendingAnime({
     required int limit,
     required int offset,
   }) async {
@@ -606,8 +587,7 @@ final class _BangumiHomeRecommendationProvider
       );
     }
     final AcgProviderResult<List<BangumiSubject>> result =
-        await _discoveryProvider.recentPopularAnime(
-      now: _now(),
+        await _discoveryProvider.trendingAnime(
       limit: limit,
       offset: offset,
     );
@@ -619,7 +599,7 @@ final class _BangumiHomeRecommendationProvider
     if (result is AcgProviderFailure<List<BangumiSubject>>) {
       return HomeRecommendationSnapshot.failed(result.message);
     }
-    return const HomeRecommendationSnapshot.failed('Bangumi 近半年热门状态未知。');
+    return const HomeRecommendationSnapshot.failed('Bangumi 近期注目状态未知。');
   }
 }
 

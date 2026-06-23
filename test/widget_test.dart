@@ -187,7 +187,7 @@ void main() {
           <HomeRecommendationItem>[
             const HomeRecommendationItem(
               subjectId: '100',
-              title: 'Recent Hot Anime',
+              title: 'Official Trends Hero Anime',
               rank: 1,
               score: 9.3,
               collectionTotal: 120000,
@@ -198,7 +198,7 @@ void main() {
         recentItems: const <HomeRecommendationItem>[
           HomeRecommendationItem(
             subjectId: '100',
-            title: 'Recent Hot Anime',
+            title: 'Official Trends Hero Anime',
             rank: 1,
             score: 9.3,
             collectionTotal: 120000,
@@ -206,7 +206,7 @@ void main() {
           ),
           HomeRecommendationItem(
             subjectId: '101',
-            title: 'Six Month Hot Anime',
+            title: 'Official Trends Page Anime',
             score: 8.1,
             collectionTotal: 42000,
             episodeCount: 13,
@@ -217,13 +217,13 @@ void main() {
     );
     addTearDown(fixture.dispose);
 
-    await tester.pumpUntilFound(find.text('Six Month Hot Anime'));
+    await tester.pumpUntilFound(find.text('Official Trends Page Anime'));
 
-    expect(find.text('Recent Hot Anime'), findsWidgets);
-    expect(find.text('Six Month Hot Anime'), findsOneWidget);
+    expect(find.text('Official Trends Hero Anime'), findsWidgets);
+    expect(find.text('Official Trends Page Anime'), findsOneWidget);
     expect(ElainaFinders.homeRecommendationWaterfall, findsOneWidget);
 
-    await tester.tap(find.text('Recent Hot Anime').first);
+    await tester.tap(find.text('Official Trends Hero Anime').first);
     await tester.pump();
     await tester.pumpUntilFound(find.text('Mock Title'));
     fixture.robot.detail.expectLoaded('Mock Title');
@@ -231,7 +231,9 @@ void main() {
     await fixture.robot.detail.close();
     await tester.pumpUntilGone(find.text('Mock Title'));
 
-    await fixture.robot.home.openWaterfallRecommendation('Six Month Hot Anime');
+    await fixture.robot.home.openWaterfallRecommendation(
+      'Official Trends Page Anime',
+    );
     await tester.pumpUntilFound(find.text('Mock Title'));
     fixture.robot.detail.expectLoaded('Mock Title');
   });
@@ -324,8 +326,8 @@ void main() {
 
     await tester.pumpUntilFound(find.text('Theme Tracking Anime'));
 
-    final int popularCalls = homeProvider.popularCalls;
-    final int recentPopularCalls = homeProvider.recentPopularCalls;
+    final int heroTrendCalls = homeProvider.heroTrendCalls;
+    final int waterfallTrendCalls = homeProvider.waterfallTrendCalls;
     final int trackingCalls = trackingProvider.currentAnimeCollectionCalls;
 
     await tester.tap(find.byIcon(Icons.dark_mode));
@@ -335,8 +337,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.dark_mode));
     await tester.pump();
 
-    expect(homeProvider.popularCalls, popularCalls);
-    expect(homeProvider.recentPopularCalls, recentPopularCalls);
+    expect(homeProvider.heroTrendCalls, heroTrendCalls);
+    expect(homeProvider.waterfallTrendCalls, waterfallTrendCalls);
     expect(trackingProvider.currentAnimeCollectionCalls, trackingCalls);
     expect(find.text('Theme Tracking Anime'), findsOneWidget);
   });

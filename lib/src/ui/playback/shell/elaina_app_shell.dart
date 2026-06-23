@@ -86,7 +86,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
   static const double _trackingGridAspectRatio = 1.55;
   static const double _completedProgressThreshold = 0.98;
   static const int _homeHeroRecommendationLimit = 7;
-  static const int _homeMoreRecommendationPageSize = 20;
+  static const int _homeMoreRecommendationPageSize = 24;
   static const double _homeMoreRecommendationLoadAheadExtent = 640;
   static const double _recommendationPosterAspectRatio = 9 / 16;
   static const double _recommendationThreeColumnWidth = 900;
@@ -233,7 +233,10 @@ class _ElainaAppShellState extends State<ElainaAppShell>
     _homeRecommendationRevision += 1;
     final int revision = _homeRecommendationRevision;
     final Future<HomeRecommendationSnapshot>? heroFuture =
-        widget.homeRecommendationProvider?.popularAnime();
+        widget.homeRecommendationProvider?.trendingAnime(
+      limit: _homeHeroRecommendationLimit,
+      offset: 0,
+    );
     _homeRecommendationFuture = heroFuture;
     _homeHeroSubjectIds = <String>{};
     _moreRecommendationItems.clear();
@@ -293,7 +296,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
 
     late final HomeRecommendationSnapshot snapshot;
     try {
-      snapshot = await provider.recentPopularAnime(
+      snapshot = await provider.trendingAnime(
         limit: _homeMoreRecommendationPageSize,
         offset: offset,
       );

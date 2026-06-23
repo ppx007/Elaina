@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:html/dom.dart' as html_dom;
+import 'package:html/parser.dart' as html_parser;
+
 import '../../foundation/extension_points.dart';
 import '../../foundation/gateway/provider_gateway.dart';
 import '../../foundation/security/outbound_uri_guard.dart';
@@ -16,14 +19,10 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
-const int bangumiApiPopularAnimeLimit = 7;
-const int bangumiApiPopularAnimeOffset = 0;
-const String bangumiApiPopularAnimeSort = 'heat';
-const int bangumiApiPopularAnimeWindowDays = 30;
-const int bangumiApiRecentPopularAnimeWindowMonths = 6;
-const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
-const int bangumiApiRecentPopularAnimeOffset = 0;
-const int _calendarMonthsPerYear = 12;
+const String bangumiTrendsBrowserSort = 'trends';
+const int bangumiTrendsHeroLimit = 7;
+const int bangumiTrendsBrowserPageSize = 24;
+const int bangumiTrendsBrowserInitialOffset = 0;
 const int bangumiApiEpisodePageLimit = 200;
 const int bangumiApiEpisodeInitialOffset = 0;
 const int bangumiApiCollectionPageLimit = 50;
@@ -40,8 +39,11 @@ const int bangumiEpisodeCollectionDropped = 3;
 const Duration bangumiApiSessionProjectionTtl = Duration(minutes: 15);
 const String defaultBangumiOAuthClientId = 'bgm63916a369e2af2ca6';
 const String bangumiOAuthAuthorizationResponseType = 'code';
+const int _asciiDigitZeroCodeUnit = 0x30;
+const int _asciiDigitNineCodeUnit = 0x39;
 
 final Uri defaultBangumiApiBaseUri = Uri.parse('https://api.bgm.tv');
+final Uri defaultBangumiWebBaseUri = Uri.parse('https://bgm.tv');
 final Uri defaultBangumiOAuthAuthorizeBaseUri =
     Uri.parse('https://bgm.tv/oauth/authorize');
 final Uri defaultBangumiOAuthAuthorizationPageUri =
@@ -57,6 +59,7 @@ const String bangumiMirrorImageUrlParameter = 'url';
 const Set<String> bangumiMirrorImageHosts = <String>{
   'lain.bgm.tv',
 };
+final RegExp _whitespacePattern = RegExp(r'\s+');
 
 Uri bangumiOAuthAuthorizationUri({
   Uri? authorizationBaseUri,
@@ -267,55 +270,27 @@ final class BangumiApiClient {
     );
   }
 
-  Uri popularAnimeRequestUri({
-    int limit = bangumiApiPopularAnimeLimit,
-    int offset = bangumiApiPopularAnimeOffset,
+  Uri trendingAnimeRequestUri({
+    int limit = bangumiTrendsHeroLimit,
+    int offset = bangumiTrendsBrowserInitialOffset,
   }) {
-    return _uri(
-      _subjectSearchPath,
-      <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-      },
+    return _webUri(
+      _animeBrowserPath,
+      _trendsBrowserQueryParameters(
+        _trendsPageForWindow(limit: limit, offset: offset),
+      ),
     );
   }
 
-  Future<Uri> popularAnimeNetworkPolicyUri({
-    int limit = bangumiApiPopularAnimeLimit,
-    int offset = bangumiApiPopularAnimeOffset,
+  Future<Uri> trendingAnimeNetworkPolicyUri({
+    int limit = bangumiTrendsHeroLimit,
+    int offset = bangumiTrendsBrowserInitialOffset,
   }) {
-    return _effectiveUri(
-      _subjectSearchPath,
-      <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-      },
-    );
-  }
-
-  Uri recentPopularAnimeRequestUri({
-    int limit = bangumiApiRecentPopularAnimeLimit,
-    int offset = bangumiApiRecentPopularAnimeOffset,
-  }) {
-    return _uri(
-      _subjectSearchPath,
-      <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-      },
-    );
-  }
-
-  Future<Uri> recentPopularAnimeNetworkPolicyUri({
-    int limit = bangumiApiRecentPopularAnimeLimit,
-    int offset = bangumiApiRecentPopularAnimeOffset,
-  }) {
-    return _effectiveUri(
-      _subjectSearchPath,
-      <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-      },
+    return _effectiveWebUri(
+      _animeBrowserPath,
+      _trendsBrowserQueryParameters(
+        _trendsPageForWindow(limit: limit, offset: offset),
+      ),
     );
   }
 
@@ -507,67 +482,26 @@ final class BangumiApiClient {
     );
   }
 
-  Future<List<BangumiSubject>> popularAnime({
-    required DateTime now,
+  Future<List<BangumiSubject>> trendingAnime({
+    int limit = bangumiTrendsHeroLimit,
+    int offset = bangumiTrendsBrowserInitialOffset,
     String? proxyUrl,
   }) async {
-    // The hero carousel should represent recent attention, not all-time rank.
-    final _BangumiAirDateRange airDateRange = _popularAnimeAirDateRange(now);
-    final _BangumiResolvedRequest request = await _resolvedRequest(
-      _subjectSearchPath,
-      const <String, String>{
-        'limit': '$bangumiApiPopularAnimeLimit',
-        'offset': '$bangumiApiPopularAnimeOffset',
-      },
+    final int page = _trendsPageForWindow(limit: limit, offset: offset);
+    final _BangumiResolvedRequest request = await _resolvedWebRequest(
+      _animeBrowserPath,
+      _trendsBrowserQueryParameters(page),
     );
-    final Object? json = await _sendJson(
-      'POST',
+    final String html = await _sendText(
+      'GET',
       request.uri,
       proxyUrl: proxyUrl,
-      body: _animeSubjectSearchBody(
-        sort: bangumiApiPopularAnimeSort,
-        airDateFilters: airDateRange.filters,
-      ),
     );
-    return _subjectsFromJsonList(
-      json,
-      missingDataMessage: 'Bangumi popular anime response missing data list.',
-      itemLabel: 'Bangumi popular subject',
-      imageUriRewriter: request.rewriteImageUri,
-    );
-  }
-
-  Future<List<BangumiSubject>> recentPopularAnime({
-    required DateTime now,
-    int limit = bangumiApiRecentPopularAnimeLimit,
-    int offset = bangumiApiRecentPopularAnimeOffset,
-    String? proxyUrl,
-  }) async {
-    // The waterfall feed needs a wider recent window than the hero while still
-    // staying seasonal enough to avoid historical ranking noise.
-    final _BangumiAirDateRange airDateRange =
-        _recentPopularAnimeAirDateRange(now);
-    final _BangumiResolvedRequest request = await _resolvedRequest(
-      _subjectSearchPath,
-      <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-      },
-    );
-    final Object? json = await _sendJson(
-      'POST',
-      request.uri,
-      proxyUrl: proxyUrl,
-      body: _animeSubjectSearchBody(
-        sort: bangumiApiPopularAnimeSort,
-        airDateFilters: airDateRange.filters,
-      ),
-    );
-    return _subjectsFromJsonList(
-      json,
+    return _trendingAnimeSubjectsFromHtml(
+      html,
+      limit: limit,
       missingDataMessage:
-          'Bangumi recent popular anime response missing data list.',
-      itemLabel: 'Bangumi recent popular subject',
+          'Bangumi trending anime page did not contain subject entries.',
       imageUriRewriter: request.rewriteImageUri,
     );
   }
@@ -870,7 +804,11 @@ final class BangumiApiClient {
       BangumiApiRequest(
         method: method,
         uri: uri,
-        headers: _headers(token: token, hasBody: encodedBody != null),
+        headers: _headers(
+          token: token,
+          hasBody: encodedBody != null,
+          accept: 'application/json',
+        ),
         body: encodedBody,
         proxyUrl: proxyUrl,
       ),
@@ -898,12 +836,44 @@ final class BangumiApiClient {
     }
   }
 
+  Future<String> _sendText(
+    String method,
+    Uri uri, {
+    String? proxyUrl,
+  }) async {
+    final BangumiApiResponse response = await _transport.send(
+      BangumiApiRequest(
+        method: method,
+        uri: uri,
+        headers: _headers(
+          token: null,
+          hasBody: false,
+          accept: 'text/html,application/xhtml+xml',
+        ),
+        proxyUrl: proxyUrl,
+      ),
+    );
+
+    if (response.statusCode < HttpStatus.ok ||
+        response.statusCode >= HttpStatus.multipleChoices) {
+      _throwFailureForStatus(response);
+    }
+    if (response.body.trim().isEmpty) {
+      throw const ProviderFailure(
+        kind: ProviderFailureKind.terminal,
+        message: 'Bangumi trends page returned an empty response body.',
+      );
+    }
+    return response.body;
+  }
+
   Map<String, String> _headers({
     required BangumiApiAccessToken? token,
     required bool hasBody,
+    required String accept,
   }) {
     return <String, String>{
-      HttpHeaders.acceptHeader: 'application/json',
+      HttpHeaders.acceptHeader: accept,
       HttpHeaders.userAgentHeader: _userAgent,
       if (hasBody) HttpHeaders.contentTypeHeader: 'application/json',
       if (token != null)
@@ -915,12 +885,28 @@ final class BangumiApiClient {
     return _uriFromBase(_baseUri, path, queryParameters);
   }
 
+  Uri _webUri(
+    String path, [
+    Map<String, String> queryParameters = const {},
+  ]) {
+    return _uriFromBase(defaultBangumiWebBaseUri, path, queryParameters);
+  }
+
   Future<Uri> _effectiveUri(
     String path, [
     Map<String, String> queryParameters = const {},
   ]) async {
     final _BangumiResolvedRequest request =
         await _resolvedRequest(path, queryParameters);
+    return request.uri;
+  }
+
+  Future<Uri> _effectiveWebUri(
+    String path, [
+    Map<String, String> queryParameters = const {},
+  ]) async {
+    final _BangumiResolvedRequest request =
+        await _resolvedWebRequest(path, queryParameters);
     return request.uri;
   }
 
@@ -932,6 +918,17 @@ final class BangumiApiClient {
     final Uri apiBaseUri = config.enabled ? config.apiBaseUri! : _baseUri;
     return _BangumiResolvedRequest(
       uri: _uriFromBase(apiBaseUri, path, queryParameters),
+      imageBaseUri: config.enabled ? config.imageBaseUri : null,
+    );
+  }
+
+  Future<_BangumiResolvedRequest> _resolvedWebRequest(
+    String path, [
+    Map<String, String> queryParameters = const {},
+  ]) async {
+    final BangumiApiMirrorConfig config = await _activeMirrorConfig();
+    return _BangumiResolvedRequest(
+      uri: _uriFromBase(defaultBangumiWebBaseUri, path, queryParameters),
       imageBaseUri: config.enabled ? config.imageBaseUri : null,
     );
   }
@@ -1002,8 +999,33 @@ bool _isMirrorBaseUri(Uri? uri) {
 }
 
 const String _subjectSearchPath = '/v0/search/subjects';
+const String _animeBrowserPath = '/anime/browser/';
 const String _episodeListPath = '/v0/episodes';
 const String _currentSessionPath = '/v0/me';
+
+Map<String, String> _trendsBrowserQueryParameters(int page) {
+  return <String, String>{
+    'sort': bangumiTrendsBrowserSort,
+    if (page > 1) 'page': '$page',
+  };
+}
+
+int _trendsPageForWindow({
+  required int limit,
+  required int offset,
+}) {
+  if (limit <= 0 ||
+      limit > bangumiTrendsBrowserPageSize ||
+      offset < 0 ||
+      (offset != 0 && offset % bangumiTrendsBrowserPageSize != 0)) {
+    throw const ProviderFailure(
+      kind: ProviderFailureKind.terminal,
+      message:
+          'Bangumi trends requests must use a positive limit within one browser page and page-aligned offsets.',
+    );
+  }
+  return (offset ~/ bangumiTrendsBrowserPageSize) + 1;
+}
 
 String _lookupSubjectPath(BangumiSubjectId id) {
   return '/v0/subjects/${Uri.encodeComponent(id.value)}';
@@ -1149,45 +1171,24 @@ final class BangumiApiProvider
   }
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime() async {
-    final DateTime now = (_now ?? DateTime.now)();
-    final AcgProviderResult<List<BangumiSubject>> result =
-        await _execute<List<BangumiSubject>>(
-      key: bangumiPopularAnimeRequestKey(now: now),
-      cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.popularAnimeNetworkPolicyUri(),
-      load: (ProviderGatewayRequestContext context) => _client.popularAnime(
-        now: now,
-        proxyUrl: context.proxyUrl,
-      ),
-    );
-    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
-      _rememberSubjects(result.value);
-    }
-    return result;
-  }
-
-  @override
-  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
-    required DateTime now,
+  Future<AcgProviderResult<List<BangumiSubject>>> trendingAnime({
     required int limit,
     required int offset,
   }) async {
+    final DateTime now = (_now ?? DateTime.now)();
     final AcgProviderResult<List<BangumiSubject>> result =
         await _execute<List<BangumiSubject>>(
-      key: bangumiRecentPopularAnimeRequestKey(
+      key: bangumiTrendingAnimeRequestKey(
         now: now,
         limit: limit,
         offset: offset,
       ),
       cachePolicy: ProviderCachePolicy.networkFirst,
-      networkPolicyUri: _client.recentPopularAnimeNetworkPolicyUri(
+      networkPolicyUri: _client.trendingAnimeNetworkPolicyUri(
         limit: limit,
         offset: offset,
       ),
-      load: (ProviderGatewayRequestContext context) =>
-          _client.recentPopularAnime(
-        now: now,
+      load: (ProviderGatewayRequestContext context) => _client.trendingAnime(
         limit: limit,
         offset: offset,
         proxyUrl: context.proxyUrl,
@@ -1493,6 +1494,201 @@ List<BangumiSubject> _subjectsFromJsonList(
       .toList(growable: false);
 }
 
+List<BangumiSubject> _trendingAnimeSubjectsFromHtml(
+  String html, {
+  required int limit,
+  required String missingDataMessage,
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
+  final html_dom.Document document = html_parser.parse(html);
+  final List<html_dom.Element> entries = _trendingAnimeEntryElements(document);
+  if (entries.isEmpty) {
+    throw ProviderFailure(
+      kind: ProviderFailureKind.terminal,
+      message: missingDataMessage,
+    );
+  }
+  return entries
+      .take(limit)
+      .map(
+        (html_dom.Element element) => _trendingAnimeSubjectFromElement(
+          element,
+          imageUriRewriter: imageUriRewriter,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<html_dom.Element> _trendingAnimeEntryElements(
+  html_dom.Document document,
+) {
+  final List<html_dom.Element> browserItems = document
+      .querySelectorAll('#browserItemList li')
+      .where((html_dom.Element element) => element.id.startsWith('item_'))
+      .toList(growable: false);
+  if (browserItems.isNotEmpty) return browserItems;
+  return document
+      .querySelectorAll('.featuredItems .mainItem')
+      .toList(growable: false);
+}
+
+BangumiSubject _trendingAnimeSubjectFromElement(
+  html_dom.Element element, {
+  BangumiImageUriRewriter? imageUriRewriter,
+}) {
+  final String? subjectId = _subjectIdFromTrendElement(element);
+  if (subjectId == null || subjectId.isEmpty) {
+    throw const ProviderFailure(
+      kind: ProviderFailureKind.terminal,
+      message: 'Bangumi trends entry missing subject id.',
+    );
+  }
+  final String title = _trendTitleFromElement(element);
+  if (title.isEmpty) {
+    throw ProviderFailure(
+      kind: ProviderFailureKind.terminal,
+      message: 'Bangumi trends entry $subjectId missing title.',
+    );
+  }
+
+  final Uri? coverUri = _trendCoverUriFromElement(element);
+  final Uri? rewrittenCoverUri =
+      coverUri == null ? null : imageUriRewriter?.call(coverUri) ?? coverUri;
+  final String summary = _normalizedText(
+    element.querySelector('.info.tip')?.text,
+  );
+
+  return BangumiSubject(
+    id: BangumiSubjectId(subjectId),
+    title: title,
+    summary: summary.isEmpty ? null : summary,
+    coverUri: rewrittenCoverUri,
+    rank: _firstIntegerFromText(element.querySelector('.rank')?.text),
+    score: double.tryParse(
+      _normalizedText(element.querySelector('.rateInfo small.fade')?.text),
+    ),
+    collectionTotal: _trendCollectionTotalFromElement(element),
+    episodeCount: _episodeCountFromInfo(summary),
+  );
+}
+
+String? _subjectIdFromTrendElement(html_dom.Element element) {
+  if (element.id.startsWith('item_')) {
+    final String id = element.id.substring('item_'.length).trim();
+    if (id.isNotEmpty) return id;
+  }
+  for (final html_dom.Element anchor
+      in element.querySelectorAll('a[href*="/subject/"]')) {
+    final String? id = _subjectIdFromHref(anchor.attributes['href']);
+    if (id != null) return id;
+  }
+  return null;
+}
+
+String? _subjectIdFromHref(String? href) {
+  final String normalizedHref = _normalizedText(href);
+  if (normalizedHref.isEmpty) return null;
+  final Uri? uri = Uri.tryParse(normalizedHref);
+  final List<String> segments = uri?.pathSegments ?? const <String>[];
+  final int subjectSegment = segments.indexOf('subject');
+  if (subjectSegment < 0 || subjectSegment + 1 >= segments.length) {
+    return null;
+  }
+  final String id = segments[subjectSegment + 1].trim();
+  return id.isEmpty ? null : id;
+}
+
+String _trendTitleFromElement(html_dom.Element element) {
+  final html_dom.Element? anchor = element.querySelector('h3 a.l') ??
+      element.querySelector('p.title a.l') ??
+      element.querySelector('a[href*="/subject/"]');
+  final String text = _normalizedText(anchor?.text);
+  if (text.isNotEmpty) return text;
+  return _normalizedText(anchor?.attributes['title']);
+}
+
+Uri? _trendCoverUriFromElement(html_dom.Element element) {
+  final html_dom.Element? image =
+      element.querySelector('img.cover') ?? element.querySelector('img');
+  final Uri? srcUri = _bangumiReferenceUri(image?.attributes['src']);
+  if (srcUri != null) return srcUri;
+
+  final html_dom.Element? imageBox = element.querySelector('.image');
+  return _backgroundImageUri(imageBox?.attributes['style']);
+}
+
+Uri? _backgroundImageUri(String? style) {
+  final String normalizedStyle = _normalizedText(style);
+  if (normalizedStyle.isEmpty) return null;
+  const String marker = 'url(';
+  final int start = normalizedStyle.indexOf(marker);
+  if (start < 0) return null;
+  final int valueStart = start + marker.length;
+  final int valueEnd = normalizedStyle.indexOf(')', valueStart);
+  if (valueEnd <= valueStart) return null;
+  final String raw = normalizedStyle
+      .substring(valueStart, valueEnd)
+      .replaceAll('"', '')
+      .replaceAll("'", '')
+      .trim();
+  return _bangumiReferenceUri(raw);
+}
+
+Uri? _bangumiReferenceUri(String? rawUri) {
+  final String value = _normalizedText(rawUri);
+  if (value.isEmpty) return null;
+  if (value.startsWith('//')) return Uri.tryParse('https:$value');
+  final Uri? uri = Uri.tryParse(value);
+  if (uri == null) return null;
+  if (uri.hasScheme) return uri;
+  return defaultBangumiWebBaseUri.resolveUri(uri);
+}
+
+int? _trendCollectionTotalFromElement(html_dom.Element element) {
+  for (final html_dom.Element label in element.querySelectorAll('small.grey')) {
+    final String text = _normalizedText(label.text);
+    if (text.contains('关注')) return _firstIntegerFromText(text);
+  }
+  return null;
+}
+
+int? _episodeCountFromInfo(String text) {
+  final int marker = text.indexOf('话');
+  if (marker <= 0) return null;
+  int start = marker;
+  while (start > 0 && _isAsciiDigit(text.codeUnitAt(start - 1))) {
+    start -= 1;
+  }
+  if (start == marker) return null;
+  return int.tryParse(text.substring(start, marker));
+}
+
+int? _firstIntegerFromText(String? text) {
+  final String value = _normalizedText(text);
+  int start = -1;
+  for (int index = 0; index < value.length; index += 1) {
+    if (_isAsciiDigit(value.codeUnitAt(index))) {
+      start = index;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  int end = start + 1;
+  while (end < value.length && _isAsciiDigit(value.codeUnitAt(end))) {
+    end += 1;
+  }
+  return int.tryParse(value.substring(start, end));
+}
+
+bool _isAsciiDigit(int codeUnit) {
+  return codeUnit >= _asciiDigitZeroCodeUnit &&
+      codeUnit <= _asciiDigitNineCodeUnit;
+}
+
+String _normalizedText(String? text) {
+  return text?.replaceAll(_whitespacePattern, ' ').trim() ?? '';
+}
+
 List<BangumiRelatedPerson> _relatedPersonsFromJson(
   Object? json, {
   BangumiImageUriRewriter? imageUriRewriter,
@@ -1539,73 +1735,6 @@ List<BangumiRelatedSubject> _relatedSubjectsFromJson(
         ),
       )
       .toList(growable: false);
-}
-
-_BangumiAirDateRange _popularAnimeAirDateRange(DateTime now) {
-  return _animeTrailingDayAirDateRange(
-    now: now,
-    windowDays: bangumiApiPopularAnimeWindowDays,
-  );
-}
-
-_BangumiAirDateRange _recentPopularAnimeAirDateRange(DateTime now) {
-  return _animeAirDateRange(
-    now: now,
-    windowMonths: bangumiApiRecentPopularAnimeWindowMonths,
-  );
-}
-
-_BangumiAirDateRange _animeAirDateRange({
-  required DateTime now,
-  required int windowMonths,
-}) {
-  final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime start = _subtractCalendarMonths(
-    today,
-    windowMonths,
-  );
-  final DateTime endExclusive = today.add(const Duration(days: 1));
-  return _BangumiAirDateRange(
-    startDate: _bangumiDate(start),
-    endExclusiveDate: _bangumiDate(endExclusive),
-  );
-}
-
-_BangumiAirDateRange _animeTrailingDayAirDateRange({
-  required DateTime now,
-  required int windowDays,
-}) {
-  assert(windowDays > 0, 'Bangumi air date day window must be positive.');
-  final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime endExclusive = today.add(const Duration(days: 1));
-  final DateTime start = endExclusive.subtract(Duration(days: windowDays));
-  return _BangumiAirDateRange(
-    startDate: _bangumiDate(start),
-    endExclusiveDate: _bangumiDate(endExclusive),
-  );
-}
-
-DateTime _subtractCalendarMonths(DateTime value, int months) {
-  int year = value.year;
-  int month = value.month - months;
-  while (month <= 0) {
-    month += _calendarMonthsPerYear;
-    year -= 1;
-  }
-  final int maxDay = _daysInMonth(year, month);
-  final int day = value.day <= maxDay ? value.day : maxDay;
-  return DateTime(year, month, day);
-}
-
-int _daysInMonth(int year, int month) {
-  return DateTime(year, month + 1, 0).day;
-}
-
-String _bangumiDate(DateTime value) {
-  final String year = value.year.toString().padLeft(4, '0');
-  final String month = value.month.toString().padLeft(2, '0');
-  final String day = value.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
 }
 
 BangumiRelatedPerson _relatedPersonFromJson(
@@ -2050,21 +2179,6 @@ final class _BangumiApiUnauthenticated implements Exception {
   const _BangumiApiUnauthenticated(this.message);
 
   final String message;
-}
-
-final class _BangumiAirDateRange {
-  const _BangumiAirDateRange({
-    required this.startDate,
-    required this.endExclusiveDate,
-  });
-
-  final String startDate;
-  final String endExclusiveDate;
-
-  List<String> get filters => <String>[
-        '>=$startDate',
-        '<$endExclusiveDate',
-      ];
 }
 
 final class _BangumiCollectionPage {

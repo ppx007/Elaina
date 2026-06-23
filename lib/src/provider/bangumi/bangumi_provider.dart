@@ -4,6 +4,8 @@ import '../gateway_bound_provider.dart';
 // Concrete API clients map Bangumi JSON into these types before crossing layers.
 import '../provider_result.dart';
 
+const int bangumiTrendingAnimeAttentionWindowDays = 30;
+
 final class BangumiSubjectId {
   const BangumiSubjectId(this.value)
       : assert(value != '', 'Bangumi subject id must not be empty.');
@@ -168,10 +170,7 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
 }
 
 abstract interface class BangumiDiscoveryProvider {
-  Future<AcgProviderResult<List<BangumiSubject>>> popularAnime();
-
-  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
-    required DateTime now,
+  Future<AcgProviderResult<List<BangumiSubject>>> trendingAnime({
     required int limit,
     required int offset,
   });

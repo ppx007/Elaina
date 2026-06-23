@@ -70,14 +70,10 @@ void main() {
         bangumiEpisodeRequestKey(const BangumiEpisodeId('7'));
     final ProviderRequestKey episodeListKey =
         bangumiEpisodeListRequestKey(const BangumiSubjectId('42'));
-    final ProviderRequestKey recentPopularKey =
-        bangumiRecentPopularAnimeRequestKey(
+    final ProviderRequestKey trendingKey = bangumiTrendingAnimeRequestKey(
       now: DateTime.utc(2026, 6, 21),
       limit: 24,
       offset: 48,
-    );
-    final ProviderRequestKey popularKey = bangumiPopularAnimeRequestKey(
-      now: DateTime.utc(2026, 6, 21),
     );
     final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
     final ProviderRequestKey subjectCollectionSyncKey =
@@ -96,12 +92,11 @@ void main() {
     expect(subjectKey.providerId.value, bangumiProviderId.value);
     expect(subjectKey.cacheKey, 'subject:42');
     expect(searchKey.cacheKey, 'subject-search:elaina');
-    expect(popularKey.cacheKey, 'subject-popular-anime:20260621');
     expect(episodeKey.cacheKey, 'episode:7');
     expect(episodeListKey.cacheKey, 'episodes:42');
     expect(
-      recentPopularKey.cacheKey,
-      'subject-recent-popular-anime:20260621:24:48',
+      trendingKey.cacheKey,
+      'subject-trending-anime:30d:20260621:24:48',
     );
     expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(subjectCollectionSyncKey.cacheKey, 'subject-collection:42:dropped');
@@ -298,15 +293,13 @@ void main() {
           body:
               '{"data":[{"id":43,"name":"Search Fallback","name_cn":"Search Title","summary":"Hit"}]}',
         ),
-        'POST /v0/search/subjects?limit=7&offset=0': const BangumiApiResponse(
+        'GET /anime/browser/?sort=trends': const BangumiApiResponse(
           statusCode: 200,
-          body:
-              '{"total":1,"limit":7,"offset":0,"data":[{"id":44,"type":2,"name":"Recent Hot Anime","name_cn":"","short_summary":"Popular","images":{"common":"https://img.test/recent-hot-common.jpg","large":"https://img.test/recent-hot.jpg"},"eps":12,"score":9.3,"rank":1,"collection_total":120000}]}',
+          body: _trendsPageOneHtml,
         ),
-        'POST /v0/search/subjects?limit=24&offset=24': const BangumiApiResponse(
+        'GET /anime/browser/?sort=trends&page=2': const BangumiApiResponse(
           statusCode: 200,
-          body:
-              '{"total":48,"limit":24,"offset":24,"data":[{"id":45,"type":2,"name":"Recent Six Month Anime","name_cn":"","short_summary":"Recent","images":{"common":"https://img.test/recent-six-month.jpg"},"eps":13,"rating":{"score":8.4,"rank":120},"collection":{"wish":1000,"collect":2000,"doing":300,"on_hold":40,"dropped":5}}]}',
+          body: _trendsPageTwoHtml,
         ),
         'GET /v0/episodes/7': const BangumiApiResponse(
           statusCode: 200,
@@ -390,79 +383,69 @@ void main() {
       '43',
     );
 
-    final AcgProviderResult<List<BangumiSubject>> popular =
-        await runtime.popularAnime();
-    final BangumiApiRequest popularRequest = transport.requests.last;
-    expect(gateway.lastCacheKey, 'subject-popular-anime:20260621');
+    final AcgProviderResult<List<BangumiSubject>> trendingHero =
+        await runtime.trendingAnime(limit: 7, offset: 0);
+    final BangumiApiRequest trendingHeroRequest = transport.requests.last;
+    expect(
+      gateway.lastCacheKey,
+      'subject-trending-anime:30d:20260621:7:0',
+    );
     expect(
       gateway.lastNetworkPolicyUri,
-      Uri.parse('https://api.test/v0/search/subjects?limit=7&offset=0'),
+      Uri.parse('https://bgm.tv/anime/browser/?sort=trends'),
     );
-    expect(popularRequest.method, 'POST');
-    expect(popularRequest.uri.path, '/v0/search/subjects');
-    expect(popularRequest.uri.queryParameters['limit'], '7');
-    expect(popularRequest.uri.queryParameters['offset'], '0');
-    final Map<String, Object?> popularBody =
-        jsonDecode(popularRequest.body!) as Map<String, Object?>;
-    expect(popularBody['sort'], 'heat');
-    final Map<String, Object?> popularFilter =
-        popularBody['filter'] as Map<String, Object?>;
+    expect(trendingHeroRequest.method, 'GET');
+    expect(trendingHeroRequest.uri.path, '/anime/browser/');
+    expect(trendingHeroRequest.uri.queryParameters['sort'], 'trends');
     expect(
-      (popularFilter['type'] as List<Object?>).single,
-      bangumiAnimeSubjectType,
+        trendingHeroRequest.uri.queryParameters.containsKey('page'), isFalse);
+    expect(trendingHeroRequest.body, isNull);
+    expect(trendingHeroRequest.headers['accept'], contains('text/html'));
+    expect(trendingHeroRequest.proxyUrl, 'http://127.0.0.1:7890');
+    final List<BangumiSubject> trendingHeroSubjects =
+        (trendingHero as AcgProviderSuccess<List<BangumiSubject>>).value;
+    final BangumiSubject popularSubject = trendingHeroSubjects.first;
+    expect(trendingHeroSubjects, hasLength(7));
+    expect(popularSubject.id.value, '44');
+    expect(popularSubject.title, 'Future Official Trends Anime');
+    expect(popularSubject.summary, contains('2026年7月9日'));
+    expect(
+      popularSubject.coverUri,
+      Uri.parse('https://lain.bgm.tv/r/400/pic/cover/l/aa/bb/44.jpg'),
     );
-    expect(
-      popularFilter['air_date'],
-      <String>['>=2026-05-23', '<2026-06-22'],
-    );
-    final BangumiSubject popularSubject =
-        (popular as AcgProviderSuccess<List<BangumiSubject>>).value.single;
-    expect(popularSubject.title, 'Recent Hot Anime');
-    expect(popularSubject.summary, 'Popular');
-    expect(
-        popularSubject.coverUri, Uri.parse('https://img.test/recent-hot.jpg'));
-    expect(popularSubject.rank, 1);
-    expect(popularSubject.score, 9.3);
+    expect(popularSubject.rank, 1827);
+    expect(popularSubject.score, 7.2);
     expect(popularSubject.collectionTotal, 120000);
     expect(popularSubject.episodeCount, 12);
 
-    final AcgProviderResult<List<BangumiSubject>> recentPopular =
-        await runtime.recentPopularAnime(
-      now: DateTime.utc(2026, 6, 21),
+    final AcgProviderResult<List<BangumiSubject>> trendingPageTwo =
+        await runtime.trendingAnime(
       limit: 24,
       offset: 24,
     );
-    final BangumiApiRequest recentPopularRequest = transport.requests.last;
+    final BangumiApiRequest trendingPageTwoRequest = transport.requests.last;
     expect(
       gateway.lastCacheKey,
-      'subject-recent-popular-anime:20260621:24:24',
+      'subject-trending-anime:30d:20260621:24:24',
     );
     expect(
       gateway.lastNetworkPolicyUri,
-      Uri.parse('https://api.test/v0/search/subjects?limit=24&offset=24'),
+      Uri.parse('https://bgm.tv/anime/browser/?sort=trends&page=2'),
     );
-    expect(recentPopularRequest.method, 'POST');
-    expect(recentPopularRequest.uri.path, '/v0/search/subjects');
-    final Map<String, Object?> recentPopularBody =
-        jsonDecode(recentPopularRequest.body!) as Map<String, Object?>;
-    expect(recentPopularBody['sort'], 'heat');
-    final Map<String, Object?> recentPopularFilter =
-        recentPopularBody['filter'] as Map<String, Object?>;
-    expect(
-      recentPopularFilter['air_date'],
-      <String>['>=2025-12-21', '<2026-06-22'],
-    );
-    final BangumiSubject recentPopularSubject =
-        (recentPopular as AcgProviderSuccess<List<BangumiSubject>>)
+    expect(trendingPageTwoRequest.method, 'GET');
+    expect(trendingPageTwoRequest.uri.path, '/anime/browser/');
+    expect(trendingPageTwoRequest.uri.queryParameters['page'], '2');
+    final BangumiSubject trendingPageTwoSubject =
+        (trendingPageTwo as AcgProviderSuccess<List<BangumiSubject>>)
             .value
             .single;
-    expect(recentPopularSubject.title, 'Recent Six Month Anime');
-    expect(recentPopularSubject.rank, 120);
-    expect(recentPopularSubject.score, 8.4);
-    expect(recentPopularSubject.collectionTotal, 3345);
+    expect(trendingPageTwoSubject.title, 'Official Trends Page Two Anime');
+    expect(trendingPageTwoSubject.rank, 120);
+    expect(trendingPageTwoSubject.score, 8.4);
+    expect(trendingPageTwoSubject.collectionTotal, 3345);
     expect(
-      recentPopularSubject.coverUri,
-      Uri.parse('https://img.test/recent-six-month.jpg'),
+      trendingPageTwoSubject.coverUri,
+      Uri.parse('https://lain.bgm.tv/r/400/pic/cover/l/cc/dd/45.jpg'),
     );
 
     final AcgProviderResult<BangumiEpisode> episode =
@@ -549,6 +532,39 @@ void main() {
     );
   });
 
+  test('concrete API provider fails trends parsing without search fallback',
+      () async {
+    final RecordingProviderGateway gateway = RecordingProviderGateway();
+    final FakeBangumiTransport transport = FakeBangumiTransport(
+      responses: <String, BangumiApiResponse>{
+        'GET /anime/browser/?sort=trends': const BangumiApiResponse(
+          statusCode: 200,
+          body: '<html><body><p>No subject list</p></body></html>',
+        ),
+      },
+    );
+    final BangumiApiProvider provider = BangumiApiProvider(
+      gateway: gateway,
+      client: BangumiApiClient(transport: transport),
+      now: () => DateTime.utc(2026, 6, 21),
+    );
+    final BangumiProviderRuntime runtime = BangumiProviderRuntime(
+      gateway: gateway,
+      metadataProvider: provider,
+      discoveryProvider: provider,
+    );
+
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await runtime.trendingAnime(limit: 7, offset: 0);
+
+    expect(
+      (result as AcgProviderFailure<List<BangumiSubject>>).kind,
+      AcgProviderFailureKind.terminal,
+    );
+    expect(transport.requests, hasLength(1));
+    expect(transport.requests.single.uri.path, '/anime/browser/');
+  });
+
   test('concrete API client exposes Bangumi OAuth authorization URI', () {
     final BangumiApiClient client = BangumiApiClient(
       transport:
@@ -584,6 +600,10 @@ void main() {
           statusCode: 200,
           body:
               '{"data":[{"id":43,"name":"External Image","images":{"large":"https://img.test/not-bangumi.jpg"}}]}',
+        ),
+        'GET /anime/browser/?sort=trends': const BangumiApiResponse(
+          statusCode: 200,
+          body: _trendsPageOneHtml,
         ),
         'GET /api/v0/me': const BangumiApiResponse(
           statusCode: 200,
@@ -635,6 +655,23 @@ void main() {
       Uri.parse('https://mirror.test/api/v0/search/subjects?limit=20&offset=0'),
     );
     expect(searchItem.coverUri, Uri.parse('https://img.test/not-bangumi.jpg'));
+
+    final AcgProviderResult<List<BangumiSubject>> trends =
+        await provider.trendingAnime(limit: 7, offset: 0);
+    final BangumiSubject trendItem =
+        (trends as AcgProviderSuccess<List<BangumiSubject>>).value.first;
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://bgm.tv/anime/browser/?sort=trends'),
+    );
+    expect(transport.requests.last.uri.host, 'bgm.tv');
+    expect(
+      trendItem.coverUri,
+      Uri.https('mirror.test', '/image', <String, String>{
+        bangumiMirrorImageUrlParameter:
+            'https://lain.bgm.tv/r/400/pic/cover/l/aa/bb/44.jpg',
+      }),
+    );
 
     final AcgProviderResult<BangumiAuthSession> session =
         await provider.currentSession();
@@ -989,8 +1026,7 @@ void main() {
       <Object>[
         const BangumiApiResponse(
           statusCode: 200,
-          body:
-              '{"total":1,"limit":7,"offset":0,"data":[{"id":44,"type":2,"name":"Cached Hot Anime","name_cn":"","short_summary":"Cached summary","images":{"large":"https://img.test/cached-hot.jpg"},"eps":12}]}',
+          body: _cachedTrendsHtml,
         ),
         const HandshakeException('Connection terminated during handshake'),
         const BangumiApiResponse(statusCode: 404, body: '{"title":"no"}'),
@@ -1009,9 +1045,9 @@ void main() {
       discoveryProvider: provider,
     );
 
-    final AcgProviderResult<List<BangumiSubject>> popular =
-        await runtime.popularAnime();
-    expect(popular, isA<AcgProviderSuccess<List<BangumiSubject>>>());
+    final AcgProviderResult<List<BangumiSubject>> trending =
+        await runtime.trendingAnime(limit: 7, offset: 0);
+    expect(trending, isA<AcgProviderSuccess<List<BangumiSubject>>>());
 
     final AcgProviderResult<BangumiSubject> transientDetail =
         await runtime.lookupSubject(const BangumiSubjectId('44'));
@@ -1019,7 +1055,10 @@ void main() {
         (transientDetail as AcgProviderSuccess<BangumiSubject>).value;
     expect(cached.title, 'Cached Hot Anime');
     expect(cached.summary, 'Cached summary');
-    expect(cached.coverUri, Uri.parse('https://img.test/cached-hot.jpg'));
+    expect(
+      cached.coverUri,
+      Uri.parse('https://lain.bgm.tv/r/400/pic/cover/l/ee/ff/44.jpg'),
+    );
     expect(transport.requests.last.uri.path, '/v0/subjects/44');
 
     final AcgProviderResult<BangumiSubject> notFoundDetail =
@@ -1030,3 +1069,83 @@ void main() {
     );
   });
 }
+
+const String _trendsPageOneHtml = '''
+<!doctype html>
+<html>
+  <body>
+    <ul id="browserItemList" class="browserFull browser-list">
+      <li id="item_44" class="item odd clearit">
+        <a href="/subject/44" class="subjectCover cover ll">
+          <span class="image">
+            <img src="//lain.bgm.tv/r/400/pic/cover/l/aa/bb/44.jpg" class="cover" />
+          </span>
+        </a>
+        <div class="inner">
+          <h3><a href="/subject/44" class="l">Future Official Trends Anime</a></h3>
+          <span class="rank"><small>Rank </small>1827</span>
+          <p class="info tip">12话 / 2026年7月9日 / Official Staff</p>
+          <p class="rateInfo">
+            <small class="fade">7.2</small>
+            <small class="grey">120000 人关注</small>
+          </p>
+        </div>
+      </li>
+      <li id="item_46"><h3><a href="/subject/46" class="l">Trend 2</a></h3></li>
+      <li id="item_47"><h3><a href="/subject/47" class="l">Trend 3</a></h3></li>
+      <li id="item_48"><h3><a href="/subject/48" class="l">Trend 4</a></h3></li>
+      <li id="item_49"><h3><a href="/subject/49" class="l">Trend 5</a></h3></li>
+      <li id="item_50"><h3><a href="/subject/50" class="l">Trend 6</a></h3></li>
+      <li id="item_51"><h3><a href="/subject/51" class="l">Trend 7</a></h3></li>
+      <li id="item_52"><h3><a href="/subject/52" class="l">Trend 8</a></h3></li>
+    </ul>
+  </body>
+</html>
+''';
+
+const String _trendsPageTwoHtml = '''
+<!doctype html>
+<html>
+  <body>
+    <ul id="browserItemList" class="browserFull browser-list">
+      <li id="item_45" class="item even clearit">
+        <a href="/subject/45" class="subjectCover cover ll">
+          <span class="image">
+            <img src="//lain.bgm.tv/r/400/pic/cover/l/cc/dd/45.jpg" class="cover" />
+          </span>
+        </a>
+        <div class="inner">
+          <h3><a href="/subject/45" class="l">Official Trends Page Two Anime</a></h3>
+          <span class="rank"><small>Rank </small>120</span>
+          <p class="info tip">13话 / 2026年8月1日 / Page Two Staff</p>
+          <p class="rateInfo">
+            <small class="fade">8.4</small>
+            <small class="grey">3345 人关注</small>
+          </p>
+        </div>
+      </li>
+    </ul>
+  </body>
+</html>
+''';
+
+const String _cachedTrendsHtml = '''
+<!doctype html>
+<html>
+  <body>
+    <ul id="browserItemList" class="browserFull browser-list">
+      <li id="item_44" class="item odd clearit">
+        <a href="/subject/44" class="subjectCover cover ll">
+          <span class="image">
+            <img src="//lain.bgm.tv/r/400/pic/cover/l/ee/ff/44.jpg" class="cover" />
+          </span>
+        </a>
+        <div class="inner">
+          <h3><a href="/subject/44" class="l">Cached Hot Anime</a></h3>
+          <p class="info tip">Cached summary</p>
+        </div>
+      </li>
+    </ul>
+  </body>
+</html>
+''';

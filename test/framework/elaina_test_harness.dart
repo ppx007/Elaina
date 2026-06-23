@@ -332,21 +332,19 @@ final class RecordingHomeRecommendationProvider
   final HomeRecommendationSnapshot popularSnapshot;
   final List<HomeRecommendationItem> _recentItems;
   final int? recentPageLimit;
-  int popularCalls = 0;
-  int recentPopularCalls = 0;
+  int heroTrendCalls = 0;
+  int waterfallTrendCalls = 0;
 
   @override
-  Future<HomeRecommendationSnapshot> popularAnime() async {
-    popularCalls++;
-    return popularSnapshot;
-  }
-
-  @override
-  Future<HomeRecommendationSnapshot> recentPopularAnime({
+  Future<HomeRecommendationSnapshot> trendingAnime({
     required int limit,
     required int offset,
   }) async {
-    recentPopularCalls++;
+    if (offset == 0 && heroTrendCalls == 0) {
+      heroTrendCalls++;
+      return popularSnapshot;
+    }
+    waterfallTrendCalls++;
     final int effectiveLimit = recentPageLimit ?? limit;
     return HomeRecommendationSnapshot.loaded(
       _recentItems.skip(offset).take(effectiveLimit),

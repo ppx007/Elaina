@@ -10,6 +10,7 @@ dependencies:
   file_picker: ^11.0.2
   flutter:
     sdk: flutter
+  html: ^0.15.6
   libtorrent_flutter: ^1.8.5
   media_kit: ^1.2.6
   media_kit_libs_windows_video: ^1.0.11
