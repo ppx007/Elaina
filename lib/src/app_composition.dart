@@ -601,6 +601,32 @@ final class _BangumiHomeRecommendationProvider
     }
     return const HomeRecommendationSnapshot.failed('Bangumi 近期注目状态未知。');
   }
+
+  @override
+  Future<HomeRecommendationSnapshot> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) async {
+    if (limit <= 0 || offset < 0) {
+      return const HomeRecommendationSnapshot.failed(
+        'Bangumi 推荐分页参数无效。',
+      );
+    }
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _discoveryProvider.recentPopularAnime(
+      limit: limit,
+      offset: offset,
+    );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.loaded(
+        result.value.map(_homeRecommendationItemFromSubject),
+      );
+    }
+    if (result is AcgProviderFailure<List<BangumiSubject>>) {
+      return HomeRecommendationSnapshot.failed(result.message);
+    }
+    return const HomeRecommendationSnapshot.failed('Bangumi 近期热门状态未知。');
+  }
 }
 
 HomeRecommendationItem _homeRecommendationItemFromSubject(

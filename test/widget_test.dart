@@ -206,7 +206,7 @@ void main() {
           ),
           HomeRecommendationItem(
             subjectId: '101',
-            title: 'Official Trends Page Anime',
+            title: 'Recent API Popular Anime',
             score: 8.1,
             collectionTotal: 42000,
             episodeCount: 13,
@@ -217,10 +217,10 @@ void main() {
     );
     addTearDown(fixture.dispose);
 
-    await tester.pumpUntilFound(find.text('Official Trends Page Anime'));
+    await tester.pumpUntilFound(find.text('Recent API Popular Anime'));
 
     expect(find.text('Official Trends Hero Anime'), findsWidgets);
-    expect(find.text('Official Trends Page Anime'), findsOneWidget);
+    expect(find.text('Recent API Popular Anime'), findsOneWidget);
     expect(ElainaFinders.homeRecommendationWaterfall, findsOneWidget);
 
     await tester.tap(find.text('Official Trends Hero Anime').first);
@@ -232,7 +232,7 @@ void main() {
     await tester.pumpUntilGone(find.text('Mock Title'));
 
     await fixture.robot.home.openWaterfallRecommendation(
-      'Official Trends Page Anime',
+      'Recent API Popular Anime',
     );
     await tester.pumpUntilFound(find.text('Mock Title'));
     fixture.robot.detail.expectLoaded('Mock Title');
@@ -327,7 +327,8 @@ void main() {
     await tester.pumpUntilFound(find.text('Theme Tracking Anime'));
 
     final int heroTrendCalls = homeProvider.heroTrendCalls;
-    final int waterfallTrendCalls = homeProvider.waterfallTrendCalls;
+    final int waterfallRecentPopularCalls =
+        homeProvider.waterfallRecentPopularCalls;
     final int trackingCalls = trackingProvider.currentAnimeCollectionCalls;
 
     await tester.tap(find.byIcon(Icons.dark_mode));
@@ -338,7 +339,10 @@ void main() {
     await tester.pump();
 
     expect(homeProvider.heroTrendCalls, heroTrendCalls);
-    expect(homeProvider.waterfallTrendCalls, waterfallTrendCalls);
+    expect(
+      homeProvider.waterfallRecentPopularCalls,
+      waterfallRecentPopularCalls,
+    );
     expect(trackingProvider.currentAnimeCollectionCalls, trackingCalls);
     expect(find.text('Theme Tracking Anime'), findsOneWidget);
   });

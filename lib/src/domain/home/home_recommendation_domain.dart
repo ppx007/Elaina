@@ -56,13 +56,18 @@ final class HomeRecommendationItem {
     if (valueCollectionTotal != null) {
       parts.add('$valueCollectionTotal 人收藏');
     }
-    if (parts.isEmpty) return 'Bangumi 近30天注目';
-    return 'Bangumi 近30天注目，${parts.join('，')}。';
+    if (parts.isEmpty) return 'Bangumi 热门条目';
+    return 'Bangumi 热门条目，${parts.join('，')}。';
   }
 }
 
 abstract interface class HomeRecommendationProvider {
   Future<HomeRecommendationSnapshot> trendingAnime({
+    required int limit,
+    required int offset,
+  });
+
+  Future<HomeRecommendationSnapshot> recentPopularAnime({
     required int limit,
     required int offset,
   });

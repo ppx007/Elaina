@@ -9,6 +9,8 @@ import 'bangumi_registration.dart';
 const Duration bangumiRuntimeDeduplicationWindow = Duration(seconds: 30);
 const String _bangumiTrendingAnimeAttentionCacheSegment =
     '${bangumiTrendingAnimeAttentionWindowDays}d';
+const String _bangumiRecentPopularAnimeCacheSegment =
+    '${bangumiRecentPopularAnimeWindowDays}d';
 
 ProviderRequestKey bangumiSubjectRequestKey(BangumiSubjectId id) {
   return ProviderRequestKey(
@@ -33,6 +35,19 @@ ProviderRequestKey bangumiTrendingAnimeRequestKey({
     providerId: bangumiProviderId,
     cacheKey:
         'subject-trending-anime:$_bangumiTrendingAnimeAttentionCacheSegment:'
+        '${_dateCacheKey(now)}:$limit:$offset',
+  );
+}
+
+ProviderRequestKey bangumiRecentPopularAnimeRequestKey({
+  required DateTime now,
+  required int limit,
+  required int offset,
+}) {
+  return ProviderRequestKey(
+    providerId: bangumiProviderId,
+    cacheKey:
+        'subject-recent-popular-anime:$_bangumiRecentPopularAnimeCacheSegment:'
         '${_dateCacheKey(now)}:$limit:$offset',
   );
 }
@@ -241,6 +256,30 @@ final class DeterministicBangumiProvider
     final DateTime now = (_now ?? DateTime.now)();
     return _execute(
       key: bangumiTrendingAnimeRequestKey(
+        now: now,
+        limit: limit,
+        offset: offset,
+      ),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      load: () async {
+        final List<BangumiSubject> subjects = <BangumiSubject>[
+          ..._subjects.values,
+        ]..sort(_compareSubjectsByPopularityThenTitle);
+        return List<BangumiSubject>.unmodifiable(
+          subjects.skip(offset).take(limit),
+        );
+      },
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) {
+    final DateTime now = (_now ?? DateTime.now)();
+    return _execute(
+      key: bangumiRecentPopularAnimeRequestKey(
         now: now,
         limit: limit,
         offset: offset,
@@ -767,6 +806,19 @@ final class BangumiProviderRuntime
     if (_disposed) return _disposedFailure<List<BangumiSubject>>();
     await _ensureRegistered();
     return _discoveryProvider.trendingAnime(
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) async {
+    if (_disposed) return _disposedFailure<List<BangumiSubject>>();
+    await _ensureRegistered();
+    return _discoveryProvider.recentPopularAnime(
       limit: limit,
       offset: offset,
     );

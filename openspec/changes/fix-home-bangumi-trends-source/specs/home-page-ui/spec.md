@@ -10,8 +10,8 @@ feed and SHALL show at most seven real Bangumi subjects.
 - **AND** those entries retain their subject ids for global detail navigation
 
 ### Requirement: More recommendations SHALL use a waterfall layout
-The home page "更多推荐" area SHALL lay out official Bangumi trends entries as a
-waterfall instead of a uniform grid.
+The home page "更多推荐" area SHALL lay out Bangumi API recent-popular entries
+as a waterfall instead of a uniform grid.
 
 #### Scenario: Recommendations are displayed below recent watching
 - **WHEN** the home page renders recommendation cards below "更多推荐"

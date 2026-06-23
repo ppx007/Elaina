@@ -19,6 +19,9 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
+const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
+const int bangumiApiRecentPopularAnimeOffset = 0;
+const String bangumiApiRecentPopularAnimeSort = 'heat';
 const String bangumiTrendsBrowserSort = 'trends';
 const int bangumiTrendsHeroLimit = 7;
 const int bangumiTrendsBrowserPageSize = 24;
@@ -270,6 +273,32 @@ final class BangumiApiClient {
     );
   }
 
+  Uri recentPopularAnimeRequestUri({
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+  }) {
+    return _uri(
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
+  Future<Uri> recentPopularAnimeNetworkPolicyUri({
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+  }) {
+    return _effectiveUri(
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+  }
+
   Uri trendingAnimeRequestUri({
     int limit = bangumiTrendsHeroLimit,
     int offset = bangumiTrendsBrowserInitialOffset,
@@ -478,6 +507,39 @@ final class BangumiApiClient {
       json,
       missingDataMessage: 'Bangumi subject search response missing data list.',
       itemLabel: 'Bangumi search subject',
+      imageUriRewriter: request.rewriteImageUri,
+    );
+  }
+
+  Future<List<BangumiSubject>> recentPopularAnime({
+    required DateTime now,
+    int limit = bangumiApiRecentPopularAnimeLimit,
+    int offset = bangumiApiRecentPopularAnimeOffset,
+    String? proxyUrl,
+  }) async {
+    final _BangumiAirDateRange airDateRange =
+        _recentPopularAnimeAirDateRange(now);
+    final _BangumiResolvedRequest request = await _resolvedRequest(
+      _subjectSearchPath,
+      <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+    final Object? json = await _sendJson(
+      'POST',
+      request.uri,
+      proxyUrl: proxyUrl,
+      body: _animeSubjectSearchBody(
+        sort: bangumiApiRecentPopularAnimeSort,
+        airDateFilters: airDateRange.filters,
+      ),
+    );
+    return _subjectsFromJsonList(
+      json,
+      missingDataMessage:
+          'Bangumi recent popular anime response missing data list.',
+      itemLabel: 'Bangumi recent popular subject',
       imageUriRewriter: request.rewriteImageUri,
     );
   }
@@ -1201,6 +1263,38 @@ final class BangumiApiProvider
   }
 
   @override
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
+    required int limit,
+    required int offset,
+  }) async {
+    final DateTime now = (_now ?? DateTime.now)();
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await _execute<List<BangumiSubject>>(
+      key: bangumiRecentPopularAnimeRequestKey(
+        now: now,
+        limit: limit,
+        offset: offset,
+      ),
+      cachePolicy: ProviderCachePolicy.networkFirst,
+      networkPolicyUri: _client.recentPopularAnimeNetworkPolicyUri(
+        limit: limit,
+        offset: offset,
+      ),
+      load: (ProviderGatewayRequestContext context) =>
+          _client.recentPopularAnime(
+        now: now,
+        limit: limit,
+        offset: offset,
+        proxyUrl: context.proxyUrl,
+      ),
+    );
+    if (result is AcgProviderSuccess<List<BangumiSubject>>) {
+      _rememberSubjects(result.value);
+    }
+    return result;
+  }
+
+  @override
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(
     BangumiEpisodeId id,
   ) async {
@@ -1492,6 +1586,34 @@ List<BangumiSubject> _subjectsFromJsonList(
         ),
       )
       .toList(growable: false);
+}
+
+_BangumiAirDateRange _recentPopularAnimeAirDateRange(DateTime now) {
+  return _animeTrailingDayAirDateRange(
+    now: now,
+    windowDays: bangumiRecentPopularAnimeWindowDays,
+  );
+}
+
+_BangumiAirDateRange _animeTrailingDayAirDateRange({
+  required DateTime now,
+  required int windowDays,
+}) {
+  assert(windowDays > 0, 'Bangumi air date day window must be positive.');
+  final DateTime today = DateTime(now.year, now.month, now.day);
+  final DateTime endExclusive = today.add(const Duration(days: 1));
+  final DateTime start = endExclusive.subtract(Duration(days: windowDays));
+  return _BangumiAirDateRange(
+    startDate: _bangumiDate(start),
+    endExclusiveDate: _bangumiDate(endExclusive),
+  );
+}
+
+String _bangumiDate(DateTime value) {
+  final String year = value.year.toString().padLeft(4, '0');
+  final String month = value.month.toString().padLeft(2, '0');
+  final String day = value.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }
 
 List<BangumiSubject> _trendingAnimeSubjectsFromHtml(
@@ -2179,6 +2301,21 @@ final class _BangumiApiUnauthenticated implements Exception {
   const _BangumiApiUnauthenticated(this.message);
 
   final String message;
+}
+
+final class _BangumiAirDateRange {
+  const _BangumiAirDateRange({
+    required this.startDate,
+    required this.endExclusiveDate,
+  });
+
+  final String startDate;
+  final String endExclusiveDate;
+
+  List<String> get filters => <String>[
+        '>=$startDate',
+        '<$endExclusiveDate',
+      ];
 }
 
 final class _BangumiCollectionPage {

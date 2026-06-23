@@ -75,6 +75,12 @@ void main() {
       limit: 24,
       offset: 48,
     );
+    final ProviderRequestKey recentPopularKey =
+        bangumiRecentPopularAnimeRequestKey(
+      now: DateTime.utc(2026, 6, 21),
+      limit: 20,
+      offset: 40,
+    );
     final ProviderRequestKey collectionKey = bangumiAnimeCollectionRequestKey();
     final ProviderRequestKey subjectCollectionSyncKey =
         bangumiSubjectCollectionSyncRequestKey(
@@ -97,6 +103,10 @@ void main() {
     expect(
       trendingKey.cacheKey,
       'subject-trending-anime:30d:20260621:24:48',
+    );
+    expect(
+      recentPopularKey.cacheKey,
+      'subject-recent-popular-anime:90d:20260621:20:40',
     );
     expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(subjectCollectionSyncKey.cacheKey, 'subject-collection:42:dropped');
@@ -293,6 +303,11 @@ void main() {
           body:
               '{"data":[{"id":43,"name":"Search Fallback","name_cn":"Search Title","summary":"Hit"}]}',
         ),
+        'POST /v0/search/subjects?limit=20&offset=20': const BangumiApiResponse(
+          statusCode: 200,
+          body:
+              '{"data":[{"id":46,"name":"Recent Popular Fallback","name_cn":"Recent Popular Title","summary":"Recent API"}]}',
+        ),
         'GET /anime/browser/?sort=trends': const BangumiApiResponse(
           statusCode: 200,
           body: _trendsPageOneHtml,
@@ -446,6 +461,40 @@ void main() {
     expect(
       trendingPageTwoSubject.coverUri,
       Uri.parse('https://lain.bgm.tv/r/400/pic/cover/l/cc/dd/45.jpg'),
+    );
+
+    final AcgProviderResult<List<BangumiSubject>> recentPopular =
+        await runtime.recentPopularAnime(limit: 20, offset: 20);
+    final BangumiApiRequest recentPopularRequest = transport.requests.last;
+    expect(
+      gateway.lastCacheKey,
+      'subject-recent-popular-anime:90d:20260621:20:20',
+    );
+    expect(
+      gateway.lastNetworkPolicyUri,
+      Uri.parse('https://api.test/v0/search/subjects?limit=20&offset=20'),
+    );
+    expect(recentPopularRequest.method, 'POST');
+    expect(recentPopularRequest.uri.path, '/v0/search/subjects');
+    expect(recentPopularRequest.uri.queryParameters['limit'], '20');
+    expect(recentPopularRequest.uri.queryParameters['offset'], '20');
+    expect(recentPopularRequest.proxyUrl, 'http://127.0.0.1:7890');
+    final Map<String, Object?> recentPopularBody =
+        jsonDecode(recentPopularRequest.body!) as Map<String, Object?>;
+    expect(recentPopularBody['sort'], 'heat');
+    final Map<String, Object?> recentPopularFilter =
+        recentPopularBody['filter']! as Map<String, Object?>;
+    expect(recentPopularFilter['type'], <int>[bangumiAnimeSubjectType]);
+    expect(
+      recentPopularFilter['air_date'],
+      <String>['>=2026-03-24', '<2026-06-22'],
+    );
+    expect(
+      (recentPopular as AcgProviderSuccess<List<BangumiSubject>>)
+          .value
+          .single
+          .title,
+      'Recent Popular Title',
     );
 
     final AcgProviderResult<BangumiEpisode> episode =

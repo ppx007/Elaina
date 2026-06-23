@@ -1,19 +1,21 @@
 ## Why
 
-The home page currently uses Bangumi v0 subject search with `sort=heat` and an
-`air_date` filter. That returns recently aired hot anime, not the official
-Bangumi "注目动画 根据最近 30 日标记" list shown at `/anime/browser/?sort=trends`.
+The home hero currently needs Bangumi's official "注目动画 根据最近 30 日标记"
+ordering from `/anime/browser/?sort=trends`. The lower "更多推荐" feed is a
+different product surface: it should remain an API-backed recent-airing hot
+anime waterfall, not another copy of the hero trends page.
 
 ## What Changes
 
-- Use the official Bangumi anime trends browser source for the home hero and
-  more-recommendations feed.
-- Keep the source inside the Bangumi provider boundary so UI code never parses
-  Bangumi HTML or calls Bangumi endpoints directly.
+- Use the official Bangumi anime trends browser source only for the home hero.
+- Use Bangumi v0 subject search with `sort=heat` and a 90-day `air_date`
+  window for the lower more-recommendations waterfall.
+- Keep both sources inside the Bangumi provider boundary so UI code never
+  parses Bangumi HTML or calls Bangumi endpoints directly.
 - Continue routing provider traffic through ProviderGateway, including network
   policy URI, proxy context, cache key, and normalized failures.
-- Stop using the old six-month recent-popular API search path for the home
-  recommendation waterfall.
+- Keep duplicate suppression so the API waterfall does not repeat hero subjects
+  when the two sources overlap.
 
 ## Impact
 

@@ -5,6 +5,7 @@ import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
 const int bangumiTrendingAnimeAttentionWindowDays = 30;
+const int bangumiRecentPopularAnimeWindowDays = 90;
 
 final class BangumiSubjectId {
   const BangumiSubjectId(this.value)
@@ -171,6 +172,11 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
 
 abstract interface class BangumiDiscoveryProvider {
   Future<AcgProviderResult<List<BangumiSubject>>> trendingAnime({
+    required int limit,
+    required int offset,
+  });
+
+  Future<AcgProviderResult<List<BangumiSubject>>> recentPopularAnime({
     required int limit,
     required int offset,
   });
