@@ -124,6 +124,43 @@ void main() {
     expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
   });
 
+  testWidgets('SettingsPage shows about and reference repository information',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+    final settings = SettingsRobot(tester);
+
+    await _pumpSettingsPage(tester, settingsRuntime: settingsRuntime);
+    await tester.pumpAndSettle();
+
+    expect(ElainaFinders.settingsSectionAbout, findsOneWidget);
+    await settings.openAbout();
+
+    expect(ElainaFinders.settingsAboutAppInfo, findsOneWidget);
+    expect(find.text('Elaina'), findsOneWidget);
+    expect(find.text('1017'), findsOneWidget);
+    expect(find.text('0.1.0'), findsOneWidget);
+    expect(find.text('https://github.com/ppx007/Elaina'), findsOneWidget);
+
+    await tester.ensureVisible(ElainaFinders.settingsReferenceRepositories);
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.settingsReferenceRepositories, findsOneWidget);
+    expect(find.text('Bangumi API'), findsOneWidget);
+    expect(find.text('https://github.com/bangumi/api'), findsOneWidget);
+    expect(find.text('media_kit'), findsOneWidget);
+    expect(find.text('https://github.com/media-kit/media-kit'), findsOneWidget);
+
+    expect(
+      await settingsRuntime.getPreference(SettingsPreferenceKeys.themeMode),
+      isNull,
+    );
+    expect(
+      await settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiAccessToken),
+      isNull,
+    );
+    expect(await settingsRuntime.getProxyUrl(), isNull);
+  });
+
   testWidgets('SettingsPage validates Bangumi token and refreshes profile',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();

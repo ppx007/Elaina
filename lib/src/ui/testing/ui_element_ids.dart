@@ -30,6 +30,10 @@ abstract final class UiElementIds {
   static const String settingsSectionNetwork = 'settings-section-network';
   static const String settingsSectionMediaLibrary =
       'settings-section-media-library';
+  static const String settingsSectionAbout = 'settings-section-about';
+  static const String settingsAboutAppInfo = 'settings-about-app-info';
+  static const String settingsReferenceRepositories =
+      'settings-reference-repositories';
   static const String settingsBangumiOAuthLogin =
       'settings-bangumi-oauth-login';
   static const String settingsBangumiAccessToken =

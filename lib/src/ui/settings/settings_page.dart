@@ -20,6 +20,35 @@ const double _fieldMaxWidth = 440;
 const double _smallIconSize = 18;
 const MediaLibraryFolderPreferenceCodec _folderPreferenceCodec =
     MediaLibraryFolderPreferenceCodec();
+const String _appDisplayName = 'Elaina';
+const String _appCodeName = '1017';
+const String _appVersion = '0.1.0';
+const String _appRepositoryUrl = 'https://github.com/ppx007/Elaina';
+const String _appPositioning = '端侧优先的跨平台 ACG 播放、媒体库、Bangumi 元数据、RSS 与 BT 管理工具。';
+
+const List<_ReferenceRepository> _referenceRepositories =
+    <_ReferenceRepository>[
+  _ReferenceRepository(
+    name: 'Bangumi API',
+    description: '番剧元数据、收藏状态、授权与条目详情边界。',
+    url: 'https://github.com/bangumi/api',
+  ),
+  _ReferenceRepository(
+    name: 'media_kit',
+    description: 'Flutter 侧媒体播放与 Windows 视频渲染能力。',
+    url: 'https://github.com/media-kit/media-kit',
+  ),
+  _ReferenceRepository(
+    name: 'libtorrent_flutter',
+    description: 'BT 任务、元数据获取和边下边播相关运行能力。',
+    url: 'https://pub.dev/packages/libtorrent_flutter',
+  ),
+  _ReferenceRepository(
+    name: 'Dandanplay',
+    description: '弹幕与弹弹play 数据接入边界。',
+    url: 'https://www.dandanplay.com/',
+  ),
+];
 
 /// Global settings center for values consumed by app runtimes.
 ///
@@ -527,6 +556,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _SettingsSection.bangumi => _buildBangumiSection(theme),
           _SettingsSection.network => _buildNetworkSection(theme),
           _SettingsSection.mediaLibrary => _buildMediaLibrarySection(theme),
+          _SettingsSection.about => _buildAboutSection(theme),
         },
       ],
     );
@@ -781,19 +811,102 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
+
+  Widget _buildAboutSection(ElainaThemeData theme) {
+    return SelectionArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _SettingsGroup(
+            key: const ValueKey<String>(UiElementIds.settingsAboutAppInfo),
+            theme: theme,
+            children: <Widget>[
+              _ReadonlyInfoRow(
+                title: '软件名称',
+                value: _appDisplayName,
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              _ReadonlyInfoRow(
+                title: '代号',
+                value: _appCodeName,
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              _ReadonlyInfoRow(
+                title: '版本',
+                value: _appVersion,
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              _ReadonlyInfoRow(
+                title: '定位',
+                value: _appPositioning,
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              _ReadonlyInfoRow(
+                title: '项目仓库',
+                value: _appRepositoryUrl,
+                theme: theme,
+              ),
+            ],
+          ),
+          const SizedBox(height: _sectionGap),
+          _SettingsGroup(
+            key: const ValueKey<String>(
+              UiElementIds.settingsReferenceRepositories,
+            ),
+            theme: theme,
+            children: <Widget>[
+              _InlineMessage(
+                icon: Icons.account_tree_outlined,
+                message: '参考仓库与核心上游项目',
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              for (int index = 0;
+                  index < _referenceRepositories.length;
+                  index++) ...<Widget>[
+                _ReferenceRepositoryRow(
+                  reference: _referenceRepositories[index],
+                  theme: theme,
+                ),
+                if (index != _referenceRepositories.length - 1)
+                  const _SettingsDivider(),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 enum _SettingsSection {
   appearance('外观', '主题模式和界面显示偏好。', Icons.palette_outlined),
   bangumi('Bangumi', '账号授权、access token 与镜像地址。', Icons.cloud_sync_outlined),
   network('网络', '代理和 DNS 策略。', Icons.public_outlined),
-  mediaLibrary('本地媒体库', '媒体库扫描文件夹路径。', Icons.video_library_outlined);
+  mediaLibrary('本地媒体库', '媒体库扫描文件夹路径。', Icons.video_library_outlined),
+  about('关于', '软件版本、项目仓库与参考项目。', Icons.info_outline);
 
   const _SettingsSection(this.label, this.description, this.icon);
 
   final String label;
   final String description;
   final IconData icon;
+}
+
+final class _ReferenceRepository {
+  const _ReferenceRepository({
+    required this.name,
+    required this.description,
+    required this.url,
+  });
+
+  final String name;
+  final String description;
+  final String url;
 }
 
 final class _DecodedFolders {
@@ -943,6 +1056,7 @@ class _SettingsPanel extends StatelessWidget {
 
 class _SettingsGroup extends StatelessWidget {
   const _SettingsGroup({
+    super.key,
     required this.theme,
     required this.children,
   });
@@ -1011,6 +1125,68 @@ class _SettingsRow extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ReadonlyInfoRow extends StatelessWidget {
+  const _ReadonlyInfoRow({
+    required this.title,
+    required this.value,
+    required this.theme,
+  });
+
+  final String title;
+  final String value;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsRow(
+      title: title,
+      subtitle: '',
+      theme: theme,
+      trailing: Align(
+        alignment: Alignment.centerLeft,
+        child: SelectableText(
+          value,
+          style: TextStyle(
+            color: theme.onSurface,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceRepositoryRow extends StatelessWidget {
+  const _ReferenceRepositoryRow({
+    required this.reference,
+    required this.theme,
+  });
+
+  final _ReferenceRepository reference;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsRow(
+      title: reference.name,
+      subtitle: reference.description,
+      theme: theme,
+      trailing: Align(
+        alignment: Alignment.centerLeft,
+        child: SelectableText(
+          reference.url,
+          style: TextStyle(
+            color: theme.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1272,5 +1448,6 @@ String _settingsSectionElementId(_SettingsSection section) {
     _SettingsSection.bangumi => UiElementIds.settingsSectionBangumi,
     _SettingsSection.network => UiElementIds.settingsSectionNetwork,
     _SettingsSection.mediaLibrary => UiElementIds.settingsSectionMediaLibrary,
+    _SettingsSection.about => UiElementIds.settingsSectionAbout,
   };
 }

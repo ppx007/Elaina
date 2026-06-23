@@ -50,6 +50,12 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsSectionNetwork);
   static Finder get settingsSectionMediaLibrary =>
       byId(UiElementIds.settingsSectionMediaLibrary);
+  static Finder get settingsSectionAbout =>
+      byId(UiElementIds.settingsSectionAbout);
+  static Finder get settingsAboutAppInfo =>
+      byId(UiElementIds.settingsAboutAppInfo);
+  static Finder get settingsReferenceRepositories =>
+      byId(UiElementIds.settingsReferenceRepositories);
   static Finder get settingsThemeMode => byId(UiElementIds.settingsThemeMode);
   static Finder get settingsBangumiOAuthLogin =>
       byId(UiElementIds.settingsBangumiOAuthLogin);

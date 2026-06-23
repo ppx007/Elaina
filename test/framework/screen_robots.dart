@@ -132,6 +132,10 @@ final class SettingsRobot extends ScreenRobot {
     await tapAndSettle(ElainaFinders.settingsSectionMediaLibrary.first);
   }
 
+  Future<void> openAbout() async {
+    await tapAndSettle(ElainaFinders.settingsSectionAbout.first);
+  }
+
   Future<void> saveBangumiToken(String token) async {
     await tester.enterText(ElainaFinders.settingsBangumiAccessToken, token);
     await tapAndSettle(ElainaFinders.settingsBangumiLogin);
