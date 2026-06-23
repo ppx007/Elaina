@@ -19,6 +19,8 @@ const String defaultBangumiApiUserAgent =
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;
+const String bangumiApiSubjectSearchMatchSort = 'match';
+const String bangumiApiSubjectSearchHeatSort = 'heat';
 const int bangumiApiRecentPopularAnimeLimit = bangumiApiDefaultSearchLimit;
 const int bangumiApiRecentPopularAnimeOffset = 0;
 const String bangumiApiRecentPopularAnimeSort = 'heat';
@@ -183,7 +185,9 @@ final class HttpBangumiApiTransport implements BangumiApiTransport {
       }
       final String? body = request.body;
       if (body != null) {
-        httpRequest.write(body);
+        final List<int> bodyBytes = utf8.encode(body);
+        httpRequest.contentLength = bodyBytes.length;
+        httpRequest.add(bodyBytes);
       }
 
       final HttpClientResponse response = await httpRequest.close();
@@ -484,6 +488,7 @@ final class BangumiApiClient {
 
   Future<List<BangumiSubject>> searchSubjects(
     String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
     String? proxyUrl,
   }) async {
     final String normalizedQuery = query.trim();
@@ -500,7 +505,7 @@ final class BangumiApiClient {
       proxyUrl: proxyUrl,
       body: _animeSubjectSearchBody(
         keyword: normalizedQuery,
-        sort: 'match',
+        sort: _apiSubjectSearchSort(sort),
       ),
     );
     return _subjectsFromJsonList(
@@ -937,7 +942,8 @@ final class BangumiApiClient {
     return <String, String>{
       HttpHeaders.acceptHeader: accept,
       HttpHeaders.userAgentHeader: _userAgent,
-      if (hasBody) HttpHeaders.contentTypeHeader: 'application/json',
+      if (hasBody)
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
       if (token != null)
         HttpHeaders.authorizationHeader: 'Bearer ${token.value}',
     };
@@ -1216,15 +1222,19 @@ final class BangumiApiProvider
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
-    String query,
-  ) async {
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) async {
     final AcgProviderResult<List<BangumiSubject>> result =
         await _execute<List<BangumiSubject>>(
-      key: bangumiSubjectSearchRequestKey(query),
+      key: bangumiSubjectSearchRequestKey(query, sort: sort),
       cachePolicy: ProviderCachePolicy.networkFirst,
       networkPolicyUri: _client.searchSubjectsNetworkPolicyUri(),
-      load: (ProviderGatewayRequestContext context) =>
-          _client.searchSubjects(query, proxyUrl: context.proxyUrl),
+      load: (ProviderGatewayRequestContext context) => _client.searchSubjects(
+        query,
+        sort: sort,
+        proxyUrl: context.proxyUrl,
+      ),
     );
     if (result is AcgProviderSuccess<List<BangumiSubject>>) {
       _rememberSubjects(result.value);
@@ -1558,6 +1568,13 @@ Map<String, Object?> _animeSubjectSearchBody({
       'type': const <int>[bangumiAnimeSubjectType],
       if (airDateFilters.isNotEmpty) 'air_date': airDateFilters,
     },
+  };
+}
+
+String _apiSubjectSearchSort(BangumiSubjectSearchSort sort) {
+  return switch (sort) {
+    BangumiSubjectSearchSort.match => bangumiApiSubjectSearchMatchSort,
+    BangumiSubjectSearchSort.heat => bangumiApiSubjectSearchHeatSort,
   };
 }
 

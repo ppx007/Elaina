@@ -656,7 +656,10 @@ final class _BangumiHomeSearchProvider implements HomeSearchProvider {
       return HomeSearchSnapshot.loaded(const <HomeSearchItem>[]);
     }
     final AcgProviderResult<List<BangumiSubject>> result =
-        await _provider.searchSubjects(normalizedQuery);
+        await _provider.searchSubjects(
+      normalizedQuery,
+      sort: BangumiSubjectSearchSort.heat,
+    );
     if (result is AcgProviderSuccess<List<BangumiSubject>>) {
       return HomeSearchSnapshot.loaded(
         result.value

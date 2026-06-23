@@ -5,7 +5,7 @@
   policy context.
 - [x] 1.3 Replace home discovery cache keys with trends-specific keys.
 - [x] 1.4 Add a separate API-backed recent-popular anime discovery request with
-  a 90-day air-date window.
+  a 180-day air-date window.
 
 ## 2. Home Consumption
 

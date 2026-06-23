@@ -79,6 +79,45 @@ void main() {
     expect(ElainaFinders.homeSearchInput, findsNothing);
   });
 
+  testWidgets('home search supports Chinese queries',
+      (WidgetTester tester) async {
+    final RecordingHomeSearchProvider searchProvider =
+        RecordingHomeSearchProvider(
+      snapshotsByQuery: <String, HomeSearchSnapshot>{
+        '电视': HomeSearchSnapshot.loaded(
+          const <HomeSearchItem>[
+            HomeSearchItem(
+              subjectId: 'search-tv',
+              title: '电视动画',
+              summary: '中文搜索候选',
+              score: 8.0,
+              collectionTotal: 24000,
+              episodeCount: 12,
+            ),
+          ],
+        ),
+      },
+    );
+    final ElainaAppFixture fixture = await ElainaTestHarness.pumpShell(
+      tester,
+      homeSearchProvider: searchProvider,
+    );
+    addTearDown(fixture.dispose);
+
+    await fixture.robot.home.openSearch();
+    await fixture.robot.home.enterSearchQuery('电视');
+    await tester.pumpUntilFound(find.text('电视动画'));
+
+    expect(searchProvider.searchedQueries, <String>['电视']);
+    expect(ElainaFinders.homeSearchResult('search-tv'), findsOneWidget);
+
+    await fixture.robot.home.submitFirstSearchResult();
+    await tester.pumpUntilFound(find.text('Mock Title'));
+
+    expect(ElainaFinders.homeSearchInput, findsNothing);
+    fixture.robot.detail.expectLoaded('Mock Title');
+  });
+
   testWidgets('home search retry recovers from provider failure',
       (WidgetTester tester) async {
     final RecordingHomeSearchProvider searchProvider =

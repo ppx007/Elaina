@@ -11,6 +11,8 @@ const String _bangumiTrendingAnimeAttentionCacheSegment =
     '${bangumiTrendingAnimeAttentionWindowDays}d';
 const String _bangumiRecentPopularAnimeCacheSegment =
     '${bangumiRecentPopularAnimeWindowDays}d';
+const String _bangumiSubjectSearchMatchCacheSegment = 'match';
+const String _bangumiSubjectSearchHeatCacheSegment = 'heat';
 
 ProviderRequestKey bangumiSubjectRequestKey(BangumiSubjectId id) {
   return ProviderRequestKey(
@@ -19,10 +21,14 @@ ProviderRequestKey bangumiSubjectRequestKey(BangumiSubjectId id) {
   );
 }
 
-ProviderRequestKey bangumiSubjectSearchRequestKey(String query) {
+ProviderRequestKey bangumiSubjectSearchRequestKey(
+  String query, {
+  BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+}) {
   return ProviderRequestKey(
     providerId: bangumiProviderId,
-    cacheKey: 'subject-search:${_normalizeQuery(query)}',
+    cacheKey: 'subject-search:${_subjectSearchSortCacheSegment(sort)}:'
+        '${_normalizeQuery(query)}',
   );
 }
 
@@ -229,10 +235,13 @@ final class DeterministicBangumiProvider
   }
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     final String normalizedQuery = _normalizeQuery(query);
     return _execute(
-      key: bangumiSubjectSearchRequestKey(query),
+      key: bangumiSubjectSearchRequestKey(query, sort: sort),
       cachePolicy: ProviderCachePolicy.networkFirst,
       load: () async {
         if (normalizedQuery.isEmpty) return const <BangumiSubject>[];
@@ -792,10 +801,12 @@ final class BangumiProviderRuntime
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
-      String query) async {
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) async {
     if (_disposed) return _disposedFailure<List<BangumiSubject>>();
     await _ensureRegistered();
-    return _metadataProvider.searchSubjects(query);
+    return _metadataProvider.searchSubjects(query, sort: sort);
   }
 
   @override
@@ -976,6 +987,13 @@ final class BangumiProviderBootstrap {
 }
 
 String _normalizeQuery(String query) => query.trim().toLowerCase();
+
+String _subjectSearchSortCacheSegment(BangumiSubjectSearchSort sort) {
+  return switch (sort) {
+    BangumiSubjectSearchSort.match => _bangumiSubjectSearchMatchCacheSegment,
+    BangumiSubjectSearchSort.heat => _bangumiSubjectSearchHeatCacheSegment,
+  };
+}
 
 String _dateCacheKey(DateTime value) {
   final String year = value.year.toString().padLeft(4, '0');

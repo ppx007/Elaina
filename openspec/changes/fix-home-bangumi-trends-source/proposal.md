@@ -8,7 +8,7 @@ anime waterfall, not another copy of the hero trends page.
 ## What Changes
 
 - Use the official Bangumi anime trends browser source only for the home hero.
-- Use Bangumi v0 subject search with `sort=heat` and a 90-day `air_date`
+- Use Bangumi v0 subject search with `sort=heat` and a 180-day `air_date`
   window for the lower more-recommendations waterfall.
 - Keep both sources inside the Bangumi provider boundary so UI code never
   parses Bangumi HTML or calls Bangumi endpoints directly.

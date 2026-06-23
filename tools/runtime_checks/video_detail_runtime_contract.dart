@@ -346,7 +346,10 @@ final class _CheckBangumiProvider implements BangumiProvider {
       cacheKey: cacheKey);
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     return Future<AcgProviderResult<List<BangumiSubject>>>.value(
         AcgProviderSuccess<List<BangumiSubject>>(<BangumiSubject>[subject]));
   }

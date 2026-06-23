@@ -185,6 +185,8 @@ final class FakeBangumiProvider implements BangumiProvider {
   final String episodeFailureMessage;
   final String providerId;
   final List<String> searchedQueries = <String>[];
+  final List<BangumiSubjectSearchSort> searchedSorts =
+      <BangumiSubjectSearchSort>[];
 
   @override
   String get displayName => 'Fake Bangumi Provider';
@@ -344,9 +346,11 @@ final class FakeBangumiProvider implements BangumiProvider {
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
-    String query,
-  ) {
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     searchedQueries.add(query);
+    searchedSorts.add(sort);
     final AcgProviderFailureKind? failureKind = searchFailureKind;
     if (failureKind != null) {
       return Future<AcgProviderResult<List<BangumiSubject>>>.value(

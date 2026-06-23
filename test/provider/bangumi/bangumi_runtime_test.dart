@@ -43,7 +43,7 @@ void main() {
     final List<BangumiSubject> matches =
         (searchResult as AcgProviderSuccess<List<BangumiSubject>>).value;
     expect(matches.single.title, 'Elaina');
-    expect(gateway.lastCacheKey, 'subject-search:runtime');
+    expect(gateway.lastCacheKey, 'subject-search:match:runtime');
 
     final AcgProviderResult<BangumiEpisode> episodeResult =
         await runtime.lookupEpisode(episode.id);
@@ -97,7 +97,14 @@ void main() {
 
     expect(subjectKey.providerId.value, bangumiProviderId.value);
     expect(subjectKey.cacheKey, 'subject:42');
-    expect(searchKey.cacheKey, 'subject-search:elaina');
+    expect(searchKey.cacheKey, 'subject-search:match:elaina');
+    expect(
+      bangumiSubjectSearchRequestKey(
+        '  ELaina  ',
+        sort: BangumiSubjectSearchSort.heat,
+      ).cacheKey,
+      'subject-search:heat:elaina',
+    );
     expect(episodeKey.cacheKey, 'episode:7');
     expect(episodeListKey.cacheKey, 'episodes:42');
     expect(
@@ -106,7 +113,7 @@ void main() {
     );
     expect(
       recentPopularKey.cacheKey,
-      'subject-recent-popular-anime:90d:20260621:20:40',
+      'subject-recent-popular-anime:180d:20260621:20:40',
     );
     expect(collectionKey.cacheKey, 'anime-collection:current');
     expect(subjectCollectionSyncKey.cacheKey, 'subject-collection:42:dropped');
@@ -377,9 +384,12 @@ void main() {
     expect(defaultBangumiApiUserAgent, contains('github.com/ppx007/Elaina'));
 
     final AcgProviderResult<List<BangumiSubject>> search =
-        await runtime.searchSubjects(' concrete ');
+        await runtime.searchSubjects(
+      ' concrete ',
+      sort: BangumiSubjectSearchSort.heat,
+    );
     final BangumiApiRequest searchRequest = transport.requests.last;
-    expect(gateway.lastCacheKey, 'subject-search:concrete');
+    expect(gateway.lastCacheKey, 'subject-search:heat:concrete');
     expect(
       gateway.lastNetworkPolicyUri,
       Uri.parse('https://api.test/v0/search/subjects?limit=20&offset=0'),
@@ -390,12 +400,45 @@ void main() {
     final Map<String, Object?> searchBody =
         jsonDecode(searchRequest.body!) as Map<String, Object?>;
     expect(searchBody['keyword'], 'concrete');
+    expect(searchBody['sort'], bangumiApiSubjectSearchHeatSort);
+    final Map<String, Object?> searchFilter =
+        searchBody['filter']! as Map<String, Object?>;
+    expect(searchFilter['type'], <int>[bangumiAnimeSubjectType]);
+    expect(
+      searchRequest.headers[HttpHeaders.contentTypeHeader],
+      contains('charset=utf-8'),
+    );
     expect(
       ((search as AcgProviderSuccess<List<BangumiSubject>>).value)
           .single
           .id
           .value,
       '43',
+    );
+
+    final AcgProviderResult<List<BangumiSubject>> chineseSearch =
+        await runtime.searchSubjects(
+      ' 电视 ',
+      sort: BangumiSubjectSearchSort.heat,
+    );
+    final BangumiApiRequest chineseSearchRequest = transport.requests.last;
+    final Map<String, Object?> chineseSearchBody =
+        jsonDecode(chineseSearchRequest.body!) as Map<String, Object?>;
+    expect(chineseSearchBody['keyword'], '电视');
+    expect(chineseSearchBody['sort'], bangumiApiSubjectSearchHeatSort);
+    final Map<String, Object?> chineseSearchFilter =
+        chineseSearchBody['filter']! as Map<String, Object?>;
+    expect(chineseSearchFilter['type'], <int>[bangumiAnimeSubjectType]);
+    expect(
+      chineseSearchRequest.headers[HttpHeaders.contentTypeHeader],
+      contains('charset=utf-8'),
+    );
+    expect(
+      (chineseSearch as AcgProviderSuccess<List<BangumiSubject>>)
+          .value
+          .single
+          .title,
+      'Search Title',
     );
 
     final AcgProviderResult<List<BangumiSubject>> trendingHero =
@@ -468,7 +511,7 @@ void main() {
     final BangumiApiRequest recentPopularRequest = transport.requests.last;
     expect(
       gateway.lastCacheKey,
-      'subject-recent-popular-anime:90d:20260621:20:20',
+      'subject-recent-popular-anime:180d:20260621:20:20',
     );
     expect(
       gateway.lastNetworkPolicyUri,
@@ -487,7 +530,7 @@ void main() {
     expect(recentPopularFilter['type'], <int>[bangumiAnimeSubjectType]);
     expect(
       recentPopularFilter['air_date'],
-      <String>['>=2026-03-24', '<2026-06-22'],
+      <String>['>=2025-12-24', '<2026-06-22'],
     );
     expect(
       (recentPopular as AcgProviderSuccess<List<BangumiSubject>>)

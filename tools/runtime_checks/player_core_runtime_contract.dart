@@ -3559,7 +3559,10 @@ final class _RuntimeBangumiProvider implements BangumiProvider {
   }
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     return Future<AcgProviderResult<List<BangumiSubject>>>.value(
       const AcgProviderSuccess<List<BangumiSubject>>(
         <BangumiSubject>[

@@ -341,7 +341,10 @@ final class _CheckBangumiProvider implements BangumiProvider {
       providerId: const ProviderId('check-bangumi'), cacheKey: cacheKey);
 
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     final String title = query == 'Unmatched Seasonal Check Anime'
         ? 'Different Seasonal Check Anime'
         : 'Seasonal Check Anime';
@@ -356,7 +359,10 @@ final class _CheckBangumiProvider implements BangumiProvider {
 
 final class _FailingBangumiProvider extends _CheckBangumiProvider {
   @override
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query) {
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) {
     return Future<AcgProviderResult<List<BangumiSubject>>>.value(
       const AcgProviderFailure<List<BangumiSubject>>(
         kind: AcgProviderFailureKind.retryable,

@@ -110,8 +110,9 @@ final class UnavailableBangumiProvider implements BangumiProvider {
 
   @override
   Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
-    String query,
-  ) async {
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  }) async {
     return const AcgProviderFailure<List<BangumiSubject>>(
       kind: AcgProviderFailureKind.unavailable,
       message:

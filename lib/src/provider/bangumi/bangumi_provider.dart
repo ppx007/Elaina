@@ -5,7 +5,12 @@ import '../gateway_bound_provider.dart';
 import '../provider_result.dart';
 
 const int bangumiTrendingAnimeAttentionWindowDays = 30;
-const int bangumiRecentPopularAnimeWindowDays = 90;
+const int bangumiRecentPopularAnimeWindowDays = 180;
+
+enum BangumiSubjectSearchSort {
+  match,
+  heat,
+}
 
 final class BangumiSubjectId {
   const BangumiSubjectId(this.value)
@@ -148,7 +153,10 @@ abstract interface class BangumiProvider implements GatewayBoundProvider {
 
   Future<AcgProviderResult<BangumiSubject>> lookupSubject(BangumiSubjectId id);
 
-  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(String query);
+  Future<AcgProviderResult<List<BangumiSubject>>> searchSubjects(
+    String query, {
+    BangumiSubjectSearchSort sort = BangumiSubjectSearchSort.match,
+  });
 
   Future<AcgProviderResult<BangumiEpisode>> lookupEpisode(BangumiEpisodeId id);
 
