@@ -9,13 +9,26 @@ class AppConstants {
 
   // Media Library Defaults
   static const Set<String> supportedVideoExtensions = <String>{
-    'mkv',
-    'mp4',
     'avi',
-    'mov',
+    'asf',
+    'divx',
+    'f4v',
     'flv',
+    'm2ts',
+    'm4v',
+    'mkv',
+    'mov',
+    'mp4',
+    'mpeg',
+    'mpg',
+    'mts',
+    'ogm',
+    'ogv',
+    'rm',
+    'rmvb',
+    'ts',
+    'webm',
     'wmv',
-    'webm'
   };
 
   // Settings Policy Defaults

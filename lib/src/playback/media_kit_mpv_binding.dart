@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:media_kit/media_kit.dart';
@@ -7,6 +8,7 @@ import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
 import 'player_runtime_composition.dart';
+import 'player_telemetry.dart';
 import 'subtitle/subtitle_source.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
@@ -46,6 +48,11 @@ const String mpvSubtitleAutoValue = 'auto';
 const String mpvSubtitleNoValue = 'no';
 const String mpvSubtitleEnabledValue = 'yes';
 const String mpvSubtitleDisabledValue = 'no';
+const String mediaKitAudioTrackIdPrefix = 'media-kit-audio:';
+const String mediaKitSubtitleTrackIdPrefix = 'media-kit-subtitle:';
+const String _mediaKitAutoTrackId = 'auto';
+const String _mediaKitNoTrackId = 'no';
+const String _unknownTrackLabel = 'Unknown track';
 
 abstract interface class MpvAdvancedSubtitleBinding {
   Future<CaptionRenderOutcome> renderMatrixDanmaku(
@@ -401,6 +408,10 @@ final class MpvEnhancementPlanner {
 abstract interface class MediaKitMpvBackend {
   Player get player;
 
+  PlayerTelemetrySnapshot get currentTelemetry;
+
+  Stream<PlayerTelemetrySnapshot> get telemetry;
+
   Future<void> openLocalFile(Uri uri);
 
   Future<void> play();
@@ -414,6 +425,10 @@ abstract interface class MediaKitMpvBackend {
   Future<void> setProperty(String property, String value);
 
   Future<void> command(List<String> arguments);
+
+  Future<TrackDiscoveryResult> discoverTracks();
+
+  Future<void> switchTrack(MediaTrackDescriptor track);
 
   Future<void> dispose();
 }
@@ -436,12 +451,30 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   }
 
   late final Player _player;
+  final StreamController<PlayerTelemetrySnapshot> _telemetryController =
+      StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
+  final List<StreamSubscription<dynamic>> _telemetrySubscriptions =
+      <StreamSubscription<dynamic>>[];
+  String? _lastFailureReason;
+  bool _telemetryClosed = false;
 
   @override
   Player get player => _player;
 
   @override
+  PlayerTelemetrySnapshot get currentTelemetry {
+    return _telemetryFromState(_player.state, failureReason: _lastFailureReason);
+  }
+
+  @override
+  Stream<PlayerTelemetrySnapshot> get telemetry {
+    _ensureTelemetrySubscriptions();
+    return _telemetryController.stream;
+  }
+
+  @override
   Future<void> openLocalFile(Uri uri) {
+    _lastFailureReason = null;
     return _player.open(Media(uri.toString()), play: false);
   }
 
@@ -477,12 +510,191 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   }
 
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<TrackDiscoveryResult> discoverTracks() async {
+    return TrackDiscoveryResult(
+      tracks: currentTelemetry.tracks,
+      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(),
+    );
+  }
+
+  @override
+  Future<void> switchTrack(MediaTrackDescriptor track) async {
+    switch (track.type) {
+      case MediaTrackType.audio:
+        await _player.setAudioTrack(_audioTrackForDescriptor(track));
+      case MediaTrackType.subtitle:
+        await _player.setSubtitleTrack(_subtitleTrackForDescriptor(track));
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    for (final StreamSubscription<dynamic> subscription
+        in _telemetrySubscriptions) {
+      await subscription.cancel();
+    }
+    _telemetrySubscriptions.clear();
+    if (!_telemetryClosed) {
+      _telemetryClosed = true;
+      await _telemetryController.close();
+    }
+    await _player.dispose();
+  }
+
+  void _ensureTelemetrySubscriptions() {
+    if (_telemetrySubscriptions.isNotEmpty) return;
+    void watch<T>(Stream<T> stream) {
+      _telemetrySubscriptions.add(
+        stream.listen((_) => _emitTelemetry()),
+      );
+    }
+
+    watch(_player.stream.playing);
+    watch(_player.stream.completed);
+    watch(_player.stream.position);
+    watch(_player.stream.duration);
+    watch(_player.stream.buffering);
+    watch(_player.stream.buffer);
+    watch(_player.stream.track);
+    watch(_player.stream.tracks);
+    _telemetrySubscriptions.add(
+      _player.stream.error.listen((String error) {
+        _lastFailureReason = error;
+        _emitTelemetry();
+      }),
+    );
+  }
+
+  void _emitTelemetry() {
+    if (_telemetryClosed) return;
+    _telemetryController.add(currentTelemetry);
+  }
+
+  AudioTrack _audioTrackForDescriptor(MediaTrackDescriptor descriptor) {
+    final String rawId = _stripTrackPrefix(
+      descriptor.id.value,
+      mediaKitAudioTrackIdPrefix,
+    );
+    for (final AudioTrack track in _player.state.tracks.audio) {
+      if (track.id == rawId) return track;
+    }
+    throw StateError('Audio track is not available: ${descriptor.id.value}');
+  }
+
+  SubtitleTrack _subtitleTrackForDescriptor(MediaTrackDescriptor descriptor) {
+    final String rawId = _stripTrackPrefix(
+      descriptor.id.value,
+      mediaKitSubtitleTrackIdPrefix,
+    );
+    for (final SubtitleTrack track in _player.state.tracks.subtitle) {
+      if (track.id == rawId) return track;
+    }
+    throw StateError('Subtitle track is not available: ${descriptor.id.value}');
+  }
+}
+
+PlayerTelemetrySnapshot _telemetryFromState(
+  PlayerState state, {
+  String? failureReason,
+}) {
+  final List<MediaTrackDescriptor> tracks = <MediaTrackDescriptor>[
+    for (final AudioTrack track in state.tracks.audio)
+      if (_isUserSelectableTrack(track.id))
+        _audioDescriptor(track, selected: state.track.audio),
+    for (final SubtitleTrack track in state.tracks.subtitle)
+      if (_isUserSelectableTrack(track.id))
+        _subtitleDescriptor(track, selected: state.track.subtitle),
+  ];
+  return PlayerTelemetrySnapshot(
+    playing: state.playing,
+    completed: state.completed,
+    buffering: state.buffering,
+    position: state.position,
+    duration: state.duration,
+    bufferedPosition: state.buffer,
+    failureReason: failureReason,
+    activeAudioTrackId: _activeAudioTrackId(state.track.audio),
+    activeSubtitleTrackId: _activeSubtitleTrackId(state.track.subtitle),
+    tracks: tracks,
+  );
+}
+
+MediaTrackDescriptor _audioDescriptor(
+  AudioTrack track, {
+  required AudioTrack selected,
+}) {
+  return MediaTrackDescriptor(
+    id: MediaTrackId('$mediaKitAudioTrackIdPrefix${track.id}'),
+    type: MediaTrackType.audio,
+    label: _trackLabel(track.title, track.language, track.id),
+    languageCode: track.language,
+    isSelected: track.id == selected.id,
+  );
+}
+
+MediaTrackDescriptor _subtitleDescriptor(
+  SubtitleTrack track, {
+  required SubtitleTrack selected,
+}) {
+  return MediaTrackDescriptor(
+    id: MediaTrackId('$mediaKitSubtitleTrackIdPrefix${track.id}'),
+    type: MediaTrackType.subtitle,
+    label: _trackLabel(track.title, track.language, track.id),
+    languageCode: track.language,
+    isSelected: track.id == selected.id,
+  );
+}
+
+MediaTrackId? _activeAudioTrackId(AudioTrack track) {
+  if (!_isUserSelectableTrack(track.id)) return null;
+  return MediaTrackId('$mediaKitAudioTrackIdPrefix${track.id}');
+}
+
+MediaTrackId? _activeSubtitleTrackId(SubtitleTrack track) {
+  if (!_isUserSelectableTrack(track.id)) return null;
+  return MediaTrackId('$mediaKitSubtitleTrackIdPrefix${track.id}');
+}
+
+bool _isUserSelectableTrack(String id) {
+  return id != _mediaKitAutoTrackId && id != _mediaKitNoTrackId;
+}
+
+String _trackLabel(String? title, String? language, String fallbackId) {
+  final String? trimmedTitle = _trimToNull(title);
+  if (trimmedTitle != null) return trimmedTitle;
+  final String? trimmedLanguage = _trimToNull(language);
+  if (trimmedLanguage != null) return trimmedLanguage;
+  final String? trimmedFallback = _trimToNull(fallbackId);
+  return trimmedFallback ?? _unknownTrackLabel;
+}
+
+String? _trimToNull(String? value) {
+  final String? trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
+}
+
+String _stripTrackPrefix(String value, String prefix) {
+  if (!value.startsWith(prefix)) {
+    throw StateError('Track id does not use expected prefix $prefix: $value');
+  }
+  return value.substring(prefix.length);
+}
+
+MediaTrackDescriptor? _trackById(
+  Iterable<MediaTrackDescriptor> tracks,
+  MediaTrackId id,
+) {
+  for (final MediaTrackDescriptor track in tracks) {
+    if (track.id.value == id.value) return track;
+  }
+  return null;
 }
 
 final class MediaKitMpvBinding
     implements
         MpvAdapterBinding,
+        PlayerTelemetrySource,
         MpvEnhancementBinding,
         MpvAdvancedSubtitleBinding {
   MediaKitMpvBinding({
@@ -512,6 +724,12 @@ final class MediaKitMpvBinding
   bool get isDisposed => _disposed;
 
   MediaKitMpvBackend get backend => _backend ??= _backendFactory();
+
+  @override
+  PlayerTelemetrySnapshot get currentTelemetry => backend.currentTelemetry;
+
+  @override
+  Stream<PlayerTelemetrySnapshot> get telemetry => backend.telemetry;
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) async {
@@ -578,16 +796,42 @@ final class MediaKitMpvBinding
 
   @override
   Future<TrackDiscoveryResult> discoverTracks() async {
-    return TrackDiscoveryResult.unsupported(
-      reason: 'Track discovery is not implemented by the concrete MPV binding.',
-    );
+    if (_disposed) {
+      return TrackDiscoveryResult.unsupported(
+        reason: 'MediaKit MPV binding has been disposed.',
+      );
+    }
+    try {
+      return await backend.discoverTracks();
+    } on Object catch (error) {
+      return TrackDiscoveryResult.unsupported(
+        reason: 'Track discovery failed: $error',
+      );
+    }
   }
 
   @override
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) async {
-    return const TrackSwitchResult.unsupported(
-      'Track switching is not implemented by the concrete MPV binding.',
+    if (_disposed) {
+      return const TrackSwitchResult.unsupported(
+        'MediaKit MPV binding has been disposed.',
+      );
+    }
+    final MediaTrackDescriptor? track = _trackById(
+      backend.currentTelemetry.tracks,
+      trackId,
     );
+    if (track == null) {
+      return TrackSwitchResult.unsupported(
+        'Track is not available: ${trackId.value}',
+      );
+    }
+    try {
+      await backend.switchTrack(track);
+      return const TrackSwitchResult.success();
+    } on Object catch (error) {
+      return TrackSwitchResult.unsupported('Track switch failed: $error');
+    }
   }
 
   @override
@@ -911,6 +1155,12 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
       PlaybackCapability.playPause: CapabilityStatus.supported(),
       PlaybackCapability.seek: CapabilityStatus.supported(),
       PlaybackCapability.stop: CapabilityStatus.supported(),
+      PlaybackCapability.progressReporting: CapabilityStatus.supported(),
+      PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
+      PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
+      PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
       PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
       PlaybackCapability.hdrToneMapping: CapabilityStatus.supported(),
       PlaybackCapability.debandFiltering: CapabilityStatus.supported(),
@@ -936,15 +1186,17 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
   Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
       const <Anime4kPresetIntent, Uri>{},
 }) {
+  final MediaKitMpvBinding binding = MediaKitMpvBinding(
+    backend: backend,
+    backendFactory: backendFactory,
+    libmpvPath: libmpvPath,
+    anime4kShaderByPreset: anime4kShaderByPreset,
+  );
   return PlayerRuntimeCompositionContract(
-    binding: MediaKitMpvBinding(
-      backend: backend,
-      backendFactory: backendFactory,
-      libmpvPath: libmpvPath,
-      anime4kShaderByPreset: anime4kShaderByPreset,
-    ),
+    binding: binding,
     capabilities: mediaKitLocalFilePlaybackCapabilities(
       anime4kShadersAvailable: anime4kShaderByPreset.isNotEmpty,
     ),
+    telemetrySource: binding,
   );
 }

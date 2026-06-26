@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
@@ -176,23 +178,46 @@ void main() {
     expect(backend.operations, <PlaybackOperation>[PlaybackOperation.dispose]);
   });
 
-  test('concrete binding leaves tracks unsupported until mapped', () async {
+  test('concrete binding discovers and switches media-kit tracks', () async {
+    const MediaTrackDescriptor audioTrack = MediaTrackDescriptor(
+      id: MediaTrackId('media-kit-audio:1'),
+      type: MediaTrackType.audio,
+      label: 'Japanese',
+      languageCode: 'ja',
+      isSelected: true,
+    );
+    const MediaTrackDescriptor subtitleTrack = MediaTrackDescriptor(
+      id: MediaTrackId('media-kit-subtitle:2'),
+      type: MediaTrackType.subtitle,
+      label: 'Chinese',
+      languageCode: 'zh',
+    );
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      initialTelemetry: PlayerTelemetrySnapshot(
+        tracks: const <MediaTrackDescriptor>[audioTrack, subtitleTrack],
+        activeAudioTrackId: audioTrack.id,
+      ),
+    );
     final MediaKitMpvBinding binding = MediaKitMpvBinding(
-      backend: _FakeMediaKitMpvBackend(),
+      backend: backend,
     );
 
     final TrackDiscoveryResult discovery = await binding.discoverTracks();
     final TrackSwitchResult switchResult = await binding.switchTrack(
-      const MediaTrackId('subtitle-ja'),
+      subtitleTrack.id,
     );
 
-    expect(discovery.tracks, isEmpty);
+    expect(discovery.tracks, const <MediaTrackDescriptor>[
+      audioTrack,
+      subtitleTrack,
+    ]);
     expect(
       discovery.capabilityMatrix
           .supports(PlaybackCapability.audioTrackDiscovery),
-      isFalse,
+      isTrue,
     );
-    expect(switchResult.isSuccess, isFalse);
+    expect(switchResult.isSuccess, isTrue);
+    expect(backend.switchedTrack, subtitleTrack);
   });
 
   test('enhancement planner maps profile intent to MPV property commands', () {
@@ -557,10 +582,14 @@ void main() {
     expect(matrix.supports(PlaybackCapability.playPause), isTrue);
     expect(matrix.supports(PlaybackCapability.seek), isTrue);
     expect(matrix.supports(PlaybackCapability.stop), isTrue);
+    expect(matrix.supports(PlaybackCapability.progressReporting), isTrue);
     expect(matrix.supports(PlaybackCapability.httpPlayback), isFalse);
     expect(matrix.supports(PlaybackCapability.hlsPlayback), isFalse);
-    expect(matrix.supports(PlaybackCapability.audioTrackDiscovery), isFalse);
-    expect(matrix.supports(PlaybackCapability.subtitleTrackSwitching), isFalse);
+    expect(matrix.supports(PlaybackCapability.audioTrackDiscovery), isTrue);
+    expect(matrix.supports(PlaybackCapability.audioTrackSwitching), isTrue);
+    expect(matrix.supports(PlaybackCapability.subtitleTrackDiscovery), isTrue);
+    expect(matrix.supports(PlaybackCapability.subtitleTrackSwitching), isTrue);
+    expect(matrix.supports(PlaybackCapability.secondaryPanels), isTrue);
     expect(matrix.supports(PlaybackCapability.videoEnhancement), isTrue);
     expect(matrix.supports(PlaybackCapability.hdrToneMapping), isTrue);
     expect(matrix.supports(PlaybackCapability.debandFiltering), isTrue);
@@ -602,7 +631,16 @@ void main() {
   });
 
   test('composition exposes only verified UI-facing controls', () async {
-    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    const MediaTrackDescriptor audioTrack = MediaTrackDescriptor(
+      id: MediaTrackId('media-kit-audio:audio-main'),
+      type: MediaTrackType.audio,
+      label: 'Main Audio',
+    );
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      initialTelemetry: PlayerTelemetrySnapshot(
+        tracks: const <MediaTrackDescriptor>[audioTrack],
+      ),
+    );
     final PlayerCoreBootstrap bootstrap = PlayerCoreBootstrap.withComposition(
       composition: mediaKitLocalFilePlayerRuntimeComposition(backend: backend),
     );
@@ -615,26 +653,27 @@ void main() {
     expect(surface.hasActiveControl(PlaybackPageControlId.playPause), isTrue);
     expect(surface.hasActiveControl(PlaybackPageControlId.seek), isTrue);
     expect(surface.hasActiveControl(PlaybackPageControlId.stop), isTrue);
-    expect(surface.hasActiveControl(PlaybackPageControlId.progress), isFalse);
-    expect(
-        surface.hasActiveControl(PlaybackPageControlId.audioTracks), isFalse);
+    expect(surface.hasActiveControl(PlaybackPageControlId.progress), isTrue);
+    expect(surface.hasActiveControl(PlaybackPageControlId.audioTracks), isTrue);
     expect(surface.hasActiveControl(PlaybackPageControlId.subtitleTracks),
-        isFalse);
-    expect(surface.hasActivePanel(PlaybackPagePanelId.tracks), isFalse);
+        isTrue);
+    expect(surface.hasActivePanel(PlaybackPagePanelId.tracks), isTrue);
 
     final PlaybackPageIntentResult panelResult =
         await page.dispatch(const PlaybackPageIntent.openPanel(
       PlaybackPagePanelId.tracks,
     ));
     final PlaybackPageIntentResult trackResult =
-        await page.dispatch(const PlaybackPageIntent.selectTrack(
-      trackId: DomainMediaTrackId('audio-main'),
+        await page.dispatch(PlaybackPageIntent.selectTrack(
+      trackId: DomainMediaTrackId(audioTrack.id.value),
       trackType: DomainMediaTrackType.audio,
     ));
 
-    expect(panelResult.outcome, PlaybackPageIntentOutcome.unsupported);
-    expect(trackResult.outcome, PlaybackPageIntentOutcome.unsupported);
-    expect(backend.operations, isEmpty);
+    expect(panelResult.outcome, PlaybackPageIntentOutcome.executed);
+    expect(trackResult.outcome, PlaybackPageIntentOutcome.executed);
+    expect(trackResult.trackSwitchResult?.isSuccess, isTrue);
+    expect(backend.switchedTrack, audioTrack);
+    expect(backend.operations, <PlaybackOperation>[PlaybackOperation.switchTrack]);
 
     await bootstrap.dispose();
   });
@@ -750,7 +789,11 @@ List<double> _identityTransform() {
 }
 
 final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
-  _FakeMediaKitMpvBackend({this.failOn, this.failOnProperty});
+  _FakeMediaKitMpvBackend({
+    this.failOn,
+    this.failOnProperty,
+    PlayerTelemetrySnapshot? initialTelemetry,
+  }) : _currentTelemetry = initialTelemetry ?? PlayerTelemetrySnapshot();
 
   @override
   Player get player =>
@@ -758,11 +801,26 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   final PlaybackOperation? failOn;
   final String? failOnProperty;
+  final StreamController<PlayerTelemetrySnapshot> _telemetryController =
+      StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
   final List<PlaybackOperation> operations = <PlaybackOperation>[];
   final List<_PropertyCall> propertyCalls = <_PropertyCall>[];
   final List<List<String>> commandCalls = <List<String>>[];
+  PlayerTelemetrySnapshot _currentTelemetry;
   Uri? openedUri;
   Duration? seekPosition;
+  MediaTrackDescriptor? switchedTrack;
+
+  @override
+  PlayerTelemetrySnapshot get currentTelemetry => _currentTelemetry;
+
+  @override
+  Stream<PlayerTelemetrySnapshot> get telemetry => _telemetryController.stream;
+
+  void emitTelemetry(PlayerTelemetrySnapshot snapshot) {
+    _currentTelemetry = snapshot;
+    _telemetryController.add(snapshot);
+  }
 
   @override
   Future<void> openLocalFile(Uri uri) async {
@@ -805,8 +863,23 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   }
 
   @override
+  Future<TrackDiscoveryResult> discoverTracks() async {
+    return TrackDiscoveryResult(
+      tracks: _currentTelemetry.tracks,
+      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(),
+    );
+  }
+
+  @override
+  Future<void> switchTrack(MediaTrackDescriptor track) async {
+    switchedTrack = track;
+    _record(PlaybackOperation.switchTrack);
+  }
+
+  @override
   Future<void> dispose() async {
     _record(PlaybackOperation.dispose);
+    await _telemetryController.close();
   }
 
   void _record(PlaybackOperation operation) {

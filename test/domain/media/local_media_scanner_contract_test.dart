@@ -1,6 +1,7 @@
 // Local media scanner contract tests define filesystem-to-candidate behavior.
 // Import, binding, and playback handoff are media-library runtime concerns.
 import 'package:elaina/elaina.dart';
+import 'package:elaina/src/foundation/constants.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,6 +27,34 @@ void main() {
           basename: 'episode.mkv'),
       isFalse,
     );
+  });
+
+  test('default video extensions accept common libmpv containers', () {
+    final MediaScanScopeNormalizationResult result = normalizeMediaScanScope(
+      MediaScanScope(
+        roots: <Uri>[Uri.parse('file:///D:/media/')],
+        extensions: AppConstants.supportedVideoExtensions,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    for (final String fileName in <String>[
+      'episode.m2ts',
+      'episode.rmvb',
+      'episode.ogv',
+      'episode.f4v',
+      'episode.ts',
+      'episode.m4v',
+    ]) {
+      expect(
+        result.scope?.accepts(
+          Uri.parse('file:///D:/media/$fileName'),
+          basename: fileName,
+        ),
+        isTrue,
+        reason: '$fileName should pass the app-level video entry filter.',
+      );
+    }
   });
 
   test('normalization reports unsupported scan root scheme', () {

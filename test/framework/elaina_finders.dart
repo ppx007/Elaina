@@ -66,6 +66,10 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsAboutAppInfo);
   static Finder get settingsReferenceRepositories =>
       byId(UiElementIds.settingsReferenceRepositories);
+  static Finder get settingsOpenSourceLicenses =>
+      byId(UiElementIds.settingsOpenSourceLicenses);
+  static Finder get settingsThirdPartyLicensesButton =>
+      byId(UiElementIds.settingsThirdPartyLicensesButton);
   static Finder get settingsThemeMode => byId(UiElementIds.settingsThemeMode);
   static Finder get settingsBangumiOAuthLogin =>
       byId(UiElementIds.settingsBangumiOAuthLogin);

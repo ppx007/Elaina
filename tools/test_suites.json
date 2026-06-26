@@ -18,6 +18,21 @@
       ]
     },
     {
+      "name": "architecture-foundation",
+      "runner": "flutter",
+      "paths": [
+        "test/foundation/layer_import_graph_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
+      "triggers": [
+        "lib/src/**",
+        "test/foundation/layer_import_graph_test.dart"
+      ]
+    },
+    {
       "name": "home-shell-ui",
       "runner": "flutter",
       "paths": [
@@ -146,6 +161,23 @@
         "lib/src/domain/playback/**",
         "lib/src/playback/capability_matrix.dart",
         "lib/src/playback/track_management.dart"
+      ]
+    },
+    {
+      "name": "playback-runtime",
+      "runner": "flutter",
+      "paths": [
+        "test/playback/media_kit_mpv_binding_test.dart",
+        "test/playback/player_core_runtime_test.dart"
+      ],
+      "scopes": [
+        "Fast",
+        "Module"
+      ],
+      "triggers": [
+        "test/playback/**",
+        "lib/src/playback/**",
+        "lib/src/domain/playback/**"
       ]
     },
     {

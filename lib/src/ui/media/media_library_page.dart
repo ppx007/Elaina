@@ -323,7 +323,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage>
   Future<void> _pickAndPlayFile() async {
     try {
       final FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.video,
+        type: FileType.custom,
+        allowedExtensions: AppConstants.supportedVideoExtensions.toList(),
       );
       final PlatformFile? selectedFile =
           result == null || result.files.length != 1 ? null : result.files[0];

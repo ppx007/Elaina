@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
-import '../../playback/capability_matrix.dart';
-import '../../playback/track_management.dart';
 import 'playback_page_contract.dart';
 
 enum PlaybackTrackPanelStatus {
@@ -103,14 +101,14 @@ final class PlaybackTrackPanelSnapshot {
 /// not have a domain command contract, the page must only report its status.
 final class PlaybackCapabilityItemSnapshot {
   const PlaybackCapabilityItemSnapshot({
-    required this.capability,
+    required this.id,
     required this.label,
     required this.status,
   });
 
-  final PlaybackCapability capability;
+  final DomainPlaybackCapabilityId id;
   final String label;
-  final CapabilityStatus status;
+  final DomainPlaybackCapabilityStatus status;
 }
 
 final class PlaybackCapabilityPanelSnapshot {
@@ -119,15 +117,15 @@ final class PlaybackCapabilityPanelSnapshot {
       : items = List<PlaybackCapabilityItemSnapshot>.unmodifiable(items);
 
   factory PlaybackCapabilityPanelSnapshot.fromMatrix(
-    PlaybackCapabilityMatrix matrix,
+    DomainPlaybackCapabilitySummary summary,
   ) {
     return PlaybackCapabilityPanelSnapshot(
       items: <PlaybackCapabilityItemSnapshot>[
-        for (final PlaybackCapability capability in playbackPageCapabilities)
+        for (final DomainPlaybackCapabilityId id in playbackPageCapabilities)
           PlaybackCapabilityItemSnapshot(
-            capability: capability,
-            label: playbackCapabilityLabel(capability),
-            status: matrix.statusOf(capability),
+            id: id,
+            label: playbackCapabilityLabel(id),
+            status: summary.statusOf(id),
           ),
       ],
     );
@@ -191,8 +189,9 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       playback: _controller.currentState,
       surface: _contract.resolveSurface(),
       tracks: _trackPanel,
-      capabilities:
-          PlaybackCapabilityPanelSnapshot.fromMatrix(_controller.matrix),
+      capabilities: PlaybackCapabilityPanelSnapshot.fromMatrix(
+        _controller.resolveCapabilitySummary(),
+      ),
       lastIntentResult: _lastIntentResult,
     );
   }
@@ -211,9 +210,9 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
     _trackPanel = PlaybackTrackPanelSnapshot.loading(sourceUri: sourceUri);
     _notifyIfActive();
 
-    late final TrackDiscoveryResult result;
+    late final DomainTrackDiscoveryResult result;
     try {
-      result = await _controller.discoverTracks();
+      result = await _controller.discoverDomainTracks();
     } on Object catch (error) {
       _trackPanel = PlaybackTrackPanelSnapshot.failed(
         '轨道发现失败：$error',
@@ -223,9 +222,9 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       return;
     }
 
-    if (!_hasTrackDiscoveryCapability(result.capabilityMatrix)) {
+    if (!result.isSupported) {
       _trackPanel = PlaybackTrackPanelSnapshot.unsupported(
-        '当前播放后端不支持轨道发现。',
+        result.unsupportedReason ?? '当前播放后端不支持轨道发现。',
         sourceUri: sourceUri,
       );
       _notifyIfActive();
@@ -264,74 +263,67 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   }
 }
 
-const List<PlaybackCapability> playbackPageCapabilities = <PlaybackCapability>[
-  PlaybackCapability.localFilePlayback,
-  PlaybackCapability.httpPlayback,
-  PlaybackCapability.hlsPlayback,
-  PlaybackCapability.playPause,
-  PlaybackCapability.seek,
-  PlaybackCapability.stop,
-  PlaybackCapability.progressReporting,
-  PlaybackCapability.audioTrackDiscovery,
-  PlaybackCapability.audioTrackSwitching,
-  PlaybackCapability.subtitleTrackDiscovery,
-  PlaybackCapability.subtitleTrackSwitching,
-  PlaybackCapability.danmakuRendering,
-  PlaybackCapability.videoEnhancement,
-  PlaybackCapability.hdrToneMapping,
-  PlaybackCapability.debandFiltering,
-  PlaybackCapability.anime4kPreset,
-  PlaybackCapability.avSyncGuard,
-  PlaybackCapability.matrixDanmaku,
-  PlaybackCapability.dualSubtitles,
-  PlaybackCapability.pgsSubtitleRendering,
-  PlaybackCapability.assSubtitleEnhancement,
-  PlaybackCapability.fallbackAdapter,
+const List<DomainPlaybackCapabilityId> playbackPageCapabilities =
+    <DomainPlaybackCapabilityId>[
+  DomainPlaybackCapabilityId.localFilePlayback,
+  DomainPlaybackCapabilityId.httpPlayback,
+  DomainPlaybackCapabilityId.hlsPlayback,
+  DomainPlaybackCapabilityId.playPause,
+  DomainPlaybackCapabilityId.seek,
+  DomainPlaybackCapabilityId.stop,
+  DomainPlaybackCapabilityId.progressReporting,
+  DomainPlaybackCapabilityId.audioTrackDiscovery,
+  DomainPlaybackCapabilityId.audioTrackSwitching,
+  DomainPlaybackCapabilityId.subtitleTrackDiscovery,
+  DomainPlaybackCapabilityId.subtitleTrackSwitching,
+  DomainPlaybackCapabilityId.danmakuRendering,
+  DomainPlaybackCapabilityId.videoEnhancement,
+  DomainPlaybackCapabilityId.hdrToneMapping,
+  DomainPlaybackCapabilityId.debandFiltering,
+  DomainPlaybackCapabilityId.anime4kPreset,
+  DomainPlaybackCapabilityId.avSyncGuard,
+  DomainPlaybackCapabilityId.matrixDanmaku,
+  DomainPlaybackCapabilityId.dualSubtitles,
+  DomainPlaybackCapabilityId.pgsSubtitleRendering,
+  DomainPlaybackCapabilityId.assSubtitleEnhancement,
+  DomainPlaybackCapabilityId.fallbackAdapter,
 ];
 
-String playbackCapabilityLabel(PlaybackCapability capability) {
+String playbackCapabilityLabel(DomainPlaybackCapabilityId capability) {
   return switch (capability) {
-    PlaybackCapability.localFilePlayback => '本地文件',
-    PlaybackCapability.httpPlayback => 'HTTP 播放',
-    PlaybackCapability.hlsPlayback => 'HLS 播放',
-    PlaybackCapability.playPause => '播放/暂停',
-    PlaybackCapability.seek => '进度跳转',
-    PlaybackCapability.stop => '停止播放',
-    PlaybackCapability.progressReporting => '进度报告',
-    PlaybackCapability.audioTrackDiscovery => '音轨发现',
-    PlaybackCapability.audioTrackSwitching => '音轨切换',
-    PlaybackCapability.subtitleTrackDiscovery => '字幕发现',
-    PlaybackCapability.subtitleTrackSwitching => '字幕切换',
-    PlaybackCapability.danmakuRendering => '弹幕渲染',
-    PlaybackCapability.secondaryPanels => '辅助面板',
-    PlaybackCapability.videoEnhancement => '视频增强',
-    PlaybackCapability.hdrToneMapping => 'HDR 映射',
-    PlaybackCapability.debandFiltering => '去色带',
-    PlaybackCapability.anime4kPreset => 'Anime4K 预设',
-    PlaybackCapability.avSyncGuard => '音画同步守卫',
-    PlaybackCapability.matrixDanmaku => '矩阵弹幕',
-    PlaybackCapability.dualSubtitles => '双字幕',
-    PlaybackCapability.pgsSubtitleRendering => 'PGS 字幕',
-    PlaybackCapability.assSubtitleEnhancement => 'ASS 增强',
-    PlaybackCapability.fallbackAdapter => '备用播放后端',
+    DomainPlaybackCapabilityId.localFilePlayback => '本地文件',
+    DomainPlaybackCapabilityId.httpPlayback => 'HTTP 播放',
+    DomainPlaybackCapabilityId.hlsPlayback => 'HLS 播放',
+    DomainPlaybackCapabilityId.playPause => '播放/暂停',
+    DomainPlaybackCapabilityId.seek => '进度跳转',
+    DomainPlaybackCapabilityId.stop => '停止播放',
+    DomainPlaybackCapabilityId.progressReporting => '进度报告',
+    DomainPlaybackCapabilityId.audioTrackDiscovery => '音轨发现',
+    DomainPlaybackCapabilityId.audioTrackSwitching => '音轨切换',
+    DomainPlaybackCapabilityId.subtitleTrackDiscovery => '字幕发现',
+    DomainPlaybackCapabilityId.subtitleTrackSwitching => '字幕切换',
+    DomainPlaybackCapabilityId.danmakuRendering => '弹幕渲染',
+    DomainPlaybackCapabilityId.secondaryPanels => '辅助面板',
+    DomainPlaybackCapabilityId.videoEnhancement => '视频增强',
+    DomainPlaybackCapabilityId.hdrToneMapping => 'HDR 映射',
+    DomainPlaybackCapabilityId.debandFiltering => '去色带',
+    DomainPlaybackCapabilityId.anime4kPreset => 'Anime4K 预设',
+    DomainPlaybackCapabilityId.avSyncGuard => '音画同步守卫',
+    DomainPlaybackCapabilityId.matrixDanmaku => '矩阵弹幕',
+    DomainPlaybackCapabilityId.dualSubtitles => '双字幕',
+    DomainPlaybackCapabilityId.pgsSubtitleRendering => 'PGS 字幕',
+    DomainPlaybackCapabilityId.assSubtitleEnhancement => 'ASS 增强',
+    DomainPlaybackCapabilityId.fallbackAdapter => '备用播放后端',
   };
 }
 
 PlaybackTrackItemSnapshot _trackItemFromDescriptor(
-  MediaTrackDescriptor descriptor,
+  DomainMediaTrackDescriptor descriptor,
 ) {
   return PlaybackTrackItemSnapshot(
-    id: DomainMediaTrackId(descriptor.id.value),
-    type: switch (descriptor.type) {
-      MediaTrackType.audio => DomainMediaTrackType.audio,
-      MediaTrackType.subtitle => DomainMediaTrackType.subtitle,
-    },
+    id: descriptor.id,
+    type: descriptor.type,
     label: descriptor.label,
     languageCode: descriptor.languageCode,
   );
-}
-
-bool _hasTrackDiscoveryCapability(PlaybackCapabilityMatrix matrix) {
-  return matrix.supports(PlaybackCapability.audioTrackDiscovery) ||
-      matrix.supports(PlaybackCapability.subtitleTrackDiscovery);
 }

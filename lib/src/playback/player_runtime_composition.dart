@@ -1,5 +1,6 @@
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
+import 'player_telemetry.dart';
 
 /// Contract-safe runtime composition inputs for app composition roots.
 ///
@@ -9,8 +10,10 @@ final class PlayerRuntimeCompositionContract {
   const PlayerRuntimeCompositionContract({
     required this.binding,
     required this.capabilities,
+    this.telemetrySource,
   });
 
   final MpvAdapterBinding binding;
   final PlaybackCapabilityMatrix capabilities;
+  final PlayerTelemetrySource? telemetrySource;
 }

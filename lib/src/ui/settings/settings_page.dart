@@ -25,28 +25,47 @@ const String _appCodeName = '1017';
 const String _appVersion = '0.1.0';
 const String _appRepositoryUrl = 'https://github.com/ppx007/Elaina';
 const String _appPositioning = '端侧优先的跨平台 ACG 播放、媒体库、Bangumi 元数据、RSS 与 BT 管理工具。';
+const String _appLicenseStatus = 'GPL-3.0-only';
+const String _appLicenseSource = '仓库根目录 LICENSE 文件。';
+const String _unverifiedOpenSourceLicense = '未声明开源许可证';
+const String _officialTermsRequired = '需查看官方条款';
 
-const List<_ReferenceRepository> _referenceRepositories =
-    <_ReferenceRepository>[
-  _ReferenceRepository(
+const List<_ReferencedProject> _referencedProjects = <_ReferencedProject>[
+  _ReferencedProject(
     name: 'Bangumi API',
+    relationship: 'Provider 数据源',
     description: '番剧元数据、收藏状态、授权与条目详情边界。',
     url: 'https://github.com/bangumi/api',
+    licenseName: _unverifiedOpenSourceLicense,
+    licenseSource: '当前仓库没有可验证 LICENSE 副本；以官方仓库为准。',
+    licenseUrl: 'https://github.com/bangumi/api',
   ),
-  _ReferenceRepository(
+  _ReferencedProject(
     name: 'media_kit',
-    description: 'Flutter 侧媒体播放与 Windows 视频渲染能力。',
+    relationship: '本地播放与视频渲染依赖',
+    description: 'Flutter 侧媒体播放、视频渲染与 Windows native media-kit libraries。',
     url: 'https://github.com/media-kit/media-kit',
+    licenseName: 'MIT License',
+    licenseSource: '已由本地 pub package LICENSE 文件确认。',
+    licenseUrl: 'https://pub.dev/packages/media_kit/license',
   ),
-  _ReferenceRepository(
+  _ReferencedProject(
     name: 'libtorrent_flutter',
+    relationship: 'BT 下载运行时依赖',
     description: 'BT 任务、元数据获取和边下边播相关运行能力。',
     url: 'https://pub.dev/packages/libtorrent_flutter',
+    licenseName: 'GPL-3.0',
+    licenseSource: '已由本地 pub package LICENSE 文件确认。',
+    licenseUrl: 'https://pub.dev/packages/libtorrent_flutter/license',
   ),
-  _ReferenceRepository(
+  _ReferencedProject(
     name: 'Dandanplay',
+    relationship: '弹幕与匹配服务接口',
     description: '弹幕与弹弹play 数据接入边界。',
     url: 'https://www.dandanplay.com/',
+    licenseName: _officialTermsRequired,
+    licenseSource: '外部服务不是随应用分发的开源代码；使用条款以官方页面为准。',
+    licenseUrl: 'https://www.dandanplay.com/',
   ),
 ];
 
@@ -846,6 +865,12 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const _SettingsDivider(),
               _ReadonlyInfoRow(
+                title: '项目许可证',
+                value: '$_appLicenseStatus（$_appLicenseSource）',
+                theme: theme,
+              ),
+              const _SettingsDivider(),
+              _ReadonlyInfoRow(
                 title: '项目仓库',
                 value: _appRepositoryUrl,
                 theme: theme,
@@ -855,30 +880,67 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: _sectionGap),
           _SettingsGroup(
             key: const ValueKey<String>(
-              UiElementIds.settingsReferenceRepositories,
+              UiElementIds.settingsOpenSourceLicenses,
             ),
             theme: theme,
             children: <Widget>[
               _InlineMessage(
                 icon: Icons.account_tree_outlined,
-                message: '参考仓库与核心上游项目',
+                message: '引用项目与协议',
                 theme: theme,
               ),
               const _SettingsDivider(),
               for (int index = 0;
-                  index < _referenceRepositories.length;
+                  index < _referencedProjects.length;
                   index++) ...<Widget>[
-                _ReferenceRepositoryRow(
-                  reference: _referenceRepositories[index],
+                _ReferencedProjectRow(
+                  project: _referencedProjects[index],
                   theme: theme,
                 ),
-                if (index != _referenceRepositories.length - 1)
+                if (index != _referencedProjects.length - 1)
                   const _SettingsDivider(),
               ],
             ],
           ),
+          const SizedBox(height: _sectionGap),
+          _SettingsGroup(
+            key: const ValueKey<String>(
+              UiElementIds.settingsReferenceRepositories,
+            ),
+            theme: theme,
+            children: <Widget>[
+              _SettingsRow(
+                title: '第三方开源许可证',
+                subtitle: 'Flutter、Dart 与 pub 依赖的许可证由 LicenseRegistry 自动汇总。',
+                theme: theme,
+                trailing: Tooltip(
+                  message: '查看 Flutter 自动汇总的全部第三方许可证',
+                  child: FilledButton.icon(
+                    key: const ValueKey<String>(
+                      UiElementIds.settingsThirdPartyLicensesButton,
+                    ),
+                    onPressed: _openThirdPartyLicenses,
+                    icon: const Icon(
+                      Icons.article_outlined,
+                      size: _smallIconSize,
+                    ),
+                    label: const Text('查看全部许可证'),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  void _openThirdPartyLicenses() {
+    showLicensePage(
+      context: context,
+      applicationName: _appDisplayName,
+      applicationVersion: _appVersion,
+      applicationLegalese: '第三方依赖许可证由 Flutter LicenseRegistry 自动汇总。',
     );
   }
 }
@@ -897,16 +959,24 @@ enum _SettingsSection {
   final IconData icon;
 }
 
-final class _ReferenceRepository {
-  const _ReferenceRepository({
+final class _ReferencedProject {
+  const _ReferencedProject({
     required this.name,
+    required this.relationship,
     required this.description,
     required this.url,
+    required this.licenseName,
+    required this.licenseSource,
+    required this.licenseUrl,
   });
 
   final String name;
+  final String relationship;
   final String description;
   final String url;
+  final String licenseName;
+  final String licenseSource;
+  final String licenseUrl;
 }
 
 final class _DecodedFolders {
@@ -1161,30 +1231,62 @@ class _ReadonlyInfoRow extends StatelessWidget {
   }
 }
 
-class _ReferenceRepositoryRow extends StatelessWidget {
-  const _ReferenceRepositoryRow({
-    required this.reference,
+class _ReferencedProjectRow extends StatelessWidget {
+  const _ReferencedProjectRow({
+    required this.project,
     required this.theme,
   });
 
-  final _ReferenceRepository reference;
+  final _ReferencedProject project;
   final ElainaThemeData theme;
 
   @override
   Widget build(BuildContext context) {
     return _SettingsRow(
-      title: reference.name,
-      subtitle: reference.description,
+      title: project.name,
+      subtitle: '${project.relationship}\n${project.description}',
       theme: theme,
       trailing: Align(
         alignment: Alignment.centerLeft,
-        child: SelectableText(
-          reference.url,
-          style: TextStyle(
-            color: theme.primary,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SelectableText(
+              project.url,
+              style: TextStyle(
+                color: theme.primary,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SelectableText(
+              '许可证：${project.licenseName}',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              project.licenseSource,
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              project.licenseUrl,
+              style: TextStyle(
+                color: theme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

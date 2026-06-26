@@ -36,6 +36,10 @@ abstract final class UiElementIds {
   static const String settingsAboutAppInfo = 'settings-about-app-info';
   static const String settingsReferenceRepositories =
       'settings-reference-repositories';
+  static const String settingsOpenSourceLicenses =
+      'settings-open-source-licenses';
+  static const String settingsThirdPartyLicensesButton =
+      'settings-third-party-licenses-button';
   static const String settingsBangumiOAuthLogin =
       'settings-bangumi-oauth-login';
   static const String settingsBangumiAccessToken =

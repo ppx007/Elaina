@@ -38,7 +38,7 @@ Future<void> verifyBasicSubtitleRuntimeContract() async {
   final BasicSubtitleLoadResult load = await runtime.load(
     SubtitleParseRequest(
       source: source,
-      content: '1\n00:00:02,000 --> 00:00:04,000\n瀛楀箷\n',
+      content: '1\n00:00:02,000 --> 00:00:04,000\n字幕\n',
     ),
   );
   _expect(load.isSuccess, 'Runtime must load SRT track.');
@@ -49,14 +49,14 @@ Future<void> verifyBasicSubtitleRuntimeContract() async {
     const PlayerClockSnapshot(
         position: Duration(seconds: 1), isPlaying: true, playbackSpeed: 1),
   );
-  _expect(snapshot.activeCues.single.text == '瀛楀箷',
+  _expect(snapshot.activeCues.single.text == '字幕',
       'Runtime must resolve offset active cues.');
   _expect(
       playbackSubtitleStateFromRuntimeSnapshot(snapshot)
               .activeCues
               .single
               .text ==
-          '瀛楀箷',
+          '字幕',
       'Runtime snapshot must project into Domain subtitle state.');
   runtime.dispose();
   _expect(runtime.isDisposed, 'Runtime must report disposed state.');

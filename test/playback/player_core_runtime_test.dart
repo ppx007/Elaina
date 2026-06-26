@@ -1,6 +1,8 @@
 // Player core runtime tests protect adapter lifecycle and capability-gated
 // commands. UI pages should depend on this contract rather than adapter details.
 // Add adapter quirks in adapter tests after the core command semantics are set.
+import 'dart:async';
+
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -127,6 +129,122 @@ void main() {
         'subtitle-ja');
 
     await runtime.dispose();
+  });
+
+  test('runtime follows concrete telemetry for timeline and buffering',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(
+        duration: const Duration(minutes: 24),
+        bufferedPosition: const Duration(minutes: 2),
+        observedAt: _telemetryObservedAt,
+      ),
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: DeterministicMpvBinding(tracks: _tracks),
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+    final _RecordingObserver observer = _RecordingObserver();
+    runtime.controller.addPlaybackStateObserver(observer);
+
+    telemetry.emit(
+      PlayerTelemetrySnapshot(
+        playing: true,
+        position: const Duration(seconds: 12),
+        duration: const Duration(minutes: 24),
+        bufferedPosition: const Duration(minutes: 6),
+        observedAt: _telemetryObservedAt,
+      ),
+    );
+
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.playing);
+    expect(runtime.currentState.timeline.position, const Duration(seconds: 12));
+    expect(runtime.currentState.timeline.duration, const Duration(minutes: 24));
+    expect(runtime.currentState.timeline.observedAt, _telemetryObservedAt);
+    expect(runtime.currentState.buffering.bufferedPosition,
+        const Duration(minutes: 6));
+    expect(runtime.currentState.buffering.bufferedFraction, 0.25);
+
+    await runtime.controller.seek(const Duration(seconds: 30));
+    telemetry.emit(
+      PlayerTelemetrySnapshot(
+        playing: true,
+        position: const Duration(seconds: 36),
+        duration: const Duration(minutes: 24),
+        bufferedPosition: const Duration(minutes: 8),
+        observedAt: _laterTelemetryObservedAt,
+      ),
+    );
+
+    expect(runtime.currentState.timeline.position, const Duration(seconds: 36));
+    expect(runtime.currentState.timeline.observedAt, _laterTelemetryObservedAt);
+    expect(
+      observer.snapshots.map((PlaybackStateSnapshot snapshot) => snapshot.status),
+      contains(PlaybackLifecycleStatus.playing),
+    );
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
+  test('runtime uses injected clock for command-observed timeline updates',
+      () async {
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: DeterministicMpvBinding(tracks: _tracks),
+      capabilities: _fullPlayerCoreMatrix(),
+      now: () => _commandObservedAt,
+    );
+
+    await runtime.controller.seek(const Duration(seconds: 30));
+
+    expect(runtime.currentState.timeline.position, const Duration(seconds: 30));
+    expect(runtime.currentState.timeline.observedAt, _commandObservedAt);
+
+    await runtime.dispose();
+  });
+
+  test('runtime maps telemetry lifecycle and failure states', () async {
+    final _FakeTelemetrySource telemetry =
+        _FakeTelemetrySource(PlayerTelemetrySnapshot());
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: DeterministicMpvBinding(tracks: _tracks),
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+
+    telemetry.emit(PlayerTelemetrySnapshot(buffering: true));
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.buffering);
+
+    telemetry.emit(PlayerTelemetrySnapshot(completed: true));
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.ended);
+
+    telemetry.emit(PlayerTelemetrySnapshot());
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.ended);
+
+    telemetry.emit(PlayerTelemetrySnapshot(failureReason: 'decoder failed'));
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.failed);
+    expect(runtime.currentState.failureReason, 'decoder failed');
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
+  test('telemetry copyWith can clear active tracks', () {
+    final PlayerTelemetrySnapshot snapshot = PlayerTelemetrySnapshot(
+      activeAudioTrackId: const MediaTrackId('audio-main'),
+      activeSubtitleTrackId: const MediaTrackId('subtitle-ja'),
+      observedAt: _telemetryObservedAt,
+    );
+
+    final PlayerTelemetrySnapshot cleared = snapshot.copyWith(
+      clearActiveAudioTrackId: true,
+      clearActiveSubtitleTrackId: true,
+    );
+
+    expect(cleared.activeAudioTrackId, isNull);
+    expect(cleared.activeSubtitleTrackId, isNull);
+    expect(cleared.observedAt, _telemetryObservedAt);
   });
 
   test('runtime discovers and switches normalized tracks', () async {
@@ -314,6 +432,10 @@ const List<MediaTrackDescriptor> _tracks = <MediaTrackDescriptor>[
   ),
 ];
 
+final DateTime _telemetryObservedAt = DateTime.utc(2026, 6, 27, 9);
+final DateTime _laterTelemetryObservedAt = DateTime.utc(2026, 6, 27, 9, 1);
+final DateTime _commandObservedAt = DateTime.utc(2026, 6, 27, 9, 2);
+
 final class _RecordingObserver implements PlaybackStateObserver {
   final List<PlaybackStateSnapshot> snapshots = <PlaybackStateSnapshot>[];
 
@@ -321,4 +443,25 @@ final class _RecordingObserver implements PlaybackStateObserver {
   void onPlaybackState(PlaybackStateSnapshot snapshot) {
     snapshots.add(snapshot);
   }
+}
+
+final class _FakeTelemetrySource implements PlayerTelemetrySource {
+  _FakeTelemetrySource(this._currentTelemetry);
+
+  final StreamController<PlayerTelemetrySnapshot> _controller =
+      StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
+  PlayerTelemetrySnapshot _currentTelemetry;
+
+  @override
+  PlayerTelemetrySnapshot get currentTelemetry => _currentTelemetry;
+
+  @override
+  Stream<PlayerTelemetrySnapshot> get telemetry => _controller.stream;
+
+  void emit(PlayerTelemetrySnapshot snapshot) {
+    _currentTelemetry = snapshot;
+    _controller.add(snapshot);
+  }
+
+  Future<void> close() => _controller.close();
 }

@@ -27,6 +27,98 @@ enum PlaybackSurfacePanel {
   tracks,
 }
 
+enum DomainPlaybackCapabilityId {
+  localFilePlayback,
+  httpPlayback,
+  hlsPlayback,
+  playPause,
+  seek,
+  stop,
+  progressReporting,
+  audioTrackDiscovery,
+  audioTrackSwitching,
+  subtitleTrackDiscovery,
+  subtitleTrackSwitching,
+  danmakuRendering,
+  secondaryPanels,
+  videoEnhancement,
+  hdrToneMapping,
+  debandFiltering,
+  anime4kPreset,
+  avSyncGuard,
+  matrixDanmaku,
+  dualSubtitles,
+  pgsSubtitleRendering,
+  assSubtitleEnhancement,
+  fallbackAdapter,
+}
+
+final class DomainPlaybackCapabilityStatus {
+  const DomainPlaybackCapabilityStatus({
+    required this.isSupported,
+    this.reason,
+  });
+
+  final bool isSupported;
+  final String? reason;
+}
+
+final class DomainPlaybackCapabilityItem {
+  const DomainPlaybackCapabilityItem({
+    required this.id,
+    required this.status,
+  });
+
+  final DomainPlaybackCapabilityId id;
+  final DomainPlaybackCapabilityStatus status;
+}
+
+final class DomainPlaybackCapabilitySummary {
+  DomainPlaybackCapabilitySummary({
+    required Iterable<DomainPlaybackCapabilityItem> items,
+  }) : items = List<DomainPlaybackCapabilityItem>.unmodifiable(items);
+
+  final List<DomainPlaybackCapabilityItem> items;
+
+  DomainPlaybackCapabilityStatus statusOf(DomainPlaybackCapabilityId id) {
+    for (final DomainPlaybackCapabilityItem item in items) {
+      if (item.id == id) return item.status;
+    }
+    return const DomainPlaybackCapabilityStatus(
+      isSupported: false,
+      reason: 'Capability is not declared.',
+    );
+  }
+}
+
+final class DomainMediaTrackDescriptor {
+  const DomainMediaTrackDescriptor({
+    required this.id,
+    required this.type,
+    required this.label,
+    this.languageCode,
+    this.isSelected = false,
+  });
+
+  final DomainMediaTrackId id;
+  final DomainMediaTrackType type;
+  final String label;
+  final String? languageCode;
+  final bool isSelected;
+}
+
+final class DomainTrackDiscoveryResult {
+  DomainTrackDiscoveryResult({
+    required this.isSupported,
+    required Iterable<DomainMediaTrackDescriptor> tracks,
+    this.unsupportedReason,
+  }) : tracks = List<DomainMediaTrackDescriptor>.unmodifiable(tracks);
+
+  final bool isSupported;
+  final List<DomainMediaTrackDescriptor> tracks;
+  final String? unsupportedReason;
+}
+
 final class PlaybackSurfaceState {
   const PlaybackSurfaceState({
     required this.visibleControls,
@@ -65,6 +157,8 @@ abstract interface class PlaybackControllerContract
     implements ActivePlaybackCapabilities, PlaybackStateObservable {
   PlaybackSurfaceState resolveSurfaceState();
 
+  DomainPlaybackCapabilitySummary resolveCapabilitySummary();
+
   Future<PlaybackCommandResult> open(PlaybackSource source);
 
   Future<PlaybackCommandResult> play();
@@ -77,8 +171,54 @@ abstract interface class PlaybackControllerContract
 
   Future<TrackDiscoveryResult> discoverTracks();
 
+  Future<DomainTrackDiscoveryResult> discoverDomainTracks();
+
   Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
       {DomainMediaTrackType? trackType});
+}
+
+DomainPlaybackCapabilitySummary domainPlaybackCapabilitySummaryFromMatrix(
+  PlaybackCapabilityMatrix matrix,
+) {
+  return DomainPlaybackCapabilitySummary(
+    items: <DomainPlaybackCapabilityItem>[
+      for (final DomainPlaybackCapabilityId id
+          in DomainPlaybackCapabilityId.values)
+        DomainPlaybackCapabilityItem(
+          id: id,
+          status: _domainStatusFromPlaybackStatus(
+            matrix.statusOf(_playbackCapabilityForDomainId(id)),
+          ),
+        ),
+    ],
+  );
+}
+
+DomainTrackDiscoveryResult domainTrackDiscoveryResultFromPlayback(
+  TrackDiscoveryResult result,
+) {
+  final bool supported =
+      result.capabilityMatrix.supports(PlaybackCapability.audioTrackDiscovery) ||
+          result.capabilityMatrix
+              .supports(PlaybackCapability.subtitleTrackDiscovery);
+  return DomainTrackDiscoveryResult(
+    isSupported: supported,
+    unsupportedReason:
+        supported ? null : _trackDiscoveryUnsupportedReason(result.capabilityMatrix),
+    tracks: <DomainMediaTrackDescriptor>[
+      for (final MediaTrackDescriptor descriptor in result.tracks)
+        DomainMediaTrackDescriptor(
+          id: DomainMediaTrackId(descriptor.id.value),
+          type: switch (descriptor.type) {
+            MediaTrackType.audio => DomainMediaTrackType.audio,
+            MediaTrackType.subtitle => DomainMediaTrackType.subtitle,
+          },
+          label: descriptor.label,
+          languageCode: descriptor.languageCode,
+          isSelected: descriptor.isSelected,
+        ),
+    ],
+  );
 }
 
 TrackSwitchResult playbackTrackSwitchSupportResult({
@@ -131,6 +271,11 @@ final class PlaybackController implements PlaybackControllerContract {
   }
 
   @override
+  DomainPlaybackCapabilitySummary resolveCapabilitySummary() {
+    return domainPlaybackCapabilitySummaryFromMatrix(matrix);
+  }
+
+  @override
   Future<PlaybackCommandResult> open(PlaybackSource source) {
     final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
       source: source,
@@ -159,6 +304,11 @@ final class PlaybackController implements PlaybackControllerContract {
   @override
   Future<TrackDiscoveryResult> discoverTracks() =>
       activeAdapter.discoverTracks();
+
+  @override
+  Future<DomainTrackDiscoveryResult> discoverDomainTracks() async {
+    return domainTrackDiscoveryResultFromPlayback(await discoverTracks());
+  }
 
   @override
   Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
@@ -211,6 +361,11 @@ final class MockPlaybackController implements PlaybackControllerContract {
   @override
   PlaybackSurfaceState resolveSurfaceState() {
     return playbackSurfaceStateForCapabilities(matrix);
+  }
+
+  @override
+  DomainPlaybackCapabilitySummary resolveCapabilitySummary() {
+    return domainPlaybackCapabilitySummaryFromMatrix(matrix);
   }
 
   @override
@@ -282,6 +437,11 @@ final class MockPlaybackController implements PlaybackControllerContract {
   }
 
   @override
+  Future<DomainTrackDiscoveryResult> discoverDomainTracks() async {
+    return domainTrackDiscoveryResultFromPlayback(await discoverTracks());
+  }
+
+  @override
   Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
       {DomainMediaTrackType? trackType}) {
     final TrackSwitchResult support = playbackTrackSwitchSupportResult(
@@ -344,4 +504,66 @@ final class MockPlaybackController implements PlaybackControllerContract {
       observer.onPlaybackState(snapshot);
     }
   }
+}
+
+DomainPlaybackCapabilityStatus _domainStatusFromPlaybackStatus(
+  CapabilityStatus status,
+) {
+  return DomainPlaybackCapabilityStatus(
+    isSupported: status.isSupported,
+    reason: status.reason,
+  );
+}
+
+PlaybackCapability _playbackCapabilityForDomainId(
+  DomainPlaybackCapabilityId id,
+) {
+  return switch (id) {
+    DomainPlaybackCapabilityId.localFilePlayback =>
+      PlaybackCapability.localFilePlayback,
+    DomainPlaybackCapabilityId.httpPlayback => PlaybackCapability.httpPlayback,
+    DomainPlaybackCapabilityId.hlsPlayback => PlaybackCapability.hlsPlayback,
+    DomainPlaybackCapabilityId.playPause => PlaybackCapability.playPause,
+    DomainPlaybackCapabilityId.seek => PlaybackCapability.seek,
+    DomainPlaybackCapabilityId.stop => PlaybackCapability.stop,
+    DomainPlaybackCapabilityId.progressReporting =>
+      PlaybackCapability.progressReporting,
+    DomainPlaybackCapabilityId.audioTrackDiscovery =>
+      PlaybackCapability.audioTrackDiscovery,
+    DomainPlaybackCapabilityId.audioTrackSwitching =>
+      PlaybackCapability.audioTrackSwitching,
+    DomainPlaybackCapabilityId.subtitleTrackDiscovery =>
+      PlaybackCapability.subtitleTrackDiscovery,
+    DomainPlaybackCapabilityId.subtitleTrackSwitching =>
+      PlaybackCapability.subtitleTrackSwitching,
+    DomainPlaybackCapabilityId.danmakuRendering =>
+      PlaybackCapability.danmakuRendering,
+    DomainPlaybackCapabilityId.secondaryPanels =>
+      PlaybackCapability.secondaryPanels,
+    DomainPlaybackCapabilityId.videoEnhancement =>
+      PlaybackCapability.videoEnhancement,
+    DomainPlaybackCapabilityId.hdrToneMapping =>
+      PlaybackCapability.hdrToneMapping,
+    DomainPlaybackCapabilityId.debandFiltering =>
+      PlaybackCapability.debandFiltering,
+    DomainPlaybackCapabilityId.anime4kPreset =>
+      PlaybackCapability.anime4kPreset,
+    DomainPlaybackCapabilityId.avSyncGuard => PlaybackCapability.avSyncGuard,
+    DomainPlaybackCapabilityId.matrixDanmaku =>
+      PlaybackCapability.matrixDanmaku,
+    DomainPlaybackCapabilityId.dualSubtitles =>
+      PlaybackCapability.dualSubtitles,
+    DomainPlaybackCapabilityId.pgsSubtitleRendering =>
+      PlaybackCapability.pgsSubtitleRendering,
+    DomainPlaybackCapabilityId.assSubtitleEnhancement =>
+      PlaybackCapability.assSubtitleEnhancement,
+    DomainPlaybackCapabilityId.fallbackAdapter =>
+      PlaybackCapability.fallbackAdapter,
+  };
+}
+
+String? _trackDiscoveryUnsupportedReason(PlaybackCapabilityMatrix matrix) {
+  return matrix.statusOf(PlaybackCapability.audioTrackDiscovery).reason ??
+      matrix.statusOf(PlaybackCapability.subtitleTrackDiscovery).reason ??
+      'Track discovery is unsupported by the active adapter.';
 }

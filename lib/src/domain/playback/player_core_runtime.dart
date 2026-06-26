@@ -4,9 +4,13 @@ import '../../playback/capability_matrix.dart';
 import '../../playback/mpv_adapter_facade.dart';
 import '../../playback/player_adapter.dart';
 import '../../playback/player_clock.dart';
+import '../../playback/player_telemetry.dart';
 import '../../playback/track_management.dart';
 import 'playback_controller.dart';
 import 'playback_state.dart';
+
+const double _bufferFractionMin = 0;
+const double _bufferFractionMax = 1;
 
 /// Lifecycle-managed Phase 1 player-core runtime.
 ///
@@ -18,10 +22,21 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     required PlayerAdapter activeAdapter,
     Object? foundationDependency,
     PlayerClock? clock,
+    PlayerTelemetrySource? telemetrySource,
+    DateTime Function()? now,
   })  : _activeAdapter = activeAdapter,
         _foundationDependency = foundationDependency,
-        _clock = clock ?? DeterministicPlayerClock() {
+        _clock = clock ?? DeterministicPlayerClock(),
+        _telemetrySource = telemetrySource,
+        _now = now ?? DateTime.now {
     _controller = _RuntimePlaybackController(this);
+    final PlayerTelemetrySource? source = _telemetrySource;
+    if (source != null) {
+      _controller.applyTelemetry(source.currentTelemetry);
+      _telemetrySubscription = source.telemetry.listen(
+        _controller.applyTelemetry,
+      );
+    }
   }
 
   factory PlayerCoreRuntime.unsupported({
@@ -38,6 +53,8 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     required MpvAdapterBinding binding,
     PlaybackCapabilityMatrix? capabilities,
     Object? foundationDependency,
+    PlayerTelemetrySource? telemetrySource,
+    DateTime Function()? now,
   }) {
     return PlayerCoreRuntime(
       activeAdapter: MpvPlayerAdapterFacade.bound(
@@ -45,12 +62,17 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
         capabilities: capabilities,
       ),
       foundationDependency: foundationDependency,
+      telemetrySource: telemetrySource,
+      now: now,
     );
   }
 
   final PlayerAdapter _activeAdapter;
   final Object? _foundationDependency;
   final PlayerClock _clock;
+  final PlayerTelemetrySource? _telemetrySource;
+  final DateTime Function() _now;
+  StreamSubscription<PlayerTelemetrySnapshot>? _telemetrySubscription;
   late final _RuntimePlaybackController _controller;
   bool _disposed = false;
 
@@ -84,6 +106,7 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    await _telemetrySubscription?.cancel();
     await _activeAdapter.dispose();
     final PlayerClock clock = _clock;
     if (clock is DeterministicPlayerClock) {
@@ -151,6 +174,12 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   }
 
   @override
+  DomainPlaybackCapabilitySummary resolveCapabilitySummary() {
+    _ensureOpen();
+    return domainPlaybackCapabilitySummaryFromMatrix(matrix);
+  }
+
+  @override
   Future<PlaybackCommandResult> open(PlaybackSource source) async {
     if (_closed) return _runtime.disposedCommandResult(PlaybackOperation.load);
     _publish(_snapshotWith(
@@ -211,7 +240,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
           timeline: PlaybackTimelineState(
             position: position,
             duration: currentState.timeline.duration,
-            observedAt: DateTime.utc(2026, 6, 9, 12),
+            observedAt: _runtime._now(),
           ),
         ),
       );
@@ -219,6 +248,43 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
       _publishFailure(result);
     }
     return result;
+  }
+
+  void applyTelemetry(PlayerTelemetrySnapshot telemetry) {
+    if (_closed) return;
+    final Duration? duration =
+        telemetry.duration > Duration.zero ? telemetry.duration : null;
+    final Duration? bufferedPosition =
+        telemetry.bufferedPosition > Duration.zero
+            ? telemetry.bufferedPosition
+            : null;
+    _publish(
+      _snapshotWith(
+        status: _statusFromTelemetry(telemetry),
+        timeline: PlaybackTimelineState(
+          position: telemetry.position,
+          duration: duration,
+          observedAt: telemetry.observedAt,
+        ),
+        buffering: PlaybackBufferingState(
+          isBuffering: telemetry.buffering,
+          bufferedPosition: bufferedPosition,
+          bufferedFraction: _bufferedFraction(
+            bufferedPosition: bufferedPosition,
+            duration: duration,
+          ),
+        ),
+        activeTracks: ActivePlaybackTrackState(
+          audioTrackId: telemetry.activeAudioTrackId == null
+              ? null
+              : DomainMediaTrackId(telemetry.activeAudioTrackId!.value),
+          subtitleTrackId: telemetry.activeSubtitleTrackId == null
+              ? null
+              : DomainMediaTrackId(telemetry.activeSubtitleTrackId!.value),
+        ),
+        failureReason: telemetry.failureReason,
+      ),
+    );
   }
 
   @override
@@ -242,6 +308,11 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
           reason: 'Track discovery is unsupported by the active adapter.');
     }
     return _runtime._activeAdapter.discoverTracks();
+  }
+
+  @override
+  Future<DomainTrackDiscoveryResult> discoverDomainTracks() async {
+    return domainTrackDiscoveryResultFromPlayback(await discoverTracks());
   }
 
   @override
@@ -323,9 +394,46 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
       timeline: timeline ?? currentState.timeline,
       buffering: buffering ?? currentState.buffering,
       activeTracks: activeTracks ?? currentState.activeTracks,
+      subtitles: currentState.subtitles,
+      danmaku: currentState.danmaku,
       sourceUri: sourceUri ?? currentState.sourceUri,
       failureReason: failureReason,
     );
+  }
+
+  PlaybackLifecycleStatus _statusFromTelemetry(
+    PlayerTelemetrySnapshot telemetry,
+  ) {
+    final String? failureReason = telemetry.failureReason;
+    if (failureReason != null && failureReason.trim().isNotEmpty) {
+      return PlaybackLifecycleStatus.failed;
+    }
+    if (currentState.status == PlaybackLifecycleStatus.ended &&
+        !telemetry.playing &&
+        !telemetry.buffering &&
+        !telemetry.completed) {
+      return PlaybackLifecycleStatus.ended;
+    }
+    if (telemetry.completed) return PlaybackLifecycleStatus.ended;
+    if (telemetry.buffering) return PlaybackLifecycleStatus.buffering;
+    if (telemetry.playing) return PlaybackLifecycleStatus.playing;
+    if (currentState.sourceUri != null ||
+        currentState.status != PlaybackLifecycleStatus.idle) {
+      return PlaybackLifecycleStatus.paused;
+    }
+    return PlaybackLifecycleStatus.idle;
+  }
+
+  double? _bufferedFraction({
+    required Duration? bufferedPosition,
+    required Duration? duration,
+  }) {
+    if (bufferedPosition == null || duration == null) return null;
+    final int durationMillis = duration.inMilliseconds;
+    if (durationMillis <= 0) return null;
+    return (bufferedPosition.inMilliseconds / durationMillis)
+        .clamp(_bufferFractionMin, _bufferFractionMax)
+        .toDouble();
   }
 
   void _publishFailure(PlaybackCommandResult result) {

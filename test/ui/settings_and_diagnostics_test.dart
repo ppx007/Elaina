@@ -341,7 +341,7 @@ void main() {
     expect(await settingsRuntime.getProxyUrl(), 'http://127.0.0.1:1080');
   });
 
-  testWidgets('SettingsPage shows about and reference repository information',
+  testWidgets('SettingsPage shows about and open source license information',
       (WidgetTester tester) async {
     final settingsRuntime = FakeSettingsRuntime();
     final settings = SettingsRobot(tester);
@@ -357,14 +357,30 @@ void main() {
     expect(find.text('1017'), findsOneWidget);
     expect(find.text('0.1.0'), findsOneWidget);
     expect(find.text('https://github.com/ppx007/Elaina'), findsOneWidget);
+    expect(find.text('项目许可证'), findsOneWidget);
+    expect(find.textContaining('GPL-3.0-only'), findsOneWidget);
+
+    await tester.ensureVisible(ElainaFinders.settingsOpenSourceLicenses);
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.settingsOpenSourceLicenses, findsOneWidget);
+    expect(find.text('引用项目与协议'), findsOneWidget);
+    expect(find.text('Bangumi API'), findsOneWidget);
+    expect(find.text('https://github.com/bangumi/api'), findsWidgets);
+    expect(find.text('media_kit'), findsOneWidget);
+    expect(find.text('https://github.com/media-kit/media-kit'), findsOneWidget);
+    expect(find.text('许可证：MIT License'), findsOneWidget);
+    expect(find.text('libtorrent_flutter'), findsOneWidget);
+    expect(find.text('许可证：GPL-3.0'), findsOneWidget);
+    expect(find.text('Dandanplay'), findsOneWidget);
+    expect(find.text('许可证：需查看官方条款'), findsOneWidget);
 
     await tester.ensureVisible(ElainaFinders.settingsReferenceRepositories);
     await tester.pumpAndSettle();
     expect(ElainaFinders.settingsReferenceRepositories, findsOneWidget);
-    expect(find.text('Bangumi API'), findsOneWidget);
-    expect(find.text('https://github.com/bangumi/api'), findsOneWidget);
-    expect(find.text('media_kit'), findsOneWidget);
-    expect(find.text('https://github.com/media-kit/media-kit'), findsOneWidget);
+    expect(ElainaFinders.settingsThirdPartyLicensesButton, findsOneWidget);
+    await tester.tap(ElainaFinders.settingsThirdPartyLicensesButton);
+    await tester.pumpAndSettle();
+    expect(find.byType(LicensePage), findsOneWidget);
 
     expect(
       await settingsRuntime.getPreference(SettingsPreferenceKeys.themeMode),

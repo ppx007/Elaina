@@ -40,6 +40,10 @@ Run focused Flutter tests by path while iterating:
 flutter test test\widget_test.dart
 ```
 
+## License
+
+Elaina is licensed under GPL-3.0-only. See `LICENSE` for the full license text.
+
 ## Repository Hygiene
 
 - Keep the public repository focused on source code, tests, assets, build

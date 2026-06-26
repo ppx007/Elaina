@@ -62,6 +62,7 @@ final class PlayerCoreBootstrap {
       binding: composition.binding,
       capabilities: composition.capabilities,
       foundationDependency: foundationDependency,
+      telemetrySource: composition.telemetrySource,
     );
   }
 

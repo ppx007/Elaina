@@ -147,6 +147,70 @@ void main() {
       ]);
     });
 
+    test('selects architecture and playback runtime suites for layer changes',
+        () async {
+      final Directory root = await _createTempProject();
+      addTearDown(() => _deleteIfExists(root));
+      await _writeJson(root, 'tools/test_suites.json', <String, Object?>{
+        'suites': <Object?>[
+          <String, Object?>{
+            'name': 'architecture-foundation',
+            'runner': 'flutter',
+            'paths': <String>['test/foundation/layer_import_graph_test.dart'],
+            'scopes': <String>['Fast', 'Module'],
+            'triggers': <String>['lib/src/**'],
+          },
+          <String, Object?>{
+            'name': 'playback-runtime',
+            'runner': 'flutter',
+            'paths': <String>[
+              'test/playback/media_kit_mpv_binding_test.dart',
+              'test/playback/player_core_runtime_test.dart',
+            ],
+            'scopes': <String>['Fast', 'Module'],
+            'triggers': <String>[
+              'lib/src/playback/**',
+              'lib/src/domain/playback/**',
+            ],
+          },
+        ],
+      });
+      await _writeText(
+        root,
+        'test/foundation/layer_import_graph_test.dart',
+        'void main() {}',
+      );
+      await _writeText(
+        root,
+        'test/playback/media_kit_mpv_binding_test.dart',
+        'void main() {}',
+      );
+      await _writeText(
+        root,
+        'test/playback/player_core_runtime_test.dart',
+        'void main() {}',
+      );
+
+      final _RecordingRunner processRunner = _RecordingRunner.success();
+      await ChangedTestRunner(
+        projectRoot: root.path,
+        processRunner: processRunner,
+      ).run(
+        scope: ChangedTestScope.fast,
+        changedPaths: <String>[
+          'lib/src/playback/media_kit_mpv_binding.dart',
+          'lib/src/ui/playback/playback_page_driver.dart',
+        ],
+      );
+
+      expect(processRunner.commands, <String>[
+        'dart analyze',
+        'flutter test test/foundation/layer_import_graph_test.dart '
+            'test/playback/media_kit_mpv_binding_test.dart '
+            'test/playback/player_core_runtime_test.dart',
+      ]);
+    });
+
     test('full scope delegates to the Dart full gate runner', () async {
       final Directory root = await _createTempProject();
       addTearDown(() => _deleteIfExists(root));
