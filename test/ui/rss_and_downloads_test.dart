@@ -284,6 +284,109 @@ void main() {
       expect(fakeAdapter.removedTasks.single.value, 'task-1');
     });
 
+    testWidgets('plays a selected streamable file through playback controller',
+        (WidgetTester tester) async {
+      final TestDownloadEngineAdapter localAdapter = TestDownloadEngineAdapter(
+        capabilities: _completeDownloadCapabilities,
+      );
+      final DeterministicBtTaskStore store = DeterministicBtTaskStore(
+        seedTasks: <StoredBtTaskRecord>[
+          storedDownloadTask('stream-task', StoredBtTaskLifecycleState.ready),
+        ],
+      );
+      await store.storeMetadata(
+        const StoredBtTaskMetadataRecord(
+          taskId: 'stream-task',
+          infoHash: 'stream-hash',
+          name: 'Streamable Task',
+          totalSizeBytes: 4096,
+          pieceLengthBytes: 1024,
+        ),
+      );
+      await store.storeFiles(
+        taskId: 'stream-task',
+        files: const <StoredBtTaskFileRecord>[
+          StoredBtTaskFileRecord(
+            taskId: 'stream-task',
+            index: 0,
+            path: 'Episode 01.mkv',
+            lengthBytes: 4096,
+            offsetBytes: 0,
+            selectionState: StoredBtFileSelectionState.selected,
+            mediaMimeType: 'video/x-matroska',
+            isStreamable: true,
+          ),
+        ],
+      );
+      final BtTaskCoreRuntime btRuntime = BtTaskCoreRuntime.withDependencies(
+        adapter: localAdapter,
+        store: store,
+      );
+      final VirtualMediaStreamRuntime virtualRuntime =
+          VirtualMediaStreamRuntime.withDependencies(
+        btTaskStore: store,
+        streamStore: DeterministicVirtualMediaStreamStore(),
+        contentUriResolver: ({
+          required streamId,
+          required taskId,
+          required fileIndex,
+          required file,
+        }) =>
+            Uri.parse(
+          'http://127.0.0.1:49152/stream/${taskId.value}/${fileIndex.value}',
+        ),
+      );
+      final DownloadRuntimeAdapter runtime = DownloadRuntimeAdapter(
+        btRuntime,
+        virtualStreamRuntime: virtualRuntime,
+      );
+      final MockPlaybackController playbackController = MockPlaybackController(
+        matrix: PlaybackCapabilityMatrix(
+          capabilities: <PlaybackCapability, CapabilityStatus>{
+            PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
+            PlaybackCapability.playPause: CapabilityStatus.supported(),
+          },
+        ),
+      );
+      addTearDown(runtime.dispose);
+      addTearDown(virtualRuntime.dispose);
+      addTearDown(localAdapter.dispose);
+
+      await tester.pumpWidget(
+        _testHost(
+          child: Scaffold(
+            body: DownloadsPage(
+              downloadRuntime: runtime,
+              playbackController: playbackController,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        ElainaFinders.downloadDetailScroll,
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder playFile = find.ancestor(
+        of: find.byIcon(Icons.play_circle_outline),
+        matching: find.byType(IconButton),
+      );
+      expect(playFile, findsOneWidget);
+      expect(tester.widget<IconButton>(playFile).onPressed, isNotNull);
+
+      await tester.tap(playFile);
+      await tester.pumpAndSettle();
+
+      expect(playbackController.currentState.status,
+          PlaybackLifecycleStatus.playing);
+      expect(
+        playbackController.currentState.sourceUri.toString(),
+        'http://127.0.0.1:49152/stream/stream-task/0',
+      );
+    });
+
     testWidgets('creates a new download task from magnet input',
         (WidgetTester tester) async {
       fakeAdapter.includeMetadataFiles = true;
@@ -480,6 +583,16 @@ void main() {
   });
 }
 
+const BtCapabilityMatrix _completeDownloadCapabilities = BtCapabilityMatrix(
+  capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+    BtStreamingCapability.taskManagement: BtCapabilityStatus.supported(),
+    BtStreamingCapability.metadataFetching: BtCapabilityStatus.supported(),
+    BtStreamingCapability.longBackgroundDownload:
+        BtCapabilityStatus.supported(),
+    BtStreamingCapability.virtualMediaStream: BtCapabilityStatus.supported(),
+  },
+);
+
 final class _ThrowingDownloadRuntime implements DownloadRuntime {
   final DownloadRuntimeSnapshot _snapshot = DownloadRuntimeSnapshot(
     status: DownloadRuntimeStatus.idle,
@@ -534,6 +647,16 @@ final class _ThrowingDownloadRuntime implements DownloadRuntime {
   @override
   Future<DownloadCommandResult> resumeAll() async =>
       const DownloadCommandResult.success();
+
+  @override
+  Future<DownloadPlaybackPrepareResult> preparePlayback(
+    DownloadTaskId taskId,
+    DownloadFileIndex fileIndex,
+  ) async =>
+      const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.capabilityUnsupported,
+        message: 'Playback preparation is not configured in this fake.',
+      );
 
   @override
   Future<DownloadCommandResult> selectFiles(

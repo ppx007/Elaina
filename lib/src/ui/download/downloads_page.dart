@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/download/download_domain.dart';
+import '../../domain/playback/playback_controller.dart';
 import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 
@@ -32,9 +33,11 @@ class DownloadsPage extends StatefulWidget {
   const DownloadsPage({
     super.key,
     required this.downloadRuntime,
+    this.playbackController,
   });
 
   final DownloadRuntime downloadRuntime;
+  final PlaybackControllerContract? playbackController;
 
   @override
   State<DownloadsPage> createState() => _DownloadsPageState();
@@ -275,6 +278,36 @@ class _DownloadsPageState extends State<DownloadsPage>
     await _refreshTasks();
   }
 
+  Future<void> _playDownloadFile(
+    DownloadProjection task,
+    DownloadFileProjection file,
+  ) async {
+    final PlaybackControllerContract? playbackController =
+        widget.playbackController;
+    if (playbackController == null) {
+      _showMessage('播放器未连接，无法播放下载文件。');
+      return;
+    }
+    final DownloadPlaybackPrepareResult prepared =
+        await widget.downloadRuntime.preparePlayback(task.taskId, file.index);
+    if (!mounted) return;
+    if (!prepared.isSuccess || prepared.source == null) {
+      _showMessage(prepared.failureMessage ?? '下载文件播放准备失败。');
+      return;
+    }
+    final result = await playbackController.open(prepared.source!);
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      _showMessage(result.failure?.message ?? '播放器打开下载文件失败。');
+      return;
+    }
+    final playResult = await playbackController.play();
+    if (!mounted) return;
+    if (!playResult.isSuccess) {
+      _showMessage(playResult.failure?.message ?? '开始播放失败。');
+    }
+  }
+
   Future<void> _runCommand(
     Future<DownloadCommandResult> Function() command,
   ) async {
@@ -367,6 +400,9 @@ class _DownloadsPageState extends State<DownloadsPage>
                   onApplyFiles: _selectedTask == null
                       ? null
                       : () => _applyDetailFileSelection(_selectedTask!),
+                  onPlayFile: widget.playbackController == null
+                      ? null
+                      : _playDownloadFile,
                 );
 
                 if (!desktop) {
@@ -994,6 +1030,7 @@ class _TaskDetailPanel extends StatelessWidget {
     required this.capabilities,
     required this.onFileToggled,
     required this.onApplyFiles,
+    required this.onPlayFile,
   });
 
   final DownloadProjection? task;
@@ -1001,6 +1038,8 @@ class _TaskDetailPanel extends StatelessWidget {
   final DownloadCapabilityProjection capabilities;
   final void Function(DownloadFileIndex fileIndex, bool selected) onFileToggled;
   final VoidCallback? onApplyFiles;
+  final void Function(DownloadProjection task, DownloadFileProjection file)?
+      onPlayFile;
 
   @override
   Widget build(BuildContext context) {
@@ -1065,7 +1104,14 @@ class _TaskDetailPanel extends StatelessWidget {
                         task: task,
                         selectedFiles: selectedFiles,
                         canSelectFiles: capabilities.taskManagementAvailable,
+                        canPreparePlayback:
+                            capabilities.virtualStreamAvailable &&
+                                onPlayFile != null,
                         onFileToggled: onFileToggled,
+                        onPlayFile: onPlayFile == null
+                            ? null
+                            : (DownloadFileProjection file) =>
+                                onPlayFile!(task, file),
                       ),
                     ],
                   ),
@@ -1177,13 +1223,17 @@ class _TaskFilesSection extends StatelessWidget {
     required this.task,
     required this.selectedFiles,
     required this.canSelectFiles,
+    required this.canPreparePlayback,
     required this.onFileToggled,
+    required this.onPlayFile,
   });
 
   final DownloadProjection task;
   final Set<DownloadFileIndex> selectedFiles;
   final bool canSelectFiles;
+  final bool canPreparePlayback;
   final void Function(DownloadFileIndex fileIndex, bool selected) onFileToggled;
+  final void Function(DownloadFileProjection file)? onPlayFile;
 
   @override
   Widget build(BuildContext context) {
@@ -1218,6 +1268,8 @@ class _TaskFilesSection extends StatelessWidget {
           itemBuilder: (BuildContext context, int index) {
             final DownloadFileProjection file = task.files[index];
             final bool selected = selectedFiles.contains(file.index);
+            final bool canPlayFile =
+                canPreparePlayback && selected && file.streamable;
             return Material(
               color: Colors.transparent,
               child: CheckboxListTile(
@@ -1240,6 +1292,15 @@ class _TaskFilesSection extends StatelessWidget {
                   style: TextStyle(
                     color: theme.onBackground.withValues(alpha: 0.58),
                     fontSize: 11,
+                  ),
+                ),
+                secondary: Tooltip(
+                  message: file.playbackAvailableReason ?? '边下边播',
+                  child: IconButton(
+                    onPressed: canPlayFile && onPlayFile != null
+                        ? () => onPlayFile!(file)
+                        : null,
+                    icon: const Icon(Icons.play_circle_outline),
                   ),
                 ),
               ),

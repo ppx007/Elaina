@@ -2021,6 +2021,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
       key: const ValueKey<String>(UiElementIds.pageDownloads),
       child: DownloadsPage(
         downloadRuntime: widget.downloadRuntime,
+        playbackController: widget.playbackController,
       ),
     );
   }
