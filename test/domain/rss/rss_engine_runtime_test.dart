@@ -886,6 +886,16 @@ final class _RecordingDownloadRuntime implements DownloadRuntime {
       const DownloadCommandResult.success();
 
   @override
+  Future<DownloadPlaybackPrepareResult> preparePlayback(
+    DownloadTaskId taskId,
+    DownloadFileIndex fileIndex,
+  ) async =>
+      const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.capabilityUnsupported,
+        message: 'Playback preparation is not configured in this fake.',
+      );
+
+  @override
   Future<DownloadCommandResult> selectFiles(
     DownloadTaskId taskId,
     Iterable<DownloadFileIndex> files,

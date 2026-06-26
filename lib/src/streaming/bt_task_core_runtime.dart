@@ -91,17 +91,17 @@ final class BtTaskCoreRuntimeActionResult<T> {
 final class BtTaskMetadataProjection {
   const BtTaskMetadataProjection({
     required this.taskId,
-    required this.infoHash,
+    this.infoHash,
     required this.name,
     required this.totalSizeBytes,
-    required this.pieceLengthBytes,
+    this.pieceLengthBytes,
   });
 
   final BtTaskId taskId;
-  final InfoHash infoHash;
+  final InfoHash? infoHash;
   final String name;
   final int totalSizeBytes;
-  final int pieceLengthBytes;
+  final int? pieceLengthBytes;
 }
 
 final class BtTaskFileProjection {
@@ -112,6 +112,7 @@ final class BtTaskFileProjection {
     required this.lengthBytes,
     required this.offsetBytes,
     required this.selectionState,
+    this.isStreamable = false,
     this.mediaMimeType,
   });
 
@@ -121,6 +122,7 @@ final class BtTaskFileProjection {
   final int lengthBytes;
   final int offsetBytes;
   final BtFileSelectionState selectionState;
+  final bool isStreamable;
   final String? mediaMimeType;
 }
 
@@ -728,7 +730,7 @@ BtTaskMetadataProjection _metadataProjection(
 ) {
   return BtTaskMetadataProjection(
     taskId: BtTaskId(metadata.taskId),
-    infoHash: InfoHash(metadata.infoHash),
+    infoHash: metadata.infoHash == null ? null : InfoHash(metadata.infoHash!),
     name: metadata.name,
     totalSizeBytes: metadata.totalSizeBytes,
     pieceLengthBytes: metadata.pieceLengthBytes,
@@ -743,6 +745,7 @@ BtTaskFileProjection _fileProjection(StoredBtTaskFileRecord file) {
     lengthBytes: file.lengthBytes,
     offsetBytes: file.offsetBytes,
     selectionState: _fileSelectionState(file.selectionState),
+    isStreamable: file.isStreamable,
     mediaMimeType: file.mediaMimeType,
   );
 }

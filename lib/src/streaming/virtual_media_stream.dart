@@ -55,7 +55,7 @@ final class VirtualByteRangeChunk {
   final List<int> bytes;
 }
 
-typedef VirtualStreamContentUriResolver = Uri? Function({
+typedef VirtualStreamContentUriResolver = FutureOr<Uri?> Function({
   required VirtualMediaStreamId streamId,
   required BtTaskId taskId,
   required BtFileIndex fileIndex,
@@ -275,6 +275,12 @@ final class DeterministicVirtualMediaStreamRegistry
     }
 
     final VirtualMediaStreamId streamId = _streamId(taskId, fileIndex);
+    final Uri contentUri = await _resolveContentUri(
+      streamId: streamId,
+      taskId: taskId,
+      fileIndex: fileIndex,
+      file: file,
+    );
     final StoredVirtualMediaStreamRecord stream =
         StoredVirtualMediaStreamRecord(
       id: streamId.value,
@@ -284,12 +290,7 @@ final class DeterministicVirtualMediaStreamRegistry
       lifecycleState: StoredVirtualMediaStreamLifecycleState.active,
       createdAt: _clock(),
       updatedAt: _clock(),
-      contentUri: _resolveContentUri(
-        streamId: streamId,
-        taskId: taskId,
-        fileIndex: fileIndex,
-        file: file,
-      ),
+      contentUri: contentUri,
       mimeType: file.mediaMimeType,
     );
     await streamStore.storeStream(stream);
@@ -308,13 +309,13 @@ final class DeterministicVirtualMediaStreamRegistry
         descriptor: _descriptorFromRecord(stream));
   }
 
-  Uri _resolveContentUri({
+  Future<Uri> _resolveContentUri({
     required VirtualMediaStreamId streamId,
     required BtTaskId taskId,
     required BtFileIndex fileIndex,
     required StoredBtTaskFileRecord file,
-  }) {
-    return _contentUriResolver(
+  }) async {
+    return await _contentUriResolver(
           streamId: streamId,
           taskId: taskId,
           fileIndex: fileIndex,

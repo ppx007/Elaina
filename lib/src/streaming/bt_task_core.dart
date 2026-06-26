@@ -87,6 +87,7 @@ final class BtTaskFile {
     required this.lengthBytes,
     required this.offsetBytes,
     required this.selectionState,
+    this.isStreamable = false,
     this.mediaMimeType,
   })  : assert(path != '', 'BT file path must not be empty.'),
         assert(lengthBytes >= 0, 'lengthBytes must not be negative.'),
@@ -97,24 +98,26 @@ final class BtTaskFile {
   final int lengthBytes;
   final int offsetBytes;
   final BtFileSelectionState selectionState;
+  final bool isStreamable;
   final String? mediaMimeType;
 }
 
 final class BtTaskMetadata {
   const BtTaskMetadata({
-    required this.infoHash,
+    this.infoHash,
     required this.name,
     required this.totalSizeBytes,
-    required this.pieceLengthBytes,
+    this.pieceLengthBytes,
     required this.files,
   })  : assert(name != '', 'BT metadata name must not be empty.'),
         assert(totalSizeBytes >= 0, 'totalSizeBytes must not be negative.'),
-        assert(pieceLengthBytes > 0, 'pieceLengthBytes must be positive.');
+        assert(pieceLengthBytes == null || pieceLengthBytes > 0,
+            'pieceLengthBytes must be positive when provided.');
 
-  final InfoHash infoHash;
+  final InfoHash? infoHash;
   final String name;
   final int totalSizeBytes;
-  final int pieceLengthBytes;
+  final int? pieceLengthBytes;
   final List<BtTaskFile> files;
 }
 
@@ -395,7 +398,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
         task.copyWith(
           lifecycleState: StoredBtTaskLifecycleState.ready,
           updatedAt: _clock(),
-          infoHash: metadata.infoHash.value,
+          infoHash: metadata.infoHash?.value,
         ),
       );
       await store.recordEvent(
@@ -409,7 +412,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
         BtMetadataUpdated(
           occurredAt: _clock(),
           taskId: taskId.value,
-          infoHash: metadata.infoHash.value,
+          infoHash: metadata.infoHash?.value,
           name: metadata.name,
         ),
       );
@@ -612,7 +615,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
     await store.storeMetadata(
       StoredBtTaskMetadataRecord(
         taskId: taskId.value,
-        infoHash: metadata.infoHash.value,
+        infoHash: metadata.infoHash?.value,
         name: metadata.name,
         totalSizeBytes: metadata.totalSizeBytes,
         pieceLengthBytes: metadata.pieceLengthBytes,
@@ -640,7 +643,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
       task.copyWith(
         lifecycleState: _storedLifecycleState(status.state),
         updatedAt: _clock(),
-        infoHash: status.metadata?.infoHash.value,
+          infoHash: status.metadata?.infoHash?.value,
         message: status.message,
       ),
     );
@@ -668,7 +671,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
             task.copyWith(
               lifecycleState: StoredBtTaskLifecycleState.ready,
               updatedAt: _clock(),
-              infoHash: metadata.infoHash.value,
+              infoHash: metadata.infoHash?.value,
             ),
           );
         }
@@ -683,7 +686,7 @@ final class DeterministicBtTaskCore implements BtTaskCoreContract {
           BtMetadataUpdated(
             occurredAt: _clock(),
             taskId: taskId.value,
-            infoHash: metadata.infoHash.value,
+          infoHash: metadata.infoHash?.value,
             name: metadata.name,
           ),
         );
@@ -792,6 +795,7 @@ StoredBtTaskFileRecord _storedFileRecord(BtTaskId taskId, BtTaskFile file) {
     lengthBytes: file.lengthBytes,
     offsetBytes: file.offsetBytes,
     selectionState: _storedFileSelectionState(file.selectionState),
+    isStreamable: file.isStreamable,
     mediaMimeType: file.mediaMimeType,
   );
 }

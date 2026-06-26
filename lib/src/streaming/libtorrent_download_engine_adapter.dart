@@ -27,6 +27,8 @@ const int libtorrentMinPreloadBytes = 16 * 1024 * 1024; // 16 MiB
 
 /// Cap on the RAM piece cache requested when applying a plan's playback window.
 const int libtorrentMaxStreamCacheBytes = 256 * 1024 * 1024; // 256 MiB
+const int libtorrentDefaultVirtualStreamCacheBytes =
+    256 * 1024 * 1024; // 256 MiB
 const String _magnetExactTopicPrefix = 'urn:btih:';
 
 enum LibtorrentTaskState {
@@ -146,6 +148,12 @@ abstract interface class LibtorrentEngineBackend {
     required int cacheBytes,
   });
 
+  Future<Uri> streamUriFor({
+    required int torrentId,
+    required int fileIndex,
+    required int cacheBytes,
+  });
+
   Stream<LibtorrentTorrentSnapshot> watchTorrent(int torrentId);
 }
 
@@ -183,7 +191,7 @@ final class _LibtorrentFlutterEngineBackend implements LibtorrentEngineBackend {
   final Map<(int, int), int> _streamIdByFile = <(int, int), int>{};
 
   @override
-  bool get supportsCompleteMetadata => _metadataResolver != null;
+  bool get supportsCompleteMetadata => true;
 
   @override
   Future<int> addMagnet(String magnetUri) {
@@ -268,6 +276,21 @@ final class _LibtorrentFlutterEngineBackend implements LibtorrentEngineBackend {
   }
 
   @override
+  Future<Uri> streamUriFor({
+    required int torrentId,
+    required int fileIndex,
+    required int cacheBytes,
+  }) async {
+    final lt.StreamInfo info = _engine.startStream(
+      torrentId,
+      fileIndex: fileIndex,
+      maxCacheBytes: cacheBytes,
+    );
+    _streamIdByFile[(torrentId, fileIndex)] = info.id;
+    return Uri.parse(info.url);
+  }
+
+  @override
   Future<LibtorrentTorrentSnapshot?> torrentById(int torrentId) {
     return Future<LibtorrentTorrentSnapshot?>.value(
       _snapshotFromInfo(_engine.torrents[torrentId]),
@@ -322,6 +345,8 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
     LibtorrentEngineBackend? backend,
     LibtorrentEngineBackendFactory? backendFactory,
     bool metadataFetchingSupported = false,
+    bool backgroundDownloadSupported = false,
+    bool virtualMediaStreamSupported = false,
   })  : assert(
           backend == null || backendFactory == null,
           'Provide either a backend instance or a backend factory, not both.',
@@ -332,12 +357,16 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
         capabilities = libtorrentDownloadEngineCapabilities(
           metadataFetchingSupported:
               backend?.supportsCompleteMetadata ?? metadataFetchingSupported,
+          backgroundDownloadSupported: backgroundDownloadSupported,
+          virtualMediaStreamSupported: virtualMediaStreamSupported,
         );
 
   static Future<LibtorrentDownloadEngineAdapter> initialize({
     String? defaultSavePath,
     Duration? pollInterval,
     LibtorrentMetadataResolver? metadataResolver,
+    bool backgroundDownloadSupported = false,
+    bool virtualMediaStreamSupported = false,
   }) async {
     final _LibtorrentFlutterEngineBackend backend =
         await _LibtorrentFlutterEngineBackend.initialize(
@@ -345,7 +374,11 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
       pollInterval: pollInterval,
       metadataResolver: metadataResolver,
     );
-    return LibtorrentDownloadEngineAdapter(backend: backend);
+    return LibtorrentDownloadEngineAdapter(
+      backend: backend,
+      backgroundDownloadSupported: backgroundDownloadSupported,
+      virtualMediaStreamSupported: virtualMediaStreamSupported,
+    );
   }
 
   @override
@@ -385,18 +418,10 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
     }
     final String? infoHash = torrent.infoHash;
     final int? pieceLengthBytes = torrent.pieceLengthBytes;
-    if (infoHash == null || infoHash == '') {
-      throw StateError(
-          'libtorrent metadata is missing info hash for task ${taskId.value}.');
-    }
-    if (pieceLengthBytes == null || pieceLengthBytes <= 0) {
-      throw StateError(
-          'libtorrent metadata is missing piece length for task ${taskId.value}.');
-    }
     final List<LibtorrentFileSnapshot> files =
         await backend.filesFor(torrentId);
     return BtTaskMetadata(
-      infoHash: InfoHash(infoHash),
+      infoHash: infoHash == null || infoHash == '' ? null : InfoHash(infoHash),
       name: torrent.name,
       totalSizeBytes: _totalSizeBytes(torrent, files),
       pieceLengthBytes: pieceLengthBytes,
@@ -450,12 +475,31 @@ final class LibtorrentDownloadEngineAdapter implements DownloadEngineAdapter {
     await selectFiles(plan.taskId, <BtFileIndex>[plan.fileIndex]);
 
     final BtTaskMetadata metadata = await ensureMetadata(plan.taskId);
+    final int? pieceLengthBytes = metadata.pieceLengthBytes;
+    if (pieceLengthBytes == null || pieceLengthBytes <= 0) {
+      throw StateError(
+        'libtorrent piece priority requires torrent piece length metadata.',
+      );
+    }
     final (int preloadBytes, int cacheBytes) =
-        _streamWindowBudget(plan, metadata.pieceLengthBytes);
+        _streamWindowBudget(plan, pieceLengthBytes);
     await backend.primeStreamWindow(
       torrentId: _torrentId(plan.taskId),
       fileIndex: plan.fileIndex.value,
       preloadBytes: preloadBytes,
+      cacheBytes: cacheBytes,
+    );
+  }
+
+  Future<Uri> streamUriForTaskFile(
+    BtTaskId taskId,
+    BtFileIndex fileIndex, {
+    int cacheBytes = libtorrentDefaultVirtualStreamCacheBytes,
+  }) async {
+    final LibtorrentEngineBackend backend = await _requireBackend();
+    return backend.streamUriFor(
+      torrentId: _torrentId(taskId),
+      fileIndex: fileIndex.value,
       cacheBytes: cacheBytes,
     );
   }
@@ -566,6 +610,8 @@ BtTaskRuntimeCompositionContract libtorrentBtTaskRuntimeComposition({
   Duration? pollInterval,
   LibtorrentMetadataResolver? metadataResolver,
   bool metadataFetchingSupported = false,
+  bool backgroundDownloadSupported = false,
+  bool virtualMediaStreamSupported = false,
 }) {
   final LibtorrentEngineBackendFactory? effectiveBackendFactory =
       backend == null
@@ -582,6 +628,8 @@ BtTaskRuntimeCompositionContract libtorrentBtTaskRuntimeComposition({
     backendFactory: effectiveBackendFactory,
     metadataFetchingSupported:
         metadataResolver != null || metadataFetchingSupported,
+    backgroundDownloadSupported: backgroundDownloadSupported,
+    virtualMediaStreamSupported: virtualMediaStreamSupported,
   );
   return BtTaskRuntimeCompositionContract(
     adapter: adapter,
@@ -605,12 +653,16 @@ PiecePrioritySchedulerRuntime libtorrentPiecePrioritySchedulerRuntime({
   LibtorrentEngineBackend? backend,
   LibtorrentEngineBackendFactory? backendFactory,
   bool metadataFetchingSupported = false,
+  bool backgroundDownloadSupported = false,
+  bool virtualMediaStreamSupported = false,
 }) {
   final LibtorrentDownloadEngineAdapter effectiveAdapter = adapter ??
       LibtorrentDownloadEngineAdapter(
         backend: backend,
         backendFactory: backendFactory,
         metadataFetchingSupported: metadataFetchingSupported,
+        backgroundDownloadSupported: backgroundDownloadSupported,
+        virtualMediaStreamSupported: virtualMediaStreamSupported,
       );
   return PiecePrioritySchedulerRuntime(
     btTaskStore: btTaskStore,
@@ -627,6 +679,8 @@ PiecePrioritySchedulerRuntime libtorrentPiecePrioritySchedulerRuntime({
 
 BtCapabilityMatrix libtorrentDownloadEngineCapabilities({
   required bool metadataFetchingSupported,
+  required bool backgroundDownloadSupported,
+  required bool virtualMediaStreamSupported,
 }) {
   return BtCapabilityMatrix(
     capabilities: <BtStreamingCapability, BtCapabilityStatus>{
@@ -635,18 +689,21 @@ BtCapabilityMatrix libtorrentDownloadEngineCapabilities({
       BtStreamingCapability.metadataFetching: metadataFetchingSupported
           ? const BtCapabilityStatus.supported()
           : const BtCapabilityStatus.unsupported(
-              'Complete libtorrent metadata projection is not configured.'),
-      BtStreamingCapability.virtualMediaStream:
-          const BtCapabilityStatus.unsupported(
-              'Virtual byte serving belongs to Step 53.'),
+              'libtorrent metadata and file projection is not configured.'),
+      BtStreamingCapability.virtualMediaStream: virtualMediaStreamSupported
+          ? const BtCapabilityStatus.supported()
+          : const BtCapabilityStatus.unsupported(
+              'Virtual stream runtime is not composed with this adapter.'),
       BtStreamingCapability.piecePriorityScheduling:
           const BtCapabilityStatus.supported(),
       BtStreamingCapability.timelineOverlay:
           const BtCapabilityStatus.unsupported(
               'Timeline overlay is not owned by the BT engine adapter.'),
-      BtStreamingCapability.longBackgroundDownload: const BtCapabilityStatus
-          .unsupported(
-          'Long background download is platform-specific and not guaranteed.'),
+      BtStreamingCapability.longBackgroundDownload:
+          backgroundDownloadSupported
+              ? const BtCapabilityStatus.supported()
+              : const BtCapabilityStatus.unsupported(
+                  'Application-lifetime background download is not composed.'),
     },
   );
 }
@@ -721,6 +778,7 @@ List<BtTaskFile> _files(List<LibtorrentFileSnapshot> files) {
         lengthBytes: file.lengthBytes,
         offsetBytes: offsetBytes,
         selectionState: BtFileSelectionState.selected,
+        isStreamable: file.isStreamable,
       ),
     );
     offsetBytes += file.lengthBytes;

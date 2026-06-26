@@ -306,16 +306,19 @@ final class DeterministicPiecePriorityScheduler
       return _rejected(request, PiecePriorityPlanFailureKind.unsupportedProfile,
           'Strategy profile id is unavailable.');
     }
-    if (file.lengthBytes <= 0 || metadata.pieceLengthBytes <= 0) {
+    final int? pieceLengthBytes = metadata.pieceLengthBytes;
+    if (file.lengthBytes <= 0 ||
+        pieceLengthBytes == null ||
+        pieceLengthBytes <= 0) {
       return _rejected(
           request,
           PiecePriorityPlanFailureKind.noSchedulablePieces,
-          'No schedulable pieces are available.');
+          'No schedulable pieces are available because piece metadata is unavailable.');
     }
 
     final FilePieceMap fileMap = deriveFilePieceMap(
       file: file,
-      pieceLengthBytes: metadata.pieceLengthBytes,
+      pieceLengthBytes: pieceLengthBytes,
     );
     final PiecePriorityPlanFailure? rangeFailure = _validateRanges(
       request: request,
@@ -328,14 +331,14 @@ final class DeterministicPiecePriorityScheduler
     final Set<int> bufferedPieces = _fullyBufferedPieces(
       ranges: await streamStore.bufferedRangesFor(request.streamId.value),
       fileOffsetBytes: file.offsetBytes,
-      pieceLengthBytes: metadata.pieceLengthBytes,
+      pieceLengthBytes: pieceLengthBytes,
     );
     final List<PiecePriorityRule> rules = _planRules(
       request: request,
       fileMap: fileMap,
       streamLengthBytes: stream.lengthBytes,
       fileOffsetBytes: file.offsetBytes,
-      pieceLengthBytes: metadata.pieceLengthBytes,
+      pieceLengthBytes: pieceLengthBytes,
       bufferedPieces: bufferedPieces,
     );
     if (rules.isEmpty) {
@@ -362,7 +365,7 @@ final class DeterministicPiecePriorityScheduler
       fileIndex: stream.fileIndex,
       profileId: request.profile.id,
       metadataInfoHash: metadata.infoHash,
-      pieceLengthBytes: metadata.pieceLengthBytes,
+      pieceLengthBytes: pieceLengthBytes,
       playbackStartByte: request.playbackWindow?.currentByteOffset,
       playbackEndByte: _playbackEnd(request, stream.lengthBytes),
       seekTargetByte: request.seekTarget?.targetByteOffset,

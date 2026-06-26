@@ -1,6 +1,10 @@
 import '../../foundation/storage/storage_contracts.dart';
+import '../../playback/player_adapter.dart';
+import '../../playback/virtual_stream_playback_source.dart';
 import '../../streaming/bt_task_core.dart';
 import '../../streaming/bt_task_core_runtime.dart';
+import '../../streaming/virtual_media_stream.dart';
+import '../../streaming/virtual_media_stream_runtime.dart';
 
 // UI-facing download contract.
 //
@@ -126,6 +130,8 @@ final class DownloadFileProjection {
     required this.path,
     required this.sizeBytes,
     required this.selectionState,
+    this.streamable = false,
+    this.playbackAvailableReason,
     this.mediaMimeType,
   });
 
@@ -134,11 +140,63 @@ final class DownloadFileProjection {
   final String path;
   final int sizeBytes;
   final DownloadFileSelectionState selectionState;
+  final bool streamable;
+  final String? playbackAvailableReason;
   final String? mediaMimeType;
 
   bool get isSelected =>
       selectionState == DownloadFileSelectionState.selected ||
       selectionState == DownloadFileSelectionState.streamingTarget;
+}
+
+enum DownloadPlaybackPrepareFailureKind {
+  capabilityUnsupported,
+  taskNotFound,
+  fileNotFound,
+  fileNotSelected,
+  fileNotStreamable,
+  streamFailed,
+}
+
+final class DownloadPlaybackPrepareResult {
+  const DownloadPlaybackPrepareResult._({
+    this.source,
+    this.failureKind,
+    this.failureMessage,
+  });
+
+  const DownloadPlaybackPrepareResult.success(PlaybackSource source)
+      : this._(source: source);
+
+  const DownloadPlaybackPrepareResult.failure({
+    required DownloadPlaybackPrepareFailureKind kind,
+    required String message,
+  }) : this._(failureKind: kind, failureMessage: message);
+
+  final PlaybackSource? source;
+  final DownloadPlaybackPrepareFailureKind? failureKind;
+  final String? failureMessage;
+
+  bool get isSuccess => source != null;
+}
+
+abstract interface class DownloadTorrentUrlResolver {
+  Future<DownloadTorrentUrlResolution> resolveTorrentUrl(Uri torrentUri);
+}
+
+final class DownloadTorrentUrlResolution {
+  const DownloadTorrentUrlResolution._({this.fileUri, this.failureMessage});
+
+  const DownloadTorrentUrlResolution.success(Uri fileUri)
+      : this._(fileUri: fileUri);
+
+  const DownloadTorrentUrlResolution.failure(String message)
+      : this._(failureMessage: message);
+
+  final Uri? fileUri;
+  final String? failureMessage;
+
+  bool get isSuccess => fileUri != null;
 }
 
 final class DownloadProjection {
@@ -284,16 +342,30 @@ abstract interface class DownloadRuntime {
   Future<DownloadCommandResult> remove(DownloadTaskId taskId);
   Future<DownloadCommandResult> pauseAll();
   Future<DownloadCommandResult> resumeAll();
+  Future<DownloadPlaybackPrepareResult> preparePlayback(
+    DownloadTaskId taskId,
+    DownloadFileIndex fileIndex,
+  );
   void dispose();
 }
 
 final class DownloadRuntimeAdapter
     implements DownloadRuntime, BtTaskCoreRuntimeObserver {
-  DownloadRuntimeAdapter(this._runtime) {
+  DownloadRuntimeAdapter(
+    this._runtime, {
+    VirtualMediaStreamRuntime? virtualStreamRuntime,
+    DownloadTorrentUrlResolver? torrentUrlResolver,
+    DownloadCapabilityProjection? capabilityOverride,
+  })  : _virtualStreamRuntime = virtualStreamRuntime,
+        _torrentUrlResolver = torrentUrlResolver,
+        _capabilityOverride = capabilityOverride {
     _runtime.addObserver(this);
   }
 
   final BtTaskCoreRuntime _runtime;
+  final VirtualMediaStreamRuntime? _virtualStreamRuntime;
+  final DownloadTorrentUrlResolver? _torrentUrlResolver;
+  final DownloadCapabilityProjection? _capabilityOverride;
   final List<DownloadRuntimeObserver> _observers = <DownloadRuntimeObserver>[];
 
   @override
@@ -338,7 +410,14 @@ final class DownloadRuntimeAdapter
       );
     }
 
-    final BtTaskSource? source = _sourceFromUri(trimmed);
+    final BtTaskSource? source;
+    try {
+      source = await _sourceFromUri(trimmed);
+    } on StateError catch (error) {
+      return DownloadCreateResult.failure(error.message);
+    } on Object catch (error) {
+      return DownloadCreateResult.failure(error.toString());
+    }
     if (source == null) {
       return const DownloadCreateResult.failure(
         '仅支持 magnet 链接或本地 .torrent 文件 URI。',
@@ -481,6 +560,114 @@ final class DownloadRuntimeAdapter
     return DownloadCommandResult.success();
   }
 
+  Future<BtTaskSource?> _sourceFromUri(String sourceUri) async {
+    if (sourceUri.startsWith('magnet:?')) {
+      return MagnetBtTaskSource(uri: sourceUri);
+    }
+    final Uri? parsed = Uri.tryParse(sourceUri);
+    if (parsed == null) return null;
+    if (parsed.isScheme('file')) {
+      return TorrentDataBtTaskSource(uri: parsed);
+    }
+    if (parsed.isScheme('http') || parsed.isScheme('https')) {
+      final DownloadTorrentUrlResolver? resolver = _torrentUrlResolver;
+      if (resolver == null) return null;
+      final DownloadTorrentUrlResolution resolved =
+          await resolver.resolveTorrentUrl(parsed);
+      if (!resolved.isSuccess || resolved.fileUri == null) {
+        throw StateError(
+          resolved.failureMessage ?? '远程 torrent 文件解析失败。',
+        );
+      }
+      return TorrentDataBtTaskSource(uri: resolved.fileUri!);
+    }
+    return null;
+  }
+
+  @override
+  Future<DownloadPlaybackPrepareResult> preparePlayback(
+    DownloadTaskId taskId,
+    DownloadFileIndex fileIndex,
+  ) async {
+    final DownloadCapabilityProjection capabilities =
+        currentSnapshot.capabilities;
+    if (!capabilities.virtualStreamAvailable) {
+      return DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.capabilityUnsupported,
+        message: capabilities.virtualStreamReason ?? '虚拟流播放能力不可用。',
+      );
+    }
+    final VirtualMediaStreamRuntime? streamRuntime = _virtualStreamRuntime;
+    if (streamRuntime == null) {
+      return const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.capabilityUnsupported,
+        message: '虚拟流运行时未配置。',
+      );
+    }
+
+    await _runtime.taskById(BtTaskId(taskId.value));
+    final DownloadProjection? task = _taskById(taskId);
+    if (task == null) {
+      return const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.taskNotFound,
+        message: '下载任务不存在。',
+      );
+    }
+    DownloadFileProjection? file;
+    for (final DownloadFileProjection candidate in task.files) {
+      if (candidate.index == fileIndex) {
+        file = candidate;
+        break;
+      }
+    }
+    if (file == null) {
+      return const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.fileNotFound,
+        message: '下载文件不存在。',
+      );
+    }
+    if (!file.isSelected) {
+      return const DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.fileNotSelected,
+        message: '请先选择该文件。',
+      );
+    }
+    if (!file.streamable) {
+      return DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.fileNotStreamable,
+        message: file.playbackAvailableReason ?? '该文件不可边下边播。',
+      );
+    }
+
+    final VirtualMediaStreamRuntimeActionResult<VirtualMediaStreamSnapshot>
+        result = await streamRuntime.createStream(
+      VirtualMediaStreamCreateRequest(
+        taskId: BtTaskId(taskId.value),
+        fileIndex: BtFileIndex(fileIndex.value),
+      ),
+    );
+    if (!result.isSuccess || result.value == null) {
+      return DownloadPlaybackPrepareResult.failure(
+        kind: DownloadPlaybackPrepareFailureKind.streamFailed,
+        message: result.failure?.message ?? '虚拟流创建失败。',
+      );
+    }
+    final VirtualMediaStreamDescriptor descriptor = result.value!.descriptor;
+    return DownloadPlaybackPrepareResult.success(
+      VirtualStreamPlaybackSource.fromValues(
+        streamId: descriptor.id.value,
+        contentUri: descriptor.contentUri,
+      ),
+    );
+  }
+
+  DownloadProjection? _taskById(DownloadTaskId taskId) {
+    for (final DownloadProjection task in currentSnapshot.tasks) {
+      if (task.taskId == taskId) return task;
+    }
+    return null;
+  }
+
   DownloadCommandResult _commandResult(
     BtTaskCoreRuntimeActionResult<BtTaskProjection> result, {
     required String fallbackMessage,
@@ -496,7 +683,7 @@ final class DownloadRuntimeAdapter
   DownloadRuntimeSnapshot _wrapSnapshot(BtTaskCoreRuntimeSnapshot snapshot) {
     return DownloadRuntimeSnapshot(
       status: _mapStatus(snapshot.status),
-      capabilities: _wrapCapabilities(snapshot.capabilities),
+      capabilities: _capabilityOverride ?? _wrapCapabilities(snapshot.capabilities),
       tasks: <DownloadProjection>[
         for (final task in snapshot.tasks) _wrapProjection(task),
       ],
@@ -521,7 +708,7 @@ final class DownloadRuntimeAdapter
       latestEvent: _eventMessage(task.latestEvent),
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
-      infoHash: task.infoHash?.value ?? task.metadata?.infoHash.value,
+      infoHash: task.infoHash?.value ?? task.metadata?.infoHash?.value,
       pieceLengthBytes: task.metadata?.pieceLengthBytes,
       files: <DownloadFileProjection>[
         for (final BtTaskFileProjection file in task.files)
@@ -531,6 +718,8 @@ final class DownloadRuntimeAdapter
             path: file.path,
             sizeBytes: file.lengthBytes,
             selectionState: _mapFileSelectionState(file.selectionState),
+            streamable: _isStreamableFile(file),
+            playbackAvailableReason: _playbackAvailabilityReason(file),
             mediaMimeType: file.mediaMimeType,
           ),
       ],
@@ -566,14 +755,13 @@ bool _canResume(DownloadProjection task) {
   };
 }
 
-BtTaskSource? _sourceFromUri(String sourceUri) {
-  if (sourceUri.startsWith('magnet:?')) {
-    return MagnetBtTaskSource(uri: sourceUri);
-  }
-  final Uri? parsed = Uri.tryParse(sourceUri);
-  if (parsed != null && parsed.isScheme('file')) {
-    return TorrentDataBtTaskSource(uri: parsed);
-  }
+bool _isStreamableFile(BtTaskFileProjection file) {
+  return file.isStreamable && file.lengthBytes > 0;
+}
+
+String? _playbackAvailabilityReason(BtTaskFileProjection file) {
+  if (file.lengthBytes <= 0) return '文件大小无效，无法播放。';
+  if (!file.isStreamable) return '底层下载引擎未声明该文件可流式播放。';
   return null;
 }
 

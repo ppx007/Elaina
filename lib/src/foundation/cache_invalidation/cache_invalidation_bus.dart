@@ -632,7 +632,7 @@ final class BtMetadataUpdated extends CacheInvalidationEvent {
   });
 
   final String taskId;
-  final String infoHash;
+  final String? infoHash;
   final String name;
 }
 

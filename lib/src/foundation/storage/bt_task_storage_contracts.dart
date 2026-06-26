@@ -79,21 +79,23 @@ final class StoredBtTaskRecord {
 final class StoredBtTaskMetadataRecord {
   const StoredBtTaskMetadataRecord({
     required this.taskId,
-    required this.infoHash,
+    this.infoHash,
     required this.name,
     required this.totalSizeBytes,
-    required this.pieceLengthBytes,
+    this.pieceLengthBytes,
   })  : assert(taskId != '', 'BT task id must not be empty.'),
-        assert(infoHash != '', 'Info hash must not be empty.'),
+        assert(infoHash == null || infoHash != '',
+            'Info hash must not be empty when provided.'),
         assert(name != '', 'BT metadata name must not be empty.'),
         assert(totalSizeBytes >= 0, 'totalSizeBytes must not be negative.'),
-        assert(pieceLengthBytes > 0, 'pieceLengthBytes must be positive.');
+        assert(pieceLengthBytes == null || pieceLengthBytes > 0,
+            'pieceLengthBytes must be positive when provided.');
 
   final String taskId;
-  final String infoHash;
+  final String? infoHash;
   final String name;
   final int totalSizeBytes;
-  final int pieceLengthBytes;
+  final int? pieceLengthBytes;
 }
 
 final class StoredBtTaskFileRecord {
@@ -104,6 +106,7 @@ final class StoredBtTaskFileRecord {
     required this.lengthBytes,
     required this.offsetBytes,
     required this.selectionState,
+    this.isStreamable = false,
     this.mediaMimeType,
   })  : assert(taskId != '', 'BT task id must not be empty.'),
         assert(index >= 0, 'BT file index must not be negative.'),
@@ -117,10 +120,12 @@ final class StoredBtTaskFileRecord {
   final int lengthBytes;
   final int offsetBytes;
   final StoredBtFileSelectionState selectionState;
+  final bool isStreamable;
   final String? mediaMimeType;
 
   StoredBtTaskFileRecord copyWith({
     StoredBtFileSelectionState? selectionState,
+    bool? isStreamable,
   }) {
     return StoredBtTaskFileRecord(
       taskId: taskId,
@@ -129,6 +134,7 @@ final class StoredBtTaskFileRecord {
       lengthBytes: lengthBytes,
       offsetBytes: offsetBytes,
       selectionState: selectionState ?? this.selectionState,
+      isStreamable: isStreamable ?? this.isStreamable,
       mediaMimeType: mediaMimeType,
     );
   }

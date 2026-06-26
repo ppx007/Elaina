@@ -12,6 +12,7 @@ import 'player_telemetry.dart';
 import 'subtitle/subtitle_source.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
+import 'virtual_stream_playback_source.dart';
 
 typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
 
@@ -414,6 +415,8 @@ abstract interface class MediaKitMpvBackend {
 
   Future<void> openLocalFile(Uri uri);
 
+  Future<void> openUri(Uri uri, {Map<String, String> headers});
+
   Future<void> play();
 
   Future<void> pause();
@@ -475,7 +478,13 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   @override
   Future<void> openLocalFile(Uri uri) {
     _lastFailureReason = null;
-    return _player.open(Media(uri.toString()), play: false);
+    return openUri(uri);
+  }
+
+  @override
+  Future<void> openUri(Uri uri, {Map<String, String> headers = const {}}) {
+    _lastFailureReason = null;
+    return _player.open(Media(uri.toString(), httpHeaders: headers), play: false);
   }
 
   @override
@@ -736,17 +745,20 @@ final class MediaKitMpvBinding
     final PlaybackCommandResult? disposed =
         _rejectIfDisposed(PlaybackOperation.load);
     if (disposed != null) return disposed;
-    if (source is! LocalFilePlaybackSource) {
+    if (source is! LocalFilePlaybackSource &&
+        source is! HttpPlaybackSource &&
+        source is! VirtualStreamPlaybackSource) {
       return _failure(
         operation: PlaybackOperation.load,
         kind: PlaybackFailureKind.unsupported,
-        message: 'MediaKit MPV binding supports local file playback only.',
+        message: 'MediaKit MPV binding supports local, HTTP, and virtual stream playback only.',
       );
     }
 
     return _runBackendCommand(
       PlaybackOperation.load,
-      (MediaKitMpvBackend backend) => backend.openLocalFile(source.uri),
+      (MediaKitMpvBackend backend) =>
+          backend.openUri(source.uri, headers: source.headers),
     );
   }
 
@@ -1152,6 +1164,7 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+      PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
       PlaybackCapability.playPause: CapabilityStatus.supported(),
       PlaybackCapability.seek: CapabilityStatus.supported(),
       PlaybackCapability.stop: CapabilityStatus.supported(),

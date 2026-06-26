@@ -55,7 +55,7 @@ void main() {
     final BtTaskMetadata metadata =
         await adapter.ensureMetadata(const BtTaskId(_torrentIdValue));
 
-    expect(metadata.infoHash.value, _infoHash);
+    expect(metadata.infoHash?.value, _infoHash);
     expect(metadata.name, 'Episode Pack');
     expect(metadata.totalSizeBytes, 3072);
     expect(metadata.pieceLengthBytes, _pieceLengthBytes);
@@ -141,13 +141,13 @@ void main() {
     );
     final List<BtTaskEvent> events = await eventsFuture;
     expect(events.first, isA<BtMetadataReceived>());
-    expect((events.first as BtMetadataReceived).metadata.infoHash.value,
+    expect((events.first as BtMetadataReceived).metadata.infoHash?.value,
         _infoHash);
     expect(events.last, isA<BtTaskFailed>());
     expect((events.last as BtTaskFailed).message, 'Tracker failed.');
   });
 
-  test('missing complete metadata is normalized by the BT task core', () async {
+  test('missing piece length still projects basic metadata files', () async {
     final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend(
       supportsCompleteMetadata: true,
     )
@@ -166,8 +166,9 @@ void main() {
     final BtTaskMetadataOutcome outcome =
         await core.ensureMetadata(const BtTaskId(_torrentIdValue));
 
-    expect(outcome.isSuccess, isFalse);
-    expect(outcome.failure?.kind, BtTaskFailureKind.engineError);
+    expect(outcome.isSuccess, isTrue);
+    expect(outcome.metadata?.pieceLengthBytes, isNull);
+    expect(outcome.metadata?.files, hasLength(2));
   });
 
   test('libtorrent adapter declares concrete BT and priority capabilities', () {
@@ -214,6 +215,44 @@ void main() {
         isFalse,
       );
     }
+  });
+
+  test('libtorrent adapter declares composed background and virtual stream',
+      () {
+    final LibtorrentDownloadEngineAdapter adapter =
+        LibtorrentDownloadEngineAdapter(
+      backend: _FakeLibtorrentBackend(supportsCompleteMetadata: true),
+      backgroundDownloadSupported: true,
+      virtualMediaStreamSupported: true,
+    );
+
+    expect(
+      adapter.capabilities
+          .statusOf(BtStreamingCapability.longBackgroundDownload)
+          .supported,
+      isTrue,
+    );
+    expect(
+      adapter.capabilities
+          .statusOf(BtStreamingCapability.virtualMediaStream)
+          .supported,
+      isTrue,
+    );
+  });
+
+  test('libtorrent adapter exposes stream URI through shared backend',
+      () async {
+    final _FakeLibtorrentBackend backend = _FakeLibtorrentBackend();
+    final LibtorrentDownloadEngineAdapter adapter =
+        LibtorrentDownloadEngineAdapter(backend: backend);
+
+    final Uri uri = await adapter.streamUriForTaskFile(
+      const BtTaskId(_torrentIdValue),
+      const BtFileIndex(_selectedFileIndex),
+    );
+
+    expect(uri.toString(), 'http://127.0.0.1:49152/stream/1/1');
+    expect(backend.streamUriRequests.single.fileIndex, _selectedFileIndex);
   });
 
   test('libtorrent applier records accepted scheduler plan application',
@@ -336,7 +375,7 @@ void main() {
 
     expect(created.isSuccess, isTrue);
     expect(await createdEvent, isA<BtTaskCreated>());
-    expect(metadata.value?.metadata?.infoHash.value, _infoHash);
+    expect(metadata.value?.metadata?.infoHash?.value, _infoHash);
     expect(
       selected.value?.files.map((BtTaskFileProjection file) {
         return file.selectionState;
@@ -580,6 +619,9 @@ final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
   final List<({int torrentId, int fileIndex, int preloadBytes, int cacheBytes})>
       primedStreamWindows =
       <({int torrentId, int fileIndex, int preloadBytes, int cacheBytes})>[];
+  final List<({int torrentId, int fileIndex, int cacheBytes})>
+      streamUriRequests =
+      <({int torrentId, int fileIndex, int cacheBytes})>[];
   final Map<int, StreamController<LibtorrentTorrentSnapshot>>
       _controllersByTorrentId =
       <int, StreamController<LibtorrentTorrentSnapshot>>{};
@@ -656,6 +698,20 @@ final class _FakeLibtorrentBackend implements LibtorrentEngineBackend {
       preloadBytes: preloadBytes,
       cacheBytes: cacheBytes,
     ));
+  }
+
+  @override
+  Future<Uri> streamUriFor({
+    required int torrentId,
+    required int fileIndex,
+    required int cacheBytes,
+  }) async {
+    streamUriRequests.add((
+      torrentId: torrentId,
+      fileIndex: fileIndex,
+      cacheBytes: cacheBytes,
+    ));
+    return Uri.parse('http://127.0.0.1:49152/stream/$torrentId/$fileIndex');
   }
 
   @override

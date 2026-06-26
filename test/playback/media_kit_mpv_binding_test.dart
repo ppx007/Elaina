@@ -125,13 +125,44 @@ void main() {
     expect(binding.isDisposed, isTrue);
   });
 
-  test('concrete binding rejects non-local sources without backend delegation',
+  test('concrete binding maps HTTP sources to backend URI open', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+    final Uri uri = Uri.parse('https://example.invalid/video.mkv');
+
+    final PlaybackCommandResult result =
+        await binding.load(HttpPlaybackSource(uri: uri));
+
+    expect(result.isSuccess, isTrue);
+    expect(backend.openedUri, uri);
+    expect(backend.operations, <PlaybackOperation>[PlaybackOperation.load]);
+  });
+
+  test('concrete binding maps virtual stream sources to backend URI open',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+    final Uri uri = Uri.parse('http://127.0.0.1:49152/stream/1/0');
+
+    final PlaybackCommandResult result = await binding.load(
+      VirtualStreamPlaybackSource.fromValues(
+        streamId: 'stream-1',
+        contentUri: uri,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(backend.openedUri, uri);
+    expect(backend.operations, <PlaybackOperation>[PlaybackOperation.load]);
+  });
+
+  test('concrete binding rejects unsupported sources without backend delegation',
       () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
     final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
 
     final PlaybackCommandResult result = await binding.load(
-      HttpPlaybackSource(uri: Uri.parse('https://example.invalid/video.mkv')),
+      HlsPlaybackSource(uri: Uri.parse('https://example.invalid/video.m3u8')),
     );
 
     expect(result.isSuccess, isFalse);
@@ -574,7 +605,7 @@ void main() {
     expect(backend.commandCalls, isEmpty);
   });
 
-  test('local file capability matrix declares only verified operations', () {
+  test('media-kit capability matrix declares verified operations', () {
     final PlaybackCapabilityMatrix matrix =
         mediaKitLocalFilePlaybackCapabilities();
 
@@ -583,7 +614,7 @@ void main() {
     expect(matrix.supports(PlaybackCapability.seek), isTrue);
     expect(matrix.supports(PlaybackCapability.stop), isTrue);
     expect(matrix.supports(PlaybackCapability.progressReporting), isTrue);
-    expect(matrix.supports(PlaybackCapability.httpPlayback), isFalse);
+    expect(matrix.supports(PlaybackCapability.httpPlayback), isTrue);
     expect(matrix.supports(PlaybackCapability.hlsPlayback), isFalse);
     expect(matrix.supports(PlaybackCapability.audioTrackDiscovery), isTrue);
     expect(matrix.supports(PlaybackCapability.audioTrackSwitching), isTrue);
@@ -824,6 +855,15 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   @override
   Future<void> openLocalFile(Uri uri) async {
+    _record(PlaybackOperation.load);
+    openedUri = uri;
+  }
+
+  @override
+  Future<void> openUri(
+    Uri uri, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
     _record(PlaybackOperation.load);
     openedUri = uri;
   }

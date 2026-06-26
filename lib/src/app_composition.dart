@@ -37,6 +37,8 @@ import 'provider/provider_result.dart';
 import 'provider/rss/rss_feed_fetcher_parser.dart';
 import 'streaming/bt_task_core_runtime.dart';
 import 'streaming/libtorrent_download_engine_adapter.dart';
+import 'streaming/piece_priority_scheduler_runtime.dart';
+import 'streaming/virtual_media_stream_runtime.dart';
 import 'ui/detail/video_detail_page_contract.dart';
 
 const String _bangumiMirrorApiUrlFieldName = 'Bangumi API mirror URL';
@@ -66,7 +68,8 @@ final class PeriodicFeedScheduler implements FeedScheduler {
   }
 }
 
-final class HttpRssTorrentUrlResolver implements RssTorrentUrlResolver {
+final class HttpRssTorrentUrlResolver
+    implements RssTorrentUrlResolver, DownloadTorrentUrlResolver {
   HttpRssTorrentUrlResolver({
     HttpClient? httpClient,
     Directory? cacheDirectory,
@@ -128,6 +131,17 @@ final class HttpRssTorrentUrlResolver implements RssTorrentUrlResolver {
         'RSS torrent 下载失败：$error',
       );
     }
+  }
+
+  @override
+  Future<DownloadTorrentUrlResolution> resolveTorrentUrl(Uri torrentUri) async {
+    final RssTorrentUrlResolution resolution = await resolve(torrentUri);
+    if (resolution.isSuccess && resolution.fileUri != null) {
+      return DownloadTorrentUrlResolution.success(resolution.fileUri!);
+    }
+    return DownloadTorrentUrlResolution.failure(
+      resolution.failureMessage ?? '远程 torrent 文件解析失败。',
+    );
   }
 
   String _torrentCacheKey(Uri uri) {
@@ -275,15 +289,50 @@ class AppComposition {
       controller: videoDetailBootstrap.controller,
     );
 
+    rssTorrentUrlResolver = HttpRssTorrentUrlResolver();
+
     // 6. BT Task Core Runtime
-    final btTaskComposition = libtorrentBtTaskRuntimeComposition(
+    libtorrentDownloadAdapter = LibtorrentDownloadEngineAdapter(
+      metadataFetchingSupported: true,
+      backgroundDownloadSupported: true,
+      virtualMediaStreamSupported: true,
+    );
+    final btTaskComposition = BtTaskRuntimeCompositionContract(
+      adapter: libtorrentDownloadAdapter,
       store: foundation.storage.btTask,
       cacheInvalidationBus: foundation.invalidationBus,
     );
     btTaskCoreRuntime = BtTaskCoreBootstrap.withComposition(
       composition: btTaskComposition,
     ).runtime;
-    downloadRuntime = DownloadRuntimeAdapter(btTaskCoreRuntime);
+    virtualMediaStreamRuntime = VirtualMediaStreamRuntime.withDependencies(
+      btTaskStore: foundation.storage.btTask,
+      streamStore: foundation.storage.virtualMediaStream,
+      cacheInvalidationBus: foundation.invalidationBus,
+      contentUriResolver: ({
+        required streamId,
+        required taskId,
+        required fileIndex,
+        required file,
+      }) {
+        return libtorrentDownloadAdapter.streamUriForTaskFile(
+          taskId,
+          fileIndex,
+        );
+      },
+    );
+    piecePrioritySchedulerRuntime = libtorrentPiecePrioritySchedulerRuntime(
+      btTaskStore: foundation.storage.btTask,
+      streamStore: foundation.storage.virtualMediaStream,
+      schedulerStore: foundation.storage.piecePriorityScheduler,
+      cacheInvalidationBus: foundation.invalidationBus,
+      adapter: libtorrentDownloadAdapter,
+    );
+    downloadRuntime = DownloadRuntimeAdapter(
+      btTaskCoreRuntime,
+      virtualStreamRuntime: virtualMediaStreamRuntime,
+      torrentUrlResolver: rssTorrentUrlResolver,
+    );
 
     // 7. RSS Engine Runtime
     final transport = HttpFeedHttpTransport();
@@ -293,8 +342,6 @@ class AppComposition {
     );
     const parser = AutoXmlFeedParser();
     const scheduler = PeriodicFeedScheduler();
-    rssTorrentUrlResolver = HttpRssTorrentUrlResolver();
-
     rssEngineRuntime = RssEngineBootstrap(
       store: foundation.storage.rssFeed,
       fetcher: fetcher,
@@ -354,7 +401,10 @@ class AppComposition {
   late final VideoDetailBootstrap videoDetailBootstrap;
   late final VideoDetailPageContract videoDetailPageContract;
   late final RssEngineRuntime rssEngineRuntime;
+  late final LibtorrentDownloadEngineAdapter libtorrentDownloadAdapter;
   late final BtTaskCoreRuntime btTaskCoreRuntime;
+  late final VirtualMediaStreamRuntime virtualMediaStreamRuntime;
+  late final PiecePrioritySchedulerRuntime piecePrioritySchedulerRuntime;
   late final DownloadRuntime downloadRuntime;
   late final HttpRssTorrentUrlResolver rssTorrentUrlResolver;
   late final SettingsRuntime settingsRuntime;
@@ -389,6 +439,8 @@ class AppComposition {
   void dispose() {
     rssTorrentUrlResolver.dispose();
     downloadRuntime.dispose();
+    virtualMediaStreamRuntime.dispose();
+    piecePrioritySchedulerRuntime.dispose();
     mediaLibraryRuntime.dispose();
     videoDetailBootstrap.dispose();
     bangumiProviderRuntime.dispose();

@@ -91,6 +91,8 @@ PlaybackCapability? playbackCapabilityForSource(PlaybackSource source) {
     LocalFilePlaybackSource() => PlaybackCapability.localFilePlayback,
     HttpPlaybackSource() => PlaybackCapability.httpPlayback,
     HlsPlaybackSource() => PlaybackCapability.hlsPlayback,
+    _ when source.uri.isScheme('http') || source.uri.isScheme('https') =>
+      PlaybackCapability.httpPlayback,
     _ => null,
   };
 }

@@ -265,6 +265,17 @@ final class _StaticDownloadRuntime implements DownloadRuntime {
   }
 
   @override
+  Future<DownloadPlaybackPrepareResult> preparePlayback(
+    DownloadTaskId taskId,
+    DownloadFileIndex fileIndex,
+  ) async {
+    return const DownloadPlaybackPrepareResult.failure(
+      kind: DownloadPlaybackPrepareFailureKind.capabilityUnsupported,
+      message: 'Playback preparation is not configured in this fake.',
+    );
+  }
+
+  @override
   void dispose() {}
 }
 

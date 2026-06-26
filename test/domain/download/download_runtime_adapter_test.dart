@@ -8,14 +8,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DownloadRuntimeAdapter', () {
-    test('rejects HTTP torrent URLs without creating a task', () async {
+    test('resolves HTTP torrent URLs before creating a task', () async {
       final _DownloadHarness harness = _DownloadHarness();
 
       final DownloadCreateResult result = await harness.downloadRuntime
           .createTaskFromUri('https://example.com/anime.torrent');
 
+      expect(result.isSuccess, isTrue);
+      expect(
+        harness.adapter.createdRequests.single.source,
+        isA<TorrentDataBtTaskSource>(),
+      );
+      expect(harness.torrentResolver.requestedUris.single.toString(),
+          'https://example.com/anime.torrent');
+      await harness.close();
+    });
+
+    test('remote torrent resolution failure is reported without task creation',
+        () async {
+      final _DownloadHarness harness = _DownloadHarness(
+        torrentResolver: _FakeDownloadTorrentResolver.failure('cache failed'),
+      );
+
+      final DownloadCreateResult result = await harness.downloadRuntime
+          .createTaskFromUri('https://example.com/anime.torrent');
+
       expect(result.isSuccess, isFalse);
-      expect(result.failureMessage, contains('magnet'));
+      expect(result.failureMessage, contains('cache failed'));
       expect(harness.adapter.createdRequests, isEmpty);
       await harness.close();
     });
@@ -201,6 +220,55 @@ void main() {
       expect(capabilities.canCreateTasks, isTrue);
       await harness.close();
     });
+
+    test('prepares selected streamable file playback through virtual runtime',
+        () async {
+      final _DownloadHarness harness = _DownloadHarness();
+      final DownloadCreateResult created = await harness.downloadRuntime
+          .createTaskFromUri('magnet:?xt=urn:btih:playback');
+
+      final DownloadPlaybackPrepareResult result =
+          await harness.downloadRuntime.preparePlayback(
+        created.task!.taskId,
+        const DownloadFileIndex(1),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.source?.uri.toString(),
+          'http://127.0.0.1:49152/stream/task-1/1');
+      await harness.close();
+    });
+
+    test('rejects playback preparation when virtual stream is unsupported',
+        () async {
+      final _DownloadHarness harness = _DownloadHarness(
+        capabilities: const BtCapabilityMatrix(
+          capabilities: <BtStreamingCapability, BtCapabilityStatus>{
+            BtStreamingCapability.taskManagement:
+                BtCapabilityStatus.supported(),
+            BtStreamingCapability.metadataFetching:
+                BtCapabilityStatus.supported(),
+            BtStreamingCapability.longBackgroundDownload:
+                BtCapabilityStatus.supported(),
+            BtStreamingCapability.virtualMediaStream:
+                BtCapabilityStatus.unsupported('Virtual stream unavailable.'),
+          },
+        ),
+      );
+      final DownloadCreateResult created = await harness.downloadRuntime
+          .createTaskFromUri('magnet:?xt=urn:btih:no-stream');
+
+      final DownloadPlaybackPrepareResult result =
+          await harness.downloadRuntime.preparePlayback(
+        created.task!.taskId,
+        const DownloadFileIndex(1),
+      );
+
+      expect(result.isSuccess, isFalse);
+      expect(result.failureKind,
+          DownloadPlaybackPrepareFailureKind.capabilityUnsupported);
+      await harness.close();
+    });
   });
 }
 
@@ -233,19 +301,42 @@ final class _DownloadHarness {
   _DownloadHarness({
     BtCapabilityMatrix? capabilities,
     DeterministicBtTaskStore? store,
+    _FakeDownloadTorrentResolver? torrentResolver,
     Iterable<StoredBtTaskRecord> seedTasks = const <StoredBtTaskRecord>[],
   })  : adapter = _FakeDownloadEngineAdapter(capabilities: capabilities),
-        store = store ?? DeterministicBtTaskStore(seedTasks: seedTasks) {
+        store = store ?? DeterministicBtTaskStore(seedTasks: seedTasks),
+        torrentResolver =
+            torrentResolver ?? _FakeDownloadTorrentResolver.success() {
     btRuntime = BtTaskCoreRuntime.withDependencies(
       adapter: adapter,
       store: this.store,
     );
-    downloadRuntime = DownloadRuntimeAdapter(btRuntime);
+    virtualStreamRuntime = VirtualMediaStreamRuntime.withDependencies(
+      btTaskStore: this.store,
+      streamStore: virtualStreamStore,
+      contentUriResolver: ({
+        required streamId,
+        required taskId,
+        required fileIndex,
+        required file,
+      }) =>
+          Uri.parse(
+              'http://127.0.0.1:49152/stream/${taskId.value}/${fileIndex.value}'),
+    );
+    downloadRuntime = DownloadRuntimeAdapter(
+      btRuntime,
+      virtualStreamRuntime: virtualStreamRuntime,
+      torrentUrlResolver: this.torrentResolver,
+    );
   }
 
   final _FakeDownloadEngineAdapter adapter;
   final DeterministicBtTaskStore store;
+  final DeterministicVirtualMediaStreamStore virtualStreamStore =
+      DeterministicVirtualMediaStreamStore();
+  final _FakeDownloadTorrentResolver torrentResolver;
   late final BtTaskCoreRuntime btRuntime;
+  late final VirtualMediaStreamRuntime virtualStreamRuntime;
   late final DownloadRuntimeAdapter downloadRuntime;
 
   Future<void> close() async {
@@ -292,6 +383,7 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
           lengthBytes: 1024,
           offsetBytes: 0,
           selectionState: BtFileSelectionState.skipped,
+          isStreamable: true,
           mediaMimeType: 'video/x-matroska',
         ),
         BtTaskFile(
@@ -300,6 +392,7 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
           lengthBytes: 2048,
           offsetBytes: 1024,
           selectionState: BtFileSelectionState.skipped,
+          isStreamable: true,
           mediaMimeType: 'video/x-matroska',
         ),
       ],
@@ -329,6 +422,30 @@ final class _FakeDownloadEngineAdapter implements DownloadEngineAdapter {
 
   @override
   Stream<BtTaskStatus> watchStatus(BtTaskId taskId) => const Stream.empty();
+}
+
+final class _FakeDownloadTorrentResolver implements DownloadTorrentUrlResolver {
+  _FakeDownloadTorrentResolver.success()
+      : _failureMessage = null,
+        resolvedUri = Uri.parse('file:///tmp/resolved.torrent');
+
+  _FakeDownloadTorrentResolver.failure(String message)
+      : _failureMessage = message,
+        resolvedUri = null;
+
+  final Uri? resolvedUri;
+  final String? _failureMessage;
+  final List<Uri> requestedUris = <Uri>[];
+
+  @override
+  Future<DownloadTorrentUrlResolution> resolveTorrentUrl(Uri torrentUri) async {
+    requestedUris.add(torrentUri);
+    final Uri? uri = resolvedUri;
+    if (uri == null) {
+      return DownloadTorrentUrlResolution.failure(_failureMessage!);
+    }
+    return DownloadTorrentUrlResolution.success(uri);
+  }
 }
 
 StoredBtTaskRecord _storedTask(

@@ -281,6 +281,19 @@ final class _SmokeLibtorrentBackend implements LibtorrentEngineBackend {
   }) async {}
 
   @override
+  Future<Uri> streamUriFor({
+    required int torrentId,
+    required int fileIndex,
+    required int cacheBytes,
+  }) async {
+    final Uri? mediaFileUri = _mediaFileUri;
+    if (mediaFileUri == null) {
+      throw StateError('BT smoke media file URI has not been seeded.');
+    }
+    return mediaFileUri;
+  }
+
+  @override
   Future<LibtorrentTorrentSnapshot?> torrentById(int torrentId) {
     return Future<LibtorrentTorrentSnapshot?>.value(
       snapshotsByTorrentId[torrentId],
