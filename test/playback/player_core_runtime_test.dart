@@ -99,6 +99,38 @@ void main() {
     await runtime.dispose();
   });
 
+  test('runtime capability matrix follows latest probe snapshot', () async {
+    final _MutableCapabilityProbeSource probe = _MutableCapabilityProbeSource(
+      _matrix(<PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.playPause:
+            const CapabilityStatus.unsupported('probe says no playback'),
+      }),
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: DeterministicMpvBinding(),
+      capabilities: mediaKitLocalFilePlaybackCapabilities(),
+      capabilityProbeSource: probe,
+    );
+
+    expect(
+      runtime.controller.matrix.supports(PlaybackCapability.playPause),
+      isFalse,
+    );
+    expect((await runtime.controller.play()).isSuccess, isFalse);
+
+    probe.matrix = _matrix(<PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.playPause: const CapabilityStatus.supported(),
+    });
+
+    expect(
+      runtime.controller.matrix.supports(PlaybackCapability.playPause),
+      isTrue,
+    );
+    expect((await runtime.controller.play()).isSuccess, isTrue);
+
+    await runtime.dispose();
+  });
+
   test('runtime publishes immutable playback state snapshots', () async {
     final DeterministicMpvBinding binding =
         DeterministicMpvBinding(tracks: _tracks);
@@ -180,7 +212,8 @@ void main() {
     expect(runtime.currentState.timeline.position, const Duration(seconds: 36));
     expect(runtime.currentState.timeline.observedAt, _laterTelemetryObservedAt);
     expect(
-      observer.snapshots.map((PlaybackStateSnapshot snapshot) => snapshot.status),
+      observer.snapshots
+          .map((PlaybackStateSnapshot snapshot) => snapshot.status),
       contains(PlaybackLifecycleStatus.playing),
     );
 
@@ -376,14 +409,10 @@ void main() {
           uri: Uri.parse('https://example.invalid/playlist.m3u8')),
     );
 
-    expect(unsupportedSourceResult.isSuccess, isFalse);
-    expect(
-      unsupportedSourceResult.failure?.kind,
-      PlaybackFailureKind.unsupported,
-    );
-    expect(binding.operations, isEmpty);
-    expect(runtime.currentState.status, PlaybackLifecycleStatus.failed);
-    expect(runtime.currentState.failureReason, isNotEmpty);
+    expect(unsupportedSourceResult.isSuccess, isTrue);
+    expect(binding.operations, <PlaybackOperation>[PlaybackOperation.load]);
+    expect(runtime.currentState.status, PlaybackLifecycleStatus.paused);
+    expect(runtime.currentState.failureReason, isNull);
     expect(
       observer.snapshots.last.failureReason,
       unsupportedSourceResult.failure?.message,
@@ -414,6 +443,29 @@ PlaybackCapabilityMatrix _fullPlayerCoreMatrix() {
       PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
     },
   );
+}
+
+PlaybackCapabilityMatrix _matrix(
+  Map<PlaybackCapability, CapabilityStatus> capabilities,
+) {
+  return PlaybackCapabilityMatrix(capabilities: capabilities);
+}
+
+final class _MutableCapabilityProbeSource
+    implements PlaybackCapabilityProbeSource {
+  _MutableCapabilityProbeSource(this.matrix);
+
+  PlaybackCapabilityMatrix matrix;
+
+  @override
+  PlaybackCapabilityProbeSnapshot get currentCapabilityProbe {
+    return PlaybackCapabilityProbeSnapshot(
+      capabilities: matrix,
+      checkedAt: DateTime.utc(2026, 6, 27, 12),
+      source: 'test-probe',
+      backendLabel: 'test-backend',
+    );
+  }
 }
 
 const List<MediaTrackDescriptor> _tracks = <MediaTrackDescriptor>[

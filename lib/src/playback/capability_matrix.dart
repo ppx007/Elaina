@@ -111,6 +111,28 @@ final class PlaybackCapabilityMatrix {
   }
 }
 
+final class PlaybackCapabilityProbeSnapshot {
+  PlaybackCapabilityProbeSnapshot({
+    required this.capabilities,
+    required this.checkedAt,
+    required this.source,
+    required this.backendLabel,
+    this.cached = false,
+    Map<String, String> details = const <String, String>{},
+  }) : details = Map<String, String>.unmodifiable(details);
+
+  final PlaybackCapabilityMatrix capabilities;
+  final DateTime checkedAt;
+  final String source;
+  final String backendLabel;
+  final bool cached;
+  final Map<String, String> details;
+}
+
+abstract interface class PlaybackCapabilityProbeSource {
+  PlaybackCapabilityProbeSnapshot get currentCapabilityProbe;
+}
+
 final class FallbackAdapterCapabilityStatus {
   FallbackAdapterCapabilityStatus({
     required this.fallbackAdapter,

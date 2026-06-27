@@ -81,6 +81,20 @@ void main() {
           ),
         ),
       ),
+      backendProbeRuntime: _FakeBackendProbeRuntime(
+        playback: PlaybackCapabilityProbeSnapshot(
+          capabilities: PlaybackCapabilityMatrix(
+            capabilities: const <PlaybackCapability, CapabilityStatus>{
+              PlaybackCapability.playPause: CapabilityStatus.supported(),
+              PlaybackCapability.audioTrackDiscovery:
+                  CapabilityStatus.unsupported('No native track probe.'),
+            },
+          ),
+          checkedAt: DateTime.utc(2026, 6, 27, 10),
+          source: 'unit-probe',
+          backendLabel: 'unit-backend',
+        ),
+      ),
     );
 
     final DiagnosticsWorkbenchSnapshot snapshot = await workbench.snapshot();
@@ -95,6 +109,14 @@ void main() {
               entry.id == PlaybackCapability.audioTrackDiscovery.name)
           .reason,
       'No native track probe.',
+    );
+    expect(snapshot.playback!.backendLabel, 'unit-backend');
+    expect(
+      snapshot.playback!.capabilities
+          .singleWhere((DiagnosticsCapabilityEntry entry) =>
+              entry.id == PlaybackCapability.audioTrackDiscovery.name)
+          .source,
+      'unit-probe',
     );
     expect(snapshot.providerNetwork!.bangumiTokenConfigured, isTrue);
     expect(snapshot.providerNetwork!.bangumiMirrorEnabled, isTrue);
@@ -121,12 +143,48 @@ void main() {
       DiagnosticsModuleHealth.failed,
     );
   });
+
+  test('backend probe caches network checks inside ttl', () async {
+    DateTime now = DateTime.utc(2026, 6, 27, 12);
+    int providerChecks = 0;
+    final DefaultDiagnosticsBackendProbeRuntime probe =
+        DefaultDiagnosticsBackendProbeRuntime(
+      playbackProbeSource: null,
+      downloadRuntime: _StaticDownloadRuntime(),
+      rssEngineRuntime: RssEngineRuntime(
+        engine: _QuietRssEngine(),
+        store: DeterministicRssFeedStore(),
+        scheduler: const _QuietFeedScheduler(),
+      ),
+      mediaLibraryRuntime: _mediaLibraryRuntime(),
+      settingsRuntime: FakeSettingsRuntime(),
+      providerNetworkCheck: () async {
+        providerChecks += 1;
+        return const DiagnosticsProbeCheckResult.supported(
+          message: 'provider ok',
+        );
+      },
+      networkTtl: const Duration(seconds: 60),
+      now: () => now,
+    );
+
+    final DiagnosticsBackendProbeSnapshot first = await probe.probe();
+    final DiagnosticsBackendProbeSnapshot second = await probe.probe();
+    now = now.add(const Duration(seconds: 61));
+    final DiagnosticsBackendProbeSnapshot third = await probe.probe();
+
+    expect(providerChecks, 2);
+    expect(first.providerNetwork.cached, isFalse);
+    expect(second.providerNetwork.cached, isTrue);
+    expect(third.providerNetwork.cached, isFalse);
+  });
 }
 
 DefaultDiagnosticsWorkbenchRuntime _workbench({
   SettingsRuntime? settingsRuntime,
   PlaybackControllerContract? playbackController,
   DownloadRuntime? downloadRuntime,
+  DiagnosticsBackendProbeRuntime? backendProbeRuntime,
 }) {
   return DefaultDiagnosticsWorkbenchRuntime(
     diagnosticsRuntime: _StaticDiagnosticsRuntime(),
@@ -146,6 +204,7 @@ DefaultDiagnosticsWorkbenchRuntime _workbench({
     ),
     mediaLibraryRuntime: _mediaLibraryRuntime(),
     settingsRuntime: settingsRuntime ?? FakeSettingsRuntime(),
+    backendProbeRuntime: backendProbeRuntime,
   );
 }
 
@@ -277,6 +336,35 @@ final class _StaticDownloadRuntime implements DownloadRuntime {
 
   @override
   void dispose() {}
+}
+
+final class _FakeBackendProbeRuntime implements DiagnosticsBackendProbeRuntime {
+  _FakeBackendProbeRuntime({this.playback});
+
+  final PlaybackCapabilityProbeSnapshot? playback;
+
+  @override
+  Future<DiagnosticsBackendProbeSnapshot> probe() async {
+    final DateTime checkedAt = DateTime.utc(2026, 6, 27, 10);
+    DiagnosticsBackendProbeModuleSnapshot module(String id, String label) {
+      return DiagnosticsBackendProbeModuleSnapshot(
+        id: id,
+        label: label,
+        supported: true,
+        message: '$label ok',
+        checkedAt: checkedAt,
+        source: 'unit-probe',
+      );
+    }
+
+    return DiagnosticsBackendProbeSnapshot(
+      playback: playback,
+      downloads: module(diagnosticsModuleDownloads, 'downloads'),
+      rss: module(diagnosticsModuleRss, 'rss'),
+      mediaLibrary: module(diagnosticsModuleMediaLibrary, 'media'),
+      providerNetwork: module(diagnosticsModuleProviderNetwork, 'provider'),
+    );
+  }
 }
 
 final class _QuietRssEngine implements RssEngineContract {

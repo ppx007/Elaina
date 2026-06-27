@@ -18,6 +18,24 @@ typedef MediaKitMpvBackendFactory = MediaKitMpvBackend Function();
 
 const String windowsLibMpvFileName = 'libmpv-2.dll';
 const String elainaLibMpvPathEnvironmentKey = 'CELESTERIA_LIBMPV_PATH';
+const String mediaKitMpvProbeSource = 'media-kit-mpv-probe';
+const String mediaKitMpvBackendLabel = 'media-kit/libmpv';
+const String mediaKitMpvNativeBackendReason =
+    'Native MPV command/property access is unavailable.';
+const String mediaKitMpvUriPlaybackReason =
+    'URI playback is unavailable from the current media-kit backend.';
+const String mediaKitMpvTrackApiReason =
+    'media-kit track discovery/switching API is unavailable.';
+const String mediaKitMpvTelemetryReason =
+    'media-kit telemetry streams are unavailable.';
+const String mediaKitMpvMatrixDanmakuReason =
+    'Matrix danmaku has no implemented renderer backend.';
+const String mediaKitMpvAvSyncGuardReason =
+    'No real audio/video clock sampler is wired for this backend.';
+const String mediaKitMpvFallbackReason =
+    'No secondary playback backend is wired in this runtime.';
+const String mediaKitMpvAnime4kShaderReason =
+    'Anime4K requires an accessible MPV shader file.';
 const String mpvEnhancementScaleProperty = 'scale';
 const String mpvEnhancementChromaScaleProperty = 'cscale';
 const String mpvEnhancementToneMappingProperty = 'tone-mapping';
@@ -409,6 +427,20 @@ final class MpvEnhancementPlanner {
 abstract interface class MediaKitMpvBackend {
   Player get player;
 
+  String get backendLabel;
+
+  bool get supportsUriPlayback;
+
+  bool get supportsNativeMpvCommands;
+
+  bool get supportsTrackDiscovery;
+
+  bool get supportsTrackSwitching;
+
+  bool get supportsTelemetry;
+
+  String? get resolvedLibMpvPath;
+
   PlayerTelemetrySnapshot get currentTelemetry;
 
   Stream<PlayerTelemetrySnapshot> get telemetry;
@@ -441,19 +473,21 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
     Player? player,
     String? libmpvPath,
   }) {
+    _resolvedLibMpvPath = BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
+      explicitLibMpvPath: libmpvPath,
+    );
     if (player != null) {
       _player = player;
       return;
     }
     MediaKit.ensureInitialized(
-      libmpv: BundledMpvLibraryResolver.resolveWindowsLibMpvPath(
-        explicitLibMpvPath: libmpvPath,
-      ),
+      libmpv: _resolvedLibMpvPath,
     );
     _player = Player();
   }
 
   late final Player _player;
+  late final String? _resolvedLibMpvPath;
   final StreamController<PlayerTelemetrySnapshot> _telemetryController =
       StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
   final List<StreamSubscription<dynamic>> _telemetrySubscriptions =
@@ -465,8 +499,30 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   Player get player => _player;
 
   @override
+  String get backendLabel => mediaKitMpvBackendLabel;
+
+  @override
+  bool get supportsUriPlayback => true;
+
+  @override
+  bool get supportsNativeMpvCommands => _player.platform is NativePlayer;
+
+  @override
+  bool get supportsTrackDiscovery => true;
+
+  @override
+  bool get supportsTrackSwitching => true;
+
+  @override
+  bool get supportsTelemetry => true;
+
+  @override
+  String? get resolvedLibMpvPath => _resolvedLibMpvPath;
+
+  @override
   PlayerTelemetrySnapshot get currentTelemetry {
-    return _telemetryFromState(_player.state, failureReason: _lastFailureReason);
+    return _telemetryFromState(_player.state,
+        failureReason: _lastFailureReason);
   }
 
   @override
@@ -484,7 +540,8 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   @override
   Future<void> openUri(Uri uri, {Map<String, String> headers = const {}}) {
     _lastFailureReason = null;
-    return _player.open(Media(uri.toString(), httpHeaders: headers), play: false);
+    return _player.open(Media(uri.toString(), httpHeaders: headers),
+        play: false);
   }
 
   @override
@@ -522,7 +579,12 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   Future<TrackDiscoveryResult> discoverTracks() async {
     return TrackDiscoveryResult(
       tracks: currentTelemetry.tracks,
-      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(),
+      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(
+        supportsUriPlayback: supportsUriPlayback,
+        supportsNativeMpvCommands: supportsNativeMpvCommands,
+        supportsTrackApi: supportsTrackDiscovery && supportsTrackSwitching,
+        supportsTelemetry: supportsTelemetry,
+      ),
     );
   }
 
@@ -704,6 +766,7 @@ final class MediaKitMpvBinding
     implements
         MpvAdapterBinding,
         PlayerTelemetrySource,
+        PlaybackCapabilityProbeSource,
         MpvEnhancementBinding,
         MpvAdvancedSubtitleBinding {
   MediaKitMpvBinding({
@@ -719,6 +782,8 @@ final class MediaKitMpvBinding
         _backend = backend,
         _backendFactory = backendFactory ??
             (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath)),
+        _anime4kShaderByPreset =
+            Map<Anime4kPresetIntent, Uri>.unmodifiable(anime4kShaderByPreset),
         _enhancementPlanner = MpvEnhancementPlanner(
           anime4kShaderByPreset: anime4kShaderByPreset,
         ),
@@ -726,6 +791,7 @@ final class MediaKitMpvBinding
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
+  final Map<Anime4kPresetIntent, Uri> _anime4kShaderByPreset;
   final MpvEnhancementPlanner _enhancementPlanner;
   final MpvSubtitlePlanner _subtitlePlanner;
   bool _disposed = false;
@@ -741,17 +807,75 @@ final class MediaKitMpvBinding
   Stream<PlayerTelemetrySnapshot> get telemetry => backend.telemetry;
 
   @override
+  PlaybackCapabilityProbeSnapshot get currentCapabilityProbe {
+    final DateTime checkedAt = DateTime.now();
+    if (_disposed) {
+      return PlaybackCapabilityProbeSnapshot(
+        capabilities: PlaybackCapabilityMatrix.unsupported(
+          reason: 'MediaKit MPV binding has been disposed.',
+        ),
+        checkedAt: checkedAt,
+        source: mediaKitMpvProbeSource,
+        backendLabel: mediaKitMpvBackendLabel,
+        details: const <String, String>{'binding': 'disposed'},
+      );
+    }
+
+    try {
+      final MediaKitMpvBackend currentBackend = backend;
+      final bool trackApi = currentBackend.supportsTrackDiscovery &&
+          currentBackend.supportsTrackSwitching;
+      final bool anime4kShadersAvailable =
+          _allAnime4kShadersAreAccessible(_anime4kShaderByPreset.values);
+      return PlaybackCapabilityProbeSnapshot(
+        capabilities: mediaKitLocalFilePlaybackCapabilities(
+          supportsUriPlayback: currentBackend.supportsUriPlayback,
+          supportsNativeMpvCommands: currentBackend.supportsNativeMpvCommands,
+          supportsTrackApi: trackApi,
+          supportsTelemetry: currentBackend.supportsTelemetry,
+          anime4kShadersAvailable: anime4kShadersAvailable,
+        ),
+        checkedAt: checkedAt,
+        source: mediaKitMpvProbeSource,
+        backendLabel: currentBackend.backendLabel,
+        details: <String, String>{
+          'backend': currentBackend.backendLabel,
+          'uriPlayback': currentBackend.supportsUriPlayback.toString(),
+          'nativeMpvCommands':
+              currentBackend.supportsNativeMpvCommands.toString(),
+          'trackApi': trackApi.toString(),
+          'telemetry': currentBackend.supportsTelemetry.toString(),
+          'anime4kShadersAccessible': anime4kShadersAvailable.toString(),
+          'libmpvPath': currentBackend.resolvedLibMpvPath ?? 'default',
+        },
+      );
+    } on Object catch (error) {
+      return PlaybackCapabilityProbeSnapshot(
+        capabilities: PlaybackCapabilityMatrix.unsupported(
+          reason: 'MediaKit MPV backend probe failed: $error',
+        ),
+        checkedAt: checkedAt,
+        source: mediaKitMpvProbeSource,
+        backendLabel: mediaKitMpvBackendLabel,
+        details: <String, String>{'probeFailure': error.toString()},
+      );
+    }
+  }
+
+  @override
   Future<PlaybackCommandResult> load(PlaybackSource source) async {
     final PlaybackCommandResult? disposed =
         _rejectIfDisposed(PlaybackOperation.load);
     if (disposed != null) return disposed;
     if (source is! LocalFilePlaybackSource &&
         source is! HttpPlaybackSource &&
+        source is! HlsPlaybackSource &&
         source is! VirtualStreamPlaybackSource) {
       return _failure(
         operation: PlaybackOperation.load,
         kind: PlaybackFailureKind.unsupported,
-        message: 'MediaKit MPV binding supports local, HTTP, and virtual stream playback only.',
+        message:
+            'MediaKit MPV binding supports local, HTTP, HLS, and virtual stream playback only.',
       );
     }
 
@@ -1159,31 +1283,68 @@ final class BundledMpvLibraryResolver {
 }
 
 PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
+  bool supportsUriPlayback = true,
+  bool supportsNativeMpvCommands = true,
+  bool supportsTrackApi = true,
+  bool supportsTelemetry = true,
   bool anime4kShadersAvailable = false,
 }) {
+  final CapabilityStatus uriPlayback = supportsUriPlayback
+      ? const CapabilityStatus.supported()
+      : const CapabilityStatus.unsupported(mediaKitMpvUriPlaybackReason);
+  final CapabilityStatus nativeCommands = supportsNativeMpvCommands
+      ? const CapabilityStatus.supported()
+      : const CapabilityStatus.unsupported(mediaKitMpvNativeBackendReason);
+  final CapabilityStatus trackApi = supportsTrackApi
+      ? const CapabilityStatus.supported()
+      : const CapabilityStatus.unsupported(mediaKitMpvTrackApiReason);
+  final CapabilityStatus telemetry = supportsTelemetry
+      ? const CapabilityStatus.supported()
+      : const CapabilityStatus.unsupported(mediaKitMpvTelemetryReason);
+  final CapabilityStatus anime4k =
+      supportsNativeMpvCommands && anime4kShadersAvailable
+          ? const CapabilityStatus.supported()
+          : const CapabilityStatus.unsupported(mediaKitMpvAnime4kShaderReason);
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
-      PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
-      PlaybackCapability.httpPlayback: CapabilityStatus.supported(),
-      PlaybackCapability.playPause: CapabilityStatus.supported(),
-      PlaybackCapability.seek: CapabilityStatus.supported(),
-      PlaybackCapability.stop: CapabilityStatus.supported(),
-      PlaybackCapability.progressReporting: CapabilityStatus.supported(),
-      PlaybackCapability.audioTrackDiscovery: CapabilityStatus.supported(),
-      PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
-      PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
-      PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
-      PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
-      PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
-      PlaybackCapability.hdrToneMapping: CapabilityStatus.supported(),
-      PlaybackCapability.debandFiltering: CapabilityStatus.supported(),
-      PlaybackCapability.dualSubtitles: CapabilityStatus.supported(),
-      PlaybackCapability.pgsSubtitleRendering: CapabilityStatus.supported(),
-      PlaybackCapability.assSubtitleEnhancement: CapabilityStatus.supported(),
-      if (anime4kShadersAvailable)
-        PlaybackCapability.anime4kPreset: CapabilityStatus.supported(),
+      PlaybackCapability.localFilePlayback: uriPlayback,
+      PlaybackCapability.httpPlayback: uriPlayback,
+      PlaybackCapability.hlsPlayback: uriPlayback,
+      PlaybackCapability.playPause: uriPlayback,
+      PlaybackCapability.seek: uriPlayback,
+      PlaybackCapability.stop: uriPlayback,
+      PlaybackCapability.progressReporting: telemetry,
+      PlaybackCapability.audioTrackDiscovery: trackApi,
+      PlaybackCapability.audioTrackSwitching: trackApi,
+      PlaybackCapability.subtitleTrackDiscovery: trackApi,
+      PlaybackCapability.subtitleTrackSwitching: trackApi,
+      PlaybackCapability.danmakuRendering: const CapabilityStatus.supported(),
+      PlaybackCapability.secondaryPanels: const CapabilityStatus.supported(),
+      PlaybackCapability.videoEnhancement: nativeCommands,
+      PlaybackCapability.hdrToneMapping: nativeCommands,
+      PlaybackCapability.debandFiltering: nativeCommands,
+      PlaybackCapability.anime4kPreset: anime4k,
+      PlaybackCapability.avSyncGuard:
+          const CapabilityStatus.unsupported(mediaKitMpvAvSyncGuardReason),
+      PlaybackCapability.matrixDanmaku:
+          const CapabilityStatus.unsupported(mediaKitMpvMatrixDanmakuReason),
+      PlaybackCapability.dualSubtitles: nativeCommands,
+      PlaybackCapability.pgsSubtitleRendering: nativeCommands,
+      PlaybackCapability.assSubtitleEnhancement: nativeCommands,
+      PlaybackCapability.fallbackAdapter:
+          const CapabilityStatus.unsupported(mediaKitMpvFallbackReason),
     },
   );
+}
+
+bool _allAnime4kShadersAreAccessible(Iterable<Uri> shaders) {
+  final List<Uri> shaderList = List<Uri>.of(shaders);
+  if (shaderList.isEmpty) return false;
+  for (final Uri shader in shaderList) {
+    if (shader.scheme != 'file') return false;
+    if (!File(shader.toFilePath()).existsSync()) return false;
+  }
+  return true;
 }
 
 /// Creates the concrete Playback-side inputs needed by app composition roots.
@@ -1207,9 +1368,8 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
   );
   return PlayerRuntimeCompositionContract(
     binding: binding,
-    capabilities: mediaKitLocalFilePlaybackCapabilities(
-      anime4kShadersAvailable: anime4kShaderByPreset.isNotEmpty,
-    ),
+    capabilities: binding.currentCapabilityProbe.capabilities,
     telemetrySource: binding,
+    capabilityProbeSource: binding,
   );
 }

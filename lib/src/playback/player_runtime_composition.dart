@@ -11,9 +11,11 @@ final class PlayerRuntimeCompositionContract {
     required this.binding,
     required this.capabilities,
     this.telemetrySource,
+    this.capabilityProbeSource,
   });
 
   final MpvAdapterBinding binding;
   final PlaybackCapabilityMatrix capabilities;
   final PlayerTelemetrySource? telemetrySource;
+  final PlaybackCapabilityProbeSource? capabilityProbeSource;
 }

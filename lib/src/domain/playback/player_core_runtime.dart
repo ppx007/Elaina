@@ -23,11 +23,13 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     Object? foundationDependency,
     PlayerClock? clock,
     PlayerTelemetrySource? telemetrySource,
+    PlaybackCapabilityProbeSource? capabilityProbeSource,
     DateTime Function()? now,
   })  : _activeAdapter = activeAdapter,
         _foundationDependency = foundationDependency,
         _clock = clock ?? DeterministicPlayerClock(),
         _telemetrySource = telemetrySource,
+        _capabilityProbeSource = capabilityProbeSource,
         _now = now ?? DateTime.now {
     _controller = _RuntimePlaybackController(this);
     final PlayerTelemetrySource? source = _telemetrySource;
@@ -54,6 +56,7 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     PlaybackCapabilityMatrix? capabilities,
     Object? foundationDependency,
     PlayerTelemetrySource? telemetrySource,
+    PlaybackCapabilityProbeSource? capabilityProbeSource,
     DateTime Function()? now,
   }) {
     return PlayerCoreRuntime(
@@ -63,6 +66,7 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
       ),
       foundationDependency: foundationDependency,
       telemetrySource: telemetrySource,
+      capabilityProbeSource: capabilityProbeSource,
       now: now,
     );
   }
@@ -71,6 +75,7 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
   final Object? _foundationDependency;
   final PlayerClock _clock;
   final PlayerTelemetrySource? _telemetrySource;
+  final PlaybackCapabilityProbeSource? _capabilityProbeSource;
   final DateTime Function() _now;
   StreamSubscription<PlayerTelemetrySnapshot>? _telemetrySubscription;
   late final _RuntimePlaybackController _controller;
@@ -86,7 +91,13 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
 
   PlaybackCapabilityMatrix get capabilityMatrix {
     _checkNotDisposed();
-    return _activeAdapter.capabilities;
+    return _capabilityProbeSource?.currentCapabilityProbe.capabilities ??
+        _activeAdapter.capabilities;
+  }
+
+  PlaybackCapabilityProbeSnapshot? get currentCapabilityProbe {
+    _checkNotDisposed();
+    return _capabilityProbeSource?.currentCapabilityProbe;
   }
 
   PlaybackControllerContract get controller {
@@ -147,7 +158,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   bool _closed = false;
 
   @override
-  PlaybackCapabilityMatrix get matrix => _runtime._activeAdapter.capabilities;
+  PlaybackCapabilityMatrix get matrix => _runtime.capabilityMatrix;
 
   @override
   PlaybackStateSnapshot get currentState => _currentState;

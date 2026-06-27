@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -156,13 +157,16 @@ void main() {
     expect(backend.operations, <PlaybackOperation>[PlaybackOperation.load]);
   });
 
-  test('concrete binding rejects unsupported sources without backend delegation',
+  test(
+      'concrete binding rejects unsupported sources without backend delegation',
       () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
     final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
 
     final PlaybackCommandResult result = await binding.load(
-      HlsPlaybackSource(uri: Uri.parse('https://example.invalid/video.m3u8')),
+      _UnsupportedPlaybackSource(
+        uri: Uri.parse('unsupported://example.invalid/video'),
+      ),
     );
 
     expect(result.isSuccess, isFalse);
@@ -605,32 +609,114 @@ void main() {
     expect(backend.commandCalls, isEmpty);
   });
 
-  test('media-kit capability matrix declares verified operations', () {
-    final PlaybackCapabilityMatrix matrix =
-        mediaKitLocalFilePlaybackCapabilities();
+  test('media-kit capability probe reports native backend operations', () {
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(
+      backend: _FakeMediaKitMpvBackend(),
+    );
 
+    final PlaybackCapabilityProbeSnapshot probe =
+        binding.currentCapabilityProbe;
+    final PlaybackCapabilityMatrix matrix = probe.capabilities;
+
+    expect(probe.backendLabel, 'fake-media-kit/libmpv');
     expect(matrix.supports(PlaybackCapability.localFilePlayback), isTrue);
+    expect(matrix.supports(PlaybackCapability.httpPlayback), isTrue);
+    expect(matrix.supports(PlaybackCapability.hlsPlayback), isTrue);
     expect(matrix.supports(PlaybackCapability.playPause), isTrue);
     expect(matrix.supports(PlaybackCapability.seek), isTrue);
     expect(matrix.supports(PlaybackCapability.stop), isTrue);
     expect(matrix.supports(PlaybackCapability.progressReporting), isTrue);
-    expect(matrix.supports(PlaybackCapability.httpPlayback), isTrue);
-    expect(matrix.supports(PlaybackCapability.hlsPlayback), isFalse);
     expect(matrix.supports(PlaybackCapability.audioTrackDiscovery), isTrue);
     expect(matrix.supports(PlaybackCapability.audioTrackSwitching), isTrue);
     expect(matrix.supports(PlaybackCapability.subtitleTrackDiscovery), isTrue);
     expect(matrix.supports(PlaybackCapability.subtitleTrackSwitching), isTrue);
-    expect(matrix.supports(PlaybackCapability.secondaryPanels), isTrue);
     expect(matrix.supports(PlaybackCapability.videoEnhancement), isTrue);
     expect(matrix.supports(PlaybackCapability.hdrToneMapping), isTrue);
     expect(matrix.supports(PlaybackCapability.debandFiltering), isTrue);
-    expect(matrix.supports(PlaybackCapability.anime4kPreset), isFalse);
     expect(matrix.supports(PlaybackCapability.dualSubtitles), isTrue);
     expect(matrix.supports(PlaybackCapability.pgsSubtitleRendering), isTrue);
     expect(matrix.supports(PlaybackCapability.assSubtitleEnhancement), isTrue);
     expect(matrix.supports(PlaybackCapability.matrixDanmaku), isFalse);
+    expect(matrix.supports(PlaybackCapability.avSyncGuard), isFalse);
+    expect(matrix.supports(PlaybackCapability.fallbackAdapter), isFalse);
+  });
+
+  test(
+      'media-kit capability probe rejects native MPV features without native backend',
+      () {
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(
+      backend: _FakeMediaKitMpvBackend(supportsNativeMpvCommands: false),
+    );
+
+    final PlaybackCapabilityMatrix matrix =
+        binding.currentCapabilityProbe.capabilities;
+
+    expect(matrix.supports(PlaybackCapability.videoEnhancement), isFalse);
+    expect(matrix.supports(PlaybackCapability.hdrToneMapping), isFalse);
+    expect(matrix.supports(PlaybackCapability.debandFiltering), isFalse);
+    expect(matrix.supports(PlaybackCapability.dualSubtitles), isFalse);
+    expect(matrix.supports(PlaybackCapability.pgsSubtitleRendering), isFalse);
+    expect(matrix.supports(PlaybackCapability.assSubtitleEnhancement), isFalse);
     expect(
-      mediaKitLocalFilePlaybackCapabilities(anime4kShadersAvailable: true)
+      matrix.statusOf(PlaybackCapability.videoEnhancement).reason,
+      mediaKitMpvNativeBackendReason,
+    );
+  });
+
+  test('media-kit capability probe reflects URI track telemetry failures', () {
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(
+      backend: _FakeMediaKitMpvBackend(
+        supportsUriPlayback: false,
+        supportsTrackDiscovery: false,
+        supportsTrackSwitching: false,
+        supportsTelemetry: false,
+        resolvedLibMpvPath: r'C:\app\libmpv-2.dll',
+      ),
+    );
+
+    final PlaybackCapabilityProbeSnapshot probe =
+        binding.currentCapabilityProbe;
+    final PlaybackCapabilityMatrix matrix = probe.capabilities;
+
+    expect(matrix.supports(PlaybackCapability.localFilePlayback), isFalse);
+    expect(matrix.supports(PlaybackCapability.hlsPlayback), isFalse);
+    expect(matrix.supports(PlaybackCapability.audioTrackDiscovery), isFalse);
+    expect(matrix.supports(PlaybackCapability.subtitleTrackSwitching), isFalse);
+    expect(matrix.supports(PlaybackCapability.progressReporting), isFalse);
+    expect(probe.details['libmpvPath'], r'C:\app\libmpv-2.dll');
+  });
+
+  test('Anime4K capability requires an accessible shader file', () async {
+    final Directory directory =
+        await Directory.systemTemp.createTemp('elaina-shader-test');
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    final File shader =
+        File('${directory.path}${Platform.pathSeparator}a.glsl');
+    await shader.writeAsString('// shader');
+
+    final MediaKitMpvBinding missingShaderBinding = MediaKitMpvBinding(
+      backend: _FakeMediaKitMpvBackend(),
+      anime4kShaderByPreset: <Anime4kPresetIntent, Uri>{
+        Anime4kPresetIntent.restore:
+            Uri.file('${directory.path}${Platform.pathSeparator}missing.glsl'),
+      },
+    );
+    final MediaKitMpvBinding existingShaderBinding = MediaKitMpvBinding(
+      backend: _FakeMediaKitMpvBackend(),
+      anime4kShaderByPreset: <Anime4kPresetIntent, Uri>{
+        Anime4kPresetIntent.restore: shader.uri,
+      },
+    );
+
+    expect(
+      missingShaderBinding.currentCapabilityProbe.capabilities
+          .supports(PlaybackCapability.anime4kPreset),
+      isFalse,
+    );
+    expect(
+      existingShaderBinding.currentCapabilityProbe.capabilities
           .supports(PlaybackCapability.anime4kPreset),
       isTrue,
     );
@@ -653,12 +739,13 @@ void main() {
     );
     expect(
       composition.capabilities.supports(PlaybackCapability.hlsPlayback),
-      isFalse,
+      isTrue,
     );
     expect(
       composition.capabilities.supports(PlaybackCapability.anime4kPreset),
-      isTrue,
+      isFalse,
     );
+    expect(composition.capabilityProbeSource, isA<MediaKitMpvBinding>());
   });
 
   test('composition exposes only verified UI-facing controls', () async {
@@ -686,8 +773,8 @@ void main() {
     expect(surface.hasActiveControl(PlaybackPageControlId.stop), isTrue);
     expect(surface.hasActiveControl(PlaybackPageControlId.progress), isTrue);
     expect(surface.hasActiveControl(PlaybackPageControlId.audioTracks), isTrue);
-    expect(surface.hasActiveControl(PlaybackPageControlId.subtitleTracks),
-        isTrue);
+    expect(
+        surface.hasActiveControl(PlaybackPageControlId.subtitleTracks), isTrue);
     expect(surface.hasActivePanel(PlaybackPagePanelId.tracks), isTrue);
 
     final PlaybackPageIntentResult panelResult =
@@ -704,7 +791,8 @@ void main() {
     expect(trackResult.outcome, PlaybackPageIntentOutcome.executed);
     expect(trackResult.trackSwitchResult?.isSuccess, isTrue);
     expect(backend.switchedTrack, audioTrack);
-    expect(backend.operations, <PlaybackOperation>[PlaybackOperation.switchTrack]);
+    expect(
+        backend.operations, <PlaybackOperation>[PlaybackOperation.switchTrack]);
 
     await bootstrap.dispose();
   });
@@ -731,13 +819,13 @@ void main() {
           uri: Uri.parse('https://example.invalid/playlist.m3u8')),
     );
 
-    expect(hlsResult.isSuccess, isFalse);
-    expect(hlsResult.failure?.kind, PlaybackFailureKind.unsupported);
+    expect(hlsResult.isSuccess, isTrue);
     expect(
       backend.operations,
       <PlaybackOperation>[
         PlaybackOperation.load,
         PlaybackOperation.play,
+        PlaybackOperation.load,
       ],
     );
 
@@ -747,6 +835,10 @@ void main() {
 
 LocalFilePlaybackSource _localSource() {
   return LocalFilePlaybackSource(uri: Uri.file('D:/media/example.mkv'));
+}
+
+final class _UnsupportedPlaybackSource extends PlaybackSource {
+  const _UnsupportedPlaybackSource({required super.uri});
 }
 
 VideoEnhancementProfile _enhancementProfile() {
@@ -823,6 +915,12 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   _FakeMediaKitMpvBackend({
     this.failOn,
     this.failOnProperty,
+    this.supportsUriPlayback = true,
+    this.supportsNativeMpvCommands = true,
+    this.supportsTrackDiscovery = true,
+    this.supportsTrackSwitching = true,
+    this.supportsTelemetry = true,
+    this.resolvedLibMpvPath,
     PlayerTelemetrySnapshot? initialTelemetry,
   }) : _currentTelemetry = initialTelemetry ?? PlayerTelemetrySnapshot();
 
@@ -832,6 +930,18 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   final PlaybackOperation? failOn;
   final String? failOnProperty;
+  @override
+  final bool supportsUriPlayback;
+  @override
+  final bool supportsNativeMpvCommands;
+  @override
+  final bool supportsTrackDiscovery;
+  @override
+  final bool supportsTrackSwitching;
+  @override
+  final bool supportsTelemetry;
+  @override
+  final String? resolvedLibMpvPath;
   final StreamController<PlayerTelemetrySnapshot> _telemetryController =
       StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
   final List<PlaybackOperation> operations = <PlaybackOperation>[];
@@ -844,6 +954,9 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   @override
   PlayerTelemetrySnapshot get currentTelemetry => _currentTelemetry;
+
+  @override
+  String get backendLabel => 'fake-media-kit/libmpv';
 
   @override
   Stream<PlayerTelemetrySnapshot> get telemetry => _telemetryController.stream;
@@ -864,6 +977,9 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
     Uri uri, {
     Map<String, String> headers = const <String, String>{},
   }) async {
+    if (!supportsUriPlayback) {
+      throw StateError('URI playback is unavailable');
+    }
     _record(PlaybackOperation.load);
     openedUri = uri;
   }
@@ -891,6 +1007,9 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   @override
   Future<void> setProperty(String property, String value) async {
+    if (!supportsNativeMpvCommands) {
+      throw StateError('native MPV commands are unavailable');
+    }
     propertyCalls.add(_PropertyCall(property, value));
     if (failOnProperty == property) {
       throw StateError('forced $property failure');
@@ -899,6 +1018,9 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
 
   @override
   Future<void> command(List<String> arguments) async {
+    if (!supportsNativeMpvCommands) {
+      throw StateError('native MPV commands are unavailable');
+    }
     commandCalls.add(List<String>.unmodifiable(arguments));
   }
 
@@ -906,7 +1028,12 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   Future<TrackDiscoveryResult> discoverTracks() async {
     return TrackDiscoveryResult(
       tracks: _currentTelemetry.tracks,
-      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(),
+      capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(
+        supportsUriPlayback: supportsUriPlayback,
+        supportsNativeMpvCommands: supportsNativeMpvCommands,
+        supportsTrackApi: supportsTrackDiscovery && supportsTrackSwitching,
+        supportsTelemetry: supportsTelemetry,
+      ),
     );
   }
 

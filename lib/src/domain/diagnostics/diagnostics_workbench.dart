@@ -50,22 +50,407 @@ final class DiagnosticsModuleSnapshot {
   final String? failureMessage;
 }
 
+const Duration diagnosticsBackendProbeNetworkTtl = Duration(seconds: 60);
+const Duration diagnosticsBackendProbeNetworkTimeout = Duration(seconds: 3);
+const String diagnosticsProbeSourceUnavailable = 'probe-unavailable';
+const String diagnosticsProbeSourceRuntime = 'runtime-probe';
+const String diagnosticsProbeSourceCached = 'runtime-probe-cache';
+
+final class DiagnosticsProbeCheckResult {
+  const DiagnosticsProbeCheckResult.supported({
+    required this.message,
+    Map<String, String> details = const <String, String>{},
+  })  : supported = true,
+        details = details;
+
+  const DiagnosticsProbeCheckResult.unsupported({
+    required this.message,
+    Map<String, String> details = const <String, String>{},
+  })  : supported = false,
+        details = details;
+
+  final bool supported;
+  final String message;
+  final Map<String, String> details;
+}
+
+typedef DiagnosticsAsyncProbeCheck = Future<DiagnosticsProbeCheckResult>
+    Function();
+
+final class DiagnosticsBackendProbeModuleSnapshot {
+  DiagnosticsBackendProbeModuleSnapshot({
+    required this.id,
+    required this.label,
+    required this.supported,
+    required this.message,
+    required this.checkedAt,
+    required this.source,
+    this.cached = false,
+    Map<String, String> details = const <String, String>{},
+  }) : details = Map<String, String>.unmodifiable(details);
+
+  final String id;
+  final String label;
+  final bool supported;
+  final String message;
+  final DateTime checkedAt;
+  final String source;
+  final bool cached;
+  final Map<String, String> details;
+}
+
+final class DiagnosticsBackendProbeSnapshot {
+  const DiagnosticsBackendProbeSnapshot({
+    this.playback,
+    required this.downloads,
+    required this.rss,
+    required this.mediaLibrary,
+    required this.providerNetwork,
+  });
+
+  final PlaybackCapabilityProbeSnapshot? playback;
+  final DiagnosticsBackendProbeModuleSnapshot downloads;
+  final DiagnosticsBackendProbeModuleSnapshot rss;
+  final DiagnosticsBackendProbeModuleSnapshot mediaLibrary;
+  final DiagnosticsBackendProbeModuleSnapshot providerNetwork;
+}
+
+abstract interface class DiagnosticsBackendProbeRuntime {
+  Future<DiagnosticsBackendProbeSnapshot> probe();
+}
+
+final class DefaultDiagnosticsBackendProbeRuntime
+    implements DiagnosticsBackendProbeRuntime {
+  DefaultDiagnosticsBackendProbeRuntime({
+    PlaybackCapabilityProbeSource? playbackProbeSource,
+    required DownloadRuntime downloadRuntime,
+    required RssEngineRuntime rssEngineRuntime,
+    required MediaLibraryRuntime mediaLibraryRuntime,
+    required SettingsRuntime settingsRuntime,
+    DiagnosticsAsyncProbeCheck? rssConnectivityCheck,
+    DiagnosticsAsyncProbeCheck? providerNetworkCheck,
+    Duration networkTtl = diagnosticsBackendProbeNetworkTtl,
+    Duration networkTimeout = diagnosticsBackendProbeNetworkTimeout,
+    DateTime Function()? now,
+  })  : _playbackProbeSource = playbackProbeSource,
+        _downloadRuntime = downloadRuntime,
+        _rssEngineRuntime = rssEngineRuntime,
+        _mediaLibraryRuntime = mediaLibraryRuntime,
+        _settingsRuntime = settingsRuntime,
+        _rssConnectivityCheck = rssConnectivityCheck,
+        _providerNetworkCheck = providerNetworkCheck,
+        _networkTtl = networkTtl,
+        _networkTimeout = networkTimeout,
+        _now = now ?? DateTime.now;
+
+  final PlaybackCapabilityProbeSource? _playbackProbeSource;
+  final DownloadRuntime _downloadRuntime;
+  final RssEngineRuntime _rssEngineRuntime;
+  final MediaLibraryRuntime _mediaLibraryRuntime;
+  final SettingsRuntime _settingsRuntime;
+  final DiagnosticsAsyncProbeCheck? _rssConnectivityCheck;
+  final DiagnosticsAsyncProbeCheck? _providerNetworkCheck;
+  final Duration _networkTtl;
+  final Duration _networkTimeout;
+  final DateTime Function() _now;
+  _CachedProbe? _rssCache;
+  _CachedProbe? _providerCache;
+  Future<DiagnosticsBackendProbeModuleSnapshot>? _rssInFlight;
+  Future<DiagnosticsBackendProbeModuleSnapshot>? _providerInFlight;
+
+  @override
+  Future<DiagnosticsBackendProbeSnapshot> probe() async {
+    final PlaybackCapabilityProbeSnapshot? playback =
+        _playbackProbeSource?.currentCapabilityProbe;
+    final DiagnosticsBackendProbeModuleSnapshot downloads =
+        await _probeDownloads();
+    final DiagnosticsBackendProbeModuleSnapshot rss = await _probeRss();
+    final DiagnosticsBackendProbeModuleSnapshot mediaLibrary =
+        _probeMediaLibrary();
+    final DiagnosticsBackendProbeModuleSnapshot providerNetwork =
+        await _probeProviderNetwork();
+
+    return DiagnosticsBackendProbeSnapshot(
+      playback: playback,
+      downloads: downloads,
+      rss: rss,
+      mediaLibrary: mediaLibrary,
+      providerNetwork: providerNetwork,
+    );
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _probeDownloads() async {
+    final DateTime checkedAt = _now();
+    try {
+      await _downloadRuntime.listTasks();
+      final DownloadRuntimeSnapshot snapshot = _downloadRuntime.currentSnapshot;
+      final DownloadCapabilityProjection capabilities = snapshot.capabilities;
+      final List<String> unsupportedReasons = <String>[
+        if (!capabilities.taskManagementAvailable)
+          capabilities.taskManagementReason ?? '任务管理不可用',
+        if (!capabilities.metadataFetchingAvailable)
+          capabilities.metadataFetchingReason ?? '元数据读取不可用',
+        if (!capabilities.backgroundDownloadAvailable)
+          capabilities.backgroundDownloadReason ?? '应用内后台下载不可用',
+        if (!capabilities.virtualStreamAvailable)
+          capabilities.virtualStreamReason ?? '边下边播不可用',
+      ];
+      return DiagnosticsBackendProbeModuleSnapshot(
+        id: diagnosticsModuleDownloads,
+        label: '下载',
+        supported: unsupportedReasons.isEmpty,
+        message: unsupportedReasons.isEmpty
+            ? '下载 runtime 能力已由真实任务快照确认'
+            : unsupportedReasons.first,
+        checkedAt: checkedAt,
+        source: diagnosticsProbeSourceRuntime,
+        details: <String, String>{
+          'tasks': snapshot.tasks.length.toString(),
+          'taskManagement': capabilities.taskManagementAvailable.toString(),
+          'metadataFetching': capabilities.metadataFetchingAvailable.toString(),
+          'backgroundDownload':
+              capabilities.backgroundDownloadAvailable.toString(),
+          'virtualStream': capabilities.virtualStreamAvailable.toString(),
+        },
+      );
+    } on Object catch (error) {
+      return _failedProbe(
+        id: diagnosticsModuleDownloads,
+        label: '下载',
+        checkedAt: checkedAt,
+        error: error,
+      );
+    }
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _probeRss() {
+    return _cachedNetworkProbe(
+      cache: _rssCache,
+      inFlight: _rssInFlight,
+      setCache: (_CachedProbe cache) => _rssCache = cache,
+      setInFlight: (Future<DiagnosticsBackendProbeModuleSnapshot>? inFlight) =>
+          _rssInFlight = inFlight,
+      localProbe: _probeRssLocal,
+      remoteCheck: _rssConnectivityCheck,
+    );
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _probeProviderNetwork() {
+    return _cachedNetworkProbe(
+      cache: _providerCache,
+      inFlight: _providerInFlight,
+      setCache: (_CachedProbe cache) => _providerCache = cache,
+      setInFlight: (Future<DiagnosticsBackendProbeModuleSnapshot>? inFlight) =>
+          _providerInFlight = inFlight,
+      localProbe: _probeProviderNetworkLocal,
+      remoteCheck: _providerNetworkCheck,
+    );
+  }
+
+  DiagnosticsBackendProbeModuleSnapshot _probeMediaLibrary() {
+    final DateTime checkedAt = _now();
+    try {
+      final MediaLibraryRuntimeSnapshot snapshot =
+          _mediaLibraryRuntime.currentSnapshot;
+      final bool supported = snapshot.failures.isEmpty;
+      return DiagnosticsBackendProbeModuleSnapshot(
+        id: diagnosticsModuleMediaLibrary,
+        label: '本地媒体库',
+        supported: supported,
+        message:
+            supported ? '媒体库 runtime 快照可读' : snapshot.failures.first.message,
+        checkedAt: checkedAt,
+        source: diagnosticsProbeSourceRuntime,
+        details: <String, String>{
+          'catalogItems': snapshot.catalogItems.length.toString(),
+          'scanEvents': snapshot.scanEvents.length.toString(),
+        },
+      );
+    } on Object catch (error) {
+      return _failedProbe(
+        id: diagnosticsModuleMediaLibrary,
+        label: '本地媒体库',
+        checkedAt: checkedAt,
+        error: error,
+      );
+    }
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _probeRssLocal(
+    DiagnosticsAsyncProbeCheck? remoteCheck,
+  ) async {
+    final DateTime checkedAt = _now();
+    try {
+      final RssEngineRuntimeSnapshot snapshot =
+          _rssEngineRuntime.currentSnapshot;
+      final DiagnosticsProbeCheckResult? remote =
+          await _runOptionalRemoteCheck(remoteCheck);
+      final bool supported =
+          snapshot.failures.isEmpty && (remote == null || remote.supported);
+      return DiagnosticsBackendProbeModuleSnapshot(
+        id: diagnosticsModuleRss,
+        label: 'RSS',
+        supported: supported,
+        message: !snapshot.failures.isEmpty
+            ? snapshot.failures.first.message
+            : remote?.message ?? 'RSS runtime 快照可读，未配置远端连通性 probe',
+        checkedAt: checkedAt,
+        source: diagnosticsProbeSourceRuntime,
+        details: <String, String>{
+          'sources': snapshot.sources.length.toString(),
+          'dueSources': snapshot.dueSources.length.toString(),
+          'acceptedItems': snapshot.acceptedItems.length.toString(),
+          if (remote != null) ...remote.details,
+        },
+      );
+    } on Object catch (error) {
+      return _failedProbe(
+        id: diagnosticsModuleRss,
+        label: 'RSS',
+        checkedAt: checkedAt,
+        error: error,
+      );
+    }
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _probeProviderNetworkLocal(
+    DiagnosticsAsyncProbeCheck? remoteCheck,
+  ) async {
+    final DateTime checkedAt = _now();
+    try {
+      final String? token = await _settingsRuntime
+          .getPreference(SettingsPreferenceKeys.bangumiAccessToken);
+      final String? proxy = await _settingsRuntime.getProxyUrl();
+      final String? dns = await _settingsRuntime.getDnsPolicy();
+      final DiagnosticsProbeCheckResult? remote =
+          await _runOptionalRemoteCheck(remoteCheck);
+      return DiagnosticsBackendProbeModuleSnapshot(
+        id: diagnosticsModuleProviderNetwork,
+        label: 'Provider/网络',
+        supported: remote?.supported ?? true,
+        message: remote?.message ?? 'Provider/网络设置可读，未配置远端连通性 probe',
+        checkedAt: checkedAt,
+        source: diagnosticsProbeSourceRuntime,
+        details: <String, String>{
+          'bangumiTokenConfigured':
+              (token?.trim().isNotEmpty ?? false).toString(),
+          'httpProxyConfigured': (proxy?.trim().isNotEmpty ?? false).toString(),
+          'dnsPolicyConfigured': (dns?.trim().isNotEmpty ?? false).toString(),
+          if (remote != null) ...remote.details,
+        },
+      );
+    } on Object catch (error) {
+      return _failedProbe(
+        id: diagnosticsModuleProviderNetwork,
+        label: 'Provider/网络',
+        checkedAt: checkedAt,
+        error: error,
+      );
+    }
+  }
+
+  Future<DiagnosticsProbeCheckResult?> _runOptionalRemoteCheck(
+    DiagnosticsAsyncProbeCheck? check,
+  ) async {
+    if (check == null) return null;
+    return check().timeout(_networkTimeout);
+  }
+
+  Future<DiagnosticsBackendProbeModuleSnapshot> _cachedNetworkProbe({
+    required _CachedProbe? cache,
+    required Future<DiagnosticsBackendProbeModuleSnapshot>? inFlight,
+    required void Function(_CachedProbe cache) setCache,
+    required void Function(Future<DiagnosticsBackendProbeModuleSnapshot>?)
+        setInFlight,
+    required Future<DiagnosticsBackendProbeModuleSnapshot> Function(
+            DiagnosticsAsyncProbeCheck? remoteCheck)
+        localProbe,
+    required DiagnosticsAsyncProbeCheck? remoteCheck,
+  }) async {
+    final DateTime now = _now();
+    if (cache != null &&
+        now.difference(cache.snapshot.checkedAt) < _networkTtl) {
+      return cache.snapshot.asCached();
+    }
+    if (inFlight != null) return inFlight;
+
+    final Future<DiagnosticsBackendProbeModuleSnapshot> future =
+        localProbe(remoteCheck).then(
+      (DiagnosticsBackendProbeModuleSnapshot snapshot) {
+        setCache(_CachedProbe(snapshot));
+        return snapshot;
+      },
+    ).whenComplete(() => setInFlight(null));
+    setInFlight(future);
+    return future;
+  }
+}
+
+final class _CachedProbe {
+  const _CachedProbe(this.snapshot);
+
+  final DiagnosticsBackendProbeModuleSnapshot snapshot;
+}
+
+extension on DiagnosticsBackendProbeModuleSnapshot {
+  DiagnosticsBackendProbeModuleSnapshot asCached() {
+    return DiagnosticsBackendProbeModuleSnapshot(
+      id: id,
+      label: label,
+      supported: supported,
+      message: message,
+      checkedAt: checkedAt,
+      source: diagnosticsProbeSourceCached,
+      cached: true,
+      details: details,
+    );
+  }
+}
+
+DiagnosticsBackendProbeModuleSnapshot _failedProbe({
+  required String id,
+  required String label,
+  required DateTime checkedAt,
+  required Object error,
+}) {
+  return DiagnosticsBackendProbeModuleSnapshot(
+    id: id,
+    label: label,
+    supported: false,
+    message: '后端探测失败: $error',
+    checkedAt: checkedAt,
+    source: diagnosticsProbeSourceRuntime,
+    details: <String, String>{'failure': error.toString()},
+  );
+}
+
 final class DiagnosticsCapabilityEntry {
   const DiagnosticsCapabilityEntry({
     required this.id,
     required this.label,
     required this.supported,
     this.reason,
+    this.checkedAt,
+    this.source,
+    this.cached = false,
   });
 
   final String id;
   final String label;
   final bool supported;
   final String? reason;
+  final DateTime? checkedAt;
+  final String? source;
+  final bool cached;
 }
 
 final class DiagnosticsPlaybackSnapshot {
   const DiagnosticsPlaybackSnapshot({
+    required this.backendLabel,
+    required this.probeSource,
+    required this.probeCheckedAt,
+    required this.probeCached,
+    required this.probeDetails,
     required this.status,
     required this.position,
     required this.duration,
@@ -89,10 +474,18 @@ final class DiagnosticsPlaybackSnapshot {
   });
 
   factory DiagnosticsPlaybackSnapshot.fromController(
-    PlaybackControllerContract controller,
-  ) {
+    PlaybackControllerContract controller, {
+    PlaybackCapabilityProbeSnapshot? capabilityProbe,
+  }) {
     final PlaybackStateSnapshot state = controller.currentState;
+    final PlaybackCapabilityMatrix matrix =
+        capabilityProbe?.capabilities ?? controller.matrix;
     return DiagnosticsPlaybackSnapshot(
+      backendLabel: capabilityProbe?.backendLabel ?? '未知播放后端',
+      probeSource: capabilityProbe?.source ?? diagnosticsProbeSourceUnavailable,
+      probeCheckedAt: capabilityProbe?.checkedAt,
+      probeCached: capabilityProbe?.cached ?? false,
+      probeDetails: capabilityProbe?.details ?? const <String, String>{},
       status: state.status,
       position: state.timeline.position,
       duration: state.timeline.duration,
@@ -116,10 +509,20 @@ final class DiagnosticsPlaybackSnapshot {
       ),
       danmakuWarnings: state.danmaku.warnings,
       danmakuFailure: state.danmaku.failureReason,
-      capabilities: diagnosticsPlaybackCapabilities(controller.matrix),
+      capabilities: diagnosticsPlaybackCapabilities(
+        matrix,
+        checkedAt: capabilityProbe?.checkedAt,
+        source: capabilityProbe?.source,
+        cached: capabilityProbe?.cached ?? false,
+      ),
     );
   }
 
+  final String backendLabel;
+  final String probeSource;
+  final DateTime? probeCheckedAt;
+  final bool probeCached;
+  final Map<String, String> probeDetails;
   final PlaybackLifecycleStatus status;
   final Duration position;
   final Duration? duration;
@@ -477,12 +880,14 @@ final class DefaultDiagnosticsWorkbenchRuntime
     required RssEngineRuntime rssEngineRuntime,
     required MediaLibraryRuntime mediaLibraryRuntime,
     required SettingsRuntime settingsRuntime,
+    DiagnosticsBackendProbeRuntime? backendProbeRuntime,
   })  : _diagnosticsRuntime = diagnosticsRuntime,
         _playbackController = playbackController,
         _downloadRuntime = downloadRuntime,
         _rssEngineRuntime = rssEngineRuntime,
         _mediaLibraryRuntime = mediaLibraryRuntime,
-        _settingsRuntime = settingsRuntime;
+        _settingsRuntime = settingsRuntime,
+        _backendProbeRuntime = backendProbeRuntime;
 
   final DiagnosticsRuntime _diagnosticsRuntime;
   final PlaybackControllerContract _playbackController;
@@ -490,6 +895,7 @@ final class DefaultDiagnosticsWorkbenchRuntime
   final RssEngineRuntime _rssEngineRuntime;
   final MediaLibraryRuntime _mediaLibraryRuntime;
   final SettingsRuntime _settingsRuntime;
+  final DiagnosticsBackendProbeRuntime? _backendProbeRuntime;
 
   @override
   Future<DiagnosticsWorkbenchSnapshot> snapshot() async {
@@ -503,11 +909,20 @@ final class DefaultDiagnosticsWorkbenchRuntime
     );
     final Map<String, String> diagnosticsCapabilities =
         _diagnosticsRuntime.getCapabilitiesSupportStatus();
+    final _ModuleResult<DiagnosticsBackendProbeSnapshot> backendProbe =
+        await _sampleModule(
+      () async => _backendProbeRuntime == null
+          ? _unavailableBackendProbeSnapshot()
+          : await _backendProbeRuntime.probe(),
+    );
+    final DiagnosticsBackendProbeSnapshot probeSnapshot =
+        backendProbe.value ?? _unavailableBackendProbeSnapshot();
 
     final _ModuleResult<DiagnosticsPlaybackSnapshot> playback =
         await _sampleModule(
       () async => DiagnosticsPlaybackSnapshot.fromController(
         _playbackController,
+        capabilityProbe: probeSnapshot.playback,
       ),
     );
     final _ModuleResult<DiagnosticsDownloadSnapshot> downloads =
@@ -539,10 +954,10 @@ final class DefaultDiagnosticsWorkbenchRuntime
       modules: <DiagnosticsModuleSnapshot>[
         _overviewModule(events, sample),
         _playbackModule(playback),
-        _downloadModule(downloads),
-        _rssModule(rss),
-        _mediaLibraryModule(mediaLibrary),
-        _providerNetworkModule(providerNetwork),
+        _downloadModule(downloads, probeSnapshot.downloads),
+        _rssModule(rss, probeSnapshot.rss),
+        _mediaLibraryModule(mediaLibrary, probeSnapshot.mediaLibrary),
+        _providerNetworkModule(providerNetwork, probeSnapshot.providerNetwork),
         _eventsModule(events),
       ],
       playback: playback.value,
@@ -569,6 +984,28 @@ Future<_ModuleResult<T>> _sampleModule<T>(Future<T> Function() read) async {
   } on Object catch (error) {
     return _ModuleResult<T>.failure(error.toString());
   }
+}
+
+DiagnosticsBackendProbeSnapshot _unavailableBackendProbeSnapshot() {
+  final DateTime checkedAt = DateTime.now();
+  DiagnosticsBackendProbeModuleSnapshot module(String id, String label) {
+    return DiagnosticsBackendProbeModuleSnapshot(
+      id: id,
+      label: label,
+      supported: false,
+      message: '未注入真实后端探测 runtime',
+      checkedAt: checkedAt,
+      source: diagnosticsProbeSourceUnavailable,
+    );
+  }
+
+  return DiagnosticsBackendProbeSnapshot(
+    playback: null,
+    downloads: module(diagnosticsModuleDownloads, '下载'),
+    rss: module(diagnosticsModuleRss, 'RSS'),
+    mediaLibrary: module(diagnosticsModuleMediaLibrary, '本地媒体库'),
+    providerNetwork: module(diagnosticsModuleProviderNetwork, 'Provider/网络'),
+  );
 }
 
 DiagnosticsModuleSnapshot _overviewModule(
@@ -616,6 +1053,7 @@ DiagnosticsModuleSnapshot _playbackModule(
 
 DiagnosticsModuleSnapshot _downloadModule(
   _ModuleResult<DiagnosticsDownloadSnapshot> result,
+  DiagnosticsBackendProbeModuleSnapshot probe,
 ) {
   final DiagnosticsDownloadSnapshot? downloads = result.value;
   if (downloads == null) {
@@ -625,7 +1063,7 @@ DiagnosticsModuleSnapshot _downloadModule(
   return DiagnosticsModuleSnapshot(
     id: diagnosticsModuleDownloads,
     label: '下载',
-    health: downloads.failedTasks > 0
+    health: downloads.failedTasks > 0 || !probe.supported
         ? DiagnosticsModuleHealth.failed
         : DiagnosticsModuleHealth.healthy,
     summary: '${downloads.totalTasks} 个任务，${downloads.failedTasks} 个失败',
@@ -633,7 +1071,9 @@ DiagnosticsModuleSnapshot _downloadModule(
 }
 
 DiagnosticsModuleSnapshot _rssModule(
-    _ModuleResult<DiagnosticsRssSnapshot> result) {
+  _ModuleResult<DiagnosticsRssSnapshot> result,
+  DiagnosticsBackendProbeModuleSnapshot probe,
+) {
   final DiagnosticsRssSnapshot? rss = result.value;
   if (rss == null) {
     return _failedModule(diagnosticsModuleRss, 'RSS', result.failureMessage);
@@ -641,7 +1081,7 @@ DiagnosticsModuleSnapshot _rssModule(
   return DiagnosticsModuleSnapshot(
     id: diagnosticsModuleRss,
     label: 'RSS',
-    health: rss.failures.isEmpty
+    health: rss.failures.isEmpty && probe.supported
         ? DiagnosticsModuleHealth.healthy
         : DiagnosticsModuleHealth.failed,
     summary: '${rss.sourceCount} 个订阅，${rss.dueSourceCount} 个待刷新',
@@ -651,6 +1091,7 @@ DiagnosticsModuleSnapshot _rssModule(
 
 DiagnosticsModuleSnapshot _mediaLibraryModule(
   _ModuleResult<DiagnosticsMediaLibrarySnapshot> result,
+  DiagnosticsBackendProbeModuleSnapshot probe,
 ) {
   final DiagnosticsMediaLibrarySnapshot? library = result.value;
   if (library == null) {
@@ -663,7 +1104,7 @@ DiagnosticsModuleSnapshot _mediaLibraryModule(
   return DiagnosticsModuleSnapshot(
     id: diagnosticsModuleMediaLibrary,
     label: '本地媒体库',
-    health: library.failureMessages.isEmpty
+    health: library.failureMessages.isEmpty && probe.supported
         ? DiagnosticsModuleHealth.healthy
         : DiagnosticsModuleHealth.failed,
     summary: '${library.catalogItemCount} 个索引，'
@@ -675,6 +1116,7 @@ DiagnosticsModuleSnapshot _mediaLibraryModule(
 
 DiagnosticsModuleSnapshot _providerNetworkModule(
   _ModuleResult<DiagnosticsProviderNetworkSnapshot> result,
+  DiagnosticsBackendProbeModuleSnapshot probe,
 ) {
   final DiagnosticsProviderNetworkSnapshot? providerNetwork = result.value;
   if (providerNetwork == null) {
@@ -687,7 +1129,7 @@ DiagnosticsModuleSnapshot _providerNetworkModule(
   return DiagnosticsModuleSnapshot(
     id: diagnosticsModuleProviderNetwork,
     label: 'Provider/网络',
-    health: providerNetwork.failureMessage == null
+    health: providerNetwork.failureMessage == null && probe.supported
         ? DiagnosticsModuleHealth.healthy
         : DiagnosticsModuleHealth.failed,
     summary:
@@ -735,8 +1177,11 @@ bool _downloadTaskIsActive(DownloadProjection task) {
 }
 
 List<DiagnosticsCapabilityEntry> diagnosticsPlaybackCapabilities(
-  PlaybackCapabilityMatrix matrix,
-) {
+  PlaybackCapabilityMatrix matrix, {
+  DateTime? checkedAt,
+  String? source,
+  bool cached = false,
+}) {
   return <DiagnosticsCapabilityEntry>[
     for (final PlaybackCapability capability in PlaybackCapability.values)
       DiagnosticsCapabilityEntry(
@@ -744,6 +1189,9 @@ List<DiagnosticsCapabilityEntry> diagnosticsPlaybackCapabilities(
         label: _playbackCapabilityLabel(capability),
         supported: matrix.supports(capability),
         reason: matrix.statusOf(capability).reason,
+        checkedAt: checkedAt,
+        source: source,
+        cached: cached,
       ),
   ];
 }

@@ -145,6 +145,14 @@ final class _MockDiagnosticsWorkbenchRuntime
       avSyncDriftMillis: await diagnosticsRuntime.getLatestAvSyncDrift(),
     );
     final DiagnosticsPlaybackSnapshot playback = DiagnosticsPlaybackSnapshot(
+      backendLabel: 'unit-backend',
+      probeSource: 'unit-probe',
+      probeCheckedAt: DateTime(2026, 6, 20, 10, 2),
+      probeCached: false,
+      probeDetails: const <String, String>{
+        'nativeMpvCommands': 'true',
+        'telemetry': 'true',
+      },
       status: PlaybackLifecycleStatus.playing,
       position: const Duration(minutes: 3, seconds: 12),
       duration: const Duration(minutes: 24),

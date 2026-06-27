@@ -642,6 +642,32 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
           const SizedBox(height: _panelGap),
           _InfoGrid(
             rows: <_InfoRow>[
+              _InfoRow('播放后端', playback.backendLabel),
+              _InfoRow('探测来源', playback.probeSource),
+              _InfoRow(
+                '最近检测',
+                _formatProbeClock(playback.probeCheckedAt,
+                    cached: playback.probeCached),
+              ),
+              if (playback.probeDetails['nativeMpvCommands'] != null)
+                _InfoRow(
+                  'MPV 命令',
+                  playback.probeDetails['nativeMpvCommands'] == 'true'
+                      ? '可用'
+                      : '不可用',
+                ),
+              if (playback.probeDetails['telemetry'] != null)
+                _InfoRow(
+                  'Telemetry',
+                  playback.probeDetails['telemetry'] == 'true' ? '可用' : '不可用',
+                ),
+              if (playback.probeDetails['anime4kShadersAccessible'] != null)
+                _InfoRow(
+                  'Anime4K shader',
+                  playback.probeDetails['anime4kShadersAccessible'] == 'true'
+                      ? '可访问'
+                      : '不可访问',
+                ),
               _InfoRow('播放源', playback.sourceUri ?? '无播放源'),
               _InfoRow('音轨', playback.activeAudioTrackId ?? '未选择'),
               _InfoRow('字幕轨', playback.activeSubtitleTrackId ?? '未选择'),
@@ -1608,7 +1634,7 @@ class _CapabilityChip extends StatelessWidget {
     final Color color =
         capability.supported ? theme.primary : theme.accentMagenta;
     return Tooltip(
-      message: capability.reason ?? capability.label,
+      message: _capabilityTooltip(capability),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
@@ -2173,6 +2199,22 @@ String _formatDuration(Duration duration) {
 String _formatOptionalDuration(Duration? duration) {
   if (duration == null) return '--:--';
   return _formatDuration(duration);
+}
+
+String _formatProbeClock(DateTime? time, {required bool cached}) {
+  if (time == null) return '未检测';
+  final String suffix = cached ? '（缓存）' : '';
+  return '${_formatClock(time)}$suffix';
+}
+
+String _capabilityTooltip(DiagnosticsCapabilityEntry capability) {
+  final List<String> lines = <String>[
+    capability.reason ?? capability.label,
+    if (capability.source != null) '来源：${capability.source}',
+    if (capability.checkedAt != null)
+      '检测：${_formatProbeClock(capability.checkedAt!, cached: capability.cached)}',
+  ];
+  return lines.join('\n');
 }
 
 String _formatClock(DateTime time) {

@@ -433,7 +433,33 @@ class AppComposition {
       rssEngineRuntime: rssEngineRuntime,
       mediaLibraryRuntime: mediaLibraryRuntime,
       settingsRuntime: settingsRuntime,
+      backendProbeRuntime: DefaultDiagnosticsBackendProbeRuntime(
+        playbackProbeSource: playbackComposition.capabilityProbeSource,
+        downloadRuntime: downloadRuntime,
+        rssEngineRuntime: rssEngineRuntime,
+        mediaLibraryRuntime: mediaLibraryRuntime,
+        settingsRuntime: settingsRuntime,
+        providerNetworkCheck: _probeBangumiReadOnlyConnectivity,
+      ),
     );
+  }
+
+  Future<DiagnosticsProbeCheckResult>
+      _probeBangumiReadOnlyConnectivity() async {
+    final AcgProviderResult<List<BangumiSubject>> result =
+        await bangumiProviderRuntime.recentPopularAnime(limit: 1, offset: 0);
+    return switch (result) {
+      AcgProviderSuccess<List<BangumiSubject>>(:final value) =>
+        DiagnosticsProbeCheckResult.supported(
+          message: 'Bangumi API 只读连通性正常',
+          details: <String, String>{'subjects': value.length.toString()},
+        ),
+      AcgProviderFailure<List<BangumiSubject>>(:final kind, :final message) =>
+        DiagnosticsProbeCheckResult.unsupported(
+          message: 'Bangumi API 只读连通性失败：$message',
+          details: <String, String>{'failureKind': kind.name},
+        ),
+    };
   }
 
   void dispose() {
