@@ -470,8 +470,11 @@ final class DiagnosticsPlaybackSnapshot {
     required this.danmakuClockPosition,
     required this.danmakuLaneCount,
     required this.visibleDanmakuCommentCount,
+    required this.matrixDanmakuRendererSource,
+    required this.matrixDanmakuRenderedCommentCount,
     required this.danmakuWarnings,
     required this.danmakuFailure,
+    required this.matrixDanmakuFailure,
     required this.capabilities,
     this.avSyncHealth,
     this.avSyncLatestDriftMillis,
@@ -489,6 +492,19 @@ final class DiagnosticsPlaybackSnapshot {
     final PlaybackStateSnapshot state = controller.currentState;
     final PlaybackCapabilityMatrix matrix =
         capabilityProbe?.capabilities ?? controller.matrix;
+    final int visibleDanmakuCommentCount = state.danmaku.lanes.fold<int>(
+      0,
+      (int count, DomainDanmakuLaneDescriptor lane) =>
+          count + lane.comments.length,
+    );
+    final bool matrixDanmakuSupported =
+        matrix.supports(PlaybackCapability.matrixDanmaku);
+    final int matrixDanmakuRenderedCommentCount =
+        state.danmaku.matrix.hasVisibleComments
+            ? state.danmaku.matrix.renderedCommentCount
+            : matrixDanmakuSupported
+                ? visibleDanmakuCommentCount
+                : 0;
     return DiagnosticsPlaybackSnapshot(
       backendLabel: capabilityProbe?.backendLabel ?? '未知播放后端',
       probeSource: capabilityProbe?.source ?? diagnosticsProbeSourceUnavailable,
@@ -511,13 +527,13 @@ final class DiagnosticsPlaybackSnapshot {
       subtitleFailure: state.subtitles.failureReason,
       danmakuClockPosition: state.danmaku.clockPosition,
       danmakuLaneCount: state.danmaku.lanes.length,
-      visibleDanmakuCommentCount: state.danmaku.lanes.fold<int>(
-        0,
-        (int count, DomainDanmakuLaneDescriptor lane) =>
-            count + lane.comments.length,
-      ),
+      visibleDanmakuCommentCount: visibleDanmakuCommentCount,
+      matrixDanmakuRendererSource: state.danmaku.matrix.rendererSource ??
+          capabilityProbe?.details['matrixDanmakuRenderer'],
+      matrixDanmakuRenderedCommentCount: matrixDanmakuRenderedCommentCount,
       danmakuWarnings: state.danmaku.warnings,
       danmakuFailure: state.danmaku.failureReason,
+      matrixDanmakuFailure: state.danmaku.matrix.failureReason,
       avSyncHealth: avSyncMonitor?.health,
       avSyncLatestDriftMillis: avSyncMonitor?.latestDriftMillis,
       avSyncSampleCount: avSyncMonitor?.sampleCount,
@@ -556,8 +572,11 @@ final class DiagnosticsPlaybackSnapshot {
   final Duration danmakuClockPosition;
   final int danmakuLaneCount;
   final int visibleDanmakuCommentCount;
+  final String? matrixDanmakuRendererSource;
+  final int matrixDanmakuRenderedCommentCount;
   final List<String> danmakuWarnings;
   final String? danmakuFailure;
+  final String? matrixDanmakuFailure;
   final List<DiagnosticsCapabilityEntry> capabilities;
   final AVSyncHealth? avSyncHealth;
   final int? avSyncLatestDriftMillis;

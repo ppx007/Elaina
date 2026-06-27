@@ -1,6 +1,9 @@
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
 
+const String playbackPageMatrixDanmakuRendererSource =
+    'flutter-custom-painter-overlay';
+
 /// UI controls the playback page is allowed to expose.
 ///
 /// The page resolves these from domain surface state before dispatching any
@@ -166,12 +169,111 @@ final class PlaybackPageDanmakuOverlayDescriptor {
   }
 }
 
+final class PlaybackPageMatrixDanmakuCommentDescriptor {
+  const PlaybackPageMatrixDanmakuCommentDescriptor({
+    required this.id,
+    required this.timestamp,
+    required this.text,
+    required this.mode,
+    this.colorArgb,
+  });
+
+  final String id;
+  final Duration timestamp;
+  final String text;
+  final DomainDanmakuMode mode;
+  final int? colorArgb;
+}
+
+final class PlaybackPageMatrixDanmakuOverlayDescriptor {
+  PlaybackPageMatrixDanmakuOverlayDescriptor({
+    this.clockPosition = Duration.zero,
+    Iterable<double> transformValues =
+        DomainCaptionTransform4Descriptor.identityValues,
+    Iterable<PlaybackPageMatrixDanmakuCommentDescriptor> comments =
+        const <PlaybackPageMatrixDanmakuCommentDescriptor>[],
+    this.rendererSource,
+    this.failureReason,
+  })  : transformValues = List<double>.unmodifiable(transformValues),
+        comments =
+            List<PlaybackPageMatrixDanmakuCommentDescriptor>.unmodifiable(
+          comments,
+        );
+
+  const PlaybackPageMatrixDanmakuOverlayDescriptor.none()
+      : clockPosition = Duration.zero,
+        transformValues = DomainCaptionTransform4Descriptor.identityValues,
+        comments = const <PlaybackPageMatrixDanmakuCommentDescriptor>[],
+        rendererSource = null,
+        failureReason = null;
+
+  factory PlaybackPageMatrixDanmakuOverlayDescriptor.fromState(
+    PlaybackMatrixDanmakuStateSnapshot state,
+  ) {
+    return PlaybackPageMatrixDanmakuOverlayDescriptor(
+      clockPosition: state.clockPosition,
+      transformValues: state.transform.values,
+      comments: <PlaybackPageMatrixDanmakuCommentDescriptor>[
+        for (final DomainMatrixDanmakuCommentDescriptor comment
+            in state.comments)
+          PlaybackPageMatrixDanmakuCommentDescriptor(
+            id: comment.id,
+            timestamp: comment.timestamp,
+            text: comment.text,
+            mode: comment.mode,
+            colorArgb: comment.colorArgb,
+          ),
+      ],
+      rendererSource: state.rendererSource,
+      failureReason: state.failureReason,
+    );
+  }
+
+  factory PlaybackPageMatrixDanmakuOverlayDescriptor.fromDanmakuState(
+    PlaybackDanmakuStateSnapshot state,
+  ) {
+    if (state.matrix.hasVisibleComments ||
+        state.matrix.rendererSource != null ||
+        state.matrix.failureReason != null) {
+      return PlaybackPageMatrixDanmakuOverlayDescriptor.fromState(state.matrix);
+    }
+    return PlaybackPageMatrixDanmakuOverlayDescriptor(
+      clockPosition: state.clockPosition,
+      comments: <PlaybackPageMatrixDanmakuCommentDescriptor>[
+        for (final DomainDanmakuLaneDescriptor lane in state.lanes)
+          for (final DomainDanmakuCommentDescriptor comment in lane.comments)
+            PlaybackPageMatrixDanmakuCommentDescriptor(
+              id: comment.id,
+              timestamp: comment.timestamp,
+              text: comment.text,
+              mode: comment.mode,
+              colorArgb: comment.colorArgb,
+            ),
+      ],
+      rendererSource: playbackPageMatrixDanmakuRendererSource,
+      failureReason: state.failureReason,
+    );
+  }
+
+  final Duration clockPosition;
+  final List<double> transformValues;
+  final List<PlaybackPageMatrixDanmakuCommentDescriptor> comments;
+  final String? rendererSource;
+  final String? failureReason;
+
+  int get renderedCommentCount => comments.length;
+
+  bool get hasVisibleComments => comments.isNotEmpty;
+}
+
 final class PlaybackPageSurfaceDescriptor {
   const PlaybackPageSurfaceDescriptor({
     required this.controls,
     required this.panels,
     this.subtitleOverlay = const PlaybackPageSubtitleOverlayDescriptor.none(),
     this.danmakuOverlay = const PlaybackPageDanmakuOverlayDescriptor.none(),
+    this.matrixDanmakuOverlay =
+        const PlaybackPageMatrixDanmakuOverlayDescriptor.none(),
   });
 
   factory PlaybackPageSurfaceDescriptor.fromState(
@@ -180,6 +282,7 @@ final class PlaybackPageSurfaceDescriptor {
         const PlaybackSubtitleStateSnapshot.none(),
     PlaybackDanmakuStateSnapshot danmaku =
         const PlaybackDanmakuStateSnapshot.none(),
+    bool matrixDanmakuSupported = false,
   }) {
     return PlaybackPageSurfaceDescriptor(
       controls: <PlaybackPageControlDescriptor>[
@@ -208,6 +311,9 @@ final class PlaybackPageSurfaceDescriptor {
       subtitleOverlay:
           PlaybackPageSubtitleOverlayDescriptor.fromState(subtitles),
       danmakuOverlay: PlaybackPageDanmakuOverlayDescriptor.fromState(danmaku),
+      matrixDanmakuOverlay: matrixDanmakuSupported
+          ? PlaybackPageMatrixDanmakuOverlayDescriptor.fromDanmakuState(danmaku)
+          : const PlaybackPageMatrixDanmakuOverlayDescriptor.none(),
     );
   }
 
@@ -215,6 +321,7 @@ final class PlaybackPageSurfaceDescriptor {
   final List<PlaybackPagePanelDescriptor> panels;
   final PlaybackPageSubtitleOverlayDescriptor subtitleOverlay;
   final PlaybackPageDanmakuOverlayDescriptor danmakuOverlay;
+  final PlaybackPageMatrixDanmakuOverlayDescriptor matrixDanmakuOverlay;
 
   bool hasActiveControl(PlaybackPageControlId id) {
     return controls.any(
@@ -355,10 +462,15 @@ final class PlaybackPageContract {
   PlaybackSurfaceState resolveState() => _controller.resolveSurfaceState();
 
   PlaybackPageSurfaceDescriptor resolveSurface() {
+    final DomainPlaybackCapabilityStatus matrixDanmaku =
+        _controller.resolveCapabilitySummary().statusOf(
+              DomainPlaybackCapabilityId.matrixDanmaku,
+            );
     return PlaybackPageSurfaceDescriptor.fromState(
       resolveState(),
       subtitles: _controller.currentState.subtitles,
       danmaku: _controller.currentState.danmaku,
+      matrixDanmakuSupported: matrixDanmaku.isSupported,
     );
   }
 

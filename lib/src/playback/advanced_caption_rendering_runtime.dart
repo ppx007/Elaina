@@ -11,18 +11,17 @@ import 'capability_matrix.dart';
 final class AdvancedCaptionRuntimeBootstrap {
   AdvancedCaptionRuntimeBootstrap({
     required this.captionStore,
-    required Map<String, DeterministicAdvancedCaptionRenderer> rendererByScope,
+    required Map<String, AdvancedCaptionRenderer> rendererByScope,
     required Map<String, PlaybackCapabilityMatrix> capabilitiesByScope,
     this.cacheInvalidationBus,
   })  : _rendererByScope =
-            Map<String, DeterministicAdvancedCaptionRenderer>.unmodifiable(
-                rendererByScope),
+            Map<String, AdvancedCaptionRenderer>.unmodifiable(rendererByScope),
         _capabilitiesByScope =
             Map<String, PlaybackCapabilityMatrix>.unmodifiable(
                 capabilitiesByScope);
 
   final AdvancedCaptionStore captionStore;
-  final Map<String, DeterministicAdvancedCaptionRenderer> _rendererByScope;
+  final Map<String, AdvancedCaptionRenderer> _rendererByScope;
   final Map<String, PlaybackCapabilityMatrix> _capabilitiesByScope;
   final CacheInvalidationBus? cacheInvalidationBus;
 
@@ -138,7 +137,7 @@ final class AdvancedCaptionRuntimeProjection {
 final class AdvancedCaptionRuntime {
   AdvancedCaptionRuntime._({
     required AdvancedCaptionStore captionStore,
-    required Map<String, DeterministicAdvancedCaptionRenderer> rendererByScope,
+    required Map<String, AdvancedCaptionRenderer> rendererByScope,
     required Map<String, PlaybackCapabilityMatrix> capabilitiesByScope,
     CacheInvalidationBus? cacheInvalidationBus,
   })  : _captionStore = captionStore,
@@ -148,13 +147,12 @@ final class AdvancedCaptionRuntime {
 
   AdvancedCaptionRuntime.unavailable({required String reason})
       : _captionStore = DeterministicAdvancedCaptionStore(),
-        _rendererByScope =
-            const <String, DeterministicAdvancedCaptionRenderer>{},
+        _rendererByScope = const <String, AdvancedCaptionRenderer>{},
         _capabilitiesByScope = const <String, PlaybackCapabilityMatrix>{},
         _unavailableReason = reason;
 
   final AdvancedCaptionStore _captionStore;
-  final Map<String, DeterministicAdvancedCaptionRenderer> _rendererByScope;
+  final Map<String, AdvancedCaptionRenderer> _rendererByScope;
   final Map<String, PlaybackCapabilityMatrix> _capabilitiesByScope;
   final String? _unavailableReason;
   bool _disposed = false;
@@ -181,8 +179,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<
           CaptionEvaluationOutcome>.failed(gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionEvaluationOutcome outcome = await renderer.evaluate(profile);
     _latestReport = outcome.report;
     return AdvancedCaptionRuntimeActionResult<CaptionEvaluationOutcome>.success(
@@ -196,8 +193,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
           gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionRenderOutcome outcome =
         await renderer.renderMatrixDanmaku(request);
     if (!outcome.isSuccess) {
@@ -217,8 +213,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
           gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionRenderOutcome outcome =
         await renderer.renderDualSubtitles(request);
     if (!outcome.isSuccess) {
@@ -239,8 +234,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<CaptionRenderOutcome>.failed(
           gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionRenderOutcome outcome =
         await renderer.renderAdvancedSubtitle(request);
     if (!outcome.isSuccess) {
@@ -260,8 +254,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.failed(
           gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionDisableOutcome outcome = await renderer.disable();
     return AdvancedCaptionRuntimeActionResult<CaptionDisableOutcome>.success(
         outcome);
@@ -278,8 +271,7 @@ final class AdvancedCaptionRuntime {
       return AdvancedCaptionRuntimeActionResult<
           CaptionDegradationOutcome>.failed(gate);
     }
-    final DeterministicAdvancedCaptionRenderer renderer =
-        _rendererByScope[scopeId]!;
+    final AdvancedCaptionRenderer renderer = _rendererByScope[scopeId]!;
     final CaptionDegradationOutcome outcome =
         await renderer.acceptDegradation(action, reason: reason);
     if (!outcome.isSuccess) {

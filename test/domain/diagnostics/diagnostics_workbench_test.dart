@@ -65,6 +65,18 @@ void main() {
             ],
           ),
           danmaku: PlaybackDanmakuStateSnapshot(
+            matrix: PlaybackMatrixDanmakuStateSnapshot(
+              clockPosition: const Duration(seconds: 1),
+              comments: const <DomainMatrixDanmakuCommentDescriptor>[
+                DomainMatrixDanmakuCommentDescriptor(
+                  id: 'd1',
+                  timestamp: Duration(seconds: 1),
+                  text: '矩阵弹幕',
+                  mode: DomainDanmakuMode.scrolling,
+                ),
+              ],
+              rendererSource: 'flutter-custom-painter-overlay',
+            ),
             lanes: <DomainDanmakuLaneDescriptor>[
               DomainDanmakuLaneDescriptor(
                 mode: DomainDanmakuMode.scrolling,
@@ -93,6 +105,9 @@ void main() {
           checkedAt: DateTime.utc(2026, 6, 27, 10),
           source: 'unit-probe',
           backendLabel: 'unit-backend',
+          details: const <String, String>{
+            'matrixDanmakuRenderer': 'flutter-custom-painter-overlay',
+          },
         ),
       ),
     );
@@ -103,6 +118,11 @@ void main() {
     expect(snapshot.playback!.activeAudioTrackId, 'audio-jpn');
     expect(snapshot.playback!.activeSubtitleCueCount, 1);
     expect(snapshot.playback!.visibleDanmakuCommentCount, 1);
+    expect(snapshot.playback!.matrixDanmakuRenderedCommentCount, 1);
+    expect(
+      snapshot.playback!.matrixDanmakuRendererSource,
+      'flutter-custom-painter-overlay',
+    );
     expect(
       snapshot.playback!.capabilities
           .singleWhere((DiagnosticsCapabilityEntry entry) =>

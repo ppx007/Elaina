@@ -164,25 +164,110 @@ final class DomainDanmakuLaneDescriptor {
   final List<DomainDanmakuCommentDescriptor> comments;
 }
 
+final class DomainCaptionTransform4Descriptor {
+  DomainCaptionTransform4Descriptor({required Iterable<double> values})
+      : assert(
+          values.length == 16,
+          'Matrix4 transform must contain 16 values.',
+        ),
+        values = List<double>.unmodifiable(values);
+
+  const DomainCaptionTransform4Descriptor._(this.values);
+
+  static const List<double> identityValues = <double>[
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+  ];
+
+  static const DomainCaptionTransform4Descriptor identity =
+      DomainCaptionTransform4Descriptor._(identityValues);
+
+  final List<double> values;
+}
+
+final class DomainMatrixDanmakuCommentDescriptor {
+  const DomainMatrixDanmakuCommentDescriptor({
+    required this.id,
+    required this.timestamp,
+    required this.text,
+    required this.mode,
+    this.colorArgb,
+  }) : assert(id != '', 'Matrix danmaku comment id must not be empty.');
+
+  final String id;
+  final Duration timestamp;
+  final String text;
+  final DomainDanmakuMode mode;
+  final int? colorArgb;
+}
+
+final class PlaybackMatrixDanmakuStateSnapshot {
+  PlaybackMatrixDanmakuStateSnapshot({
+    this.clockPosition = Duration.zero,
+    DomainCaptionTransform4Descriptor? transform,
+    Iterable<DomainMatrixDanmakuCommentDescriptor> comments =
+        const <DomainMatrixDanmakuCommentDescriptor>[],
+    this.rendererSource,
+    this.failureReason,
+  })  : transform = transform ?? DomainCaptionTransform4Descriptor.identity,
+        comments =
+            List<DomainMatrixDanmakuCommentDescriptor>.unmodifiable(comments);
+
+  const PlaybackMatrixDanmakuStateSnapshot.none()
+      : clockPosition = Duration.zero,
+        transform = DomainCaptionTransform4Descriptor.identity,
+        comments = const <DomainMatrixDanmakuCommentDescriptor>[],
+        rendererSource = null,
+        failureReason = null;
+
+  final Duration clockPosition;
+  final DomainCaptionTransform4Descriptor transform;
+  final List<DomainMatrixDanmakuCommentDescriptor> comments;
+  final String? rendererSource;
+  final String? failureReason;
+
+  int get renderedCommentCount => comments.length;
+
+  bool get hasVisibleComments => comments.isNotEmpty;
+}
+
 final class PlaybackDanmakuStateSnapshot {
   PlaybackDanmakuStateSnapshot({
     this.clockPosition = Duration.zero,
     Iterable<DomainDanmakuLaneDescriptor> lanes =
         const <DomainDanmakuLaneDescriptor>[],
     Iterable<String> warnings = const <String>[],
+    PlaybackMatrixDanmakuStateSnapshot? matrix,
     this.failureReason,
   })  : lanes = List<DomainDanmakuLaneDescriptor>.unmodifiable(lanes),
-        warnings = List<String>.unmodifiable(warnings);
+        warnings = List<String>.unmodifiable(warnings),
+        matrix = matrix ?? PlaybackMatrixDanmakuStateSnapshot.none();
 
   const PlaybackDanmakuStateSnapshot.none()
       : clockPosition = Duration.zero,
         lanes = const <DomainDanmakuLaneDescriptor>[],
         warnings = const <String>[],
+        matrix = const PlaybackMatrixDanmakuStateSnapshot.none(),
         failureReason = null;
 
   final Duration clockPosition;
   final List<DomainDanmakuLaneDescriptor> lanes;
   final List<String> warnings;
+  final PlaybackMatrixDanmakuStateSnapshot matrix;
   final String? failureReason;
 
   bool get hasVisibleComments {

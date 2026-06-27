@@ -151,10 +151,25 @@ void main() {
     expect(ElainaFinders.playbackPlayPause, findsOneWidget);
     expect(ElainaFinders.playbackSeekBar, findsOneWidget);
     expect(ElainaFinders.playbackSubtitleOverlay, findsOneWidget);
-    expect(ElainaFinders.playbackDanmakuOverlay, findsOneWidget);
+    expect(ElainaFinders.playbackMatrixDanmakuOverlay, findsOneWidget);
+    expect(ElainaFinders.playbackDanmakuOverlay, findsNothing);
     expect(find.text('主字幕对白'), findsWidgets);
-    expect(find.text('滚动弹幕'), findsOneWidget);
     expect(find.text('episode-1.mkv'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'production page falls back to basic danmaku when matrix is unsupported',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController(
+      matrix: _productionMatrix(matrixDanmakuSupported: false),
+    );
+
+    await tester.pumpWidget(_productionHost(controller));
+
+    expect(ElainaFinders.playbackMatrixDanmakuOverlay, findsNothing);
+    expect(ElainaFinders.playbackDanmakuOverlay, findsOneWidget);
+    expect(find.text('滚动弹幕'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -288,9 +303,10 @@ Widget _productionHost(
 
 MockPlaybackController _productionController({
   PlaybackLifecycleStatus status = PlaybackLifecycleStatus.paused,
+  PlaybackCapabilityMatrix? matrix,
 }) {
   return MockPlaybackController(
-    matrix: _productionMatrix(),
+    matrix: matrix ?? _productionMatrix(),
     initialState: PlaybackStateSnapshot(
       status: status,
       sourceUri: Uri.file('D:/Anime/episode-1.mkv'),
@@ -346,9 +362,10 @@ MockPlaybackController _productionController({
   );
 }
 
-PlaybackCapabilityMatrix _productionMatrix() {
+PlaybackCapabilityMatrix _productionMatrix(
+    {bool matrixDanmakuSupported = true}) {
   return PlaybackCapabilityMatrix(
-    capabilities: const <PlaybackCapability, CapabilityStatus>{
+    capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
       PlaybackCapability.playPause: CapabilityStatus.supported(),
       PlaybackCapability.seek: CapabilityStatus.supported(),
@@ -360,6 +377,11 @@ PlaybackCapabilityMatrix _productionMatrix() {
       PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
       PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
       PlaybackCapability.danmakuRendering: CapabilityStatus.supported(),
+      PlaybackCapability.matrixDanmaku: matrixDanmakuSupported
+          ? const CapabilityStatus.supported()
+          : const CapabilityStatus.unsupported(
+              'Matrix4 danmaku overlay renderer is not available.',
+            ),
       PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
       PlaybackCapability.avSyncGuard:
           CapabilityStatus.unsupported('当前后端未上报音画同步指标。'),

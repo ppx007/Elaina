@@ -107,6 +107,8 @@ abstract final class UiElementIds {
   static const String playbackTrackPanel = 'playback-track-panel';
   static const String playbackSubtitleOverlay = 'playback-subtitle-overlay';
   static const String playbackDanmakuOverlay = 'playback-danmaku-overlay';
+  static const String playbackMatrixDanmakuOverlay =
+      'playback-matrix-danmaku-overlay';
 
   static String playbackTrack(String trackId) {
     return 'playback-track-$trackId';

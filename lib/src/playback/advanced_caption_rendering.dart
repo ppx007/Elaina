@@ -22,8 +22,29 @@ final class CaptionTransform4 {
             values.length == 16, 'Matrix4 transform must contain 16 values.'),
         values = List<double>.unmodifiable(values);
 
+  CaptionTransform4.identity() : this(values: captionTransform4IdentityValues);
+
   final List<double> values;
 }
+
+const List<double> captionTransform4IdentityValues = <double>[
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+];
 
 final class MatrixDanmakuRequest {
   MatrixDanmakuRequest(

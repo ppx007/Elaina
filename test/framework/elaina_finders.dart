@@ -169,6 +169,8 @@ abstract final class ElainaFinders {
       byId(UiElementIds.playbackSubtitleOverlay);
   static Finder get playbackDanmakuOverlay =>
       byId(UiElementIds.playbackDanmakuOverlay);
+  static Finder get playbackMatrixDanmakuOverlay =>
+      byId(UiElementIds.playbackMatrixDanmakuOverlay);
 
   static Finder heroCarouselItem(String subjectId) {
     return byId(UiElementIds.heroCarouselItem(subjectId));

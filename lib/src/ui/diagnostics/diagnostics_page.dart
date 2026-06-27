@@ -704,6 +704,17 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
               _InfoRow('当前字幕', '${playback.activeSubtitleCueCount} 条 cue'),
               _InfoRow('字幕偏移', _formatDuration(playback.subtitleOffset)),
               _InfoRow('弹幕时钟', _formatDuration(playback.danmakuClockPosition)),
+              if (playback.matrixDanmakuRendererSource != null)
+                _InfoRow(
+                  '矩阵弹幕渲染',
+                  playback.matrixDanmakuRendererSource!,
+                ),
+              _InfoRow(
+                '矩阵弹幕绘制',
+                '${playback.matrixDanmakuRenderedCommentCount} 条',
+              ),
+              if (playback.matrixDanmakuFailure != null)
+                _InfoRow('矩阵弹幕失败', playback.matrixDanmakuFailure!),
               if (playback.failureReason != null)
                 _InfoRow('播放失败', playback.failureReason!),
               if (playback.subtitleFailure != null)

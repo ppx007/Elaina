@@ -90,6 +90,43 @@ void main() {
     expect(comment.id, startsWith('7:2000:0:'));
   });
 
+  test('bridge projects resolved danmaku through Matrix4 overlay renderer',
+      () async {
+    final PlaybackMetadataBridge bridge = PlaybackMetadataBridge(
+      subtitleRuntime: BasicSubtitleRuntime(),
+      danmakuRuntime: BasicDanmakuRuntime(),
+      matrixDanmakuRenderer: _matrixRenderer(),
+      dandanplayCommentProvider: const _FakeDandanplayCommentProvider(
+        comments: <DandanplayComment>[
+          DandanplayComment(
+            timestamp: Duration(seconds: 2),
+            text: 'matrix provider comment',
+            mode: DandanplayCommentMode.scrolling,
+            colorArgb: 0x00ffffff,
+          ),
+        ],
+      ),
+    );
+
+    await bridge.loadDandanplayComments(const DandanplayEpisodeId('matrix'));
+    final PlaybackMetadataBridgeSnapshot snapshot = bridge
+        .resolve(
+          const PlayerClockSnapshot(
+            position: Duration(seconds: 2),
+            isPlaying: true,
+            playbackSpeed: 1,
+          ),
+        )
+        .value!;
+
+    expect(snapshot.danmaku.matrix.hasVisibleComments, isTrue);
+    expect(snapshot.danmaku.matrix.rendererSource,
+        matrixDanmakuFlutterOverlayRendererSource);
+    expect(snapshot.danmaku.matrix.renderedCommentCount, 1);
+    expect(snapshot.danmaku.matrix.comments.single.text,
+        'matrix provider comment');
+  });
+
   test('bridge applies metadata projection to playback state', () async {
     final PlaybackMetadataBridge bridge = PlaybackMetadataBridge(
       subtitleRuntime: BasicSubtitleRuntime(),
@@ -214,6 +251,36 @@ SubtitleProviderCandidate _subtitleCandidate() {
     reference: 'subtitle-ref',
     confidence: 0.9,
     languageCode: 'ja',
+  );
+}
+
+MatrixDanmakuOverlayRenderer _matrixRenderer() {
+  final PlaybackCapabilityMatrix matrix = _matrix();
+  return MatrixDanmakuOverlayRenderer(
+    captionRenderer: DeterministicAdvancedCaptionRenderer(
+      captionStore: DeterministicAdvancedCaptionStore(),
+      capabilityMatrix: matrix,
+      profile: playbackMetadataMatrixDanmakuProfile,
+    ),
+    capabilityMatrix: matrix,
+  );
+}
+
+PlaybackCapabilityMatrix _matrix() {
+  return PlaybackCapabilityMatrix(
+    capabilities: const <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.danmakuRendering: CapabilityStatus.supported(),
+      PlaybackCapability.matrixDanmaku: CapabilityStatus.supported(),
+      PlaybackCapability.dualSubtitles: CapabilityStatus.unsupported(
+        'Dual subtitles are not part of this bridge test.',
+      ),
+      PlaybackCapability.pgsSubtitleRendering: CapabilityStatus.unsupported(
+        'PGS rendering is not part of this bridge test.',
+      ),
+      PlaybackCapability.assSubtitleEnhancement: CapabilityStatus.unsupported(
+        'ASS enhancement is not part of this bridge test.',
+      ),
+    },
   );
 }
 

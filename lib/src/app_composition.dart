@@ -32,6 +32,7 @@ import 'playback/av_sync_guard.dart';
 import 'playback/av_sync_guard_runtime.dart';
 import 'playback/av_sync_sample_source.dart';
 import 'playback/capability_matrix.dart';
+import 'playback/matrix_danmaku_overlay.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
@@ -57,6 +58,41 @@ const int _rssTorrentCacheKeyLength = 96;
 // media_kit exposes NoVideoControls as a dynamic null; keep a typed constant
 // here so analyzer can protect the production surface configuration.
 const VideoControlsBuilder? elainaMediaKitVideoControls = null;
+
+PlayerRuntimeCompositionContract _withMatrixDanmakuOverlayProbe(
+  PlayerRuntimeCompositionContract composition,
+) {
+  final PlaybackCapabilityProbeSource? probeSource =
+      composition.capabilityProbeSource;
+  return PlayerRuntimeCompositionContract(
+    binding: composition.binding,
+    capabilities: _matrixDanmakuOverlayCapabilities(composition.capabilities),
+    telemetrySource: composition.telemetrySource,
+    capabilityProbeSource: probeSource == null
+        ? null
+        : MatrixDanmakuOverlayCapabilityProbeSource(
+            delegate: probeSource,
+            rendererAvailable: true,
+          ),
+    avSyncSampleSource: composition.avSyncSampleSource,
+  );
+}
+
+PlaybackCapabilityMatrix _matrixDanmakuOverlayCapabilities(
+  PlaybackCapabilityMatrix base,
+) {
+  final CapabilityStatus basicDanmaku =
+      base.statusOf(PlaybackCapability.danmakuRendering);
+  final CapabilityStatus matrixStatus = basicDanmaku.isSupported
+      ? const CapabilityStatus.supported()
+      : CapabilityStatus.unsupported(
+          basicDanmaku.reason ?? matrixDanmakuBasicDanmakuUnsupportedReason,
+        );
+  return base.withCapabilityStatus(
+    PlaybackCapability.matrixDanmaku,
+    matrixStatus,
+  );
+}
 
 final class PeriodicFeedScheduler implements FeedScheduler {
   const PeriodicFeedScheduler(
@@ -172,7 +208,10 @@ class AppComposition {
     );
 
     // 2. Playback Composition
-    playbackComposition = mediaKitLocalFilePlayerRuntimeComposition();
+    final PlayerRuntimeCompositionContract mediaKitPlaybackComposition =
+        mediaKitLocalFilePlayerRuntimeComposition();
+    playbackComposition =
+        _withMatrixDanmakuOverlayProbe(mediaKitPlaybackComposition);
     final MediaKitMpvBinding binding =
         playbackComposition.binding as MediaKitMpvBinding;
     videoController = VideoController(binding.backend.player);

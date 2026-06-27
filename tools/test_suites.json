@@ -168,7 +168,9 @@
       "name": "playback-runtime",
       "runner": "flutter",
       "paths": [
+        "test/domain/playback/playback_metadata_bridge_test.dart",
         "test/playback/av_sync_guard_runtime_test.dart",
+        "test/playback/matrix_danmaku_overlay_test.dart",
         "test/playback/media_kit_mpv_binding_test.dart",
         "test/playback/player_core_runtime_test.dart"
       ],

@@ -206,6 +206,11 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
                 controlsVisible: _areControlsVisible,
                 visible: _areSubtitlesVisible,
               ),
+              _MatrixDanmakuOverlay(
+                view: view,
+                visible: _isDanmakuVisible,
+                repaint: _driver,
+              ),
               _DanmakuOverlay(view: view, visible: _isDanmakuVisible),
               _CenterPlaybackStatus(
                 view: view,
@@ -707,7 +712,9 @@ class _DanmakuOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!visible || !view.surface.danmakuOverlay.hasVisibleComments) {
+    if (!visible ||
+        view.surface.matrixDanmakuOverlay.hasVisibleComments ||
+        !view.surface.danmakuOverlay.hasVisibleComments) {
       return const SizedBox.shrink();
     }
     final List<PlaybackPageDanmakuLaneDescriptor> lanes =
@@ -724,6 +731,64 @@ class _DanmakuOverlay extends StatelessWidget {
                   laneIndex: laneIndex,
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MatrixDanmakuOverlay extends StatefulWidget {
+  const _MatrixDanmakuOverlay({
+    required this.view,
+    required this.visible,
+    required this.repaint,
+  });
+
+  final PlaybackPageViewSnapshot view;
+  final bool visible;
+  final Listenable repaint;
+
+  @override
+  State<_MatrixDanmakuOverlay> createState() => _MatrixDanmakuOverlayState();
+}
+
+class _MatrixDanmakuOverlayState extends State<_MatrixDanmakuOverlay> {
+  final _MatrixDanmakuTextLayoutCache _textCache =
+      _MatrixDanmakuTextLayoutCache();
+
+  @override
+  void didUpdateWidget(_MatrixDanmakuOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _textCache.retain(widget.view.surface.matrixDanmakuOverlay.comments);
+  }
+
+  @override
+  void dispose() {
+    _textCache.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final PlaybackPageMatrixDanmakuOverlayDescriptor overlay =
+        widget.view.surface.matrixDanmakuOverlay;
+    if (!widget.visible || !overlay.hasVisibleComments) {
+      return const SizedBox.shrink();
+    }
+    return Positioned.fill(
+      key: const ValueKey<String>(UiElementIds.playbackMatrixDanmakuOverlay),
+      child: IgnorePointer(
+        child: ClipRect(
+          child: RepaintBoundary(
+            child: CustomPaint(
+              isComplex: true,
+              painter: _MatrixDanmakuPainter(
+                overlay: overlay,
+                textCache: _textCache,
+                repaint: widget.repaint,
+              ),
+            ),
           ),
         ),
       ),
@@ -783,6 +848,190 @@ class _DanmakuLane extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MatrixDanmakuPainter extends CustomPainter {
+  _MatrixDanmakuPainter({
+    required this.overlay,
+    required this.textCache,
+    required Listenable repaint,
+  }) : super(repaint: repaint);
+
+  static const Duration _scrollWindow = Duration(seconds: 8);
+  static const double _maxTextWidthFraction = 0.72;
+  static const double _bottomInset = 176;
+
+  final PlaybackPageMatrixDanmakuOverlayDescriptor overlay;
+  final _MatrixDanmakuTextLayoutCache textCache;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || overlay.comments.isEmpty) return;
+    final Matrix4 transform = Matrix4.fromList(overlay.transformValues);
+    final Offset center = size.center(Offset.zero);
+
+    canvas.save();
+    // Matrix4 danmaku is authored relative to the video surface center. Applying
+    // the transform around center preserves identity behavior and makes rotate /
+    // scale effects usable without pushing all comments off-screen.
+    canvas
+      ..translate(center.dx, center.dy)
+      ..transform(transform.storage)
+      ..translate(-center.dx, -center.dy);
+
+    final Map<DomainDanmakuMode, int> laneIndexes = <DomainDanmakuMode, int>{};
+    final double maxTextWidth = size.width * _maxTextWidthFraction;
+    for (final PlaybackPageMatrixDanmakuCommentDescriptor comment
+        in overlay.comments) {
+      final int laneIndex = laneIndexes.update(
+        comment.mode,
+        (int value) => value + 1,
+        ifAbsent: () => 0,
+      );
+      final TextPainter textPainter = textCache.painterFor(
+        comment,
+        maxWidth: maxTextWidth,
+      );
+      final Offset offset = _commentOffset(
+        comment: comment,
+        laneIndex: laneIndex,
+        textSize: textPainter.size,
+        canvasSize: size,
+      );
+      textPainter.paint(canvas, offset);
+    }
+    canvas.restore();
+  }
+
+  Offset _commentOffset({
+    required PlaybackPageMatrixDanmakuCommentDescriptor comment,
+    required int laneIndex,
+    required Size textSize,
+    required Size canvasSize,
+  }) {
+    final double laneHeight = _ProductionPlaybackPageState._danmakuLaneHeight;
+    return switch (comment.mode) {
+      DomainDanmakuMode.scrolling => Offset(
+          _scrollingX(comment, textSize, canvasSize),
+          _ProductionPlaybackPageState._danmakuTopInset +
+              laneIndex * laneHeight,
+        ),
+      DomainDanmakuMode.top => Offset(
+          (canvasSize.width - textSize.width) / 2,
+          _ProductionPlaybackPageState._danmakuTopInset +
+              laneIndex * laneHeight,
+        ),
+      DomainDanmakuMode.bottom => Offset(
+          (canvasSize.width - textSize.width) / 2,
+          canvasSize.height - _bottomInset - (laneIndex + 1) * laneHeight,
+        ),
+    };
+  }
+
+  double _scrollingX(
+    PlaybackPageMatrixDanmakuCommentDescriptor comment,
+    Size textSize,
+    Size canvasSize,
+  ) {
+    final Duration age = overlay.clockPosition - comment.timestamp;
+    final int ageMicros = age.inMicroseconds
+        .clamp(
+          0,
+          _scrollWindow.inMicroseconds,
+        )
+        .toInt();
+    final double progress = ageMicros / _scrollWindow.inMicroseconds;
+    return canvasSize.width - progress * (canvasSize.width + textSize.width);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MatrixDanmakuPainter oldDelegate) {
+    return oldDelegate.overlay != overlay || oldDelegate.textCache != textCache;
+  }
+}
+
+final class _MatrixDanmakuTextLayoutCache {
+  final Map<_MatrixDanmakuTextLayoutKey, TextPainter> _painters =
+      <_MatrixDanmakuTextLayoutKey, TextPainter>{};
+
+  TextPainter painterFor(
+    PlaybackPageMatrixDanmakuCommentDescriptor comment, {
+    required double maxWidth,
+  }) {
+    final _MatrixDanmakuTextLayoutKey key = _MatrixDanmakuTextLayoutKey(
+      text: comment.text,
+      colorArgb: comment.colorArgb,
+      maxWidth: maxWidth.round(),
+    );
+    return _painters.putIfAbsent(key, () {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(
+          text: comment.text,
+          style: TextStyle(
+            color: _danmakuColor(comment.colorArgb),
+            fontSize: _ProductionPlaybackPageState._danmakuFontSize,
+            fontWeight: FontWeight.w700,
+            shadows: const <Shadow>[
+              Shadow(
+                blurRadius: 3,
+                offset: Offset(0, 1),
+                color: Colors.black,
+              ),
+            ],
+          ),
+        ),
+        maxLines: 1,
+        ellipsis: '…',
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: maxWidth);
+      return painter;
+    });
+  }
+
+  void retain(Iterable<PlaybackPageMatrixDanmakuCommentDescriptor> comments) {
+    final Set<String> activeTexts = <String>{
+      for (final PlaybackPageMatrixDanmakuCommentDescriptor comment in comments)
+        comment.text,
+    };
+    final List<_MatrixDanmakuTextLayoutKey> stale =
+        <_MatrixDanmakuTextLayoutKey>[
+      for (final _MatrixDanmakuTextLayoutKey key in _painters.keys)
+        if (!activeTexts.contains(key.text)) key,
+    ];
+    for (final _MatrixDanmakuTextLayoutKey key in stale) {
+      _painters.remove(key)?.dispose();
+    }
+  }
+
+  void dispose() {
+    for (final TextPainter painter in _painters.values) {
+      painter.dispose();
+    }
+    _painters.clear();
+  }
+}
+
+final class _MatrixDanmakuTextLayoutKey {
+  const _MatrixDanmakuTextLayoutKey({
+    required this.text,
+    required this.colorArgb,
+    required this.maxWidth,
+  });
+
+  final String text;
+  final int? colorArgb;
+  final int maxWidth;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _MatrixDanmakuTextLayoutKey &&
+        other.text == text &&
+        other.colorArgb == colorArgb &&
+        other.maxWidth == maxWidth;
+  }
+
+  @override
+  int get hashCode => Object.hash(text, colorArgb, maxWidth);
 }
 
 class _InspectorLayer extends StatelessWidget {
@@ -1241,6 +1490,8 @@ class _DanmakuSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final PlaybackPageDanmakuOverlayDescriptor danmaku =
         view.surface.danmakuOverlay;
+    final PlaybackPageMatrixDanmakuOverlayDescriptor matrix =
+        view.surface.matrixDanmakuOverlay;
     final int visibleCommentCount = danmaku.lanes.fold<int>(
       0,
       (int count, PlaybackPageDanmakuLaneDescriptor lane) =>
@@ -1259,6 +1510,15 @@ class _DanmakuSection extends StatelessWidget {
           _MetricLine(
               label: '时钟', value: _formatDuration(danmaku.clockPosition)),
           _MetricLine(label: '可见弹幕', value: visibleCommentCount.toString()),
+          if (matrix.rendererSource != null)
+            _MetricLine(label: '矩阵渲染', value: matrix.rendererSource!),
+          if (matrix.hasVisibleComments)
+            _MetricLine(
+              label: '矩阵绘制',
+              value: matrix.renderedCommentCount.toString(),
+            ),
+          if (matrix.failureReason != null)
+            _InspectorMessage('矩阵弹幕失败：${matrix.failureReason}'),
           if (danmaku.failureReason != null)
             _InspectorMessage('弹幕失败：${danmaku.failureReason}'),
           if (!danmaku.hasVisibleComments)

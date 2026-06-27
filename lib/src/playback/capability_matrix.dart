@@ -70,6 +70,18 @@ final class PlaybackCapabilityMatrix {
   bool supports(PlaybackCapability capability) =>
       statusOf(capability).isSupported;
 
+  PlaybackCapabilityMatrix withCapabilityStatus(
+    PlaybackCapability capability,
+    CapabilityStatus status,
+  ) {
+    return PlaybackCapabilityMatrix(
+      capabilities: <PlaybackCapability, CapabilityStatus>{
+        ..._capabilities,
+        capability: status,
+      },
+    );
+  }
+
   VideoEnhancementCapabilityStatus videoEnhancementStatus() {
     return VideoEnhancementCapabilityStatus(
       videoEnhancement: statusOf(PlaybackCapability.videoEnhancement),

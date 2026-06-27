@@ -1,5 +1,7 @@
+import '../../playback/advanced_caption_rendering.dart';
 import '../../playback/danmaku/danmaku_event.dart';
 import '../../playback/danmaku/danmaku_runtime_state.dart';
+import '../../playback/matrix_danmaku_overlay.dart';
 import '../../playback/player_clock.dart';
 import '../../playback/subtitle/subtitle_parser.dart';
 import '../../playback/subtitle/subtitle_runtime_state.dart';
@@ -20,6 +22,16 @@ const String playbackMetadataSubtitleProviderUnavailable =
     'Subtitle provider runtime is unavailable.';
 const String playbackMetadataDandanplayProviderUnavailable =
     'Dandanplay comment provider is unavailable.';
+
+const AdvancedCaptionProfile playbackMetadataMatrixDanmakuProfile =
+    AdvancedCaptionProfile(
+  id: AdvancedCaptionProfileId('playback-metadata-matrix-danmaku'),
+  label: 'Playback metadata Matrix4 danmaku',
+  matrixDanmakuEnabled: true,
+  dualSubtitlesEnabled: false,
+  pgsRenderingEnabled: false,
+  assEnhancementEnabled: false,
+);
 
 enum PlaybackMetadataBridgeStatus {
   idle,
@@ -109,15 +121,26 @@ final class PlaybackMetadataBridge {
     required BasicDanmakuRuntime danmakuRuntime,
     SubtitleProviderRuntime? subtitleProviderRuntime,
     DandanplayCommentProvider? dandanplayCommentProvider,
+    MatrixDanmakuOverlayRenderer? matrixDanmakuRenderer,
+    AdvancedCaptionProfile matrixDanmakuProfile =
+        playbackMetadataMatrixDanmakuProfile,
+    CaptionTransform4? matrixDanmakuTransform,
   })  : _subtitleRuntime = subtitleRuntime,
         _danmakuRuntime = danmakuRuntime,
         _subtitleProviderRuntime = subtitleProviderRuntime,
-        _dandanplayCommentProvider = dandanplayCommentProvider;
+        _dandanplayCommentProvider = dandanplayCommentProvider,
+        _matrixDanmakuRenderer = matrixDanmakuRenderer,
+        _matrixDanmakuProfile = matrixDanmakuProfile,
+        _matrixDanmakuTransform =
+            matrixDanmakuTransform ?? CaptionTransform4.identity();
 
   final BasicSubtitleRuntime _subtitleRuntime;
   final BasicDanmakuRuntime _danmakuRuntime;
   final SubtitleProviderRuntime? _subtitleProviderRuntime;
   final DandanplayCommentProvider? _dandanplayCommentProvider;
+  final MatrixDanmakuOverlayRenderer? _matrixDanmakuRenderer;
+  final AdvancedCaptionProfile _matrixDanmakuProfile;
+  final CaptionTransform4 _matrixDanmakuTransform;
   PlaybackMetadataBridgeSnapshot _snapshot =
       const PlaybackMetadataBridgeSnapshot.idle();
   bool _disposed = false;
@@ -230,8 +253,7 @@ final class PlaybackMetadataBridge {
         loadFailure.message,
       );
     }
-    final PlaybackDanmakuStateSnapshot danmaku =
-        playbackDanmakuStateFromRuntimeSnapshot(
+    final PlaybackDanmakuStateSnapshot danmaku = _danmakuStateFromSnapshot(
       _danmakuRuntime.currentSnapshot,
     );
     _publish(
@@ -254,8 +276,7 @@ final class PlaybackMetadataBridge {
         playbackSubtitleStateFromRuntimeSnapshot(
       _subtitleRuntime.resolveActiveCues(clock),
     );
-    final PlaybackDanmakuStateSnapshot danmaku =
-        playbackDanmakuStateFromRuntimeSnapshot(
+    final PlaybackDanmakuStateSnapshot danmaku = _danmakuStateFromSnapshot(
       _danmakuRuntime.resolveFrame(clock),
     );
     final PlaybackMetadataBridgeSnapshot snapshot =
@@ -302,6 +323,35 @@ final class PlaybackMetadataBridge {
 
   PlaybackMetadataBridgeResult<T> _disposedResult<T>() {
     return PlaybackMetadataBridgeResult<T>.failure(_disposedFailure());
+  }
+
+  PlaybackDanmakuStateSnapshot _danmakuStateFromSnapshot(
+    BasicDanmakuRuntimeSnapshot snapshot,
+  ) {
+    final PlaybackDanmakuStateSnapshot base =
+        playbackDanmakuStateFromRuntimeSnapshot(snapshot);
+    final MatrixDanmakuOverlayRenderer? renderer = _matrixDanmakuRenderer;
+    if (renderer == null) return base;
+
+    final MatrixDanmakuOverlayRenderResult result = renderer.renderFrame(
+      frame: snapshot.activeFrame,
+      transform: _matrixDanmakuTransform,
+      profile: _matrixDanmakuProfile,
+    );
+    final PlaybackMatrixDanmakuStateSnapshot matrix = result.isSuccess
+        ? playbackMatrixDanmakuStateFromOverlayFrame(result.frame!)
+        : PlaybackMatrixDanmakuStateSnapshot(
+            clockPosition: snapshot.activeFrame.clock.position,
+            rendererSource: renderer.rendererSource,
+            failureReason: result.failure?.message,
+          );
+    return PlaybackDanmakuStateSnapshot(
+      clockPosition: base.clockPosition,
+      lanes: base.lanes,
+      warnings: base.warnings,
+      matrix: matrix,
+      failureReason: base.failureReason,
+    );
   }
 
   PlaybackMetadataBridgeFailure _disposedFailure() {

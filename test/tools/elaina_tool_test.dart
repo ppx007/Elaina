@@ -164,6 +164,8 @@ void main() {
             'name': 'playback-runtime',
             'runner': 'flutter',
             'paths': <String>[
+              'test/domain/playback/playback_metadata_bridge_test.dart',
+              'test/playback/matrix_danmaku_overlay_test.dart',
               'test/playback/media_kit_mpv_binding_test.dart',
               'test/playback/player_core_runtime_test.dart',
             ],
@@ -178,6 +180,16 @@ void main() {
       await _writeText(
         root,
         'test/foundation/layer_import_graph_test.dart',
+        'void main() {}',
+      );
+      await _writeText(
+        root,
+        'test/domain/playback/playback_metadata_bridge_test.dart',
+        'void main() {}',
+      );
+      await _writeText(
+        root,
+        'test/playback/matrix_danmaku_overlay_test.dart',
         'void main() {}',
       );
       await _writeText(
@@ -205,7 +217,9 @@ void main() {
 
       expect(processRunner.commands, <String>[
         'dart analyze',
-        'flutter test test/foundation/layer_import_graph_test.dart '
+        'flutter test test/domain/playback/playback_metadata_bridge_test.dart '
+            'test/foundation/layer_import_graph_test.dart '
+            'test/playback/matrix_danmaku_overlay_test.dart '
             'test/playback/media_kit_mpv_binding_test.dart '
             'test/playback/player_core_runtime_test.dart',
       ]);

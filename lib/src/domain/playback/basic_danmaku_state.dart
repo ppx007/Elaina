@@ -1,6 +1,7 @@
 import '../../playback/danmaku/danmaku_event.dart';
 import '../../playback/danmaku/danmaku_renderer.dart';
 import '../../playback/danmaku/danmaku_runtime_state.dart';
+import '../../playback/matrix_danmaku_overlay.dart';
 import '../../provider/dandanplay/dandanplay_comments.dart';
 import '../playback/playback_state.dart';
 
@@ -27,6 +28,29 @@ PlaybackDanmakuStateSnapshot playbackDanmakuStateFromRuntimeSnapshot(
     ],
     warnings: snapshot.warnings,
     failureReason: snapshot.failure?.message,
+  );
+}
+
+PlaybackMatrixDanmakuStateSnapshot playbackMatrixDanmakuStateFromOverlayFrame(
+  MatrixDanmakuOverlayFrame frame,
+) {
+  return PlaybackMatrixDanmakuStateSnapshot(
+    clockPosition: frame.clockPosition,
+    transform: DomainCaptionTransform4Descriptor(
+      values: frame.transform.values,
+    ),
+    comments: <DomainMatrixDanmakuCommentDescriptor>[
+      for (final MatrixDanmakuOverlayComment comment in frame.comments)
+        DomainMatrixDanmakuCommentDescriptor(
+          id: comment.id.value,
+          timestamp: comment.timestamp,
+          text: comment.text,
+          mode: domainDanmakuModeFromPlayback(comment.mode),
+          colorArgb: comment.colorArgb,
+        ),
+    ],
+    rendererSource: frame.rendererSource,
+    failureReason: frame.failureReason,
   );
 }
 
