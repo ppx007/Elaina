@@ -637,8 +637,9 @@ void main() {
     expect(matrix.supports(PlaybackCapability.pgsSubtitleRendering), isTrue);
     expect(matrix.supports(PlaybackCapability.assSubtitleEnhancement), isTrue);
     expect(matrix.supports(PlaybackCapability.matrixDanmaku), isFalse);
-    expect(matrix.supports(PlaybackCapability.avSyncGuard), isFalse);
+    expect(matrix.supports(PlaybackCapability.avSyncGuard), isTrue);
     expect(matrix.supports(PlaybackCapability.fallbackAdapter), isFalse);
+    expect(probe.details['avSyncSampler'], 'true');
   });
 
   test(
@@ -654,6 +655,7 @@ void main() {
     expect(matrix.supports(PlaybackCapability.videoEnhancement), isFalse);
     expect(matrix.supports(PlaybackCapability.hdrToneMapping), isFalse);
     expect(matrix.supports(PlaybackCapability.debandFiltering), isFalse);
+    expect(matrix.supports(PlaybackCapability.avSyncGuard), isFalse);
     expect(matrix.supports(PlaybackCapability.dualSubtitles), isFalse);
     expect(matrix.supports(PlaybackCapability.pgsSubtitleRendering), isFalse);
     expect(matrix.supports(PlaybackCapability.assSubtitleEnhancement), isFalse);
@@ -661,6 +663,77 @@ void main() {
       matrix.statusOf(PlaybackCapability.videoEnhancement).reason,
       mediaKitMpvNativeBackendReason,
     );
+  });
+
+  test('AV sync sampling reads MPV drift and drop counter deltas', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      properties: <String, String>{
+        mpvAvSyncProperty: '0.125',
+        mpvTimePositionProperty: '10',
+        mpvFrameDropCountProperty: '2',
+        mpvDecoderFrameDropCountProperty: '3',
+        mpvVoDelayedFrameCountProperty: '4',
+      },
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final AVSyncSampleReadResult first = await binding.sample();
+    backend._properties[mpvAvSyncProperty] = '-0.080';
+    backend._properties[mpvTimePositionProperty] = '20';
+    backend._properties[mpvFrameDropCountProperty] = '3';
+    backend._properties[mpvDecoderFrameDropCountProperty] = '4';
+    backend._properties[mpvVoDelayedFrameCountProperty] = '5';
+    final AVSyncSampleReadResult second = await binding.sample();
+
+    expect(first.isSuccess, isTrue);
+    expect(first.sample!.videoPosition, const Duration(seconds: 10));
+    expect(first.sample!.audioPosition,
+        const Duration(seconds: 10, milliseconds: 125));
+    expect(first.sample!.absoluteDrift, const Duration(milliseconds: 125));
+    expect(first.sample!.renderDelay, Duration.zero);
+    expect(first.sample!.droppedFrames, 0);
+    expect(second.isSuccess, isTrue);
+    expect(second.sample!.videoPosition, const Duration(seconds: 20));
+    expect(second.sample!.audioPosition,
+        const Duration(seconds: 19, milliseconds: 920));
+    expect(second.sample!.absoluteDrift, const Duration(milliseconds: 80));
+    expect(second.sample!.droppedFrames, 3);
+    expect(
+      backend.propertyReadCalls,
+      <String>[
+        mpvAvSyncProperty,
+        mpvTimePositionProperty,
+        mpvFrameDropCountProperty,
+        mpvDecoderFrameDropCountProperty,
+        mpvVoDelayedFrameCountProperty,
+        mpvAvSyncProperty,
+        mpvTimePositionProperty,
+        mpvFrameDropCountProperty,
+        mpvDecoderFrameDropCountProperty,
+        mpvVoDelayedFrameCountProperty,
+      ],
+    );
+  });
+
+  test('AV sync sampling fails when native property reads are unavailable',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      supportsPropertyRead: false,
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCapabilityMatrix matrix =
+        binding.currentCapabilityProbe.capabilities;
+    final AVSyncSampleReadResult result = await binding.sample();
+
+    expect(matrix.supports(PlaybackCapability.avSyncGuard), isFalse);
+    expect(
+      matrix.statusOf(PlaybackCapability.avSyncGuard).reason,
+      mediaKitMpvAvSyncGuardReason,
+    );
+    expect(result.isSuccess, isFalse);
+    expect(result.failure!.kind,
+        AVSyncSampleReadFailureKind.propertyReadUnavailable);
   });
 
   test('media-kit capability probe reflects URI track telemetry failures', () {
@@ -917,12 +990,17 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
     this.failOnProperty,
     this.supportsUriPlayback = true,
     this.supportsNativeMpvCommands = true,
+    bool? supportsPropertyRead,
     this.supportsTrackDiscovery = true,
     this.supportsTrackSwitching = true,
     this.supportsTelemetry = true,
     this.resolvedLibMpvPath,
+    Map<String, String> properties = const <String, String>{},
     PlayerTelemetrySnapshot? initialTelemetry,
-  }) : _currentTelemetry = initialTelemetry ?? PlayerTelemetrySnapshot();
+  })  : supportsPropertyRead =
+            supportsPropertyRead ?? supportsNativeMpvCommands,
+        _properties = Map<String, String>.of(properties),
+        _currentTelemetry = initialTelemetry ?? PlayerTelemetrySnapshot();
 
   @override
   Player get player =>
@@ -935,6 +1013,8 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   @override
   final bool supportsNativeMpvCommands;
   @override
+  final bool supportsPropertyRead;
+  @override
   final bool supportsTrackDiscovery;
   @override
   final bool supportsTrackSwitching;
@@ -946,7 +1026,9 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
       StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
   final List<PlaybackOperation> operations = <PlaybackOperation>[];
   final List<_PropertyCall> propertyCalls = <_PropertyCall>[];
+  final List<String> propertyReadCalls = <String>[];
   final List<List<String>> commandCalls = <List<String>>[];
+  final Map<String, String> _properties;
   PlayerTelemetrySnapshot _currentTelemetry;
   Uri? openedUri;
   Duration? seekPosition;
@@ -1017,6 +1099,19 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   }
 
   @override
+  Future<String> getProperty(String property) async {
+    if (!supportsPropertyRead) {
+      throw StateError('native MPV property reads are unavailable');
+    }
+    propertyReadCalls.add(property);
+    final String? value = _properties[property];
+    if (value == null) {
+      throw StateError('missing MPV property $property');
+    }
+    return value;
+  }
+
+  @override
   Future<void> command(List<String> arguments) async {
     if (!supportsNativeMpvCommands) {
       throw StateError('native MPV commands are unavailable');
@@ -1031,6 +1126,7 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
       capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(
         supportsUriPlayback: supportsUriPlayback,
         supportsNativeMpvCommands: supportsNativeMpvCommands,
+        supportsAvSyncSampling: supportsPropertyRead,
         supportsTrackApi: supportsTrackDiscovery && supportsTrackSwitching,
         supportsTelemetry: supportsTelemetry,
       ),

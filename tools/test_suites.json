@@ -58,6 +58,7 @@
       "name": "settings-diagnostics-ui",
       "runner": "flutter",
       "paths": [
+        "test/domain/diagnostics/diagnostics_workbench_test.dart",
         "test/ui/settings_and_diagnostics_test.dart"
       ],
       "scopes": [
@@ -167,6 +168,7 @@
       "name": "playback-runtime",
       "runner": "flutter",
       "paths": [
+        "test/playback/av_sync_guard_runtime_test.dart",
         "test/playback/media_kit_mpv_binding_test.dart",
         "test/playback/player_core_runtime_test.dart"
       ],

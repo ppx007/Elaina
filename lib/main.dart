@@ -128,6 +128,7 @@ class _MyAppState extends State<MyApp> {
         composition: _composition!.playbackComposition,
       );
       _playbackController = _bootstrap!.controller;
+      _composition!.startAvSyncGuardMonitor(_playbackController);
       _videoSurface = _composition!.buildVideoSurface(context);
       _mediaLibraryRuntime = _composition!.mediaLibraryRuntime;
       _videoDetailPageContract = _composition!.videoDetailPageContract;

@@ -144,6 +144,53 @@ void main() {
     );
   });
 
+  test('workbench exposes AV sync monitor state in playback snapshot',
+      () async {
+    final DeterministicAVSyncGuardStore store = DeterministicAVSyncGuardStore();
+    final AVSyncGuardRuntime guardRuntime = AVSyncGuardBootstrap(
+      guardStore: store,
+      guardByScope: <String, DeterministicAVSyncGuard>{
+        avSyncGuardDefaultScopeId: DeterministicAVSyncGuard(
+          policy: AVSyncPolicy(),
+          guardStore: store,
+          capabilities: _playbackCapabilities(),
+          scopeId: avSyncGuardDefaultScopeId,
+        ),
+      },
+      capabilitiesByScope: <String, PlaybackCapabilityMatrix>{
+        avSyncGuardDefaultScopeId: _playbackCapabilities(),
+      },
+    ).createRuntime();
+    final MockPlaybackController playbackController = MockPlaybackController(
+      matrix: _playbackCapabilities(),
+      initialState: PlaybackStateSnapshot(
+        status: PlaybackLifecycleStatus.playing,
+        sourceUri: Uri.parse('file:///D:/Anime/diagnostics.mkv'),
+      ),
+    );
+    final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+      playbackController: playbackController,
+      sampleSource: _SingleSampleSource(_sample(95)),
+      guardRuntime: guardRuntime,
+      now: () => DateTime.utc(2026, 6, 27, 11),
+    );
+    await monitor.tick();
+    final DefaultDiagnosticsWorkbenchRuntime workbench = _workbench(
+      playbackController: playbackController,
+      avSyncGuardMonitorRuntime: monitor,
+    );
+
+    final DiagnosticsWorkbenchSnapshot snapshot = await workbench.snapshot();
+
+    expect(snapshot.playback!.avSyncHealth, AVSyncHealth.warning);
+    expect(snapshot.playback!.avSyncLatestDriftMillis, 95);
+    expect(snapshot.playback!.avSyncSampleCount, 1);
+    expect(
+        snapshot.playback!.avSyncLastSampledAt, DateTime.utc(2026, 6, 27, 11));
+    await monitor.dispose();
+    await guardRuntime.dispose();
+  });
+
   test('backend probe caches network checks inside ttl', () async {
     DateTime now = DateTime.utc(2026, 6, 27, 12);
     int providerChecks = 0;
@@ -185,6 +232,7 @@ DefaultDiagnosticsWorkbenchRuntime _workbench({
   PlaybackControllerContract? playbackController,
   DownloadRuntime? downloadRuntime,
   DiagnosticsBackendProbeRuntime? backendProbeRuntime,
+  AVSyncGuardMonitorRuntime? avSyncGuardMonitorRuntime,
 }) {
   return DefaultDiagnosticsWorkbenchRuntime(
     diagnosticsRuntime: _StaticDiagnosticsRuntime(),
@@ -205,7 +253,38 @@ DefaultDiagnosticsWorkbenchRuntime _workbench({
     mediaLibraryRuntime: _mediaLibraryRuntime(),
     settingsRuntime: settingsRuntime ?? FakeSettingsRuntime(),
     backendProbeRuntime: backendProbeRuntime,
+    avSyncGuardMonitorRuntime: avSyncGuardMonitorRuntime,
   );
+}
+
+PlaybackCapabilityMatrix _playbackCapabilities() {
+  return PlaybackCapabilityMatrix(
+    capabilities: const <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
+      PlaybackCapability.playPause: CapabilityStatus.supported(),
+      PlaybackCapability.avSyncGuard: CapabilityStatus.supported(),
+    },
+  );
+}
+
+AVSyncSample _sample(int driftMillis) {
+  return AVSyncSample(
+    audioPosition: Duration(milliseconds: 1000 + driftMillis),
+    videoPosition: const Duration(milliseconds: 1000),
+    renderDelay: Duration.zero,
+    droppedFrames: 0,
+  );
+}
+
+final class _SingleSampleSource implements AVSyncSampleSource {
+  const _SingleSampleSource(this._sample);
+
+  final AVSyncSample _sample;
+
+  @override
+  Future<AVSyncSampleReadResult> sample() async {
+    return AVSyncSampleReadResult.success(_sample);
+  }
 }
 
 MediaLibraryRuntime _mediaLibraryRuntime() {

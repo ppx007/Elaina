@@ -1,6 +1,8 @@
+import '../../playback/av_sync_guard.dart';
 import '../../playback/capability_matrix.dart';
 import '../download/download_domain.dart';
 import '../media/media_library_runtime.dart';
+import '../playback/av_sync_guard_monitor_runtime.dart';
 import '../playback/playback_controller.dart';
 import '../playback/playback_state.dart';
 import '../rss/rss_engine.dart';
@@ -471,11 +473,18 @@ final class DiagnosticsPlaybackSnapshot {
     required this.danmakuWarnings,
     required this.danmakuFailure,
     required this.capabilities,
+    this.avSyncHealth,
+    this.avSyncLatestDriftMillis,
+    this.avSyncSampleCount,
+    this.avSyncLatestDegradationAction,
+    this.avSyncSamplerFailure,
+    this.avSyncLastSampledAt,
   });
 
   factory DiagnosticsPlaybackSnapshot.fromController(
     PlaybackControllerContract controller, {
     PlaybackCapabilityProbeSnapshot? capabilityProbe,
+    AVSyncGuardMonitorSnapshot? avSyncMonitor,
   }) {
     final PlaybackStateSnapshot state = controller.currentState;
     final PlaybackCapabilityMatrix matrix =
@@ -509,6 +518,13 @@ final class DiagnosticsPlaybackSnapshot {
       ),
       danmakuWarnings: state.danmaku.warnings,
       danmakuFailure: state.danmaku.failureReason,
+      avSyncHealth: avSyncMonitor?.health,
+      avSyncLatestDriftMillis: avSyncMonitor?.latestDriftMillis,
+      avSyncSampleCount: avSyncMonitor?.sampleCount,
+      avSyncLatestDegradationAction: avSyncMonitor?.latestDegradationAction,
+      avSyncSamplerFailure: avSyncMonitor?.latestSampleFailure?.message ??
+          avSyncMonitor?.latestGuardFailure?.message,
+      avSyncLastSampledAt: avSyncMonitor?.lastSampledAt,
       capabilities: diagnosticsPlaybackCapabilities(
         matrix,
         checkedAt: capabilityProbe?.checkedAt,
@@ -543,6 +559,22 @@ final class DiagnosticsPlaybackSnapshot {
   final List<String> danmakuWarnings;
   final String? danmakuFailure;
   final List<DiagnosticsCapabilityEntry> capabilities;
+  final AVSyncHealth? avSyncHealth;
+  final int? avSyncLatestDriftMillis;
+  final int? avSyncSampleCount;
+  final String? avSyncLatestDegradationAction;
+  final String? avSyncSamplerFailure;
+  final DateTime? avSyncLastSampledAt;
+
+  String get avSyncHealthLabel {
+    final AVSyncHealth? health = avSyncHealth;
+    if (health == null) return '暂无样本';
+    return switch (health) {
+      AVSyncHealth.target => '目标内',
+      AVSyncHealth.warning => '警告',
+      AVSyncHealth.degraded => '已退化',
+    };
+  }
 }
 
 final class DiagnosticsDownloadTaskSnapshot {
@@ -881,13 +913,15 @@ final class DefaultDiagnosticsWorkbenchRuntime
     required MediaLibraryRuntime mediaLibraryRuntime,
     required SettingsRuntime settingsRuntime,
     DiagnosticsBackendProbeRuntime? backendProbeRuntime,
+    AVSyncGuardMonitorRuntime? avSyncGuardMonitorRuntime,
   })  : _diagnosticsRuntime = diagnosticsRuntime,
         _playbackController = playbackController,
         _downloadRuntime = downloadRuntime,
         _rssEngineRuntime = rssEngineRuntime,
         _mediaLibraryRuntime = mediaLibraryRuntime,
         _settingsRuntime = settingsRuntime,
-        _backendProbeRuntime = backendProbeRuntime;
+        _backendProbeRuntime = backendProbeRuntime,
+        _avSyncGuardMonitorRuntime = avSyncGuardMonitorRuntime;
 
   final DiagnosticsRuntime _diagnosticsRuntime;
   final PlaybackControllerContract _playbackController;
@@ -896,6 +930,7 @@ final class DefaultDiagnosticsWorkbenchRuntime
   final MediaLibraryRuntime _mediaLibraryRuntime;
   final SettingsRuntime _settingsRuntime;
   final DiagnosticsBackendProbeRuntime? _backendProbeRuntime;
+  final AVSyncGuardMonitorRuntime? _avSyncGuardMonitorRuntime;
 
   @override
   Future<DiagnosticsWorkbenchSnapshot> snapshot() async {
@@ -923,6 +958,7 @@ final class DefaultDiagnosticsWorkbenchRuntime
       () async => DiagnosticsPlaybackSnapshot.fromController(
         _playbackController,
         capabilityProbe: probeSnapshot.playback,
+        avSyncMonitor: _avSyncGuardMonitorRuntime?.snapshot,
       ),
     );
     final _ModuleResult<DiagnosticsDownloadSnapshot> downloads =

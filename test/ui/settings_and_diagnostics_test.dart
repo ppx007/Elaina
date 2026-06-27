@@ -10,6 +10,7 @@ import 'package:elaina/src/domain/playback/playback_state.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
 import 'package:elaina/src/domain/rss/rss_engine_runtime.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
+import 'package:elaina/src/playback/av_sync_guard.dart';
 import 'package:elaina/src/provider/bangumi/bangumi_api_client.dart';
 import 'package:elaina/src/ui/diagnostics/diagnostics_page.dart';
 import 'package:elaina/src/ui/settings/settings_page.dart';
@@ -152,6 +153,7 @@ final class _MockDiagnosticsWorkbenchRuntime
       probeDetails: const <String, String>{
         'nativeMpvCommands': 'true',
         'telemetry': 'true',
+        'avSyncSampler': 'true',
       },
       status: PlaybackLifecycleStatus.playing,
       position: const Duration(minutes: 3, seconds: 12),
@@ -172,6 +174,12 @@ final class _MockDiagnosticsWorkbenchRuntime
       visibleDanmakuCommentCount: 18,
       danmakuWarnings: const <String>['弹幕密度接近上限'],
       danmakuFailure: null,
+      avSyncHealth: AVSyncHealth.warning,
+      avSyncLatestDriftMillis: 92,
+      avSyncSampleCount: 4,
+      avSyncLatestDegradationAction:
+          AVSyncDegradationAction.keepCurrentProfile.name,
+      avSyncLastSampledAt: DateTime(2026, 6, 20, 10, 2),
       capabilities: const <DiagnosticsCapabilityEntry>[
         DiagnosticsCapabilityEntry(
           id: 'playPause',
@@ -580,6 +588,9 @@ void main() {
     expect(find.text('file:///D:/Anime/cyber_overload.mp4'), findsOneWidget);
     expect(find.text('audio-jpn'), findsOneWidget);
     expect(find.text('subtitle-zh'), findsOneWidget);
+    expect(find.text('AV 同步采样'), findsOneWidget);
+    expect(find.text('警告'), findsOneWidget);
+    expect(find.text('92 ms'), findsOneWidget);
     expect(find.textContaining('弹幕密度接近上限'), findsOneWidget);
     expect(find.text('音轨发现'), findsOneWidget);
 

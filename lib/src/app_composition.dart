@@ -13,6 +13,7 @@ import 'domain/home/home_search_domain.dart';
 import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
+import 'domain/playback/av_sync_guard_monitor_runtime.dart';
 import 'domain/playback/playback_controller.dart';
 import 'domain/playback/playback_source_handoff.dart';
 import 'domain/profile/bangumi_login_domain.dart';
@@ -27,6 +28,10 @@ import 'foundation/diagnostics/diagnostics_center_runtime.dart';
 import 'foundation/foundation_bootstrap.dart';
 import 'foundation/provider_contracts.dart';
 import 'gateway/network_policy_provider_gateway.dart';
+import 'playback/av_sync_guard.dart';
+import 'playback/av_sync_guard_runtime.dart';
+import 'playback/av_sync_sample_source.dart';
+import 'playback/capability_matrix.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
@@ -171,6 +176,25 @@ class AppComposition {
     final MediaKitMpvBinding binding =
         playbackComposition.binding as MediaKitMpvBinding;
     videoController = VideoController(binding.backend.player);
+    final PlaybackCapabilityMatrix avSyncCapabilities = playbackComposition
+            .capabilityProbeSource?.currentCapabilityProbe.capabilities ??
+        playbackComposition.capabilities;
+    avSyncGuardRuntime = AVSyncGuardBootstrap(
+      guardStore: foundation.storage.avSyncGuard,
+      guardByScope: <String, DeterministicAVSyncGuard>{
+        avSyncGuardDefaultScopeId: DeterministicAVSyncGuard(
+          policy: AVSyncPolicy(),
+          guardStore: foundation.storage.avSyncGuard,
+          capabilities: avSyncCapabilities,
+          cacheInvalidationBus: foundation.invalidationBus,
+          scopeId: avSyncGuardDefaultScopeId,
+        ),
+      },
+      capabilitiesByScope: <String, PlaybackCapabilityMatrix>{
+        avSyncGuardDefaultScopeId: avSyncCapabilities,
+      },
+      cacheInvalidationBus: foundation.invalidationBus,
+    ).createRuntime();
 
     // 3. Media Library Runtime
     final scanner = LocalFileMediaLibraryScanner();
@@ -396,6 +420,7 @@ class AppComposition {
 
   late final FoundationBootstrap foundation;
   late final PlayerRuntimeCompositionContract playbackComposition;
+  late final AVSyncGuardRuntime avSyncGuardRuntime;
   late final VideoController videoController;
   late final MediaLibraryRuntime mediaLibraryRuntime;
   late final VideoDetailBootstrap videoDetailBootstrap;
@@ -418,9 +443,27 @@ class AppComposition {
   late final BangumiTrackingProvider trackingProvider;
   late final HomeRecommendationProvider homeRecommendationProvider;
   late final HomeSearchProvider homeSearchProvider;
+  AVSyncGuardMonitorRuntime? _avSyncGuardMonitorRuntime;
 
   Widget buildVideoSurface(BuildContext context) {
     return buildElainaMediaKitVideoSurface(videoController);
+  }
+
+  AVSyncGuardMonitorRuntime? get avSyncGuardMonitorRuntime =>
+      _avSyncGuardMonitorRuntime;
+
+  void startAvSyncGuardMonitor(PlaybackControllerContract playbackController) {
+    if (_avSyncGuardMonitorRuntime != null) return;
+    final AVSyncSampleSource? sampleSource =
+        playbackComposition.avSyncSampleSource;
+    if (sampleSource == null) return;
+    final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+      playbackController: playbackController,
+      sampleSource: sampleSource,
+      guardRuntime: avSyncGuardRuntime,
+    );
+    _avSyncGuardMonitorRuntime = monitor;
+    monitor.start();
   }
 
   DiagnosticsWorkbenchRuntime buildDiagnosticsWorkbenchRuntime({
@@ -433,6 +476,7 @@ class AppComposition {
       rssEngineRuntime: rssEngineRuntime,
       mediaLibraryRuntime: mediaLibraryRuntime,
       settingsRuntime: settingsRuntime,
+      avSyncGuardMonitorRuntime: _avSyncGuardMonitorRuntime,
       backendProbeRuntime: DefaultDiagnosticsBackendProbeRuntime(
         playbackProbeSource: playbackComposition.capabilityProbeSource,
         downloadRuntime: downloadRuntime,
@@ -463,6 +507,11 @@ class AppComposition {
   }
 
   void dispose() {
+    final AVSyncGuardMonitorRuntime? monitor = _avSyncGuardMonitorRuntime;
+    if (monitor != null) {
+      unawaited(monitor.dispose());
+    }
+    unawaited(avSyncGuardRuntime.dispose());
     rssTorrentUrlResolver.dispose();
     downloadRuntime.dispose();
     virtualMediaStreamRuntime.dispose();

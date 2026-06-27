@@ -1,3 +1,4 @@
+import 'av_sync_sample_source.dart';
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_telemetry.dart';
@@ -12,10 +13,12 @@ final class PlayerRuntimeCompositionContract {
     required this.capabilities,
     this.telemetrySource,
     this.capabilityProbeSource,
+    this.avSyncSampleSource,
   });
 
   final MpvAdapterBinding binding;
   final PlaybackCapabilityMatrix capabilities;
   final PlayerTelemetrySource? telemetrySource;
   final PlaybackCapabilityProbeSource? capabilityProbeSource;
+  final AVSyncSampleSource? avSyncSampleSource;
 }

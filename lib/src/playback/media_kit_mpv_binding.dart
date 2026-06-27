@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:media_kit/media_kit.dart';
 
 import 'advanced_caption_rendering.dart';
+import 'av_sync_guard.dart';
+import 'av_sync_sample_source.dart';
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
@@ -31,7 +33,7 @@ const String mediaKitMpvTelemetryReason =
 const String mediaKitMpvMatrixDanmakuReason =
     'Matrix danmaku has no implemented renderer backend.';
 const String mediaKitMpvAvSyncGuardReason =
-    'No real audio/video clock sampler is wired for this backend.';
+    'Native MPV avsync property sampler is unavailable.';
 const String mediaKitMpvFallbackReason =
     'No secondary playback backend is wired in this runtime.';
 const String mediaKitMpvAnime4kShaderReason =
@@ -67,6 +69,11 @@ const String mpvSubtitleAutoValue = 'auto';
 const String mpvSubtitleNoValue = 'no';
 const String mpvSubtitleEnabledValue = 'yes';
 const String mpvSubtitleDisabledValue = 'no';
+const String mpvAvSyncProperty = 'avsync';
+const String mpvTimePositionProperty = 'time-pos';
+const String mpvFrameDropCountProperty = 'frame-drop-count';
+const String mpvDecoderFrameDropCountProperty = 'decoder-frame-drop-count';
+const String mpvVoDelayedFrameCountProperty = 'vo-delayed-frame-count';
 const String mediaKitAudioTrackIdPrefix = 'media-kit-audio:';
 const String mediaKitSubtitleTrackIdPrefix = 'media-kit-subtitle:';
 const String _mediaKitAutoTrackId = 'auto';
@@ -433,6 +440,8 @@ abstract interface class MediaKitMpvBackend {
 
   bool get supportsNativeMpvCommands;
 
+  bool get supportsPropertyRead;
+
   bool get supportsTrackDiscovery;
 
   bool get supportsTrackSwitching;
@@ -458,6 +467,8 @@ abstract interface class MediaKitMpvBackend {
   Future<void> stop();
 
   Future<void> setProperty(String property, String value);
+
+  Future<String> getProperty(String property);
 
   Future<void> command(List<String> arguments);
 
@@ -506,6 +517,9 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
 
   @override
   bool get supportsNativeMpvCommands => _player.platform is NativePlayer;
+
+  @override
+  bool get supportsPropertyRead => _player.platform is NativePlayer;
 
   @override
   bool get supportsTrackDiscovery => true;
@@ -567,6 +581,16 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
   }
 
   @override
+  Future<String> getProperty(String property) async {
+    final PlatformPlayer? platform = _player.platform;
+    if (platform is! NativePlayer) {
+      throw StateError(
+          'media_kit platform player does not support getProperty.');
+    }
+    return platform.getProperty(property);
+  }
+
+  @override
   Future<void> command(List<String> arguments) async {
     final PlatformPlayer? platform = _player.platform;
     if (platform is! NativePlayer) {
@@ -582,6 +606,7 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
       capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(
         supportsUriPlayback: supportsUriPlayback,
         supportsNativeMpvCommands: supportsNativeMpvCommands,
+        supportsAvSyncSampling: supportsPropertyRead,
         supportsTrackApi: supportsTrackDiscovery && supportsTrackSwitching,
         supportsTelemetry: supportsTelemetry,
       ),
@@ -762,10 +787,17 @@ MediaTrackDescriptor? _trackById(
   return null;
 }
 
+final class _MpvPropertyParseException implements Exception {
+  const _MpvPropertyParseException(this.message);
+
+  final String message;
+}
+
 final class MediaKitMpvBinding
     implements
         MpvAdapterBinding,
         PlayerTelemetrySource,
+        AVSyncSampleSource,
         PlaybackCapabilityProbeSource,
         MpvEnhancementBinding,
         MpvAdvancedSubtitleBinding {
@@ -794,6 +826,7 @@ final class MediaKitMpvBinding
   final Map<Anime4kPresetIntent, Uri> _anime4kShaderByPreset;
   final MpvEnhancementPlanner _enhancementPlanner;
   final MpvSubtitlePlanner _subtitlePlanner;
+  int? _previousAvSyncDropCounterTotal;
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
@@ -805,6 +838,125 @@ final class MediaKitMpvBinding
 
   @override
   Stream<PlayerTelemetrySnapshot> get telemetry => backend.telemetry;
+
+  @override
+  Future<AVSyncSampleReadResult> sample() async {
+    if (_disposed) {
+      return const AVSyncSampleReadResult.failure(
+        AVSyncSampleReadFailure(
+          kind: AVSyncSampleReadFailureKind.disposed,
+          message: 'MediaKit MPV binding has been disposed.',
+        ),
+      );
+    }
+    final MediaKitMpvBackend currentBackend = backend;
+    if (!currentBackend.supportsPropertyRead) {
+      return const AVSyncSampleReadResult.failure(
+        AVSyncSampleReadFailure(
+          kind: AVSyncSampleReadFailureKind.propertyReadUnavailable,
+          message: mediaKitMpvAvSyncGuardReason,
+        ),
+      );
+    }
+
+    try {
+      final double driftSeconds = _parseMpvSeconds(
+        property: mpvAvSyncProperty,
+        value: await currentBackend.getProperty(mpvAvSyncProperty),
+      );
+      final double videoSeconds = _parseMpvSeconds(
+        property: mpvTimePositionProperty,
+        value: await currentBackend.getProperty(mpvTimePositionProperty),
+      );
+      final int droppedFrames = _droppedFrameDelta(
+        _parseMpvCounter(
+              property: mpvFrameDropCountProperty,
+              value: await currentBackend.getProperty(
+                mpvFrameDropCountProperty,
+              ),
+            ) +
+            _parseMpvCounter(
+              property: mpvDecoderFrameDropCountProperty,
+              value: await currentBackend.getProperty(
+                mpvDecoderFrameDropCountProperty,
+              ),
+            ) +
+            _parseMpvCounter(
+              property: mpvVoDelayedFrameCountProperty,
+              value: await currentBackend.getProperty(
+                mpvVoDelayedFrameCountProperty,
+              ),
+            ),
+      );
+      final Duration videoPosition = _durationFromSeconds(videoSeconds);
+      final Duration drift = _durationFromSeconds(driftSeconds);
+      return AVSyncSampleReadResult.success(
+        AVSyncSample(
+          audioPosition: videoPosition + drift,
+          videoPosition: videoPosition,
+          renderDelay: Duration.zero,
+          droppedFrames: droppedFrames,
+        ),
+      );
+    } on _MpvPropertyParseException catch (error) {
+      return AVSyncSampleReadResult.failure(
+        AVSyncSampleReadFailure(
+          kind: AVSyncSampleReadFailureKind.invalidPropertyValue,
+          message: error.message,
+        ),
+      );
+    } on Object catch (error) {
+      return AVSyncSampleReadResult.failure(
+        AVSyncSampleReadFailure(
+          kind: AVSyncSampleReadFailureKind.backendFailure,
+          message: 'Failed to read MPV AV sync properties: $error',
+        ),
+      );
+    }
+  }
+
+  double _parseMpvSeconds({
+    required String property,
+    required String value,
+  }) {
+    final String normalized = value.trim();
+    final double? parsed = double.tryParse(normalized);
+    if (parsed == null || !parsed.isFinite) {
+      throw _MpvPropertyParseException(
+        'MPV property $property is not a finite seconds value: $value',
+      );
+    }
+    return parsed;
+  }
+
+  int _parseMpvCounter({
+    required String property,
+    required String value,
+  }) {
+    final String normalized = value.trim();
+    final double? parsed = double.tryParse(normalized);
+    if (parsed == null || !parsed.isFinite || parsed < 0) {
+      throw _MpvPropertyParseException(
+        'MPV property $property is not a non-negative counter: $value',
+      );
+    }
+    return parsed.round();
+  }
+
+  Duration _durationFromSeconds(double seconds) {
+    return Duration(
+      microseconds: (seconds * Duration.microsecondsPerSecond).round(),
+    );
+  }
+
+  int _droppedFrameDelta(int currentTotal) {
+    final int? previousTotal = _previousAvSyncDropCounterTotal;
+    _previousAvSyncDropCounterTotal = currentTotal;
+    if (previousTotal == null || currentTotal <= previousTotal) {
+      return 0;
+    }
+    return currentTotal - previousTotal;
+  }
 
   @override
   PlaybackCapabilityProbeSnapshot get currentCapabilityProbe {
@@ -825,12 +977,14 @@ final class MediaKitMpvBinding
       final MediaKitMpvBackend currentBackend = backend;
       final bool trackApi = currentBackend.supportsTrackDiscovery &&
           currentBackend.supportsTrackSwitching;
+      final bool avSyncSampler = currentBackend.supportsPropertyRead;
       final bool anime4kShadersAvailable =
           _allAnime4kShadersAreAccessible(_anime4kShaderByPreset.values);
       return PlaybackCapabilityProbeSnapshot(
         capabilities: mediaKitLocalFilePlaybackCapabilities(
           supportsUriPlayback: currentBackend.supportsUriPlayback,
           supportsNativeMpvCommands: currentBackend.supportsNativeMpvCommands,
+          supportsAvSyncSampling: avSyncSampler,
           supportsTrackApi: trackApi,
           supportsTelemetry: currentBackend.supportsTelemetry,
           anime4kShadersAvailable: anime4kShadersAvailable,
@@ -843,6 +997,7 @@ final class MediaKitMpvBinding
           'uriPlayback': currentBackend.supportsUriPlayback.toString(),
           'nativeMpvCommands':
               currentBackend.supportsNativeMpvCommands.toString(),
+          'avSyncSampler': avSyncSampler.toString(),
           'trackApi': trackApi.toString(),
           'telemetry': currentBackend.supportsTelemetry.toString(),
           'anime4kShadersAccessible': anime4kShadersAvailable.toString(),
@@ -1285,6 +1440,7 @@ final class BundledMpvLibraryResolver {
 PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
   bool supportsUriPlayback = true,
   bool supportsNativeMpvCommands = true,
+  bool supportsAvSyncSampling = false,
   bool supportsTrackApi = true,
   bool supportsTelemetry = true,
   bool anime4kShadersAvailable = false,
@@ -1305,6 +1461,11 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
       supportsNativeMpvCommands && anime4kShadersAvailable
           ? const CapabilityStatus.supported()
           : const CapabilityStatus.unsupported(mediaKitMpvAnime4kShaderReason);
+  final CapabilityStatus avSyncGuard = supportsNativeMpvCommands
+      ? (supportsAvSyncSampling
+          ? const CapabilityStatus.supported()
+          : const CapabilityStatus.unsupported(mediaKitMpvAvSyncGuardReason))
+      : const CapabilityStatus.unsupported(mediaKitMpvNativeBackendReason);
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.localFilePlayback: uriPlayback,
@@ -1324,8 +1485,7 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
       PlaybackCapability.hdrToneMapping: nativeCommands,
       PlaybackCapability.debandFiltering: nativeCommands,
       PlaybackCapability.anime4kPreset: anime4k,
-      PlaybackCapability.avSyncGuard:
-          const CapabilityStatus.unsupported(mediaKitMpvAvSyncGuardReason),
+      PlaybackCapability.avSyncGuard: avSyncGuard,
       PlaybackCapability.matrixDanmaku:
           const CapabilityStatus.unsupported(mediaKitMpvMatrixDanmakuReason),
       PlaybackCapability.dualSubtitles: nativeCommands,
@@ -1371,5 +1531,6 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
     capabilities: binding.currentCapabilityProbe.capabilities,
     telemetrySource: binding,
     capabilityProbeSource: binding,
+    avSyncSampleSource: binding,
   );
 }

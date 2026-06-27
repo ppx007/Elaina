@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -261,6 +263,115 @@ void main() {
       await bus.close();
     });
   });
+
+  group('AVSyncGuardMonitorRuntime', () {
+    test('samples only while playback is active with a source', () async {
+      final AVSyncGuardRuntime runtime = _bootstrap().createRuntime();
+      final _FakeAVSyncSampleSource source = _FakeAVSyncSampleSource(
+        <AVSyncSample>[_sample(20)],
+      );
+      final MockPlaybackController controller = MockPlaybackController(
+        matrix: _supportedCapabilities(),
+        initialState: const PlaybackStateSnapshot(
+          status: PlaybackLifecycleStatus.paused,
+        ),
+      );
+      final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+        playbackController: controller,
+        sampleSource: source,
+        guardRuntime: runtime,
+        scopeId: 'adapter-1',
+      );
+
+      await monitor.tick();
+      await controller.open(LocalFilePlaybackSource(
+        uri: Uri.parse('file:///D:/Anime/sample.mkv'),
+      ));
+      await monitor.tick();
+      await controller.play();
+      await monitor.tick();
+
+      expect(source.sampleCalls, 1);
+      expect(monitor.snapshot.latestDriftMillis, 20);
+      expect(monitor.snapshot.sampleCount, 1);
+      await monitor.dispose();
+      await runtime.dispose();
+    });
+
+    test('does not run concurrent samples', () async {
+      final AVSyncGuardRuntime runtime = _bootstrap().createRuntime();
+      final _BlockingAVSyncSampleSource source = _BlockingAVSyncSampleSource();
+      final MockPlaybackController controller = _playingController();
+      final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+        playbackController: controller,
+        sampleSource: source,
+        guardRuntime: runtime,
+        scopeId: 'adapter-1',
+      );
+
+      final Future<void> firstTick = monitor.tick();
+      await Future<void>.delayed(Duration.zero);
+      await monitor.tick();
+      source.complete(_sample(30));
+      await firstTick;
+
+      expect(source.sampleCalls, 1);
+      expect(monitor.snapshot.latestDriftMillis, 30);
+      await monitor.dispose();
+      await runtime.dispose();
+    });
+
+    test('records degradation decision after red-line samples', () async {
+      final DeterministicAVSyncGuardStore store =
+          DeterministicAVSyncGuardStore();
+      final AVSyncGuardRuntime runtime =
+          _bootstrap(store: store).createRuntime();
+      final _FakeAVSyncSampleSource source = _FakeAVSyncSampleSource(
+        <AVSyncSample>[_sample(140), _sample(140), _sample(140)],
+      );
+      final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+        playbackController: _playingController(),
+        sampleSource: source,
+        guardRuntime: runtime,
+        scopeId: 'adapter-1',
+      );
+
+      await monitor.tick();
+      await monitor.tick();
+      await monitor.tick();
+      final List<StoredAVSyncDegradationDecisionRecord> decisions =
+          await store.degradationHistory('adapter-1');
+
+      expect(monitor.snapshot.health, AVSyncHealth.degraded);
+      expect(monitor.snapshot.latestDegradationAction,
+          AVSyncDegradationAction.reduceEnhancementIntensity.name);
+      expect(decisions, isNotEmpty);
+      await monitor.dispose();
+      await runtime.dispose();
+    });
+
+    test('preserves previous health when sampler fails', () async {
+      final AVSyncGuardRuntime runtime = _bootstrap().createRuntime();
+      final _FakeAVSyncSampleSource source = _FakeAVSyncSampleSource(
+        <AVSyncSample>[_sample(30)],
+      );
+      final AVSyncGuardMonitorRuntime monitor = AVSyncGuardMonitorRuntime(
+        playbackController: _playingController(),
+        sampleSource: source,
+        guardRuntime: runtime,
+        scopeId: 'adapter-1',
+      );
+
+      await monitor.tick();
+      source.failNext('mpv unavailable');
+      await monitor.tick();
+
+      expect(monitor.snapshot.latestDriftMillis, 30);
+      expect(monitor.snapshot.latestSampleFailure?.message, 'mpv unavailable');
+      await monitor.dispose();
+      await runtime.dispose();
+    });
+  });
 }
 
 AVSyncGuardBootstrap _bootstrap({
@@ -291,6 +402,8 @@ AVSyncGuardBootstrap _bootstrap({
 PlaybackCapabilityMatrix _supportedCapabilities() {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
+      PlaybackCapability.localFilePlayback: const CapabilityStatus.supported(),
+      PlaybackCapability.playPause: const CapabilityStatus.supported(),
       PlaybackCapability.avSyncGuard: const CapabilityStatus.supported(),
     },
   );
@@ -305,4 +418,59 @@ AVSyncSample _sample(int driftMillis) {
     renderDelay: const Duration(milliseconds: 8),
     droppedFrames: 0,
   );
+}
+
+MockPlaybackController _playingController() {
+  return MockPlaybackController(
+    matrix: _supportedCapabilities(),
+    initialState: PlaybackStateSnapshot(
+      status: PlaybackLifecycleStatus.playing,
+      sourceUri: Uri.parse('file:///D:/Anime/sample.mkv'),
+    ),
+  );
+}
+
+final class _FakeAVSyncSampleSource implements AVSyncSampleSource {
+  _FakeAVSyncSampleSource(Iterable<AVSyncSample> samples)
+      : _samples = List<AVSyncSample>.of(samples);
+
+  final List<AVSyncSample> _samples;
+  String? _failureMessage;
+  int sampleCalls = 0;
+
+  void failNext(String message) {
+    _failureMessage = message;
+  }
+
+  @override
+  Future<AVSyncSampleReadResult> sample() async {
+    sampleCalls += 1;
+    final String? failure = _failureMessage;
+    if (failure != null) {
+      _failureMessage = null;
+      return AVSyncSampleReadResult.failure(
+        AVSyncSampleReadFailure(
+          kind: AVSyncSampleReadFailureKind.backendFailure,
+          message: failure,
+        ),
+      );
+    }
+    return AVSyncSampleReadResult.success(_samples.removeAt(0));
+  }
+}
+
+final class _BlockingAVSyncSampleSource implements AVSyncSampleSource {
+  final Completer<AVSyncSampleReadResult> _completer =
+      Completer<AVSyncSampleReadResult>();
+  int sampleCalls = 0;
+
+  void complete(AVSyncSample sample) {
+    _completer.complete(AVSyncSampleReadResult.success(sample));
+  }
+
+  @override
+  Future<AVSyncSampleReadResult> sample() {
+    sampleCalls += 1;
+    return _completer.future;
+  }
 }

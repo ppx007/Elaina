@@ -661,6 +661,35 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                   'Telemetry',
                   playback.probeDetails['telemetry'] == 'true' ? '可用' : '不可用',
                 ),
+              if (playback.probeDetails['avSyncSampler'] != null)
+                _InfoRow(
+                  'AV 同步采样',
+                  playback.probeDetails['avSyncSampler'] == 'true'
+                      ? '可用'
+                      : '不可用',
+                ),
+              _InfoRow('AV 同步健康', playback.avSyncHealthLabel),
+              _InfoRow(
+                'AV 最新漂移',
+                playback.avSyncLatestDriftMillis == null
+                    ? '暂无样本'
+                    : '${playback.avSyncLatestDriftMillis} ms',
+              ),
+              _InfoRow(
+                'AV 样本数',
+                playback.avSyncSampleCount?.toString() ?? '0',
+              ),
+              _InfoRow(
+                'AV 退化决策',
+                playback.avSyncLatestDegradationAction ?? '未触发',
+              ),
+              if (playback.avSyncLastSampledAt != null)
+                _InfoRow(
+                  'AV 最近采样',
+                  _formatClock(playback.avSyncLastSampledAt!),
+                ),
+              if (playback.avSyncSamplerFailure != null)
+                _InfoRow('AV 采样失败', playback.avSyncSamplerFailure!),
               if (playback.probeDetails['anime4kShadersAccessible'] != null)
                 _InfoRow(
                   'Anime4K shader',
