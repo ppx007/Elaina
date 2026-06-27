@@ -1,6 +1,5 @@
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
-import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/ui/detail/video_detail_page.dart';
 import 'package:elaina/src/ui/media/media_library_page.dart';
 import 'package:elaina/src/ui/playback/shell/elaina_app_shell.dart';

@@ -318,8 +318,7 @@ final class MpvEnhancementPlanner {
         const <Anime4kPresetIntent, Uri>{},
     Map<Anime4kPresetIntent, List<Uri>> anime4kShaderChainsByPreset =
         const <Anime4kPresetIntent, List<Uri>>{},
-  }) : _anime4kShaderChainsByPreset =
-            _normalizeAnime4kShaderChains(
+  }) : _anime4kShaderChainsByPreset = _normalizeAnime4kShaderChains(
           shaderByPreset: anime4kShaderByPreset,
           shaderChainsByPreset: anime4kShaderChainsByPreset,
         );
@@ -1605,8 +1604,12 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
     anime4kShaderSource: anime4kShaderSource,
   );
   return PlayerRuntimeCompositionContract(
-    binding: binding,
+    adapter: MpvPlayerAdapterFacade.bound(
+      binding: binding,
+      capabilities: binding.currentCapabilityProbe.capabilities,
+    ),
     capabilities: binding.currentCapabilityProbe.capabilities,
+    binding: binding,
     telemetrySource: binding,
     capabilityProbeSource: binding,
     avSyncSampleSource: binding,

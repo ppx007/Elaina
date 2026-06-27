@@ -18,6 +18,13 @@ const String vlcFallbackUnsupportedSourceReason =
     'VLC fallback adapter supports local file playback only.';
 const String vlcFallbackUnverifiedCapabilityReason =
     'VLC fallback capability is not verified by the current backend.';
+const String vlcFallbackProbeSource = 'windows-libvlc-fallback-probe';
+const String vlcFallbackMpvOnlyEnhancementReason =
+    'VLC fallback does not expose MPV shader/property enhancement commands.';
+const String vlcFallbackAvSyncSamplerReason =
+    'VLC fallback does not expose MPV avsync property sampling.';
+const String vlcFallbackMatrixDanmakuReason =
+    'VLC fallback does not provide a native Matrix4 danmaku renderer.';
 
 abstract interface class VlcFallbackBackend {
   Future<void> openLocalFile(Uri uri);
@@ -33,7 +40,8 @@ abstract interface class VlcFallbackBackend {
   Future<void> dispose();
 }
 
-final class VlcFallbackAdapter implements PlayerAdapter {
+final class VlcFallbackAdapter
+    implements PlayerAdapter, RefreshablePlaybackCapabilityProbeSource {
   VlcFallbackAdapter({
     VlcFallbackBackend? backend,
     VlcFallbackBackendFactory? backendFactory,
@@ -61,7 +69,59 @@ final class VlcFallbackAdapter implements PlayerAdapter {
   String get displayName => vlcFallbackDisplayName;
 
   @override
-  PlaybackCapabilityMatrix get capabilities => _capabilities;
+  PlaybackCapabilityMatrix get capabilities {
+    final VlcFallbackBackend? backend = _backend;
+    final PlaybackCapabilityProbeSource? probe =
+        backend is PlaybackCapabilityProbeSource
+            ? backend as PlaybackCapabilityProbeSource
+            : null;
+    if (probe != null) {
+      return probe.currentCapabilityProbe.capabilities;
+    }
+    return _capabilities;
+  }
+
+  @override
+  PlaybackCapabilityProbeSnapshot get currentCapabilityProbe {
+    final VlcFallbackBackend? backend = _backend;
+    final PlaybackCapabilityProbeSource? probe =
+        backend is PlaybackCapabilityProbeSource
+            ? backend as PlaybackCapabilityProbeSource
+            : null;
+    if (probe != null) {
+      return probe.currentCapabilityProbe;
+    }
+    final bool backendAvailable = _backend != null || _backendFactory != null;
+    return PlaybackCapabilityProbeSnapshot(
+      capabilities: _capabilities,
+      checkedAt: DateTime.now(),
+      source: vlcFallbackProbeSource,
+      backendLabel: vlcFallbackDisplayName,
+      details: <String, String>{
+        'backend': vlcFallbackDisplayName,
+        'backendAvailable': backendAvailable.toString(),
+        'nativeVlcBridge': backendAvailable.toString(),
+        'anime4kSupported': 'false',
+        'anime4kReason': vlcFallbackMpvOnlyEnhancementReason,
+        'hdrDebandSupported': 'false',
+        'hdrDebandReason': vlcFallbackMpvOnlyEnhancementReason,
+        'avSyncSampler': 'false',
+        'avSyncSamplerReason': vlcFallbackAvSyncSamplerReason,
+      },
+    );
+  }
+
+  @override
+  Future<void> refreshCapabilityProbe() async {
+    final VlcFallbackBackend? backend = _backend;
+    final RefreshablePlaybackCapabilityProbeSource? probe =
+        backend is RefreshablePlaybackCapabilityProbeSource
+            ? backend as RefreshablePlaybackCapabilityProbeSource
+            : null;
+    if (probe != null) {
+      await probe.refreshCapabilityProbe();
+    }
+  }
 
   @override
   Future<PlaybackCommandResult> load(PlaybackSource source) async {
@@ -255,6 +315,7 @@ FallbackAdapterCandidate vlcFallbackAdapterCandidate({
 
 PlaybackCapabilityMatrix vlcFallbackLocalFilePlaybackCapabilities({
   required bool backendAvailable,
+  bool telemetryAvailable = false,
 }) {
   final Map<PlaybackCapability, CapabilityStatus> capabilities =
       <PlaybackCapability, CapabilityStatus>{
@@ -273,6 +334,35 @@ PlaybackCapabilityMatrix vlcFallbackLocalFilePlaybackCapabilities({
         const CapabilityStatus.supported();
     capabilities[PlaybackCapability.seek] = const CapabilityStatus.supported();
     capabilities[PlaybackCapability.stop] = const CapabilityStatus.supported();
+    capabilities[PlaybackCapability.progressReporting] = telemetryAvailable
+        ? const CapabilityStatus.supported()
+        : const CapabilityStatus.unsupported(
+            vlcFallbackUnverifiedCapabilityReason,
+          );
+    capabilities[PlaybackCapability.videoEnhancement] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackMpvOnlyEnhancementReason,
+    );
+    capabilities[PlaybackCapability.hdrToneMapping] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackMpvOnlyEnhancementReason,
+    );
+    capabilities[PlaybackCapability.debandFiltering] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackMpvOnlyEnhancementReason,
+    );
+    capabilities[PlaybackCapability.anime4kPreset] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackMpvOnlyEnhancementReason,
+    );
+    capabilities[PlaybackCapability.avSyncGuard] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackAvSyncSamplerReason,
+    );
+    capabilities[PlaybackCapability.matrixDanmaku] =
+        const CapabilityStatus.unsupported(
+      vlcFallbackMatrixDanmakuReason,
+    );
   } else {
     capabilities[PlaybackCapability.fallbackAdapter] =
         const CapabilityStatus.unsupported(

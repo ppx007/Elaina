@@ -643,6 +643,36 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
           _InfoGrid(
             rows: <_InfoRow>[
               _InfoRow('播放后端', playback.backendLabel),
+              if (playback.probeDetails['configuredMode'] != null)
+                _InfoRow(
+                  '配置模式',
+                  playback.probeDetails['configuredMode']!,
+                ),
+              if (playback.probeDetails['activeBackendId'] != null)
+                _InfoRow(
+                  '实际后端',
+                  playback.probeDetails['activeBackendId']!,
+                ),
+              if (playback.probeDetails['latestFallbackReason'] != null)
+                _InfoRow(
+                  '备用切换',
+                  playback.probeDetails['latestFallbackReason']!,
+                ),
+              if (playback.probeDetails['hiddenCapabilities'] != null)
+                _InfoRow(
+                  '隐藏能力',
+                  playback.probeDetails['hiddenCapabilities']!,
+                ),
+              if (playback.probeDetails['libvlcPath'] != null)
+                _InfoRow(
+                  'VLC 路径',
+                  playback.probeDetails['libvlcPath']!,
+                ),
+              if (playback.probeDetails['vlcReason'] != null)
+                _InfoRow(
+                  'VLC 探测',
+                  playback.probeDetails['vlcReason']!,
+                ),
               _InfoRow('探测来源', playback.probeSource),
               _InfoRow(
                 '最近检测',

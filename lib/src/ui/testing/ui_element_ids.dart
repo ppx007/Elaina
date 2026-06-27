@@ -30,6 +30,7 @@ abstract final class UiElementIds {
   static const String settingsSectionAppearance = 'settings-section-appearance';
   static const String settingsSectionBangumi = 'settings-section-bangumi';
   static const String settingsSectionNetwork = 'settings-section-network';
+  static const String settingsSectionPlayback = 'settings-section-playback';
   static const String settingsSectionVideoEnhancement =
       'settings-section-video-enhancement';
   static const String settingsSectionMediaLibrary =
@@ -58,6 +59,14 @@ abstract final class UiElementIds {
   static const String settingsSaveProxy = 'settings-save-proxy';
   static const String settingsDnsPolicy = 'settings-dns-policy';
   static const String settingsSaveDns = 'settings-save-dns';
+  static const String settingsPlaybackBackendMode =
+      'settings-playback-backend-mode';
+  static const String settingsVlcRuntimeDirectory =
+      'settings-vlc-runtime-directory';
+  static const String settingsPlaybackBackendCapabilitySummary =
+      'settings-playback-backend-capability-summary';
+  static const String settingsPlaybackBackendSave =
+      'settings-playback-backend-save';
   static const String settingsAnime4kShaderOverrideDirectory =
       'settings-anime4k-shader-override-directory';
   static const String settingsAnime4kDefaultPreset =

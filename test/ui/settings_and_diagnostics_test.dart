@@ -340,6 +340,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(ElainaFinders.settingsSectionAppearance, findsOneWidget);
+    expect(ElainaFinders.settingsSectionPlayback, findsOneWidget);
     expect(ElainaFinders.settingsThemeMode, findsOneWidget);
 
     tester

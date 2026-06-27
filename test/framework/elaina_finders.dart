@@ -58,6 +58,8 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsSectionBangumi);
   static Finder get settingsSectionNetwork =>
       byId(UiElementIds.settingsSectionNetwork);
+  static Finder get settingsSectionPlayback =>
+      byId(UiElementIds.settingsSectionPlayback);
   static Finder get settingsSectionVideoEnhancement =>
       byId(UiElementIds.settingsSectionVideoEnhancement);
   static Finder get settingsSectionMediaLibrary =>
@@ -91,6 +93,14 @@ abstract final class ElainaFinders {
   static Finder get settingsSaveProxy => byId(UiElementIds.settingsSaveProxy);
   static Finder get settingsDnsPolicy => byId(UiElementIds.settingsDnsPolicy);
   static Finder get settingsSaveDns => byId(UiElementIds.settingsSaveDns);
+  static Finder get settingsPlaybackBackendMode =>
+      byId(UiElementIds.settingsPlaybackBackendMode);
+  static Finder get settingsVlcRuntimeDirectory =>
+      byId(UiElementIds.settingsVlcRuntimeDirectory);
+  static Finder get settingsPlaybackBackendCapabilitySummary =>
+      byId(UiElementIds.settingsPlaybackBackendCapabilitySummary);
+  static Finder get settingsPlaybackBackendSave =>
+      byId(UiElementIds.settingsPlaybackBackendSave);
   static Finder get settingsAnime4kShaderOverrideDirectory =>
       byId(UiElementIds.settingsAnime4kShaderOverrideDirectory);
   static Finder get settingsAnime4kDefaultPreset =>

@@ -11,6 +11,7 @@ import 'src/domain/download/download_domain.dart';
 import 'src/domain/home/home_recommendation_domain.dart';
 import 'src/domain/home/home_search_domain.dart';
 import 'src/domain/media/media_library_runtime.dart';
+import 'src/domain/playback/playback_backend_selection.dart';
 import 'src/domain/playback/playback_controller.dart';
 import 'src/domain/playback/player_core_bootstrap.dart';
 import 'src/domain/profile/bangumi_login_domain.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatefulWidget {
     this.btTaskCoreRuntime,
     this.policyStore,
     this.settingsRuntime,
+    this.playbackBackendSelectionRuntime,
     this.diagnosticsRuntime,
     this.diagnosticsWorkbenchRuntime,
     this.profileProvider,
@@ -57,6 +59,7 @@ class MyApp extends StatefulWidget {
   final BtTaskCoreRuntime? btTaskCoreRuntime;
   final RssAutoDownloadPolicyStore? policyStore;
   final SettingsRuntime? settingsRuntime;
+  final PlaybackBackendSelectionRuntime? playbackBackendSelectionRuntime;
   final DiagnosticsRuntime? diagnosticsRuntime;
   final DiagnosticsWorkbenchRuntime? diagnosticsWorkbenchRuntime;
   final UserProfileProvider? profileProvider;
@@ -81,6 +84,7 @@ class _MyAppState extends State<MyApp> {
   late final DownloadRuntime _downloadRuntime;
   late final bool _ownsDownloadRuntime;
   late final SettingsRuntime _settingsRuntime;
+  late final PlaybackBackendSelectionRuntime? _playbackBackendSelectionRuntime;
   late final DiagnosticsRuntime _diagnosticsRuntime;
   late final DiagnosticsWorkbenchRuntime _diagnosticsWorkbenchRuntime;
   late final UserProfileProvider? _profileProvider;
@@ -106,6 +110,7 @@ class _MyAppState extends State<MyApp> {
       _rssEngineRuntime = widget.rssEngineRuntime!;
       _btTaskCoreRuntime = widget.btTaskCoreRuntime!;
       _settingsRuntime = widget.settingsRuntime ?? FakeSettingsRuntime();
+      _playbackBackendSelectionRuntime = widget.playbackBackendSelectionRuntime;
       _diagnosticsRuntime =
           widget.diagnosticsRuntime ?? FakeDiagnosticsRuntime();
       _downloadRuntime = DownloadRuntimeAdapter(_btTaskCoreRuntime);
@@ -139,6 +144,8 @@ class _MyAppState extends State<MyApp> {
       _btTaskCoreRuntime = _composition!.btTaskCoreRuntime;
       _downloadRuntime = _composition!.downloadRuntime;
       _settingsRuntime = _composition!.settingsRuntime;
+      _playbackBackendSelectionRuntime =
+          _composition!.playbackBackendSelectionRuntime;
       _diagnosticsRuntime = _composition!.diagnosticsRuntime;
       _diagnosticsWorkbenchRuntime = widget.diagnosticsWorkbenchRuntime ??
           _composition!.buildDiagnosticsWorkbenchRuntime(
@@ -186,6 +193,8 @@ class _MyAppState extends State<MyApp> {
               rssEngineRuntime: _rssEngineRuntime,
               downloadRuntime: _downloadRuntime,
               settingsRuntime: _settingsRuntime,
+              playbackBackendSelectionRuntime:
+                  _playbackBackendSelectionRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
               diagnosticsWorkbenchRuntime: _diagnosticsWorkbenchRuntime,
               profileProvider: _profileProvider,

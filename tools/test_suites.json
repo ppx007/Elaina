@@ -180,8 +180,10 @@
       ],
       "triggers": [
         "test/playback/**",
+        "lib/src/app_composition.dart",
         "lib/src/playback/**",
-        "lib/src/domain/playback/**"
+        "lib/src/domain/playback/**",
+        "windows/runner/**"
       ]
     },
     {

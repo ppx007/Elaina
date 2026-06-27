@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
 import 'domain/diagnostics/diagnostics_workbench.dart';
@@ -15,6 +16,7 @@ import 'domain/media/local_file_media_scanner.dart';
 import 'domain/media/media_library_runtime.dart';
 import 'domain/media/media_library_storage_adapters.dart';
 import 'domain/playback/av_sync_guard_monitor_runtime.dart';
+import 'domain/playback/playback_backend_selection.dart';
 import 'domain/playback/playback_controller.dart';
 import 'domain/playback/playback_source_handoff.dart';
 import 'domain/profile/bangumi_login_domain.dart';
@@ -37,6 +39,9 @@ import 'playback/capability_matrix.dart';
 import 'playback/matrix_danmaku_overlay.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
+import 'playback/player_telemetry.dart';
+import 'playback/vlc_fallback_adapter.dart';
+import 'playback/windows_libvlc_fallback_backend.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
 import 'provider/bangumi/bangumi_auth.dart';
 import 'provider/bangumi/bangumi_provider.dart';
@@ -67,8 +72,9 @@ PlayerRuntimeCompositionContract _withMatrixDanmakuOverlayProbe(
   final PlaybackCapabilityProbeSource? probeSource =
       composition.capabilityProbeSource;
   return PlayerRuntimeCompositionContract(
-    binding: composition.binding,
+    adapter: composition.adapter,
     capabilities: _matrixDanmakuOverlayCapabilities(composition.capabilities),
+    binding: composition.binding,
     telemetrySource: composition.telemetrySource,
     capabilityProbeSource: probeSource == null
         ? null
@@ -209,12 +215,47 @@ class AppComposition {
       networkPolicyStore: foundation.storage.networkPolicy,
     );
 
+    settingsRuntime = SettingsRuntimeAdapter(
+      settingsStore: foundation.storage.settings,
+      networkPolicyStore: foundation.storage.networkPolicy,
+    );
+
     // 2. Playback Composition
     final PlayerRuntimeCompositionContract mediaKitPlaybackComposition =
         mediaKitLocalFilePlayerRuntimeComposition();
-    playbackComposition =
-        _withMatrixDanmakuOverlayProbe(mediaKitPlaybackComposition);
-    mediaKitMpvBinding = playbackComposition.binding as MediaKitMpvBinding;
+    mediaKitMpvBinding =
+        mediaKitPlaybackComposition.binding! as MediaKitMpvBinding;
+    vlcFallbackBackend = WindowsLibVlcFallbackBackend(
+      runtimeDirectoryProvider: () {
+        return settingsRuntime.getPreference(
+          SettingsPreferenceKeys.vlcRuntimeDirectory,
+        );
+      },
+    );
+    final VlcFallbackAdapter vlcFallbackAdapter = VlcFallbackAdapter(
+      backend: vlcFallbackBackend,
+    );
+    playbackBackendSelectionRuntime = PlaybackBackendSelectionRuntime(
+      settingsRuntime: settingsRuntime,
+      mediaKitMpvAdapter: mediaKitPlaybackComposition.adapter,
+      mediaKitMpvProbeSource:
+          mediaKitPlaybackComposition.capabilityProbeSource!,
+      mediaKitMpvTelemetrySource: mediaKitPlaybackComposition.telemetrySource,
+      vlcFallbackAdapter: vlcFallbackAdapter,
+      vlcFallbackProbeSource: vlcFallbackAdapter,
+      vlcFallbackTelemetrySource: vlcFallbackBackend,
+    );
+    playbackComposition = _withMatrixDanmakuOverlayProbe(
+      PlayerRuntimeCompositionContract(
+        adapter: playbackBackendSelectionRuntime,
+        capabilities:
+            playbackBackendSelectionRuntime.currentCapabilityProbe.capabilities,
+        binding: mediaKitMpvBinding,
+        telemetrySource: playbackBackendSelectionRuntime,
+        capabilityProbeSource: playbackBackendSelectionRuntime,
+        avSyncSampleSource: mediaKitPlaybackComposition.avSyncSampleSource,
+      ),
+    );
     videoController = VideoController(mediaKitMpvBinding.backend.player);
     final PlaybackCapabilityMatrix avSyncCapabilities = playbackComposition
             .capabilityProbeSource?.currentCapabilityProbe.capabilities ??
@@ -418,11 +459,7 @@ class AppComposition {
       ),
     ).runtime;
 
-    // 8. Settings Runtime
-    settingsRuntime = SettingsRuntimeAdapter(
-      settingsStore: foundation.storage.settings,
-      networkPolicyStore: foundation.storage.networkPolicy,
-    );
+    // 8. Settings-dependent controllers
     bangumiLoginController = _BangumiLoginController(
       settingsRuntime: settingsRuntime,
       authProvider: bangumiAuthProvider,
@@ -461,6 +498,8 @@ class AppComposition {
   late final FoundationBootstrap foundation;
   late final PlayerRuntimeCompositionContract playbackComposition;
   late final MediaKitMpvBinding mediaKitMpvBinding;
+  late final PlaybackBackendSelectionRuntime playbackBackendSelectionRuntime;
+  late final WindowsLibVlcFallbackBackend vlcFallbackBackend;
   late final AVSyncGuardRuntime avSyncGuardRuntime;
   late final VideoController videoController;
   late final MediaLibraryRuntime mediaLibraryRuntime;
@@ -491,7 +530,11 @@ class AppComposition {
   );
 
   Widget buildVideoSurface(BuildContext context) {
-    return buildElainaMediaKitVideoSurface(videoController);
+    return ElainaBackendVideoSurface(
+      mediaKitController: videoController,
+      backendSelectionRuntime: playbackBackendSelectionRuntime,
+      vlcFallbackBackend: vlcFallbackBackend,
+    );
   }
 
   AVSyncGuardMonitorRuntime? get avSyncGuardMonitorRuntime =>
@@ -506,8 +549,7 @@ class AppComposition {
     final String? overrideDirectory = await settingsRuntime.getPreference(
       SettingsPreferenceKeys.anime4kShaderOverrideDirectory,
     );
-    final Anime4kShaderManifest manifest =
-        await Anime4kShaderManifestResolver(
+    final Anime4kShaderManifest manifest = await Anime4kShaderManifestResolver(
       assetLoader: assetLoader ?? rootBundle.load,
       bundledDirectory: bundledDirectory,
     ).resolve(overrideDirectoryPath: overrideDirectory);
@@ -603,6 +645,44 @@ Video buildElainaMediaKitVideoSurface(VideoController controller) {
     controller: controller,
     controls: elainaMediaKitVideoControls,
   );
+}
+
+class ElainaBackendVideoSurface extends StatelessWidget {
+  const ElainaBackendVideoSurface({
+    super.key,
+    required this.mediaKitController,
+    required this.backendSelectionRuntime,
+    required this.vlcFallbackBackend,
+  });
+
+  final VideoController mediaKitController;
+  final PlaybackBackendSelectionRuntime backendSelectionRuntime;
+  final WindowsLibVlcFallbackBackend vlcFallbackBackend;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<PlayerTelemetrySnapshot>(
+      stream: backendSelectionRuntime.telemetry,
+      builder:
+          (BuildContext context, AsyncSnapshot<PlayerTelemetrySnapshot> _) {
+        if (backendSelectionRuntime.activeBackendId !=
+            playbackBackendVlcFallbackId) {
+          return buildElainaMediaKitVideoSurface(mediaKitController);
+        }
+        return ValueListenableBuilder<int?>(
+          valueListenable: vlcFallbackBackend.textureIdListenable,
+          builder: (BuildContext context, int? textureId, Widget? child) {
+            if (textureId == null) return child!;
+            return Texture(
+              textureId: textureId,
+              filterQuality: FilterQuality.medium,
+            );
+          },
+          child: const ColoredBox(color: Colors.black),
+        );
+      },
+    );
+  }
 }
 
 typedef _OpenExternalUri = Future<bool> Function(Uri uri);

@@ -3,7 +3,6 @@ import 'dart:async';
 // Shared widget-test host centralizes theme/app scaffolding. Page tests should
 // use this instead of rebuilding slightly different MaterialApp wrappers.
 import 'package:elaina/elaina.dart';
-import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 

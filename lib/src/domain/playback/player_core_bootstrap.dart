@@ -58,9 +58,8 @@ final class PlayerCoreBootstrap {
     required PlayerRuntimeCompositionContract composition,
     Object? foundationDependency,
   }) {
-    _runtime = PlayerCoreRuntime.bound(
-      binding: composition.binding,
-      capabilities: composition.capabilities,
+    _runtime = PlayerCoreRuntime(
+      activeAdapter: composition.adapter,
       foundationDependency: foundationDependency,
       telemetrySource: composition.telemetrySource,
       capabilityProbeSource: composition.capabilityProbeSource,

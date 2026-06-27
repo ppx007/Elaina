@@ -3775,6 +3775,9 @@ Future<void> _verifyPlayerCoreRuntimeContract() async {
 
   final PlayerRuntimeCompositionContract composition =
       PlayerRuntimeCompositionContract(
+    adapter: MpvPlayerAdapterFacade.bound(
+      binding: DeterministicMpvBinding(),
+    ),
     binding: DeterministicMpvBinding(),
     capabilities: PlaybackCapabilityMatrix(
       capabilities: <PlaybackCapability, CapabilityStatus>{

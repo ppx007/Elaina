@@ -16,6 +16,8 @@ abstract final class SettingsPreferenceKeys {
   static const String anime4kShaderOverrideDirectory =
       'anime4k_shader_override_directory';
   static const String anime4kDefaultPreset = 'anime4k_default_preset';
+  static const String playbackBackendMode = 'playback_backend_mode';
+  static const String vlcRuntimeDirectory = 'vlc_runtime_directory';
 }
 
 abstract final class SettingsThemeModePreference {

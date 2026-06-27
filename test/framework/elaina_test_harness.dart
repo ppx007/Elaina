@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:elaina/elaina.dart';
 import 'package:elaina/main.dart';
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
-import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:elaina/src/ui/theme/elaina_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

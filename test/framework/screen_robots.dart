@@ -128,6 +128,10 @@ final class SettingsRobot extends ScreenRobot {
     await tapAndSettle(ElainaFinders.settingsSectionNetwork.first);
   }
 
+  Future<void> openPlayback() async {
+    await tapAndSettle(ElainaFinders.settingsSectionPlayback.first);
+  }
+
   Future<void> openMediaLibrary() async {
     await tapAndSettle(ElainaFinders.settingsSectionMediaLibrary.first);
   }

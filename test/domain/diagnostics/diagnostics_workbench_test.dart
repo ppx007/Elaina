@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:elaina/elaina.dart';
 import 'package:elaina/src/domain/diagnostics/diagnostics_domain.dart';
-import 'package:elaina/src/domain/settings/settings_domain.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/runtime_test_fakes.dart';

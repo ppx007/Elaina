@@ -11,6 +11,7 @@ import '../../../domain/home/home_recommendation_domain.dart';
 import '../../../domain/home/home_search_domain.dart';
 import '../../../domain/media/media_library.dart';
 import '../../../domain/media/media_library_runtime.dart';
+import '../../../domain/playback/playback_backend_selection.dart';
 import '../../../domain/playback/playback_controller.dart';
 import '../../../domain/playback/playback_state.dart';
 import '../../../domain/profile/bangumi_login_domain.dart';
@@ -42,6 +43,7 @@ class ElainaAppShell extends StatefulWidget {
     required this.rssEngineRuntime,
     required this.downloadRuntime,
     required this.settingsRuntime,
+    this.playbackBackendSelectionRuntime,
     required this.diagnosticsRuntime,
     this.diagnosticsWorkbenchRuntime,
     this.profileProvider,
@@ -60,6 +62,7 @@ class ElainaAppShell extends StatefulWidget {
   final RssEngineRuntime rssEngineRuntime;
   final DownloadRuntime downloadRuntime;
   final SettingsRuntime settingsRuntime;
+  final PlaybackBackendSelectionRuntime? playbackBackendSelectionRuntime;
   final DiagnosticsRuntime diagnosticsRuntime;
   final DiagnosticsWorkbenchRuntime? diagnosticsWorkbenchRuntime;
   final UserProfileProvider? profileProvider;
@@ -2047,6 +2050,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
         bangumiLoginController: widget.bangumiLoginController,
         onBangumiAuthChanged: _refreshBangumiProfile,
         onAnime4kSettingsChanged: widget.onAnime4kSettingsChanged,
+        playbackBackendSelectionRuntime: widget.playbackBackendSelectionRuntime,
       ),
     );
   }

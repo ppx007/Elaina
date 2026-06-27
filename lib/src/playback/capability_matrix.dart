@@ -145,6 +145,11 @@ abstract interface class PlaybackCapabilityProbeSource {
   PlaybackCapabilityProbeSnapshot get currentCapabilityProbe;
 }
 
+abstract interface class RefreshablePlaybackCapabilityProbeSource
+    implements PlaybackCapabilityProbeSource {
+  Future<void> refreshCapabilityProbe();
+}
+
 final class FallbackAdapterCapabilityStatus {
   FallbackAdapterCapabilityStatus({
     required this.fallbackAdapter,

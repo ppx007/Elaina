@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/media/media_library_folder_preferences.dart';
+import '../../domain/playback/playback_backend_selection.dart';
 import '../../domain/profile/bangumi_login_domain.dart';
 import '../../domain/settings/settings_domain.dart';
 import '../testing/ui_element_ids.dart';
@@ -90,6 +91,7 @@ class SettingsPage extends StatefulWidget {
     this.bangumiLoginController,
     this.onBangumiAuthChanged,
     this.onAnime4kSettingsChanged,
+    this.playbackBackendSelectionRuntime,
     this.directoryPathPicker = _defaultDirectoryPathPicker,
   });
 
@@ -97,6 +99,7 @@ class SettingsPage extends StatefulWidget {
   final BangumiLoginController? bangumiLoginController;
   final VoidCallback? onBangumiAuthChanged;
   final Future<void> Function()? onAnime4kSettingsChanged;
+  final PlaybackBackendSelectionRuntime? playbackBackendSelectionRuntime;
   final SettingsDirectoryPathPicker directoryPathPicker;
 
   @override
@@ -120,6 +123,8 @@ class _SettingsPageState extends State<SettingsPage> {
       TextEditingController();
   final TextEditingController _anime4kShaderOverrideController =
       TextEditingController();
+  final TextEditingController _vlcRuntimeDirectoryController =
+      TextEditingController();
 
   _SettingsSection _selectedSection = _SettingsSection.appearance;
   bool _isLoading = true;
@@ -135,6 +140,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String _anime4kDefaultPreset = Anime4kPresetSettings.off;
   String? _anime4kMessage;
   bool _isAnime4kSaving = false;
+  PlaybackBackendMode _playbackBackendMode = PlaybackBackendMode.mediaKitMpv;
+  PlaybackBackendSelectionSnapshot? _playbackBackendSnapshot;
+  String? _playbackBackendMessage;
+  bool _isPlaybackBackendSaving = false;
 
   @override
   void initState() {
@@ -150,6 +159,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _bangumiMirrorApiController.dispose();
     _bangumiMirrorImageController.dispose();
     _anime4kShaderOverrideController.dispose();
+    _vlcRuntimeDirectoryController.dispose();
     super.dispose();
   }
 
@@ -171,8 +181,14 @@ class _SettingsPageState extends State<SettingsPage> {
           .getPreference(SettingsPreferenceKeys.anime4kShaderOverrideDirectory);
       final String? anime4kDefaultPresetStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.anime4kDefaultPreset);
+      final String? playbackBackendModeStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.playbackBackendMode);
+      final String? vlcRuntimeDirectoryStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.vlcRuntimeDirectory);
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
+      final PlaybackBackendSelectionSnapshot? backendSnapshot =
+          await widget.playbackBackendSelectionRuntime?.snapshot();
 
       final _DecodedFolders decodedFolders =
           _decodeMediaLibraryFolders(mediaRootsStr);
@@ -189,6 +205,10 @@ class _SettingsPageState extends State<SettingsPage> {
         _anime4kShaderOverrideController.text = anime4kOverrideStr ?? '';
         _anime4kDefaultPreset =
             Anime4kPresetSettings.parse(anime4kDefaultPresetStr);
+        _playbackBackendMode =
+            PlaybackBackendModeSettings.parse(playbackBackendModeStr);
+        _vlcRuntimeDirectoryController.text = vlcRuntimeDirectoryStr ?? '';
+        _playbackBackendSnapshot = backendSnapshot;
         _mediaLibraryFolders = decodedFolders.folders;
         _mediaLibraryMessage = decodedFolders.message;
         _isLoading = false;
@@ -437,6 +457,59 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  void _setPlaybackBackendMode(PlaybackBackendMode? value) {
+    if (value == null) return;
+    setState(() {
+      _playbackBackendMode = value;
+      _playbackBackendMessage = null;
+    });
+  }
+
+  Future<void> _savePlaybackBackendSettings() async {
+    if (_isPlaybackBackendSaving) return;
+    setState(() {
+      _isPlaybackBackendSaving = true;
+      _playbackBackendMessage = null;
+    });
+
+    final PlaybackBackendSelectionRuntime? backendRuntime =
+        widget.playbackBackendSelectionRuntime;
+    try {
+      if (backendRuntime == null) {
+        await _savePreference(
+          SettingsPreferenceKeys.playbackBackendMode,
+          PlaybackBackendModeSettings.serialize(_playbackBackendMode),
+        );
+        await _savePreference(
+          SettingsPreferenceKeys.vlcRuntimeDirectory,
+          _vlcRuntimeDirectoryController.text.trim(),
+        );
+      } else {
+        await backendRuntime.configureVlcRuntimeDirectory(
+          _vlcRuntimeDirectoryController.text,
+        );
+        final PlaybackBackendSwitchResult result =
+            await backendRuntime.selectMode(_playbackBackendMode);
+        if (!result.isSuccess) {
+          throw StateError(result.message ?? '播放后端切换失败');
+        }
+        _playbackBackendSnapshot = await backendRuntime.snapshot();
+      }
+      if (!mounted) return;
+      setState(() {
+        _isPlaybackBackendSaving = false;
+        _playbackBackendMessage = '播放后端设置已保存';
+      });
+      _showSnack('播放后端设置已保存');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaybackBackendSaving = false;
+        _playbackBackendMessage = '播放后端设置保存失败: $error';
+      });
+    }
+  }
+
   Future<void> _pickAndAddFolder() async {
     final String? selectedPath = await widget.directoryPathPicker();
     final Uri? selectedFolder =
@@ -637,6 +710,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildAppearanceSection(context, theme),
           _SettingsSection.bangumi => _buildBangumiSection(theme),
           _SettingsSection.network => _buildNetworkSection(theme),
+          _SettingsSection.playback => _buildPlaybackBackendSection(theme),
           _SettingsSection.videoEnhancement =>
             _buildVideoEnhancementSection(theme),
           _SettingsSection.mediaLibrary => _buildMediaLibrarySection(theme),
@@ -848,6 +922,89 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           statusText: _networkMessage,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaybackBackendSection(ElainaThemeData theme) {
+    return _SettingsGroup(
+      theme: theme,
+      children: <Widget>[
+        _SettingsRow(
+          title: '播放后端',
+          subtitle: 'MPV 是默认后端；自动备用只在 MPV 本地文件加载失败时尝试 VLC。',
+          theme: theme,
+          trailing: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _fieldMaxWidth),
+            child: DropdownButtonFormField<PlaybackBackendMode>(
+              key: const ValueKey<String>(
+                UiElementIds.settingsPlaybackBackendMode,
+              ),
+              initialValue: _playbackBackendMode,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: theme.surface.withValues(alpha: 0.78),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_panelRadius),
+                  borderSide: BorderSide(color: theme.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_panelRadius),
+                  borderSide: BorderSide(color: theme.primary),
+                ),
+              ),
+              items: <DropdownMenuItem<PlaybackBackendMode>>[
+                for (final PlaybackBackendMode mode
+                    in PlaybackBackendMode.values)
+                  DropdownMenuItem<PlaybackBackendMode>(
+                    value: mode,
+                    child: Text(PlaybackBackendModeSettings.label(mode)),
+                  ),
+              ],
+              onChanged: _setPlaybackBackendMode,
+            ),
+          ),
+        ),
+        const _SettingsDivider(),
+        _SettingsTextRow(
+          title: 'VLC 运行时目录',
+          subtitle: '留空时自动探测常见 VLC 安装目录；也可填写包含 libvlc.dll 和 plugins 的目录。',
+          controller: _vlcRuntimeDirectoryController,
+          fieldKey: const ValueKey<String>(
+            UiElementIds.settingsVlcRuntimeDirectory,
+          ),
+          theme: theme,
+          onChanged: (_) {
+            if (_playbackBackendMessage == null) return;
+            setState(() {
+              _playbackBackendMessage = null;
+            });
+          },
+          trailing: Tooltip(
+            message: '保存播放后端设置',
+            child: OutlinedButton.icon(
+              key: const ValueKey<String>(
+                UiElementIds.settingsPlaybackBackendSave,
+              ),
+              onPressed: _isPlaybackBackendSaving
+                  ? null
+                  : _savePlaybackBackendSettings,
+              icon: const Icon(Icons.save_outlined, size: _smallIconSize),
+              label: Text(_isPlaybackBackendSaving ? '保存中' : '保存播放后端'),
+            ),
+          ),
+          statusText: _playbackBackendMessage,
+        ),
+        const _SettingsDivider(),
+        _PlaybackBackendSummary(
+          key: const ValueKey<String>(
+            UiElementIds.settingsPlaybackBackendCapabilitySummary,
+          ),
+          snapshot: _playbackBackendSnapshot,
+          theme: theme,
         ),
       ],
     );
@@ -1088,7 +1245,9 @@ enum _SettingsSection {
   appearance('外观', '主题模式和界面显示偏好。', Icons.palette_outlined),
   bangumi('Bangumi', '账号授权、access token 与镜像地址。', Icons.cloud_sync_outlined),
   network('网络', '代理和 DNS 策略。', Icons.public_outlined),
-  videoEnhancement('视频增强', 'Anime4K shader 路径和默认预设。', Icons.auto_awesome_outlined),
+  playback('播放', '主后端、自动备用和 VLC 运行时。', Icons.play_circle_outline),
+  videoEnhancement(
+      '视频增强', 'Anime4K shader 路径和默认预设。', Icons.auto_awesome_outlined),
   mediaLibrary('本地媒体库', '媒体库扫描文件夹路径。', Icons.video_library_outlined),
   about('关于', '软件版本、项目仓库与参考项目。', Icons.info_outline);
 
@@ -1433,6 +1592,90 @@ class _ReferencedProjectRow extends StatelessWidget {
   }
 }
 
+class _PlaybackBackendSummary extends StatelessWidget {
+  const _PlaybackBackendSummary({
+    super.key,
+    required this.snapshot,
+    required this.theme,
+  });
+
+  final PlaybackBackendSelectionSnapshot? snapshot;
+  final ElainaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final PlaybackBackendSelectionSnapshot? snapshot = this.snapshot;
+    if (snapshot == null) {
+      return _InlineMessage(
+        icon: Icons.info_outline,
+        message: '播放后端运行时未注入；当前页面只能保存偏好，无法实时探测后端能力。',
+        theme: theme,
+      );
+    }
+
+    final PlaybackBackendCandidateSnapshot? vlc =
+        snapshot.candidateById(playbackBackendVlcFallbackId);
+    final List<String> limitations = <String>[
+      if (vlc != null && !vlc.available) 'VLC 不可用: ${vlc.reason ?? '未通过运行时探测'}',
+      if (vlc != null && vlc.available) ...vlc.keyLimitationReasonLines(),
+      if (snapshot.activeBackendId == playbackBackendVlcFallbackId &&
+          limitationsWouldBeEmpty(vlc))
+        'VLC 当前未隐藏 MPV 能力；请刷新探测确认能力矩阵。',
+    ];
+
+    final List<_InfoLine> lines = <_InfoLine>[
+      _InfoLine(
+        '配置模式',
+        PlaybackBackendModeSettings.label(snapshot.configuredMode),
+      ),
+      _InfoLine('当前后端', snapshot.activeBackendLabel),
+      if (snapshot.latestFallbackReason != null)
+        _InfoLine('最近备用切换', snapshot.latestFallbackReason!),
+      if (vlc?.details['libvlcPath'] != null)
+        _InfoLine('VLC 路径', vlc!.details['libvlcPath']!),
+      if (vlc?.details['vlcReason'] != null)
+        _InfoLine('VLC 探测', vlc!.details['vlcReason']!),
+      _InfoLine(
+        '限制说明',
+        limitations.isEmpty ? '当前后端未报告隐藏能力。' : limitations.join('\n'),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _InlineMessage(
+          icon: Icons.fact_check_outlined,
+          message: '后端能力由运行时 probe 提供；VLC 不会伪装支持 MPV-only 增强能力。',
+          theme: theme,
+        ),
+        const SizedBox(height: 12),
+        for (final _InfoLine line in lines) ...<Widget>[
+          _ReadonlyInfoRow(
+            title: line.label,
+            value: line.value,
+            theme: theme,
+          ),
+          if (line != lines.last) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  bool limitationsWouldBeEmpty(PlaybackBackendCandidateSnapshot? candidate) {
+    if (candidate == null) return true;
+    if (!candidate.available) return false;
+    return candidate.keyLimitationReasonLines().isEmpty;
+  }
+}
+
+final class _InfoLine {
+  const _InfoLine(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
 class _SettingsTextRow extends StatelessWidget {
   const _SettingsTextRow({
     required this.title,
@@ -1699,6 +1942,7 @@ String _settingsSectionElementId(_SettingsSection section) {
     _SettingsSection.appearance => UiElementIds.settingsSectionAppearance,
     _SettingsSection.bangumi => UiElementIds.settingsSectionBangumi,
     _SettingsSection.network => UiElementIds.settingsSectionNetwork,
+    _SettingsSection.playback => UiElementIds.settingsSectionPlayback,
     _SettingsSection.videoEnhancement =>
       UiElementIds.settingsSectionVideoEnhancement,
     _SettingsSection.mediaLibrary => UiElementIds.settingsSectionMediaLibrary,
