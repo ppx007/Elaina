@@ -1,5 +1,7 @@
 // App entrypoint wires the production composition and theme persistence. Keep
 // feature-specific setup inside AppComposition so main remains startup-only.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'src/app_composition.dart';
@@ -129,6 +131,7 @@ class _MyAppState extends State<MyApp> {
       );
       _playbackController = _bootstrap!.controller;
       _composition!.startAvSyncGuardMonitor(_playbackController);
+      unawaited(_composition!.configureAnime4kShaders());
       _videoSurface = _composition!.buildVideoSurface(context);
       _mediaLibraryRuntime = _composition!.mediaLibraryRuntime;
       _videoDetailPageContract = _composition!.videoDetailPageContract;
@@ -156,6 +159,10 @@ class _MyAppState extends State<MyApp> {
     _bootstrap?.dispose();
     _composition?.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshAnime4kShaders() async {
+    await _composition?.configureAnime4kShaders();
   }
 
   @override
@@ -186,6 +193,9 @@ class _MyAppState extends State<MyApp> {
               bangumiLoginController: _bangumiLoginController,
               homeRecommendationProvider: _homeRecommendationProvider,
               homeSearchProvider: _homeSearchProvider,
+              onAnime4kSettingsChanged: _composition == null
+                  ? null
+                  : _refreshAnime4kShaders,
             ),
           );
         },

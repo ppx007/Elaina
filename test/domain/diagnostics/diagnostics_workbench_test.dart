@@ -37,6 +37,7 @@ void main() {
             PlaybackCapability.playPause: CapabilityStatus.supported(),
             PlaybackCapability.audioTrackDiscovery:
                 CapabilityStatus.unsupported('No native track probe.'),
+            PlaybackCapability.anime4kPreset: CapabilityStatus.supported(),
           },
         ),
         initialState: PlaybackStateSnapshot(
@@ -100,6 +101,7 @@ void main() {
               PlaybackCapability.playPause: CapabilityStatus.supported(),
               PlaybackCapability.audioTrackDiscovery:
                   CapabilityStatus.unsupported('No native track probe.'),
+              PlaybackCapability.anime4kPreset: CapabilityStatus.supported(),
             },
           ),
           checkedAt: DateTime.utc(2026, 6, 27, 10),
@@ -107,6 +109,10 @@ void main() {
           backendLabel: 'unit-backend',
           details: const <String, String>{
             'matrixDanmakuRenderer': 'flutter-custom-painter-overlay',
+            'anime4kShadersAccessible': 'true',
+            'anime4kShaderSource': 'bundled',
+            'anime4kShaderMap':
+                'restore=Anime4K_Restore_CNN_M.glsl;upscale=Anime4K_Upscale_CNN_x2_M.glsl',
           },
         ),
       ),
@@ -131,6 +137,11 @@ void main() {
       'No native track probe.',
     );
     expect(snapshot.playback!.backendLabel, 'unit-backend');
+    expect(snapshot.playback!.probeDetails['anime4kShaderSource'], 'bundled');
+    expect(
+      snapshot.playback!.probeDetails['anime4kShaderMap'],
+      contains('Anime4K_Restore_CNN_M.glsl'),
+    );
     expect(
       snapshot.playback!.capabilities
           .singleWhere((DiagnosticsCapabilityEntry entry) =>

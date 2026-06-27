@@ -2898,6 +2898,19 @@ final class _InMemoryMpvBinding implements MpvAdapterBinding {
     switchedTrackId = trackId;
     return const TrackSwitchResult.success();
   }
+
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    operations.add(PlaybackOperation.applyEnhancement);
+    return EnhancementApplyOutcome.applied(profile: profile);
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    operations.add(PlaybackOperation.disableEnhancement);
+    return const EnhancementDisableOutcome.disabled();
+  }
 }
 
 final class _ConfigurablePlayerAdapter implements PlayerAdapter {
@@ -2918,6 +2931,8 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   int seekCount = 0;
   int stopCount = 0;
   int switchCount = 0;
+  int applyEnhancementCount = 0;
+  int disableEnhancementCount = 0;
   MediaTrackId? switchedTrackId;
 
   @override
@@ -2972,6 +2987,19 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
     switchCount += 1;
     switchedTrackId = trackId;
     return _switchResult ?? const TrackSwitchResult.success();
+  }
+
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    applyEnhancementCount += 1;
+    return EnhancementApplyOutcome.applied(profile: profile);
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    disableEnhancementCount += 1;
+    return const EnhancementDisableOutcome.disabled();
   }
 }
 

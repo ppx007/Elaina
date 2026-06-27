@@ -2,6 +2,7 @@ import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
 import 'track_management.dart';
+import 'video_enhancement_pipeline.dart';
 
 /// Deterministic [MpvAdapterBinding] for Phase 1 runtime tests.
 ///
@@ -22,6 +23,8 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
   PlaybackSource? loadedSource;
   Duration? seekPosition;
   MediaTrackId? switchedTrackId;
+  VideoEnhancementProfile? activeEnhancementProfile;
+  bool enhancementDisabled = false;
 
   bool get isDisposed => _disposed;
 
@@ -109,6 +112,43 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
     }
     switchedTrackId = trackId;
     return const TrackSwitchResult.success();
+  }
+
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.applyEnhancement);
+    if (disposed != null) {
+      return EnhancementApplyOutcome.rejected(
+        failure: EnhancementPipelineFailure(
+          kind: EnhancementPipelineFailureKind.adapterRejected,
+          message: disposed.failure!.message,
+        ),
+      );
+    }
+    operations.add(PlaybackOperation.applyEnhancement);
+    activeEnhancementProfile = profile;
+    enhancementDisabled = false;
+    return EnhancementApplyOutcome.applied(profile: profile);
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.disableEnhancement);
+    if (disposed != null) {
+      return EnhancementDisableOutcome.rejected(
+        failure: EnhancementPipelineFailure(
+          kind: EnhancementPipelineFailureKind.adapterRejected,
+          message: disposed.failure!.message,
+        ),
+      );
+    }
+    operations.add(PlaybackOperation.disableEnhancement);
+    activeEnhancementProfile = null;
+    enhancementDisabled = true;
+    return const EnhancementDisableOutcome.disabled();
   }
 
   Future<PlaybackCommandResult> _recordCommand(

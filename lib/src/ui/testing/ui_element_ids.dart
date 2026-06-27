@@ -30,6 +30,8 @@ abstract final class UiElementIds {
   static const String settingsSectionAppearance = 'settings-section-appearance';
   static const String settingsSectionBangumi = 'settings-section-bangumi';
   static const String settingsSectionNetwork = 'settings-section-network';
+  static const String settingsSectionVideoEnhancement =
+      'settings-section-video-enhancement';
   static const String settingsSectionMediaLibrary =
       'settings-section-media-library';
   static const String settingsSectionAbout = 'settings-section-about';
@@ -56,6 +58,11 @@ abstract final class UiElementIds {
   static const String settingsSaveProxy = 'settings-save-proxy';
   static const String settingsDnsPolicy = 'settings-dns-policy';
   static const String settingsSaveDns = 'settings-save-dns';
+  static const String settingsAnime4kShaderOverrideDirectory =
+      'settings-anime4k-shader-override-directory';
+  static const String settingsAnime4kDefaultPreset =
+      'settings-anime4k-default-preset';
+  static const String settingsAnime4kSave = 'settings-anime4k-save';
   static const String settingsAddMediaFolder = 'settings-add-media-folder';
 
   static const String diagnosticsRefresh = 'diagnostics-refresh';
@@ -109,6 +116,10 @@ abstract final class UiElementIds {
   static const String playbackDanmakuOverlay = 'playback-danmaku-overlay';
   static const String playbackMatrixDanmakuOverlay =
       'playback-matrix-danmaku-overlay';
+  static const String playbackVideoEnhancementPanel =
+      'playback-video-enhancement-panel';
+  static const String playbackAnime4kPresetMenu =
+      'playback-anime4k-preset-menu';
 
   static String playbackTrack(String trackId) {
     return 'playback-track-$trackId';

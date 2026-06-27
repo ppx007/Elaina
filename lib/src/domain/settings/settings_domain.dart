@@ -13,6 +13,9 @@ abstract final class SettingsPreferenceKeys {
   static const String bangumiMirrorImageBaseUrl =
       'bangumi_mirror_image_base_url';
   static const String mediaLibraryRoots = 'media_library_roots';
+  static const String anime4kShaderOverrideDirectory =
+      'anime4k_shader_override_directory';
+  static const String anime4kDefaultPreset = 'anime4k_default_preset';
 }
 
 abstract final class SettingsThemeModePreference {
@@ -60,6 +63,29 @@ abstract final class BangumiMirrorSettings {
   static String _trimTrailingSlash(String path) {
     if (path.length <= 1 || !path.endsWith('/')) return path;
     return path.substring(0, path.length - 1);
+  }
+}
+
+abstract final class Anime4kPresetSettings {
+  static const String off = 'off';
+  static const String restore = 'restore';
+  static const String upscale = 'upscale';
+  static const String restoreAndUpscale = 'restoreAndUpscale';
+
+  static const List<String> values = <String>[
+    off,
+    restore,
+    upscale,
+    restoreAndUpscale,
+  ];
+
+  static String parse(String? value) {
+    final String normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) return off;
+    return switch (normalized) {
+      off || restore || upscale || restoreAndUpscale => normalized,
+      _ => throw FormatException('Invalid Anime4K preset: $value'),
+    };
   }
 }
 

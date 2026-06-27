@@ -25,6 +25,7 @@ Future<void> _pumpSettingsPage(
   required FakeSettingsRuntime settingsRuntime,
   BangumiLoginController? bangumiLoginController,
   VoidCallback? onBangumiAuthChanged,
+  Future<void> Function()? onAnime4kSettingsChanged,
   SettingsDirectoryPathPicker? directoryPathPicker,
 }) {
   final SettingsPage page = directoryPathPicker == null
@@ -32,11 +33,13 @@ Future<void> _pumpSettingsPage(
           settingsRuntime: settingsRuntime,
           bangumiLoginController: bangumiLoginController,
           onBangumiAuthChanged: onBangumiAuthChanged,
+          onAnime4kSettingsChanged: onAnime4kSettingsChanged,
         )
       : SettingsPage(
           settingsRuntime: settingsRuntime,
           bangumiLoginController: bangumiLoginController,
           onBangumiAuthChanged: onBangumiAuthChanged,
+          onAnime4kSettingsChanged: onAnime4kSettingsChanged,
           directoryPathPicker: directoryPathPicker,
         );
   return ElainaTestHarness.pumpSettingsWidget(
@@ -154,6 +157,9 @@ final class _MockDiagnosticsWorkbenchRuntime
         'nativeMpvCommands': 'true',
         'telemetry': 'true',
         'avSyncSampler': 'true',
+        'anime4kShadersAccessible': 'true',
+        'anime4kShaderSource': 'bundled',
+        'anime4kShaderMap': 'restore=Anime4K_Restore_CNN_M.glsl',
       },
       status: PlaybackLifecycleStatus.playing,
       position: const Duration(minutes: 3, seconds: 12),
@@ -387,11 +393,15 @@ void main() {
     expect(find.text('https://github.com/bangumi/api'), findsWidgets);
     expect(find.text('media_kit'), findsOneWidget);
     expect(find.text('https://github.com/media-kit/media-kit'), findsOneWidget);
-    expect(find.text('许可证：MIT License'), findsOneWidget);
+    expect(find.text('许可证：MIT License'), findsWidgets);
     expect(find.text('libtorrent_flutter'), findsOneWidget);
     expect(find.text('许可证：GPL-3.0'), findsOneWidget);
     expect(find.text('Dandanplay'), findsOneWidget);
     expect(find.text('许可证：需查看官方条款'), findsOneWidget);
+    expect(find.text('Anime4K'), findsOneWidget);
+    expect(find.text('https://github.com/bloc97/Anime4K'), findsOneWidget);
+    expect(find.text('许可证：MIT License'), findsWidgets);
+    expect(find.textContaining('assets/anime4k/LICENSE'), findsWidgets);
 
     await tester.ensureVisible(ElainaFinders.settingsReferenceRepositories);
     await tester.pumpAndSettle();
@@ -411,6 +421,51 @@ void main() {
       isNull,
     );
     expect(await settingsRuntime.getProxyUrl(), isNull);
+  });
+
+  testWidgets('SettingsPage stores Anime4K shader preferences',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+    int reconfigureCalls = 0;
+
+    await _pumpSettingsPage(
+      tester,
+      settingsRuntime: settingsRuntime,
+      onAnime4kSettingsChanged: () async {
+        reconfigureCalls += 1;
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(ElainaFinders.settingsSectionVideoEnhancement.first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      ElainaFinders.settingsAnime4kShaderOverrideDirectory,
+      'D:\\Anime4K\\Shaders',
+    );
+    await tester.pumpAndSettle();
+    tester
+        .widget<DropdownButtonFormField<String>>(
+          ElainaFinders.settingsAnime4kDefaultPreset,
+        )
+        .onChanged!(Anime4kPresetSettings.restoreAndUpscale);
+    await tester.pumpAndSettle();
+    await tester.tap(ElainaFinders.settingsAnime4kSave);
+    await tester.pumpAndSettle();
+
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.anime4kShaderOverrideDirectory,
+      ),
+      'D:\\Anime4K\\Shaders',
+    );
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.anime4kDefaultPreset,
+      ),
+      Anime4kPresetSettings.restoreAndUpscale,
+    );
+    expect(reconfigureCalls, 1);
   });
 
   testWidgets('SettingsPage validates Bangumi token and refreshes profile',
@@ -594,6 +649,12 @@ void main() {
     expect(find.text('AV 同步采样'), findsOneWidget);
     expect(find.text('警告'), findsOneWidget);
     expect(find.text('92 ms'), findsOneWidget);
+    expect(find.text('Anime4K shader'), findsOneWidget);
+    expect(find.text('可访问'), findsOneWidget);
+    expect(find.text('Anime4K 来源'), findsOneWidget);
+    expect(find.text('bundled'), findsOneWidget);
+    expect(find.text('Anime4K 映射'), findsOneWidget);
+    expect(find.text('restore=Anime4K_Restore_CNN_M.glsl'), findsOneWidget);
     expect(find.textContaining('弹幕密度接近上限'), findsOneWidget);
     expect(find.text('音轨发现'), findsOneWidget);
 

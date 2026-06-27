@@ -1,6 +1,7 @@
 import '../../playback/capability_matrix.dart';
 import '../../playback/player_adapter.dart';
 import '../../playback/track_management.dart';
+import '../../playback/video_enhancement_pipeline.dart';
 import 'playback_state.dart';
 
 typedef DomainPlaybackCommandResult = PlaybackCommandResult;
@@ -51,6 +52,79 @@ enum DomainPlaybackCapabilityId {
   pgsSubtitleRendering,
   assSubtitleEnhancement,
   fallbackAdapter,
+}
+
+enum VideoEnhancementPresetSelection {
+  off,
+  restore,
+  upscale,
+  restoreAndUpscale,
+}
+
+final class DomainVideoEnhancementProfileDescriptor {
+  const DomainVideoEnhancementProfileDescriptor({
+    required this.preset,
+    this.id,
+    this.label,
+  });
+
+  final VideoEnhancementPresetSelection preset;
+  final String? id;
+  final String? label;
+}
+
+enum DomainVideoEnhancementApplyStatus {
+  applied,
+  disabled,
+  unsupported,
+  failed,
+}
+
+final class DomainVideoEnhancementApplyResult {
+  const DomainVideoEnhancementApplyResult._({
+    required this.status,
+    required this.preset,
+    this.message,
+  });
+
+  const DomainVideoEnhancementApplyResult.applied({
+    required VideoEnhancementPresetSelection preset,
+  }) : this._(
+          status: DomainVideoEnhancementApplyStatus.applied,
+          preset: preset,
+        );
+
+  const DomainVideoEnhancementApplyResult.disabled()
+      : this._(
+          status: DomainVideoEnhancementApplyStatus.disabled,
+          preset: VideoEnhancementPresetSelection.off,
+        );
+
+  const DomainVideoEnhancementApplyResult.unsupported({
+    required VideoEnhancementPresetSelection preset,
+    required String message,
+  }) : this._(
+          status: DomainVideoEnhancementApplyStatus.unsupported,
+          preset: preset,
+          message: message,
+        );
+
+  const DomainVideoEnhancementApplyResult.failed({
+    required VideoEnhancementPresetSelection preset,
+    required String message,
+  }) : this._(
+          status: DomainVideoEnhancementApplyStatus.failed,
+          preset: preset,
+          message: message,
+        );
+
+  final DomainVideoEnhancementApplyStatus status;
+  final VideoEnhancementPresetSelection preset;
+  final String? message;
+
+  bool get isSuccess =>
+      status == DomainVideoEnhancementApplyStatus.applied ||
+      status == DomainVideoEnhancementApplyStatus.disabled;
 }
 
 final class DomainPlaybackCapabilityStatus {
@@ -175,6 +249,12 @@ abstract interface class PlaybackControllerContract
 
   Future<TrackSwitchResult> switchTrack(DomainMediaTrackId trackId,
       {DomainMediaTrackType? trackType});
+
+  Future<DomainVideoEnhancementApplyResult> applyVideoEnhancement(
+    DomainVideoEnhancementProfileDescriptor profile,
+  );
+
+  Future<DomainVideoEnhancementApplyResult> disableVideoEnhancement();
 }
 
 DomainPlaybackCapabilitySummary domainPlaybackCapabilitySummaryFromMatrix(
@@ -322,6 +402,49 @@ final class PlaybackController implements PlaybackControllerContract {
     }
 
     return activeAdapter.switchTrack(MediaTrackId(trackId.value));
+  }
+
+  @override
+  Future<DomainVideoEnhancementApplyResult> applyVideoEnhancement(
+    DomainVideoEnhancementProfileDescriptor profile,
+  ) {
+    if (profile.preset == VideoEnhancementPresetSelection.off) {
+      return disableVideoEnhancement();
+    }
+    final DomainVideoEnhancementApplyResult? unsupported =
+        domainVideoEnhancementUnsupportedResultForMatrix(
+      matrix,
+      profile.preset,
+    );
+    if (unsupported != null) {
+      return Future<DomainVideoEnhancementApplyResult>.value(unsupported);
+    }
+    return activeAdapter
+        .applyEnhancement(domainVideoEnhancementProfileFromDescriptor(profile))
+        .then((EnhancementApplyOutcome outcome) {
+      return domainVideoEnhancementResultFromApplyOutcome(
+        preset: profile.preset,
+        outcome: outcome,
+      );
+    });
+  }
+
+  @override
+  Future<DomainVideoEnhancementApplyResult> disableVideoEnhancement() {
+    final CapabilityStatus videoEnhancement =
+        matrix.statusOf(PlaybackCapability.videoEnhancement);
+    if (!videoEnhancement.isSupported) {
+      return Future<DomainVideoEnhancementApplyResult>.value(
+        DomainVideoEnhancementApplyResult.unsupported(
+          preset: VideoEnhancementPresetSelection.off,
+          message:
+              videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+        ),
+      );
+    }
+    return activeAdapter.disableEnhancement().then(
+      domainVideoEnhancementResultFromDisableOutcome,
+    );
   }
 }
 
@@ -471,6 +594,40 @@ final class MockPlaybackController implements PlaybackControllerContract {
     return Future<TrackSwitchResult>.value(const TrackSwitchResult.success());
   }
 
+  VideoEnhancementPresetSelection activeVideoEnhancementPreset =
+      VideoEnhancementPresetSelection.off;
+
+  @override
+  Future<DomainVideoEnhancementApplyResult> applyVideoEnhancement(
+    DomainVideoEnhancementProfileDescriptor profile,
+  ) async {
+    if (profile.preset == VideoEnhancementPresetSelection.off) {
+      return disableVideoEnhancement();
+    }
+    final DomainVideoEnhancementApplyResult? unsupported =
+        domainVideoEnhancementUnsupportedResultForMatrix(
+      matrix,
+      profile.preset,
+    );
+    if (unsupported != null) return unsupported;
+    activeVideoEnhancementPreset = profile.preset;
+    return DomainVideoEnhancementApplyResult.applied(preset: profile.preset);
+  }
+
+  @override
+  Future<DomainVideoEnhancementApplyResult> disableVideoEnhancement() async {
+    final CapabilityStatus videoEnhancement =
+        matrix.statusOf(PlaybackCapability.videoEnhancement);
+    if (!videoEnhancement.isSupported) {
+      return DomainVideoEnhancementApplyResult.unsupported(
+        preset: VideoEnhancementPresetSelection.off,
+        message: videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+      );
+    }
+    activeVideoEnhancementPreset = VideoEnhancementPresetSelection.off;
+    return const DomainVideoEnhancementApplyResult.disabled();
+  }
+
   PlaybackStateSnapshot _snapshotWith({
     PlaybackLifecycleStatus? status,
     PlaybackTimelineState? timeline,
@@ -566,4 +723,108 @@ String? _trackDiscoveryUnsupportedReason(PlaybackCapabilityMatrix matrix) {
   return matrix.statusOf(PlaybackCapability.audioTrackDiscovery).reason ??
       matrix.statusOf(PlaybackCapability.subtitleTrackDiscovery).reason ??
       'Track discovery is unsupported by the active adapter.';
+}
+
+DomainVideoEnhancementApplyResult?
+    domainVideoEnhancementUnsupportedResultForMatrix(
+  PlaybackCapabilityMatrix matrix,
+  VideoEnhancementPresetSelection preset,
+) {
+  final CapabilityStatus videoEnhancement =
+      matrix.statusOf(PlaybackCapability.videoEnhancement);
+  if (!videoEnhancement.isSupported) {
+    return DomainVideoEnhancementApplyResult.unsupported(
+      preset: preset,
+      message: videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+    );
+  }
+  if (preset != VideoEnhancementPresetSelection.off) {
+    final CapabilityStatus anime4k =
+        matrix.statusOf(PlaybackCapability.anime4kPreset);
+    if (!anime4k.isSupported) {
+      return DomainVideoEnhancementApplyResult.unsupported(
+        preset: preset,
+        message: anime4k.reason ?? 'Anime4K preset is unsupported.',
+      );
+    }
+  }
+  return null;
+}
+
+VideoEnhancementProfile domainVideoEnhancementProfileFromDescriptor(
+  DomainVideoEnhancementProfileDescriptor descriptor,
+) {
+  return VideoEnhancementProfile(
+    id: EnhancementProfileId(
+      descriptor.id ?? 'anime4k-${descriptor.preset.name}',
+    ),
+    label: descriptor.label ?? _videoEnhancementPresetLabel(descriptor.preset),
+    scaler: VideoScalerIntent.adapterDefault,
+    hdrHandling: HdrHandlingIntent.adapterDefault,
+    deband: DebandIntent.off,
+    anime4kPreset: _anime4kPresetIntentFromDomain(descriptor.preset),
+  );
+}
+
+Anime4kPresetIntent _anime4kPresetIntentFromDomain(
+  VideoEnhancementPresetSelection preset,
+) {
+  return switch (preset) {
+    VideoEnhancementPresetSelection.off => Anime4kPresetIntent.off,
+    VideoEnhancementPresetSelection.restore => Anime4kPresetIntent.restore,
+    VideoEnhancementPresetSelection.upscale => Anime4kPresetIntent.upscale,
+    VideoEnhancementPresetSelection.restoreAndUpscale =>
+      Anime4kPresetIntent.restoreAndUpscale,
+  };
+}
+
+String _videoEnhancementPresetLabel(VideoEnhancementPresetSelection preset) {
+  return switch (preset) {
+    VideoEnhancementPresetSelection.off => '关闭',
+    VideoEnhancementPresetSelection.restore => 'Anime4K Restore',
+    VideoEnhancementPresetSelection.upscale => 'Anime4K Upscale',
+    VideoEnhancementPresetSelection.restoreAndUpscale =>
+      'Anime4K Restore + Upscale',
+  };
+}
+
+DomainVideoEnhancementApplyResult
+    domainVideoEnhancementResultFromApplyOutcome({
+  required VideoEnhancementPresetSelection preset,
+  required EnhancementApplyOutcome outcome,
+}) {
+  if (outcome.isSuccess) {
+    return DomainVideoEnhancementApplyResult.applied(preset: preset);
+  }
+  final EnhancementPipelineFailure failure = outcome.failure!;
+  if (failure.kind == EnhancementPipelineFailureKind.capabilityUnsupported) {
+    return DomainVideoEnhancementApplyResult.unsupported(
+      preset: preset,
+      message: failure.message,
+    );
+  }
+  return DomainVideoEnhancementApplyResult.failed(
+    preset: preset,
+    message: failure.message,
+  );
+}
+
+DomainVideoEnhancementApplyResult
+    domainVideoEnhancementResultFromDisableOutcome(
+  EnhancementDisableOutcome outcome,
+) {
+  if (outcome.isSuccess) {
+    return const DomainVideoEnhancementApplyResult.disabled();
+  }
+  final EnhancementPipelineFailure failure = outcome.failure!;
+  if (failure.kind == EnhancementPipelineFailureKind.capabilityUnsupported) {
+    return DomainVideoEnhancementApplyResult.unsupported(
+      preset: VideoEnhancementPresetSelection.off,
+      message: failure.message,
+    );
+  }
+  return DomainVideoEnhancementApplyResult.failed(
+    preset: VideoEnhancementPresetSelection.off,
+    message: failure.message,
+  );
 }

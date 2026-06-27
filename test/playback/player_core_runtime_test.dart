@@ -305,6 +305,46 @@ void main() {
     await runtime.dispose();
   });
 
+  test('runtime applies and disables video enhancement through adapter',
+      () async {
+    final DeterministicMpvBinding binding = DeterministicMpvBinding();
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _matrix(<PlaybackCapability, CapabilityStatus>{
+        PlaybackCapability.videoEnhancement:
+            const CapabilityStatus.supported(),
+        PlaybackCapability.anime4kPreset: const CapabilityStatus.supported(),
+      }),
+    );
+
+    final DomainVideoEnhancementApplyResult applied =
+        await runtime.controller.applyVideoEnhancement(
+      const DomainVideoEnhancementProfileDescriptor(
+        preset: VideoEnhancementPresetSelection.restoreAndUpscale,
+      ),
+    );
+
+    expect(applied.isSuccess, isTrue);
+    expect(binding.activeEnhancementProfile?.anime4kPreset,
+        Anime4kPresetIntent.restoreAndUpscale);
+
+    final DomainVideoEnhancementApplyResult disabled =
+        await runtime.controller.disableVideoEnhancement();
+
+    expect(disabled.isSuccess, isTrue);
+    expect(binding.enhancementDisabled, isTrue);
+    expect(binding.activeEnhancementProfile, isNull);
+    expect(
+      binding.operations,
+      containsAll(<PlaybackOperation>[
+        PlaybackOperation.applyEnhancement,
+        PlaybackOperation.disableEnhancement,
+      ]),
+    );
+
+    await runtime.dispose();
+  });
+
   test('runtime rejects unsupported and disposed operations deterministically',
       () async {
     final DeterministicMpvBinding binding =

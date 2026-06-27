@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:media_kit/media_kit.dart';
 
 import 'advanced_caption_rendering.dart';
+import 'anime4k_shader_manifest.dart';
 import 'av_sync_guard.dart';
 import 'av_sync_sample_source.dart';
 import 'capability_matrix.dart';
@@ -315,10 +316,15 @@ final class MpvEnhancementPlanner {
   MpvEnhancementPlanner({
     Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
         const <Anime4kPresetIntent, Uri>{},
-  }) : _anime4kShaderByPreset =
-            Map<Anime4kPresetIntent, Uri>.unmodifiable(anime4kShaderByPreset);
+    Map<Anime4kPresetIntent, List<Uri>> anime4kShaderChainsByPreset =
+        const <Anime4kPresetIntent, List<Uri>>{},
+  }) : _anime4kShaderChainsByPreset =
+            _normalizeAnime4kShaderChains(
+          shaderByPreset: anime4kShaderByPreset,
+          shaderChainsByPreset: anime4kShaderChainsByPreset,
+        );
 
-  final Map<Anime4kPresetIntent, Uri> _anime4kShaderByPreset;
+  final Map<Anime4kPresetIntent, List<Uri>> _anime4kShaderChainsByPreset;
 
   MpvEnhancementPlanResult build(VideoEnhancementProfile profile) {
     final List<MpvEnhancementCommand> commands = <MpvEnhancementCommand>[
@@ -336,7 +342,7 @@ final class MpvEnhancementPlanner {
     );
   }
 
-  bool get supportsAnime4kPresets => _anime4kShaderByPreset.isNotEmpty;
+  bool get supportsAnime4kPresets => _anime4kShaderChainsByPreset.isNotEmpty;
 
   List<MpvEnhancementCommand> _scalerCommands(VideoScalerIntent scaler) {
     final String? value = switch (scaler) {
@@ -406,8 +412,8 @@ final class MpvEnhancementPlanner {
   ) {
     if (preset == Anime4kPresetIntent.off) return null;
 
-    final Uri? shader = _anime4kShaderByPreset[preset];
-    if (shader == null) {
+    final List<Uri>? shaders = _anime4kShaderChainsByPreset[preset];
+    if (shaders == null || shaders.isEmpty) {
       return const MpvEnhancementPlanResult.failure(
         failure: EnhancementPipelineFailure(
           kind: EnhancementPipelineFailureKind.capabilityUnsupported,
@@ -416,12 +422,14 @@ final class MpvEnhancementPlanner {
       );
     }
 
-    commands.add(MpvEnhancementCommand.command(<String>[
-      mpvEnhancementChangeListCommand,
-      mpvEnhancementGlslShadersOption,
-      mpvEnhancementAppendOperation,
-      _shaderPath(shader),
-    ]));
+    for (final Uri shader in shaders) {
+      commands.add(MpvEnhancementCommand.command(<String>[
+        mpvEnhancementChangeListCommand,
+        mpvEnhancementGlslShadersOption,
+        mpvEnhancementAppendOperation,
+        _shaderPath(shader),
+      ]));
+    }
     return null;
   }
 
@@ -429,6 +437,23 @@ final class MpvEnhancementPlanner {
     if (shader.scheme == 'file') return shader.toFilePath();
     return shader.toString();
   }
+}
+
+Map<Anime4kPresetIntent, List<Uri>> _normalizeAnime4kShaderChains({
+  required Map<Anime4kPresetIntent, Uri> shaderByPreset,
+  required Map<Anime4kPresetIntent, List<Uri>> shaderChainsByPreset,
+}) {
+  final Map<Anime4kPresetIntent, List<Uri>> normalized =
+      <Anime4kPresetIntent, List<Uri>>{
+    for (final MapEntry<Anime4kPresetIntent, Uri> entry
+        in shaderByPreset.entries)
+      entry.key: <Uri>[entry.value],
+  };
+  for (final MapEntry<Anime4kPresetIntent, List<Uri>> entry
+      in shaderChainsByPreset.entries) {
+    normalized[entry.key] = List<Uri>.unmodifiable(entry.value);
+  }
+  return Map<Anime4kPresetIntent, List<Uri>>.unmodifiable(normalized);
 }
 
 abstract interface class MediaKitMpvBackend {
@@ -807,6 +832,9 @@ final class MediaKitMpvBinding
     String? libmpvPath,
     Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
         const <Anime4kPresetIntent, Uri>{},
+    Map<Anime4kPresetIntent, List<Uri>> anime4kShaderChainsByPreset =
+        const <Anime4kPresetIntent, List<Uri>>{},
+    String anime4kShaderSource = anime4kShaderSourceUnavailable,
   })  : assert(
           backend == null || backendFactory == null,
           'Provide either a backend instance or a backend factory, not both.',
@@ -814,17 +842,17 @@ final class MediaKitMpvBinding
         _backend = backend,
         _backendFactory = backendFactory ??
             (() => MediaKitMpvBackendAdapter(libmpvPath: libmpvPath)),
-        _anime4kShaderByPreset =
-            Map<Anime4kPresetIntent, Uri>.unmodifiable(anime4kShaderByPreset),
-        _enhancementPlanner = MpvEnhancementPlanner(
-          anime4kShaderByPreset: anime4kShaderByPreset,
+        _anime4kShaderChainsByPreset = _normalizeAnime4kShaderChains(
+          shaderByPreset: anime4kShaderByPreset,
+          shaderChainsByPreset: anime4kShaderChainsByPreset,
         ),
+        _anime4kShaderSource = anime4kShaderSource,
         _subtitlePlanner = const MpvSubtitlePlanner();
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
-  final Map<Anime4kPresetIntent, Uri> _anime4kShaderByPreset;
-  final MpvEnhancementPlanner _enhancementPlanner;
+  Map<Anime4kPresetIntent, List<Uri>> _anime4kShaderChainsByPreset;
+  String _anime4kShaderSource;
   final MpvSubtitlePlanner _subtitlePlanner;
   int? _previousAvSyncDropCounterTotal;
   bool _disposed = false;
@@ -832,6 +860,17 @@ final class MediaKitMpvBinding
   bool get isDisposed => _disposed;
 
   MediaKitMpvBackend get backend => _backend ??= _backendFactory();
+
+  void updateAnime4kShaderChains({
+    required Map<Anime4kPresetIntent, List<Uri>> shaderChainsByPreset,
+    required String source,
+  }) {
+    _anime4kShaderChainsByPreset = _normalizeAnime4kShaderChains(
+      shaderByPreset: const <Anime4kPresetIntent, Uri>{},
+      shaderChainsByPreset: shaderChainsByPreset,
+    );
+    _anime4kShaderSource = source;
+  }
 
   @override
   PlayerTelemetrySnapshot get currentTelemetry => backend.currentTelemetry;
@@ -978,8 +1017,9 @@ final class MediaKitMpvBinding
       final bool trackApi = currentBackend.supportsTrackDiscovery &&
           currentBackend.supportsTrackSwitching;
       final bool avSyncSampler = currentBackend.supportsPropertyRead;
-      final bool anime4kShadersAvailable =
-          _allAnime4kShadersAreAccessible(_anime4kShaderByPreset.values);
+      final bool anime4kShadersAvailable = _allAnime4kShadersAreAccessible(
+        _anime4kShaderChainsByPreset.values.expand((List<Uri> chain) => chain),
+      );
       return PlaybackCapabilityProbeSnapshot(
         capabilities: mediaKitLocalFilePlaybackCapabilities(
           supportsUriPlayback: currentBackend.supportsUriPlayback,
@@ -1001,6 +1041,9 @@ final class MediaKitMpvBinding
           'trackApi': trackApi.toString(),
           'telemetry': currentBackend.supportsTelemetry.toString(),
           'anime4kShadersAccessible': anime4kShadersAvailable.toString(),
+          'anime4kShaderSource': _anime4kShaderSource,
+          'anime4kShaderMap':
+              _anime4kShaderMapSummary(_anime4kShaderChainsByPreset),
           'libmpvPath': currentBackend.resolvedLibMpvPath ?? 'default',
         },
       );
@@ -1133,8 +1176,9 @@ final class MediaKitMpvBinding
       return EnhancementApplyOutcome.rejected(failure: disposed);
     }
 
-    final MpvEnhancementPlanResult planResult =
-        _enhancementPlanner.build(profile);
+    final MpvEnhancementPlanResult planResult = MpvEnhancementPlanner(
+      anime4kShaderChainsByPreset: _anime4kShaderChainsByPreset,
+    ).build(profile);
     if (!planResult.isSuccess) {
       return EnhancementApplyOutcome.rejected(failure: planResult.failure!);
     }
@@ -1460,7 +1504,11 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
   final CapabilityStatus anime4k =
       supportsNativeMpvCommands && anime4kShadersAvailable
           ? const CapabilityStatus.supported()
-          : const CapabilityStatus.unsupported(mediaKitMpvAnime4kShaderReason);
+          : CapabilityStatus.unsupported(
+              supportsNativeMpvCommands
+                  ? mediaKitMpvAnime4kShaderReason
+                  : mediaKitMpvNativeBackendReason,
+            );
   final CapabilityStatus avSyncGuard = supportsNativeMpvCommands
       ? (supportsAvSyncSampling
           ? const CapabilityStatus.supported()
@@ -1507,6 +1555,31 @@ bool _allAnime4kShadersAreAccessible(Iterable<Uri> shaders) {
   return true;
 }
 
+String _anime4kShaderMapSummary(
+  Map<Anime4kPresetIntent, List<Uri>> shaderChainsByPreset,
+) {
+  if (shaderChainsByPreset.isEmpty) return '';
+  return shaderChainsByPreset.entries
+      .map((MapEntry<Anime4kPresetIntent, List<Uri>> entry) {
+    final String chain = entry.value.map(_shaderSummarySegment).join(' + ');
+    return '${entry.key.name}=$chain';
+  }).join('; ');
+}
+
+String _shaderSummarySegment(Uri uri) {
+  if (uri.scheme == 'file') {
+    final String path = uri.toFilePath();
+    final int slash = path.lastIndexOf('/');
+    final int backslash = path.lastIndexOf('\\');
+    final int index = slash > backslash ? slash : backslash;
+    if (index >= 0 && index < path.length - 1) {
+      return path.substring(index + 1);
+    }
+    return path;
+  }
+  return uri.toString();
+}
+
 /// Creates the concrete Playback-side inputs needed by app composition roots.
 ///
 /// UI/app-shell code should pass the returned descriptor into
@@ -1519,12 +1592,17 @@ PlayerRuntimeCompositionContract mediaKitLocalFilePlayerRuntimeComposition({
   MediaKitMpvBackendFactory? backendFactory,
   Map<Anime4kPresetIntent, Uri> anime4kShaderByPreset =
       const <Anime4kPresetIntent, Uri>{},
+  Map<Anime4kPresetIntent, List<Uri>> anime4kShaderChainsByPreset =
+      const <Anime4kPresetIntent, List<Uri>>{},
+  String anime4kShaderSource = anime4kShaderSourceUnavailable,
 }) {
   final MediaKitMpvBinding binding = MediaKitMpvBinding(
     backend: backend,
     backendFactory: backendFactory,
     libmpvPath: libmpvPath,
     anime4kShaderByPreset: anime4kShaderByPreset,
+    anime4kShaderChainsByPreset: anime4kShaderChainsByPreset,
+    anime4kShaderSource: anime4kShaderSource,
   );
   return PlayerRuntimeCompositionContract(
     binding: binding,

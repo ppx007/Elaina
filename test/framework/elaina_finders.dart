@@ -58,6 +58,8 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsSectionBangumi);
   static Finder get settingsSectionNetwork =>
       byId(UiElementIds.settingsSectionNetwork);
+  static Finder get settingsSectionVideoEnhancement =>
+      byId(UiElementIds.settingsSectionVideoEnhancement);
   static Finder get settingsSectionMediaLibrary =>
       byId(UiElementIds.settingsSectionMediaLibrary);
   static Finder get settingsSectionAbout =>
@@ -89,6 +91,12 @@ abstract final class ElainaFinders {
   static Finder get settingsSaveProxy => byId(UiElementIds.settingsSaveProxy);
   static Finder get settingsDnsPolicy => byId(UiElementIds.settingsDnsPolicy);
   static Finder get settingsSaveDns => byId(UiElementIds.settingsSaveDns);
+  static Finder get settingsAnime4kShaderOverrideDirectory =>
+      byId(UiElementIds.settingsAnime4kShaderOverrideDirectory);
+  static Finder get settingsAnime4kDefaultPreset =>
+      byId(UiElementIds.settingsAnime4kDefaultPreset);
+  static Finder get settingsAnime4kSave =>
+      byId(UiElementIds.settingsAnime4kSave);
   static Finder get settingsAddMediaFolder =>
       byId(UiElementIds.settingsAddMediaFolder);
   static Finder get diagnosticsRefresh => byId(UiElementIds.diagnosticsRefresh);
@@ -171,6 +179,10 @@ abstract final class ElainaFinders {
       byId(UiElementIds.playbackDanmakuOverlay);
   static Finder get playbackMatrixDanmakuOverlay =>
       byId(UiElementIds.playbackMatrixDanmakuOverlay);
+  static Finder get playbackVideoEnhancementPanel =>
+      byId(UiElementIds.playbackVideoEnhancementPanel);
+  static Finder get playbackAnime4kPresetMenu =>
+      byId(UiElementIds.playbackAnime4kPresetMenu);
 
   static Finder heroCarouselItem(String subjectId) {
     return byId(UiElementIds.heroCarouselItem(subjectId));

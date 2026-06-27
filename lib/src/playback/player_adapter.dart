@@ -1,6 +1,7 @@
 import '../foundation/extension_points.dart';
 import 'capability_matrix.dart';
 import 'track_management.dart';
+import 'video_enhancement_pipeline.dart';
 
 abstract class PlaybackSource {
   const PlaybackSource(
@@ -31,6 +32,8 @@ enum PlaybackOperation {
   dispose,
   discoverTracks,
   switchTrack,
+  applyEnhancement,
+  disableEnhancement,
 }
 
 enum PlaybackFailureKind {
@@ -84,6 +87,11 @@ abstract interface class PlayerAdapter implements ElainaAdapter {
   Future<TrackDiscoveryResult> discoverTracks();
 
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId);
+
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile);
+
+  Future<EnhancementDisableOutcome> disableEnhancement();
 }
 
 PlaybackCapability? playbackCapabilityForSource(PlaybackSource source) {

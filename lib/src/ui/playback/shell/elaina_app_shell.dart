@@ -49,6 +49,7 @@ class ElainaAppShell extends StatefulWidget {
     this.bangumiLoginController,
     this.homeRecommendationProvider,
     this.homeSearchProvider,
+    this.onAnime4kSettingsChanged,
     this.carouselAutoScroll = true,
   });
 
@@ -66,6 +67,7 @@ class ElainaAppShell extends StatefulWidget {
   final BangumiLoginController? bangumiLoginController;
   final HomeRecommendationProvider? homeRecommendationProvider;
   final HomeSearchProvider? homeSearchProvider;
+  final Future<void> Function()? onAnime4kSettingsChanged;
   final bool carouselAutoScroll;
 
   @override
@@ -2044,6 +2046,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
         settingsRuntime: widget.settingsRuntime,
         bangumiLoginController: widget.bangumiLoginController,
         onBangumiAuthChanged: _refreshBangumiProfile,
+        onAnime4kSettingsChanged: widget.onAnime4kSettingsChanged,
       ),
     );
   }

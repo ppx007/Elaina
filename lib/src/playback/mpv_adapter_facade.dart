@@ -3,6 +3,7 @@
 import 'capability_matrix.dart';
 import 'player_adapter.dart';
 import 'track_management.dart';
+import 'video_enhancement_pipeline.dart';
 
 abstract interface class MpvAdapterBinding {
   Future<PlaybackCommandResult> load(PlaybackSource source);
@@ -20,6 +21,11 @@ abstract interface class MpvAdapterBinding {
   Future<TrackDiscoveryResult> discoverTracks();
 
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId);
+
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile);
+
+  Future<EnhancementDisableOutcome> disableEnhancement();
 }
 
 final class MpvPlayerAdapterFacade implements PlayerAdapter {
@@ -48,10 +54,17 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
 
   @override
   PlaybackCapabilityMatrix get capabilities {
-    if (_binding == null) {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
       return PlaybackCapabilityMatrix.unsupported(
         reason: _bindingUnavailableMessage,
       );
+    }
+
+    if (binding is PlaybackCapabilityProbeSource) {
+      final PlaybackCapabilityProbeSource probeSource =
+          binding as PlaybackCapabilityProbeSource;
+      return probeSource.currentCapabilityProbe.capabilities;
     }
 
     return _boundCapabilities ??
@@ -157,6 +170,34 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
     return binding.switchTrack(trackId);
   }
 
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return EnhancementApplyOutcome.rejected(
+        failure: _enhancementUnavailableFailure(),
+      );
+    }
+    final EnhancementPipelineFailure? unsupported =
+        _unsupportedEnhancementFailure(profile);
+    if (unsupported != null) {
+      return EnhancementApplyOutcome.rejected(failure: unsupported);
+    }
+    return binding.applyEnhancement(profile);
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return EnhancementDisableOutcome.rejected(
+        failure: _enhancementUnavailableFailure(),
+      );
+    }
+    return binding.disableEnhancement();
+  }
+
   PlaybackCommandResult _unsupported(PlaybackOperation operation) {
     return PlaybackCommandResult.failure(
       PlaybackFailure(
@@ -169,5 +210,38 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
 
   String get _bindingUnavailableMessage {
     return _unavailableReason ?? 'MPV binding is unavailable.';
+  }
+
+  EnhancementPipelineFailure _enhancementUnavailableFailure() {
+    return EnhancementPipelineFailure(
+      kind: EnhancementPipelineFailureKind.adapterRejected,
+      message: _bindingUnavailableMessage,
+    );
+  }
+
+  EnhancementPipelineFailure? _unsupportedEnhancementFailure(
+    VideoEnhancementProfile profile,
+  ) {
+    final VideoEnhancementCapabilityStatus status =
+        capabilities.videoEnhancementStatus();
+    final List<String> reasons = <String>[
+      if (!status.videoEnhancement.isSupported)
+        status.videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+      if (profile.hdrHandling != HdrHandlingIntent.adapterDefault &&
+          !status.hdrToneMapping.isSupported)
+        status.hdrToneMapping.reason ?? 'HDR tone mapping is unsupported.',
+      if (profile.deband != DebandIntent.off &&
+          !status.debandFiltering.isSupported)
+        status.debandFiltering.reason ?? 'Deband filtering is unsupported.',
+      if (profile.anime4kPreset != Anime4kPresetIntent.off &&
+          !status.anime4kPreset.isSupported)
+        status.anime4kPreset.reason ??
+            'Anime4K-style presets are unsupported.',
+    ];
+    if (reasons.isEmpty) return null;
+    return EnhancementPipelineFailure(
+      kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+      message: reasons.join(' '),
+    );
   }
 }

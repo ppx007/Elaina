@@ -74,6 +74,7 @@ export 'src/network/webview_session_backfill.dart';
 export 'src/network/webview_session_backfill_runtime.dart';
 export 'src/playback/advanced_caption_rendering.dart';
 export 'src/playback/advanced_caption_rendering_runtime.dart';
+export 'src/playback/anime4k_shader_manifest.dart';
 export 'src/playback/av_sync_guard.dart';
 export 'src/playback/av_sync_guard_runtime.dart';
 export 'src/playback/av_sync_sample_source.dart';

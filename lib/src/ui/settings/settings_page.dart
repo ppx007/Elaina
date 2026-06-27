@@ -67,6 +67,15 @@ const List<_ReferencedProject> _referencedProjects = <_ReferencedProject>[
     licenseSource: '外部服务不是随应用分发的开源代码；使用条款以官方页面为准。',
     licenseUrl: 'https://www.dandanplay.com/',
   ),
+  _ReferencedProject(
+    name: 'Anime4K',
+    relationship: '视频增强 shader 资源',
+    description: '随应用分发的 Anime4K GLSL shader，用于 MPV glsl-shaders 预设。',
+    url: 'https://github.com/bloc97/Anime4K',
+    licenseName: 'MIT License',
+    licenseSource: '随包保留 assets/anime4k/LICENSE。',
+    licenseUrl: 'assets/anime4k/LICENSE',
+  ),
 ];
 
 /// Global settings center for values consumed by app runtimes.
@@ -80,12 +89,14 @@ class SettingsPage extends StatefulWidget {
     required this.settingsRuntime,
     this.bangumiLoginController,
     this.onBangumiAuthChanged,
+    this.onAnime4kSettingsChanged,
     this.directoryPathPicker = _defaultDirectoryPathPicker,
   });
 
   final SettingsRuntime settingsRuntime;
   final BangumiLoginController? bangumiLoginController;
   final VoidCallback? onBangumiAuthChanged;
+  final Future<void> Function()? onAnime4kSettingsChanged;
   final SettingsDirectoryPathPicker directoryPathPicker;
 
   @override
@@ -107,6 +118,8 @@ class _SettingsPageState extends State<SettingsPage> {
       TextEditingController();
   final TextEditingController _bangumiMirrorImageController =
       TextEditingController();
+  final TextEditingController _anime4kShaderOverrideController =
+      TextEditingController();
 
   _SettingsSection _selectedSection = _SettingsSection.appearance;
   bool _isLoading = true;
@@ -119,6 +132,9 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _bangumiMirrorMessage;
   String? _networkMessage;
   String? _mediaLibraryMessage;
+  String _anime4kDefaultPreset = Anime4kPresetSettings.off;
+  String? _anime4kMessage;
+  bool _isAnime4kSaving = false;
 
   @override
   void initState() {
@@ -133,6 +149,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _bangumiTokenController.dispose();
     _bangumiMirrorApiController.dispose();
     _bangumiMirrorImageController.dispose();
+    _anime4kShaderOverrideController.dispose();
     super.dispose();
   }
 
@@ -150,6 +167,10 @@ class _SettingsPageState extends State<SettingsPage> {
           .getPreference(SettingsPreferenceKeys.bangumiMirrorImageBaseUrl);
       final String? mediaRootsStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.mediaLibraryRoots);
+      final String? anime4kOverrideStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.anime4kShaderOverrideDirectory);
+      final String? anime4kDefaultPresetStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.anime4kDefaultPreset);
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
 
@@ -165,6 +186,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _bangumiMirrorImageController.text = bangumiMirrorImageStr ?? '';
         _proxyController.text = proxyUrl ?? '';
         _dnsController.text = dnsPolicy ?? '';
+        _anime4kShaderOverrideController.text = anime4kOverrideStr ?? '';
+        _anime4kDefaultPreset =
+            Anime4kPresetSettings.parse(anime4kDefaultPresetStr);
         _mediaLibraryFolders = decodedFolders.folders;
         _mediaLibraryMessage = decodedFolders.message;
         _isLoading = false;
@@ -374,6 +398,45 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  Future<void> _saveAnime4kSettings() async {
+    if (_isAnime4kSaving) return;
+    setState(() {
+      _isAnime4kSaving = true;
+      _anime4kMessage = null;
+    });
+    try {
+      await _savePreference(
+        SettingsPreferenceKeys.anime4kShaderOverrideDirectory,
+        _anime4kShaderOverrideController.text.trim(),
+      );
+      await _savePreference(
+        SettingsPreferenceKeys.anime4kDefaultPreset,
+        _anime4kDefaultPreset,
+      );
+      await widget.onAnime4kSettingsChanged?.call();
+      if (!mounted) return;
+      setState(() {
+        _isAnime4kSaving = false;
+        _anime4kMessage = 'Anime4K 设置已保存';
+      });
+      _showSnack('Anime4K 设置已保存');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isAnime4kSaving = false;
+        _anime4kMessage = 'Anime4K 设置保存失败：$error';
+      });
+    }
+  }
+
+  void _setAnime4kDefaultPreset(String? value) {
+    if (value == null) return;
+    setState(() {
+      _anime4kDefaultPreset = Anime4kPresetSettings.parse(value);
+      _anime4kMessage = null;
+    });
+  }
+
   Future<void> _pickAndAddFolder() async {
     final String? selectedPath = await widget.directoryPathPicker();
     final Uri? selectedFolder =
@@ -574,6 +637,8 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildAppearanceSection(context, theme),
           _SettingsSection.bangumi => _buildBangumiSection(theme),
           _SettingsSection.network => _buildNetworkSection(theme),
+          _SettingsSection.videoEnhancement =>
+            _buildVideoEnhancementSection(theme),
           _SettingsSection.mediaLibrary => _buildMediaLibrarySection(theme),
           _SettingsSection.about => _buildAboutSection(theme),
         },
@@ -788,6 +853,80 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildVideoEnhancementSection(ElainaThemeData theme) {
+    return _SettingsGroup(
+      theme: theme,
+      children: <Widget>[
+        _SettingsTextRow(
+          title: 'Anime4K shader 目录',
+          subtitle: '可选。本地目录包含完整 shader 文件时优先使用；缺文件会回退内置 Anime4K。',
+          controller: _anime4kShaderOverrideController,
+          fieldKey: const ValueKey<String>(
+            UiElementIds.settingsAnime4kShaderOverrideDirectory,
+          ),
+          theme: theme,
+          onChanged: (_) {
+            if (_anime4kMessage == null) return;
+            setState(() {
+              _anime4kMessage = null;
+            });
+          },
+          trailing: Tooltip(
+            message: '保存 Anime4K shader 目录和默认预设',
+            child: OutlinedButton.icon(
+              key: const ValueKey<String>(UiElementIds.settingsAnime4kSave),
+              onPressed: _isAnime4kSaving ? null : _saveAnime4kSettings,
+              icon: _isAnime4kSaving
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined, size: _smallIconSize),
+              label: Text(_isAnime4kSaving ? '保存中' : '保存 Anime4K'),
+            ),
+          ),
+          statusText: _anime4kMessage,
+        ),
+        const _SettingsDivider(),
+        _SettingsRow(
+          title: 'Anime4K 默认预设',
+          subtitle: '默认保持关闭；播放页仍可临时选择预设。',
+          theme: theme,
+          trailing: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _fieldMaxWidth),
+            child: DropdownButtonFormField<String>(
+              key: const ValueKey<String>(
+                UiElementIds.settingsAnime4kDefaultPreset,
+              ),
+              initialValue: _anime4kDefaultPreset,
+              items: <DropdownMenuItem<String>>[
+                for (final String preset in Anime4kPresetSettings.values)
+                  DropdownMenuItem<String>(
+                    value: preset,
+                    child: Text(_anime4kPresetLabel(preset)),
+                  ),
+              ],
+              onChanged: _setAnime4kDefaultPreset,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: theme.surface.withValues(alpha: 0.78),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_panelRadius),
+                  borderSide: BorderSide(color: theme.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_panelRadius),
+                  borderSide: BorderSide(color: theme.primary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMediaLibrarySection(ElainaThemeData theme) {
     return _SettingsGroup(
       theme: theme,
@@ -949,6 +1088,7 @@ enum _SettingsSection {
   appearance('外观', '主题模式和界面显示偏好。', Icons.palette_outlined),
   bangumi('Bangumi', '账号授权、access token 与镜像地址。', Icons.cloud_sync_outlined),
   network('网络', '代理和 DNS 策略。', Icons.public_outlined),
+  videoEnhancement('视频增强', 'Anime4K shader 路径和默认预设。', Icons.auto_awesome_outlined),
   mediaLibrary('本地媒体库', '媒体库扫描文件夹路径。', Icons.video_library_outlined),
   about('关于', '软件版本、项目仓库与参考项目。', Icons.info_outline);
 
@@ -1544,11 +1684,23 @@ String _displayPath(Uri uri) {
   return uri.toFilePath();
 }
 
+String _anime4kPresetLabel(String preset) {
+  return switch (Anime4kPresetSettings.parse(preset)) {
+    Anime4kPresetSettings.off => '关闭',
+    Anime4kPresetSettings.restore => 'Restore',
+    Anime4kPresetSettings.upscale => 'Upscale',
+    Anime4kPresetSettings.restoreAndUpscale => 'Restore + Upscale',
+    _ => preset,
+  };
+}
+
 String _settingsSectionElementId(_SettingsSection section) {
   return switch (section) {
     _SettingsSection.appearance => UiElementIds.settingsSectionAppearance,
     _SettingsSection.bangumi => UiElementIds.settingsSectionBangumi,
     _SettingsSection.network => UiElementIds.settingsSectionNetwork,
+    _SettingsSection.videoEnhancement =>
+      UiElementIds.settingsSectionVideoEnhancement,
     _SettingsSection.mediaLibrary => UiElementIds.settingsSectionMediaLibrary,
     _SettingsSection.about => UiElementIds.settingsSectionAbout,
   };

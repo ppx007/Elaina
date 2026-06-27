@@ -1208,6 +1208,12 @@ class _PlaybackInspector extends StatelessWidget {
                     ),
                     const SizedBox(
                         height: _ProductionPlaybackPageState._sectionGap),
+                    _VideoEnhancementSection(
+                      view: view,
+                      driver: driver,
+                    ),
+                    const SizedBox(
+                        height: _ProductionPlaybackPageState._sectionGap),
                     _CapabilitySection(view: view),
                   ],
                 ),
@@ -1530,6 +1536,108 @@ class _DanmakuSection extends StatelessWidget {
                   '${_danmakuModeLabel(lane.mode)}：'
                   '${lane.comments.map((PlaybackPageDanmakuCommentDescriptor c) => c.text).join(' / ')}',
                 ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoEnhancementSection extends StatelessWidget {
+  const _VideoEnhancementSection({
+    required this.view,
+    required this.driver,
+  });
+
+  final PlaybackPageViewSnapshot view;
+  final PlaybackPageDriver driver;
+
+  @override
+  Widget build(BuildContext context) {
+    final PlaybackVideoEnhancementPanelSnapshot enhancement =
+        view.videoEnhancement;
+    return _InspectorSection(
+      key: const ValueKey<String>(UiElementIds.playbackVideoEnhancementPanel),
+      title: '视频增强',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _MetricLine(
+            label: '当前预设',
+            value: videoEnhancementPresetSelectionLabel(
+              enhancement.selectedPreset,
+            ),
+          ),
+          DropdownButtonFormField<VideoEnhancementPresetSelection>(
+            key: const ValueKey<String>(UiElementIds.playbackAnime4kPresetMenu),
+            initialValue: enhancement.selectedPreset,
+            dropdownColor: Colors.black87,
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white.withValues(
+                alpha: _ProductionPlaybackPageState._sectionSurfaceAlpha,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(
+                  _ProductionPlaybackPageState._panelRadius,
+                ),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(
+                    alpha: _ProductionPlaybackPageState._sectionBorderAlpha,
+                  ),
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(
+                  _ProductionPlaybackPageState._panelRadius,
+                ),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(
+                    alpha: _ProductionPlaybackPageState._sectionBorderAlpha,
+                  ),
+                ),
+              ),
+            ),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            items: <DropdownMenuItem<VideoEnhancementPresetSelection>>[
+              for (final VideoEnhancementPresetSelection preset
+                  in VideoEnhancementPresetSelection.values)
+                DropdownMenuItem<VideoEnhancementPresetSelection>(
+                  value: preset,
+                  child: Text(videoEnhancementPresetSelectionLabel(preset)),
+                ),
+            ],
+            onChanged: enhancement.isPresetSelectionEnabled
+                ? (VideoEnhancementPresetSelection? preset) {
+                    if (preset == null) return;
+                    unawaited(
+                      driver.dispatch(
+                        PlaybackPageIntent.applyVideoEnhancement(
+                          DomainVideoEnhancementProfileDescriptor(
+                            preset: preset,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+          ),
+          if (enhancement.isApplying) ...<Widget>[
+            const SizedBox(height: _ProductionPlaybackPageState._smallGap),
+            const _InlineBusyMessage('正在应用 Anime4K 预设'),
+          ],
+          if (enhancement.unsupportedReason != null) ...<Widget>[
+            const SizedBox(height: _ProductionPlaybackPageState._smallGap),
+            _InspectorMessage(enhancement.unsupportedReason!),
+          ],
+          if (enhancement.message != null) ...<Widget>[
+            const SizedBox(height: _ProductionPlaybackPageState._smallGap),
+            _InspectorMessage(enhancement.message!),
+          ],
         ],
       ),
     );

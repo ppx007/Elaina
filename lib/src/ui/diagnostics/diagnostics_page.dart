@@ -697,6 +697,17 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                       ? '可访问'
                       : '不可访问',
                 ),
+              if (playback.probeDetails['anime4kShaderSource'] != null)
+                _InfoRow(
+                  'Anime4K 来源',
+                  playback.probeDetails['anime4kShaderSource']!,
+                ),
+              if (playback.probeDetails['anime4kShaderMap'] != null &&
+                  playback.probeDetails['anime4kShaderMap']!.isNotEmpty)
+                _InfoRow(
+                  'Anime4K 映射',
+                  playback.probeDetails['anime4kShaderMap']!,
+                ),
               _InfoRow('播放源', playback.sourceUri ?? '无播放源'),
               _InfoRow('音轨', playback.activeAudioTrackId ?? '未选择'),
               _InfoRow('字幕轨', playback.activeSubtitleTrackId ?? '未选择'),

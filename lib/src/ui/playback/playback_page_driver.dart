@@ -134,6 +134,37 @@ final class PlaybackCapabilityPanelSnapshot {
   final List<PlaybackCapabilityItemSnapshot> items;
 }
 
+final class PlaybackVideoEnhancementPanelSnapshot {
+  const PlaybackVideoEnhancementPanelSnapshot({
+    required this.selectedPreset,
+    required this.videoEnhancementStatus,
+    required this.anime4kStatus,
+    this.isApplying = false,
+    this.message,
+  });
+
+  final VideoEnhancementPresetSelection selectedPreset;
+  final DomainPlaybackCapabilityStatus videoEnhancementStatus;
+  final DomainPlaybackCapabilityStatus anime4kStatus;
+  final bool isApplying;
+  final String? message;
+
+  bool get isPresetSelectionEnabled =>
+      !isApplying &&
+      videoEnhancementStatus.isSupported &&
+      anime4kStatus.isSupported;
+
+  String? get unsupportedReason {
+    if (!videoEnhancementStatus.isSupported) {
+      return videoEnhancementStatus.reason ?? 'Video enhancement is unsupported.';
+    }
+    if (!anime4kStatus.isSupported) {
+      return anime4kStatus.reason ?? 'Anime4K preset is unsupported.';
+    }
+    return null;
+  }
+}
+
 /// Complete UI read model for the production playback page.
 ///
 /// Keeping the page on this single read model prevents individual widgets from
@@ -145,6 +176,7 @@ final class PlaybackPageViewSnapshot {
     required this.surface,
     required this.tracks,
     required this.capabilities,
+    required this.videoEnhancement,
     this.lastIntentResult,
   });
 
@@ -152,6 +184,7 @@ final class PlaybackPageViewSnapshot {
   final PlaybackPageSurfaceDescriptor surface;
   final PlaybackTrackPanelSnapshot tracks;
   final PlaybackCapabilityPanelSnapshot capabilities;
+  final PlaybackVideoEnhancementPanelSnapshot videoEnhancement;
   final PlaybackPageIntentResult? lastIntentResult;
 }
 
@@ -181,16 +214,31 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   final PlaybackPageContract _contract;
   PlaybackPageIntentResult? _lastIntentResult;
   PlaybackTrackPanelSnapshot _trackPanel;
+  VideoEnhancementPresetSelection _selectedVideoEnhancementPreset =
+      VideoEnhancementPresetSelection.off;
+  bool _videoEnhancementApplying = false;
+  String? _videoEnhancementMessage;
   bool _disposed = false;
 
   @override
   PlaybackPageViewSnapshot get view {
+    final DomainPlaybackCapabilitySummary capabilities =
+        _controller.resolveCapabilitySummary();
     return PlaybackPageViewSnapshot(
       playback: _controller.currentState,
       surface: _contract.resolveSurface(),
       tracks: _trackPanel,
       capabilities: PlaybackCapabilityPanelSnapshot.fromMatrix(
-        _controller.resolveCapabilitySummary(),
+        capabilities,
+      ),
+      videoEnhancement: PlaybackVideoEnhancementPanelSnapshot(
+        selectedPreset: _selectedVideoEnhancementPreset,
+        videoEnhancementStatus:
+            capabilities.statusOf(DomainPlaybackCapabilityId.videoEnhancement),
+        anime4kStatus:
+            capabilities.statusOf(DomainPlaybackCapabilityId.anime4kPreset),
+        isApplying: _videoEnhancementApplying,
+        message: _videoEnhancementMessage,
       ),
       lastIntentResult: _lastIntentResult,
     );
@@ -198,8 +246,29 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
 
   @override
   Future<PlaybackPageIntentResult> dispatch(PlaybackPageIntent intent) async {
+    if (intent.kind == PlaybackPageIntentKind.applyVideoEnhancement) {
+      _videoEnhancementApplying = true;
+      _videoEnhancementMessage = null;
+      _notifyIfActive();
+    }
     final PlaybackPageIntentResult result = await _contract.dispatch(intent);
     _lastIntentResult = result;
+    if (intent.kind == PlaybackPageIntentKind.applyVideoEnhancement) {
+      _videoEnhancementApplying = false;
+      final DomainVideoEnhancementApplyResult? enhancementResult =
+          result.videoEnhancementResult;
+      if (enhancementResult?.isSuccess ?? false) {
+        _selectedVideoEnhancementPreset = enhancementResult!.preset;
+        _videoEnhancementMessage =
+            enhancementResult.status == DomainVideoEnhancementApplyStatus.disabled
+                ? '视频增强已关闭'
+                : '已应用 ${videoEnhancementPresetSelectionLabel(enhancementResult.preset)}';
+      } else {
+        _videoEnhancementMessage = enhancementResult?.message ??
+            result.reason ??
+            'Anime4K 预设应用失败。';
+      }
+    }
     _notifyIfActive();
     return result;
   }
@@ -314,6 +383,17 @@ String playbackCapabilityLabel(DomainPlaybackCapabilityId capability) {
     DomainPlaybackCapabilityId.pgsSubtitleRendering => 'PGS 字幕',
     DomainPlaybackCapabilityId.assSubtitleEnhancement => 'ASS 增强',
     DomainPlaybackCapabilityId.fallbackAdapter => '备用播放后端',
+  };
+}
+
+String videoEnhancementPresetSelectionLabel(
+  VideoEnhancementPresetSelection preset,
+) {
+  return switch (preset) {
+    VideoEnhancementPresetSelection.off => '关闭',
+    VideoEnhancementPresetSelection.restore => 'Restore',
+    VideoEnhancementPresetSelection.upscale => 'Upscale',
+    VideoEnhancementPresetSelection.restoreAndUpscale => 'Restore + Upscale',
   };
 }
 

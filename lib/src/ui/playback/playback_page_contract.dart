@@ -350,6 +350,7 @@ enum PlaybackPageIntentKind {
   stop,
   openPanel,
   selectTrack,
+  applyVideoEnhancement,
 }
 
 final class PlaybackPageIntent {
@@ -359,6 +360,7 @@ final class PlaybackPageIntent {
     this.panelId,
     this.trackId,
     this.trackType,
+    this.videoEnhancementProfile,
   });
 
   const PlaybackPageIntent.noop() : this._(kind: PlaybackPageIntentKind.noop);
@@ -390,11 +392,19 @@ final class PlaybackPageIntent {
           trackType: trackType,
         );
 
+  const PlaybackPageIntent.applyVideoEnhancement(
+    DomainVideoEnhancementProfileDescriptor profile,
+  ) : this._(
+          kind: PlaybackPageIntentKind.applyVideoEnhancement,
+          videoEnhancementProfile: profile,
+        );
+
   final PlaybackPageIntentKind kind;
   final Duration? position;
   final PlaybackPagePanelId? panelId;
   final DomainMediaTrackId? trackId;
   final DomainMediaTrackType? trackType;
+  final DomainVideoEnhancementProfileDescriptor? videoEnhancementProfile;
 }
 
 enum PlaybackPageIntentOutcome {
@@ -408,6 +418,7 @@ final class PlaybackPageIntentResult {
     required this.outcome,
     this.commandResult,
     this.trackSwitchResult,
+    this.videoEnhancementResult,
     this.panelId,
     this.reason,
   });
@@ -424,6 +435,13 @@ final class PlaybackPageIntentResult {
       : this._(
           outcome: PlaybackPageIntentOutcome.executed,
           trackSwitchResult: trackSwitchResult,
+        );
+
+  const PlaybackPageIntentResult.executedVideoEnhancement(
+      DomainVideoEnhancementApplyResult videoEnhancementResult)
+      : this._(
+          outcome: PlaybackPageIntentOutcome.executed,
+          videoEnhancementResult: videoEnhancementResult,
         );
 
   const PlaybackPageIntentResult.executedPanel(PlaybackPagePanelId panelId)
@@ -447,6 +465,7 @@ final class PlaybackPageIntentResult {
   final PlaybackPageIntentOutcome outcome;
   final DomainPlaybackCommandResult? commandResult;
   final DomainTrackSwitchResult? trackSwitchResult;
+  final DomainVideoEnhancementApplyResult? videoEnhancementResult;
   final PlaybackPagePanelId? panelId;
   final String? reason;
 
@@ -527,6 +546,32 @@ final class PlaybackPageContract {
         return PlaybackPageIntentResult.executedTrackSwitch(
           await _controller.switchTrack(intent.trackId!,
               trackType: intent.trackType),
+        );
+      case PlaybackPageIntentKind.applyVideoEnhancement:
+        final DomainVideoEnhancementProfileDescriptor profile =
+            intent.videoEnhancementProfile!;
+        final DomainPlaybackCapabilitySummary capabilities =
+            _controller.resolveCapabilitySummary();
+        final DomainPlaybackCapabilityStatus videoEnhancement =
+            capabilities.statusOf(DomainPlaybackCapabilityId.videoEnhancement);
+        if (!videoEnhancement.isSupported) {
+          return PlaybackPageIntentResult.unsupported(
+            videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+          );
+        }
+        if (profile.preset != VideoEnhancementPresetSelection.off) {
+          final DomainPlaybackCapabilityStatus anime4k =
+              capabilities.statusOf(DomainPlaybackCapabilityId.anime4kPreset);
+          if (!anime4k.isSupported) {
+            return PlaybackPageIntentResult.unsupported(
+              anime4k.reason ?? 'Anime4K preset is unsupported.',
+            );
+          }
+        }
+        return PlaybackPageIntentResult.executedVideoEnhancement(
+          profile.preset == VideoEnhancementPresetSelection.off
+              ? await _controller.disableVideoEnhancement()
+              : await _controller.applyVideoEnhancement(profile),
         );
     }
   }

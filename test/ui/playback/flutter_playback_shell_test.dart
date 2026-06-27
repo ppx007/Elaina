@@ -193,6 +193,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('production inspector applies Anime4K preset through controller',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+    await tester.pumpUntilFound(ElainaFinders.playbackVideoEnhancementPanel);
+
+    expect(ElainaFinders.playbackAnime4kPresetMenu, findsOneWidget);
+    final DropdownButtonFormField<VideoEnhancementPresetSelection> menu =
+        tester.widget<DropdownButtonFormField<VideoEnhancementPresetSelection>>(
+      ElainaFinders.playbackAnime4kPresetMenu,
+    );
+
+    expect(menu.initialValue, VideoEnhancementPresetSelection.off);
+    menu.onChanged!(VideoEnhancementPresetSelection.restoreAndUpscale);
+    await tester.pumpAndSettle();
+
+    expect(
+      controller.activeVideoEnhancementPreset,
+      VideoEnhancementPresetSelection.restoreAndUpscale,
+    );
+    expect(find.text('Restore + Upscale'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production inspector disables Anime4K menu when unsupported',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController(
+      matrix: _productionMatrix(anime4kSupported: false),
+    );
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+    await tester.pumpUntilFound(ElainaFinders.playbackVideoEnhancementPanel);
+
+    final DropdownButtonFormField<VideoEnhancementPresetSelection> menu =
+        tester.widget<DropdownButtonFormField<VideoEnhancementPresetSelection>>(
+      ElainaFinders.playbackAnime4kPresetMenu,
+    );
+
+    expect(menu.onChanged, isNull);
+    expect(find.textContaining('Anime4K shader manifest is incomplete.'),
+        findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('production page exposes failure state',
       (WidgetTester tester) async {
     final MockPlaybackController controller = MockPlaybackController(
@@ -362,8 +411,10 @@ MockPlaybackController _productionController({
   );
 }
 
-PlaybackCapabilityMatrix _productionMatrix(
-    {bool matrixDanmakuSupported = true}) {
+PlaybackCapabilityMatrix _productionMatrix({
+  bool matrixDanmakuSupported = true,
+  bool anime4kSupported = true,
+}) {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
       PlaybackCapability.localFilePlayback: CapabilityStatus.supported(),
@@ -383,6 +434,11 @@ PlaybackCapabilityMatrix _productionMatrix(
               'Matrix4 danmaku overlay renderer is not available.',
             ),
       PlaybackCapability.videoEnhancement: CapabilityStatus.supported(),
+      PlaybackCapability.anime4kPreset: anime4kSupported
+          ? const CapabilityStatus.supported()
+          : const CapabilityStatus.unsupported(
+              'Anime4K shader manifest is incomplete.',
+            ),
       PlaybackCapability.avSyncGuard:
           CapabilityStatus.unsupported('当前后端未上报音画同步指标。'),
       PlaybackCapability.fallbackAdapter:

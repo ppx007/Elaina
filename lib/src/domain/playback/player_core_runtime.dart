@@ -6,6 +6,7 @@ import '../../playback/player_adapter.dart';
 import '../../playback/player_clock.dart';
 import '../../playback/player_telemetry.dart';
 import '../../playback/track_management.dart';
+import '../../playback/video_enhancement_pipeline.dart';
 import 'playback_controller.dart';
 import 'playback_state.dart';
 
@@ -356,6 +357,48 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     return result;
   }
 
+  @override
+  Future<DomainVideoEnhancementApplyResult> applyVideoEnhancement(
+    DomainVideoEnhancementProfileDescriptor profile,
+  ) async {
+    if (_closed) return _disposedEnhancementResult(profile.preset);
+    if (profile.preset == VideoEnhancementPresetSelection.off) {
+      return disableVideoEnhancement();
+    }
+    final DomainVideoEnhancementApplyResult? unsupported =
+        domainVideoEnhancementUnsupportedResultForMatrix(
+      matrix,
+      profile.preset,
+    );
+    if (unsupported != null) return unsupported;
+    final EnhancementApplyOutcome outcome =
+        await _runtime._activeAdapter.applyEnhancement(
+      domainVideoEnhancementProfileFromDescriptor(profile),
+    );
+    return domainVideoEnhancementResultFromApplyOutcome(
+      preset: profile.preset,
+      outcome: outcome,
+    );
+  }
+
+  @override
+  Future<DomainVideoEnhancementApplyResult> disableVideoEnhancement() async {
+    if (_closed) {
+      return _disposedEnhancementResult(VideoEnhancementPresetSelection.off);
+    }
+    final CapabilityStatus videoEnhancement =
+        matrix.statusOf(PlaybackCapability.videoEnhancement);
+    if (!videoEnhancement.isSupported) {
+      return DomainVideoEnhancementApplyResult.unsupported(
+        preset: VideoEnhancementPresetSelection.off,
+        message: videoEnhancement.reason ?? 'Video enhancement is unsupported.',
+      );
+    }
+    final EnhancementDisableOutcome outcome =
+        await _runtime._activeAdapter.disableEnhancement();
+    return domainVideoEnhancementResultFromDisableOutcome(outcome);
+  }
+
   Future<PlaybackCommandResult> _runCommand({
     required PlaybackOperation operation,
     required PlaybackCapability capability,
@@ -473,6 +516,15 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     if (_closed) {
       throw StateError('PlayerCoreRuntime has been disposed.');
     }
+  }
+
+  DomainVideoEnhancementApplyResult _disposedEnhancementResult(
+    VideoEnhancementPresetSelection preset,
+  ) {
+    return DomainVideoEnhancementApplyResult.failed(
+      preset: preset,
+      message: 'PlayerCoreRuntime has been disposed.',
+    );
   }
 }
 

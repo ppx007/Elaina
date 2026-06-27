@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'domain/detail/video_detail_bootstrap.dart';
 import 'domain/diagnostics/diagnostics_domain.dart';
@@ -28,6 +29,7 @@ import 'foundation/diagnostics/diagnostics_center_runtime.dart';
 import 'foundation/foundation_bootstrap.dart';
 import 'foundation/provider_contracts.dart';
 import 'gateway/network_policy_provider_gateway.dart';
+import 'playback/anime4k_shader_manifest.dart';
 import 'playback/av_sync_guard.dart';
 import 'playback/av_sync_guard_runtime.dart';
 import 'playback/av_sync_sample_source.dart';
@@ -212,9 +214,8 @@ class AppComposition {
         mediaKitLocalFilePlayerRuntimeComposition();
     playbackComposition =
         _withMatrixDanmakuOverlayProbe(mediaKitPlaybackComposition);
-    final MediaKitMpvBinding binding =
-        playbackComposition.binding as MediaKitMpvBinding;
-    videoController = VideoController(binding.backend.player);
+    mediaKitMpvBinding = playbackComposition.binding as MediaKitMpvBinding;
+    videoController = VideoController(mediaKitMpvBinding.backend.player);
     final PlaybackCapabilityMatrix avSyncCapabilities = playbackComposition
             .capabilityProbeSource?.currentCapabilityProbe.capabilities ??
         playbackComposition.capabilities;
@@ -459,6 +460,7 @@ class AppComposition {
 
   late final FoundationBootstrap foundation;
   late final PlayerRuntimeCompositionContract playbackComposition;
+  late final MediaKitMpvBinding mediaKitMpvBinding;
   late final AVSyncGuardRuntime avSyncGuardRuntime;
   late final VideoController videoController;
   late final MediaLibraryRuntime mediaLibraryRuntime;
@@ -483,6 +485,10 @@ class AppComposition {
   late final HomeRecommendationProvider homeRecommendationProvider;
   late final HomeSearchProvider homeSearchProvider;
   AVSyncGuardMonitorRuntime? _avSyncGuardMonitorRuntime;
+  Anime4kShaderManifest _anime4kShaderManifest =
+      const Anime4kShaderManifest.unavailable(
+    'Anime4K shaders have not been resolved yet.',
+  );
 
   Widget buildVideoSurface(BuildContext context) {
     return buildElainaMediaKitVideoSurface(videoController);
@@ -490,6 +496,28 @@ class AppComposition {
 
   AVSyncGuardMonitorRuntime? get avSyncGuardMonitorRuntime =>
       _avSyncGuardMonitorRuntime;
+
+  Anime4kShaderManifest get anime4kShaderManifest => _anime4kShaderManifest;
+
+  Future<Anime4kShaderManifest> configureAnime4kShaders({
+    Anime4kShaderAssetLoader? assetLoader,
+    Directory? bundledDirectory,
+  }) async {
+    final String? overrideDirectory = await settingsRuntime.getPreference(
+      SettingsPreferenceKeys.anime4kShaderOverrideDirectory,
+    );
+    final Anime4kShaderManifest manifest =
+        await Anime4kShaderManifestResolver(
+      assetLoader: assetLoader ?? rootBundle.load,
+      bundledDirectory: bundledDirectory,
+    ).resolve(overrideDirectoryPath: overrideDirectory);
+    mediaKitMpvBinding.updateAnime4kShaderChains(
+      shaderChainsByPreset: manifest.shaderChainsByPreset,
+      source: manifest.source,
+    );
+    _anime4kShaderManifest = manifest;
+    return manifest;
+  }
 
   void startAvSyncGuardMonitor(PlaybackControllerContract playbackController) {
     if (_avSyncGuardMonitorRuntime != null) return;

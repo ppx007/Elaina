@@ -103,6 +103,12 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier
         );
         _lastIntentResult = const PlaybackPageIntentResult.ignored(
             'Mock shell recorded track intent.');
+      case PlaybackPageIntentKind.applyVideoEnhancement:
+        _lastIntentResult = PlaybackPageIntentResult.executedVideoEnhancement(
+          DomainVideoEnhancementApplyResult.applied(
+            preset: intent.videoEnhancementProfile!.preset,
+          ),
+        );
     }
     notifyListeners();
   }

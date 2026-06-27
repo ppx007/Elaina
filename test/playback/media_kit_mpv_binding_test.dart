@@ -289,6 +289,29 @@ void main() {
     );
   });
 
+  test('enhancement planner appends Restore and Upscale shaders in order', () {
+    final Uri restore = Uri.parse('mpv-shader://anime4k/restore');
+    final Uri upscale = Uri.parse('mpv-shader://anime4k/upscale');
+    final MpvEnhancementPlanResult result = MpvEnhancementPlanner(
+      anime4kShaderChainsByPreset: <Anime4kPresetIntent, List<Uri>>{
+        Anime4kPresetIntent.restoreAndUpscale: <Uri>[restore, upscale],
+      },
+    ).build(
+      _enhancementProfile(
+        anime4kPreset: Anime4kPresetIntent.restoreAndUpscale,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(
+      result.plan!.commands
+          .where((MpvEnhancementCommand command) =>
+              command.kind == MpvEnhancementCommandKind.command)
+          .map((MpvEnhancementCommand command) => command.arguments.last),
+      <String>[restore.toString(), upscale.toString()],
+    );
+  });
+
   test('enhancement binding applies profile through backend commands',
       () async {
     final Uri shader = Uri.parse('mpv-shader://anime4k/restore');
@@ -354,6 +377,54 @@ void main() {
         EnhancementPipelineFailureKind.capabilityUnsupported);
     expect(backend.propertyCalls, isEmpty);
     expect(backend.commandCalls, isEmpty);
+  });
+
+  test('adapter facade uses updated binding probe for Anime4K gating',
+      () async {
+    final Directory directory =
+        await Directory.systemTemp.createTemp('elaina-facade-shader-test');
+    try {
+      final File shader =
+          File('${directory.path}${Platform.pathSeparator}restore.glsl');
+      await shader.writeAsString('// shader');
+      final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+      final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+      final MpvPlayerAdapterFacade adapter = MpvPlayerAdapterFacade.bound(
+        binding: binding,
+        capabilities: binding.currentCapabilityProbe.capabilities,
+      );
+
+      expect(
+        adapter.capabilities.supports(PlaybackCapability.anime4kPreset),
+        isFalse,
+      );
+      final EnhancementApplyOutcome rejected =
+          await adapter.applyEnhancement(_enhancementProfile());
+      expect(rejected.isSuccess, isFalse);
+      expect(rejected.failure?.kind,
+          EnhancementPipelineFailureKind.capabilityUnsupported);
+      expect(backend.commandCalls, isEmpty);
+
+      binding.updateAnime4kShaderChains(
+        shaderChainsByPreset: <Anime4kPresetIntent, List<Uri>>{
+          Anime4kPresetIntent.restore: <Uri>[shader.uri],
+        },
+        source: anime4kShaderSourceOverride,
+      );
+
+      expect(
+        adapter.capabilities.supports(PlaybackCapability.anime4kPreset),
+        isTrue,
+      );
+      final EnhancementApplyOutcome applied =
+          await adapter.applyEnhancement(_enhancementProfile());
+      expect(applied.isSuccess, isTrue);
+      expect(backend.commandCalls.single.last, shader.path);
+    } finally {
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    }
   });
 
   test('enhancement binding normalizes backend failures', () async {
@@ -914,14 +985,16 @@ final class _UnsupportedPlaybackSource extends PlaybackSource {
   const _UnsupportedPlaybackSource({required super.uri});
 }
 
-VideoEnhancementProfile _enhancementProfile() {
-  return const VideoEnhancementProfile(
+VideoEnhancementProfile _enhancementProfile({
+  Anime4kPresetIntent anime4kPreset = Anime4kPresetIntent.restore,
+}) {
+  return VideoEnhancementProfile(
     id: EnhancementProfileId('anime-vivid'),
     label: 'Anime Vivid',
     scaler: VideoScalerIntent.animeOptimized,
     hdrHandling: HdrHandlingIntent.toneMapToSdr,
     deband: DebandIntent.medium,
-    anime4kPreset: Anime4kPresetIntent.restore,
+    anime4kPreset: anime4kPreset,
   );
 }
 

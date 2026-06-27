@@ -5,6 +5,7 @@ import 'capability_matrix.dart';
 import 'fallback_adapter.dart';
 import 'player_adapter.dart';
 import 'track_management.dart';
+import 'video_enhancement_pipeline.dart';
 
 typedef VlcFallbackBackendFactory = VlcFallbackBackend Function();
 
@@ -149,6 +150,27 @@ final class VlcFallbackAdapter implements PlayerAdapter {
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) async {
     return const TrackSwitchResult.unsupported(
       vlcFallbackUnverifiedCapabilityReason,
+    );
+  }
+
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+      VideoEnhancementProfile profile) async {
+    return const EnhancementApplyOutcome.rejected(
+      failure: EnhancementPipelineFailure(
+        kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+        message: vlcFallbackUnverifiedCapabilityReason,
+      ),
+    );
+  }
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() async {
+    return const EnhancementDisableOutcome.rejected(
+      failure: EnhancementPipelineFailure(
+        kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+        message: vlcFallbackUnverifiedCapabilityReason,
+      ),
     );
   }
 

@@ -307,4 +307,27 @@ final class _TestFallbackAdapter implements PlayerAdapter {
   Future<TrackSwitchResult> switchTrack(MediaTrackId trackId) =>
       Future<TrackSwitchResult>.value(
           const TrackSwitchResult.unsupported('Tracks unsupported.'));
+
+  @override
+  Future<EnhancementApplyOutcome> applyEnhancement(
+          VideoEnhancementProfile profile) =>
+      Future<EnhancementApplyOutcome>.value(
+        const EnhancementApplyOutcome.rejected(
+          failure: EnhancementPipelineFailure(
+            kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+            message: 'Enhancement unsupported.',
+          ),
+        ),
+      );
+
+  @override
+  Future<EnhancementDisableOutcome> disableEnhancement() =>
+      Future<EnhancementDisableOutcome>.value(
+        const EnhancementDisableOutcome.rejected(
+          failure: EnhancementPipelineFailure(
+            kind: EnhancementPipelineFailureKind.capabilityUnsupported,
+            message: 'Enhancement unsupported.',
+          ),
+        ),
+      );
 }
