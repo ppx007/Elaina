@@ -282,7 +282,9 @@ void main() {
 
   testWidgets('production inspector discovers and switches tracks',
       (WidgetTester tester) async {
-    final MockPlaybackController controller = _productionController();
+    final MockPlaybackController controller = _productionController(
+      initialSelectedSubtitleTrackId: null,
+    );
 
     await tester.pumpWidget(_productionHost(controller));
     await tester.tap(find.byTooltip('打开播放信息'));
@@ -294,6 +296,13 @@ void main() {
 
     expect(
         controller.currentState.activeTracks.audioTrackId?.value, 'audio-main');
+    await tester.tap(ElainaFinders.playbackTrack('subtitle-ja'));
+    await tester.pump();
+
+    expect(controller.currentState.activeTracks.subtitleTrackId?.value,
+        'subtitle-ja');
+    expect(controller.currentState.subtitles.selectedTrackId, 'subtitle-ja');
+    expect(find.text('subtitle-ja'), findsOneWidget);
     expect(ElainaFinders.playbackTrackPanel, findsOneWidget);
     expect(find.text('音轨'), findsWidgets);
     expect(find.text('字幕轨'), findsWidgets);
@@ -476,6 +485,7 @@ bool _textHasDecoratedBoxAncestor(WidgetTester tester, String text) {
 MockPlaybackController _productionController({
   PlaybackLifecycleStatus status = PlaybackLifecycleStatus.paused,
   PlaybackCapabilityMatrix? matrix,
+  String? initialSelectedSubtitleTrackId = 'subtitle-ja',
 }) {
   return MockPlaybackController(
     matrix: matrix ?? _productionMatrix(),
@@ -491,7 +501,7 @@ MockPlaybackController _productionController({
         bufferedFraction: 0.4,
       ),
       subtitles: PlaybackSubtitleStateSnapshot(
-        selectedTrackId: 'subtitle-ja',
+        selectedTrackId: initialSelectedSubtitleTrackId,
         activeCues: <DomainSubtitleCueDescriptor>[
           DomainSubtitleCueDescriptor(
             start: Duration(minutes: 1, seconds: 19),

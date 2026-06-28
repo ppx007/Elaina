@@ -611,6 +611,9 @@ final class MockPlaybackController implements PlaybackControllerContract {
                 subtitleTrackId: trackId,
               ),
           },
+          subtitles: trackType == DomainMediaTrackType.subtitle
+              ? _subtitlesWithSelectedTrack(trackId.value)
+              : null,
         ),
       );
     }
@@ -691,6 +694,21 @@ final class MockPlaybackController implements PlaybackControllerContract {
       danmaku: danmaku ?? currentState.danmaku,
       sourceUri: sourceUri ?? currentState.sourceUri,
       failureReason: failureReason,
+    );
+  }
+
+  PlaybackSubtitleStateSnapshot _subtitlesWithSelectedTrack(
+    String? selectedTrackId,
+  ) {
+    final PlaybackSubtitleStateSnapshot subtitles = currentState.subtitles;
+    return PlaybackSubtitleStateSnapshot(
+      availableTracks: subtitles.availableTracks,
+      selectedTrackId: selectedTrackId,
+      activeCues: subtitles.activeCues,
+      offset: subtitles.offset,
+      styleProfile: subtitles.styleProfile,
+      warnings: subtitles.warnings,
+      failureReason: subtitles.failureReason,
     );
   }
 

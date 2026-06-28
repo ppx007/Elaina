@@ -300,6 +300,18 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
         telemetry.bufferedPosition > Duration.zero
             ? telemetry.bufferedPosition
             : null;
+    final MediaTrackId? activeAudioTrackId = _effectiveTelemetryTrackId(
+      reportedTrackId: telemetry.activeAudioTrackId,
+      currentTrackId: currentState.activeTracks.audioTrackId,
+      trackType: MediaTrackType.audio,
+      tracks: telemetry.tracks,
+    );
+    final MediaTrackId? activeSubtitleTrackId = _effectiveTelemetryTrackId(
+      reportedTrackId: telemetry.activeSubtitleTrackId,
+      currentTrackId: currentState.activeTracks.subtitleTrackId,
+      trackType: MediaTrackType.subtitle,
+      tracks: telemetry.tracks,
+    );
     _publish(
       _snapshotWith(
         status: _statusFromTelemetry(telemetry),
@@ -317,12 +329,15 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
           ),
         ),
         activeTracks: ActivePlaybackTrackState(
-          audioTrackId: telemetry.activeAudioTrackId == null
+          audioTrackId: activeAudioTrackId == null
               ? null
-              : DomainMediaTrackId(telemetry.activeAudioTrackId!.value),
-          subtitleTrackId: telemetry.activeSubtitleTrackId == null
+              : DomainMediaTrackId(activeAudioTrackId.value),
+          subtitleTrackId: activeSubtitleTrackId == null
               ? null
-              : DomainMediaTrackId(telemetry.activeSubtitleTrackId!.value),
+              : DomainMediaTrackId(activeSubtitleTrackId.value),
+        ),
+        subtitles: _subtitlesWithSelectedTrack(
+          activeSubtitleTrackId?.value,
         ),
         failureReason: telemetry.failureReason,
       ),
@@ -382,6 +397,9 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
                 subtitleTrackId: trackId,
               ),
           },
+          subtitles: trackType == DomainMediaTrackType.subtitle
+              ? _subtitlesWithSelectedTrack(trackId.value)
+              : null,
         ),
       );
       if (trackType == DomainMediaTrackType.subtitle &&
@@ -592,6 +610,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     PlaybackTimelineState? timeline,
     PlaybackBufferingState? buffering,
     ActivePlaybackTrackState? activeTracks,
+    PlaybackSubtitleStateSnapshot? subtitles,
     Uri? sourceUri,
     String? failureReason,
   }) {
@@ -600,10 +619,25 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
       timeline: timeline ?? currentState.timeline,
       buffering: buffering ?? currentState.buffering,
       activeTracks: activeTracks ?? currentState.activeTracks,
-      subtitles: currentState.subtitles,
+      subtitles: subtitles ?? currentState.subtitles,
       danmaku: currentState.danmaku,
       sourceUri: sourceUri ?? currentState.sourceUri,
       failureReason: failureReason,
+    );
+  }
+
+  PlaybackSubtitleStateSnapshot _subtitlesWithSelectedTrack(
+    String? selectedTrackId,
+  ) {
+    final PlaybackSubtitleStateSnapshot subtitles = currentState.subtitles;
+    return PlaybackSubtitleStateSnapshot(
+      availableTracks: subtitles.availableTracks,
+      selectedTrackId: selectedTrackId,
+      activeCues: subtitles.activeCues,
+      offset: subtitles.offset,
+      styleProfile: subtitles.styleProfile,
+      warnings: subtitles.warnings,
+      failureReason: subtitles.failureReason,
     );
   }
 
@@ -640,6 +674,23 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     return (bufferedPosition.inMilliseconds / durationMillis)
         .clamp(_bufferFractionMin, _bufferFractionMax)
         .toDouble();
+  }
+
+  MediaTrackId? _effectiveTelemetryTrackId({
+    required MediaTrackId? reportedTrackId,
+    required DomainMediaTrackId? currentTrackId,
+    required MediaTrackType trackType,
+    required Iterable<MediaTrackDescriptor> tracks,
+  }) {
+    if (reportedTrackId != null) return reportedTrackId;
+    final DomainMediaTrackId? current = currentTrackId;
+    if (current == null) return null;
+    for (final MediaTrackDescriptor track in tracks) {
+      if (track.type == trackType && track.id.value == current.value) {
+        return track.id;
+      }
+    }
+    return null;
   }
 
   void _publishFailure(PlaybackCommandResult result) {

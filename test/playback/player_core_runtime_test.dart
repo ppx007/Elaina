@@ -280,6 +280,56 @@ void main() {
     expect(cleared.observedAt, _telemetryObservedAt);
   });
 
+  test('runtime mirrors active subtitle telemetry into subtitle state',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(),
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: DeterministicMpvBinding(tracks: _multiSubtitleTracks),
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    telemetry.emit(
+      PlayerTelemetrySnapshot(
+        tracks: _multiSubtitleTracks,
+        activeSubtitleTrackId: const MediaTrackId('subtitle-zh-hans'),
+      ),
+    );
+
+    expect(
+      runtime.currentState.activeTracks.subtitleTrackId?.value,
+      'subtitle-zh-hans',
+    );
+    expect(
+      runtime.currentState.subtitles.selectedTrackId,
+      'subtitle-zh-hans',
+    );
+
+    telemetry.emit(
+      PlayerTelemetrySnapshot(
+        tracks: _multiSubtitleTracks,
+      ),
+    );
+    expect(
+      runtime.currentState.activeTracks.subtitleTrackId?.value,
+      'subtitle-zh-hans',
+    );
+    expect(
+      runtime.currentState.subtitles.selectedTrackId,
+      'subtitle-zh-hans',
+    );
+
+    telemetry.emit(PlayerTelemetrySnapshot());
+    expect(runtime.currentState.activeTracks.subtitleTrackId, isNull);
+    expect(runtime.currentState.subtitles.selectedTrackId, isNull);
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
   test('runtime discovers and switches normalized tracks', () async {
     final DeterministicMpvBinding binding =
         DeterministicMpvBinding(tracks: _tracks);
@@ -301,6 +351,16 @@ void main() {
     expect(switchResult.isSuccess, isTrue);
     expect(binding.switchedTrackId?.value, 'audio-main');
     expect(runtime.currentState.activeTracks.audioTrackId?.value, 'audio-main');
+
+    final TrackSwitchResult subtitleSwitch =
+        await runtime.controller.switchTrack(
+      const DomainMediaTrackId('subtitle-ja'),
+      trackType: DomainMediaTrackType.subtitle,
+    );
+    expect(subtitleSwitch.isSuccess, isTrue);
+    expect(runtime.currentState.activeTracks.subtitleTrackId?.value,
+        'subtitle-ja');
+    expect(runtime.currentState.subtitles.selectedTrackId, 'subtitle-ja');
 
     await runtime.dispose();
   });
@@ -330,6 +390,10 @@ void main() {
     );
     expect(
       runtime.currentState.activeTracks.subtitleTrackId?.value,
+      'subtitle-zh-hans',
+    );
+    expect(
+      runtime.currentState.subtitles.selectedTrackId,
       'subtitle-zh-hans',
     );
 
