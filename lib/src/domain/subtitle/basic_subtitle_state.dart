@@ -23,6 +23,7 @@ PlaybackSubtitleStateSnapshot playbackSubtitleStateFromRuntimeSnapshot(
           end: cue.end,
           text: cue.text,
           id: cue.id,
+          hasEmbeddedStyle: cue.hasEmbeddedStyle,
         ),
     ],
     offset: snapshot.offset.value,

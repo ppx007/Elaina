@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 // Settings domain stores only global options that runtime code actually reads.
 // Page-specific business objects stay in their own domain pages.
 import '../../foundation/constants.dart';
 import '../../foundation/storage/storage_contracts.dart';
+import '../playback/subtitle_style.dart';
 
 abstract final class SettingsPreferenceKeys {
   static const String themeMode = 'theme_mode';
@@ -18,6 +20,7 @@ abstract final class SettingsPreferenceKeys {
   static const String anime4kDefaultPreset = 'anime4k_default_preset';
   static const String playbackBackendMode = 'playback_backend_mode';
   static const String vlcRuntimeDirectory = 'vlc_runtime_directory';
+  static const String subtitleStyleProfile = 'subtitle_style_profile';
 }
 
 abstract final class SettingsThemeModePreference {
@@ -88,6 +91,118 @@ abstract final class Anime4kPresetSettings {
       off || restore || upscale || restoreAndUpscale => normalized,
       _ => throw FormatException('Invalid Anime4K preset: $value'),
     };
+  }
+}
+
+abstract final class SubtitleStyleSettings {
+  static const String _fontFamily = 'fontFamily';
+  static const String _fontSize = 'fontSize';
+  static const String _fontWeight = 'fontWeight';
+  static const String _textColorArgb = 'textColorArgb';
+  static const String _textOpacity = 'textOpacity';
+  static const String _outlineStrength = 'outlineStrength';
+  static const String _backgroundEnabled = 'backgroundEnabled';
+  static const String _backgroundOpacity = 'backgroundOpacity';
+  static const String _lineHeight = 'lineHeight';
+  static const String _bottomInset = 'bottomInset';
+  static const String _forceOverrideEmbeddedStyle =
+      'forceOverrideEmbeddedStyle';
+
+  static SubtitleStyleProfile parse(String? value) {
+    final String normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) return SubtitleStyleProfile.defaults;
+    final Object? decoded = jsonDecode(normalized);
+    if (decoded is! Map<String, Object?>) {
+      throw const FormatException('Subtitle style profile must be a JSON map.');
+    }
+    return SubtitleStyleProfile(
+      fontFamily: _string(decoded, _fontFamily),
+      fontSize: _double(decoded, _fontSize),
+      fontWeight: _fontWeightValue(decoded[_fontWeight]),
+      textColorArgb: _int(decoded, _textColorArgb),
+      textOpacity: _double(decoded, _textOpacity),
+      outlineStrength: _double(decoded, _outlineStrength),
+      backgroundEnabled: _bool(decoded, _backgroundEnabled),
+      backgroundOpacity: _double(decoded, _backgroundOpacity),
+      lineHeight: _double(decoded, _lineHeight),
+      bottomInset: _double(decoded, _bottomInset),
+      forceOverrideEmbeddedStyle:
+          _bool(decoded, _forceOverrideEmbeddedStyle),
+    );
+  }
+
+  static String serialize(SubtitleStyleProfile profile) {
+    return jsonEncode(<String, Object?>{
+      _fontFamily: profile.fontFamily,
+      _fontSize: profile.fontSize,
+      _fontWeight: profile.fontWeight.name,
+      _textColorArgb: profile.textColorArgb,
+      _textOpacity: profile.textOpacity,
+      _outlineStrength: profile.outlineStrength,
+      _backgroundEnabled: profile.backgroundEnabled,
+      _backgroundOpacity: profile.backgroundOpacity,
+      _lineHeight: profile.lineHeight,
+      _bottomInset: profile.bottomInset,
+      _forceOverrideEmbeddedStyle: profile.forceOverrideEmbeddedStyle,
+    });
+  }
+
+  static String _string(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    if (value == null) {
+      return SubtitleStyleProfile.defaults.fontFamily;
+    }
+    if (value is String) return value;
+    throw FormatException('Subtitle style field $key must be a string.');
+  }
+
+  static double _double(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    if (value == null) {
+      return switch (key) {
+        _fontSize => SubtitleStyleProfile.defaultFontSize,
+        _textOpacity => SubtitleStyleProfile.defaultTextOpacity,
+        _outlineStrength => SubtitleStyleProfile.defaultOutlineStrength,
+        _backgroundOpacity => SubtitleStyleProfile.defaultBackgroundOpacity,
+        _lineHeight => SubtitleStyleProfile.defaultLineHeight,
+        _bottomInset => SubtitleStyleProfile.defaultBottomInset,
+        _ => throw FormatException('Subtitle style field $key is required.'),
+      };
+    }
+    if (value is num) return value.toDouble();
+    throw FormatException('Subtitle style field $key must be numeric.');
+  }
+
+  static int _int(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    if (value == null) return SubtitleStyleProfile.defaultTextColorArgb;
+    if (value is int) return value;
+    throw FormatException('Subtitle style field $key must be an integer.');
+  }
+
+  static bool _bool(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    if (value == null) {
+      return switch (key) {
+        _backgroundEnabled => SubtitleStyleProfile.defaultBackgroundEnabled,
+        _forceOverrideEmbeddedStyle =>
+          SubtitleStyleProfile.defaultForceOverrideEmbeddedStyle,
+        _ => throw FormatException('Subtitle style field $key is required.'),
+      };
+    }
+    if (value is bool) return value;
+    throw FormatException('Subtitle style field $key must be boolean.');
+  }
+
+  static SubtitleStyleFontWeight _fontWeightValue(Object? value) {
+    final String normalized = value as String? ?? '';
+    if (normalized.isEmpty) return SubtitleStyleFontWeight.bold;
+    return SubtitleStyleFontWeight.values.firstWhere(
+      (SubtitleStyleFontWeight weight) => weight.name == normalized,
+      orElse: () => throw FormatException(
+        'Invalid subtitle font weight: $value',
+      ),
+    );
   }
 }
 

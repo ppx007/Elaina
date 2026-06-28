@@ -1,5 +1,7 @@
 // Playback state is the domain read model shared by controller, UI, metadata
 // bridge, and tests. Keep adapter-specific details out of these snapshots.
+import 'subtitle_style.dart';
+
 final class DomainMediaTrackId {
   const DomainMediaTrackId(this.value)
       : assert(value != '', 'Track id must not be empty.');
@@ -76,12 +78,14 @@ final class DomainSubtitleCueDescriptor {
     required this.end,
     required this.text,
     this.id,
+    this.hasEmbeddedStyle = false,
   }) : assert(end >= start, 'Subtitle cue end must not precede start.');
 
   final Duration start;
   final Duration end;
   final String text;
   final String? id;
+  final bool hasEmbeddedStyle;
 }
 
 final class DomainSubtitleTrackDescriptor {
@@ -106,6 +110,7 @@ final class PlaybackSubtitleStateSnapshot {
     List<DomainSubtitleCueDescriptor> activeCues =
         const <DomainSubtitleCueDescriptor>[],
     this.offset = Duration.zero,
+    this.styleProfile = SubtitleStyleProfile.defaults,
     List<String> warnings = const <String>[],
     this.failureReason,
   })  : availableTracks =
@@ -118,6 +123,7 @@ final class PlaybackSubtitleStateSnapshot {
         selectedTrackId = null,
         activeCues = const <DomainSubtitleCueDescriptor>[],
         offset = Duration.zero,
+        styleProfile = SubtitleStyleProfile.defaults,
         warnings = const <String>[],
         failureReason = null;
 
@@ -125,6 +131,7 @@ final class PlaybackSubtitleStateSnapshot {
   final String? selectedTrackId;
   final List<DomainSubtitleCueDescriptor> activeCues;
   final Duration offset;
+  final SubtitleStyleProfile styleProfile;
   final List<String> warnings;
   final String? failureReason;
 

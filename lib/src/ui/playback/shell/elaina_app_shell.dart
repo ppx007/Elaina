@@ -585,6 +585,7 @@ class _ElainaAppShellState extends State<ElainaAppShell>
               child: ProductionPlaybackPage(
                 controller: widget.playbackController,
                 videoSurface: widget.videoSurface,
+                settingsRuntime: widget.settingsRuntime,
               ),
             ),
 

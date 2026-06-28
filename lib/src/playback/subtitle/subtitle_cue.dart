@@ -7,6 +7,7 @@ final class SubtitleCue {
     required this.text,
     this.id,
     this.settings = const <String, String>{},
+    this.hasEmbeddedStyle = false,
   }) : assert(end >= start, 'Subtitle cue end must not precede start.');
 
   final Duration start;
@@ -14,6 +15,7 @@ final class SubtitleCue {
   final String text;
   final String? id;
   final Map<String, String> settings;
+  final bool hasEmbeddedStyle;
 
   bool isActiveAt(Duration position) {
     return position >= start && position < end;

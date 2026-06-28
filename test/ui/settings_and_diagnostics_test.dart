@@ -7,6 +7,7 @@ import 'package:elaina/src/domain/download/download_domain.dart';
 import 'package:elaina/src/domain/media/media_library_folder_preferences.dart';
 import 'package:elaina/src/domain/media/media_library_runtime.dart';
 import 'package:elaina/src/domain/playback/playback_state.dart';
+import 'package:elaina/src/domain/playback/subtitle_style.dart';
 import 'package:elaina/src/domain/profile/bangumi_login_domain.dart';
 import 'package:elaina/src/domain/rss/rss_engine_runtime.dart';
 import 'package:elaina/src/domain/settings/settings_domain.dart';
@@ -467,6 +468,32 @@ void main() {
       Anime4kPresetSettings.restoreAndUpscale,
     );
     expect(reconfigureCalls, 1);
+  });
+
+  testWidgets('SettingsPage stores subtitle style defaults',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+
+    await _pumpSettingsPage(tester, settingsRuntime: settingsRuntime);
+    await tester.pumpAndSettle();
+
+    await tester.tap(ElainaFinders.settingsSectionPlayback.first);
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.settingsSubtitleStylePanel, findsOneWidget);
+
+    final Finder fontSizeSlider = find.descendant(
+      of: ElainaFinders.settingsSubtitleStylePanel,
+      matching: find.byType(Slider),
+    ).first;
+    tester.widget<Slider>(fontSizeSlider).onChanged!(30);
+    await tester.pumpAndSettle();
+
+    final SubtitleStyleProfile saved = SubtitleStyleSettings.parse(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleStyleProfile,
+      ),
+    );
+    expect(saved.fontSize, 30);
   });
 
   testWidgets('SettingsPage validates Bangumi token and refreshes profile',

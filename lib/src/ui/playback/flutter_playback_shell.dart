@@ -109,6 +109,11 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier
             preset: intent.videoEnhancementProfile!.preset,
           ),
         );
+      case PlaybackPageIntentKind.updateSubtitleStyle:
+      case PlaybackPageIntentKind.resetSubtitleStyle:
+        _lastIntentResult = const PlaybackPageIntentResult.ignored(
+          'Mock shell leaves subtitle style intents to the production driver.',
+        );
     }
     notifyListeners();
   }

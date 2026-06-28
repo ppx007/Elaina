@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
+import '../../domain/playback/subtitle_style.dart';
+import '../../domain/settings/settings_domain.dart';
 import 'playback_page_contract.dart';
 
 enum PlaybackTrackPanelStatus {
@@ -112,9 +116,9 @@ final class PlaybackCapabilityItemSnapshot {
 }
 
 final class PlaybackCapabilityPanelSnapshot {
-  PlaybackCapabilityPanelSnapshot(
-      {required Iterable<PlaybackCapabilityItemSnapshot> items})
-      : items = List<PlaybackCapabilityItemSnapshot>.unmodifiable(items);
+  PlaybackCapabilityPanelSnapshot({
+    required Iterable<PlaybackCapabilityItemSnapshot> items,
+  }) : items = List<PlaybackCapabilityItemSnapshot>.unmodifiable(items);
 
   factory PlaybackCapabilityPanelSnapshot.fromMatrix(
     DomainPlaybackCapabilitySummary summary,
@@ -156,13 +160,25 @@ final class PlaybackVideoEnhancementPanelSnapshot {
 
   String? get unsupportedReason {
     if (!videoEnhancementStatus.isSupported) {
-      return videoEnhancementStatus.reason ?? 'Video enhancement is unsupported.';
+      return videoEnhancementStatus.reason ?? '当前后端不支持视频增强。';
     }
     if (!anime4kStatus.isSupported) {
-      return anime4kStatus.reason ?? 'Anime4K preset is unsupported.';
+      return anime4kStatus.reason ?? '当前后端不支持 Anime4K 预设。';
     }
     return null;
   }
+}
+
+final class PlaybackSubtitleStylePanelSnapshot {
+  const PlaybackSubtitleStylePanelSnapshot({
+    required this.profile,
+    this.message,
+    this.isSaving = false,
+  });
+
+  final SubtitleStyleProfile profile;
+  final String? message;
+  final bool isSaving;
 }
 
 /// Complete UI read model for the production playback page.
@@ -177,6 +193,7 @@ final class PlaybackPageViewSnapshot {
     required this.tracks,
     required this.capabilities,
     required this.videoEnhancement,
+    required this.subtitleStyle,
     this.lastIntentResult,
   });
 
@@ -185,6 +202,7 @@ final class PlaybackPageViewSnapshot {
   final PlaybackTrackPanelSnapshot tracks;
   final PlaybackCapabilityPanelSnapshot capabilities;
   final PlaybackVideoEnhancementPanelSnapshot videoEnhancement;
+  final PlaybackSubtitleStylePanelSnapshot subtitleStyle;
   final PlaybackPageIntentResult? lastIntentResult;
 }
 
@@ -202,18 +220,29 @@ abstract interface class PlaybackPageDriver implements Listenable {
 
 final class ControllerPlaybackPageDriver extends ChangeNotifier
     implements PlaybackPageDriver, PlaybackStateObserver {
-  ControllerPlaybackPageDriver({required PlaybackControllerContract controller})
-      : _controller = controller,
+  ControllerPlaybackPageDriver({
+    required PlaybackControllerContract controller,
+    SettingsRuntime? settingsRuntime,
+  })  : _controller = controller,
+        _settingsRuntime = settingsRuntime,
         _contract = PlaybackPageContract(controller: controller),
         _trackPanel = PlaybackTrackPanelSnapshot.idle(
-            sourceUri: controller.currentState.sourceUri) {
+          sourceUri: controller.currentState.sourceUri,
+        ) {
     _controller.addPlaybackStateObserver(this);
+    if (_settingsRuntime != null) {
+      unawaited(_loadSubtitleStyle());
+    }
   }
 
   final PlaybackControllerContract _controller;
+  final SettingsRuntime? _settingsRuntime;
   final PlaybackPageContract _contract;
   PlaybackPageIntentResult? _lastIntentResult;
   PlaybackTrackPanelSnapshot _trackPanel;
+  SubtitleStyleProfile _subtitleStyleProfile = SubtitleStyleProfile.defaults;
+  String? _subtitleStyleMessage;
+  bool _subtitleStyleSaving = false;
   VideoEnhancementPresetSelection _selectedVideoEnhancementPreset =
       VideoEnhancementPresetSelection.off;
   bool _videoEnhancementApplying = false;
@@ -226,11 +255,9 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
         _controller.resolveCapabilitySummary();
     return PlaybackPageViewSnapshot(
       playback: _controller.currentState,
-      surface: _contract.resolveSurface(),
+      surface: _resolveSurface(capabilities),
       tracks: _trackPanel,
-      capabilities: PlaybackCapabilityPanelSnapshot.fromMatrix(
-        capabilities,
-      ),
+      capabilities: PlaybackCapabilityPanelSnapshot.fromMatrix(capabilities),
       videoEnhancement: PlaybackVideoEnhancementPanelSnapshot(
         selectedPreset: _selectedVideoEnhancementPreset,
         videoEnhancementStatus:
@@ -240,17 +267,29 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
         isApplying: _videoEnhancementApplying,
         message: _videoEnhancementMessage,
       ),
+      subtitleStyle: PlaybackSubtitleStylePanelSnapshot(
+        profile: _subtitleStyleProfile,
+        message: _subtitleStyleMessage,
+        isSaving: _subtitleStyleSaving,
+      ),
       lastIntentResult: _lastIntentResult,
     );
   }
 
   @override
   Future<PlaybackPageIntentResult> dispatch(PlaybackPageIntent intent) async {
+    if (intent.kind == PlaybackPageIntentKind.updateSubtitleStyle) {
+      return _updateSubtitleStyle(intent.subtitleStyleProfile!);
+    }
+    if (intent.kind == PlaybackPageIntentKind.resetSubtitleStyle) {
+      return _updateSubtitleStyle(SubtitleStyleProfile.defaults);
+    }
     if (intent.kind == PlaybackPageIntentKind.applyVideoEnhancement) {
       _videoEnhancementApplying = true;
       _videoEnhancementMessage = null;
       _notifyIfActive();
     }
+
     final PlaybackPageIntentResult result = await _contract.dispatch(intent);
     _lastIntentResult = result;
     if (intent.kind == PlaybackPageIntentKind.applyVideoEnhancement) {
@@ -259,10 +298,10 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
           result.videoEnhancementResult;
       if (enhancementResult?.isSuccess ?? false) {
         _selectedVideoEnhancementPreset = enhancementResult!.preset;
-        _videoEnhancementMessage =
-            enhancementResult.status == DomainVideoEnhancementApplyStatus.disabled
-                ? '视频增强已关闭'
-                : '已应用 ${videoEnhancementPresetSelectionLabel(enhancementResult.preset)}';
+        _videoEnhancementMessage = enhancementResult.status ==
+                DomainVideoEnhancementApplyStatus.disabled
+            ? '视频增强已关闭'
+            : '已应用 ${videoEnhancementPresetSelectionLabel(enhancementResult.preset)}';
       } else {
         _videoEnhancementMessage = enhancementResult?.message ??
             result.reason ??
@@ -325,6 +364,78 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
     _disposed = true;
     _controller.removePlaybackStateObserver(this);
     super.dispose();
+  }
+
+  PlaybackPageSurfaceDescriptor _resolveSurface(
+    DomainPlaybackCapabilitySummary capabilities,
+  ) {
+    final DomainPlaybackCapabilityStatus matrixDanmaku = capabilities.statusOf(
+      DomainPlaybackCapabilityId.matrixDanmaku,
+    );
+    return PlaybackPageSurfaceDescriptor.fromState(
+      _controller.resolveSurfaceState(),
+      subtitles: _subtitlesWithStyle(_controller.currentState.subtitles),
+      danmaku: _controller.currentState.danmaku,
+      matrixDanmakuSupported: matrixDanmaku.isSupported,
+    );
+  }
+
+  PlaybackSubtitleStateSnapshot _subtitlesWithStyle(
+    PlaybackSubtitleStateSnapshot subtitles,
+  ) {
+    return PlaybackSubtitleStateSnapshot(
+      availableTracks: subtitles.availableTracks,
+      selectedTrackId: subtitles.selectedTrackId,
+      activeCues: subtitles.activeCues,
+      offset: subtitles.offset,
+      styleProfile: _subtitleStyleProfile,
+      warnings: subtitles.warnings,
+      failureReason: subtitles.failureReason,
+    );
+  }
+
+  Future<void> _loadSubtitleStyle() async {
+    final SettingsRuntime? settingsRuntime = _settingsRuntime;
+    if (settingsRuntime == null) return;
+    try {
+      final String? raw = await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleStyleProfile,
+      );
+      _subtitleStyleProfile = SubtitleStyleSettings.parse(raw);
+      _subtitleStyleMessage = null;
+    } on Object catch (error) {
+      _subtitleStyleProfile = SubtitleStyleProfile.defaults;
+      _subtitleStyleMessage = '字幕样式设置无效，已使用默认值：$error';
+    }
+    _notifyIfActive();
+  }
+
+  Future<PlaybackPageIntentResult> _updateSubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    final SettingsRuntime? settingsRuntime = _settingsRuntime;
+    _subtitleStyleProfile = profile;
+    _subtitleStyleMessage = null;
+    _subtitleStyleSaving = settingsRuntime != null;
+    _notifyIfActive();
+    try {
+      if (settingsRuntime != null) {
+        await settingsRuntime.setPreference(
+          key: SettingsPreferenceKeys.subtitleStyleProfile,
+          value: SubtitleStyleSettings.serialize(profile),
+        );
+      }
+      _subtitleStyleMessage = '字幕样式已保存';
+      return const PlaybackPageIntentResult.executedPanel(
+        PlaybackPagePanelId.tracks,
+      );
+    } on Object catch (error) {
+      _subtitleStyleMessage = '字幕样式保存失败：$error';
+      return PlaybackPageIntentResult.ignored(_subtitleStyleMessage!);
+    } finally {
+      _subtitleStyleSaving = false;
+      _notifyIfActive();
+    }
   }
 
   void _notifyIfActive() {

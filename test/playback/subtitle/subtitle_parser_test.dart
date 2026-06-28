@@ -17,6 +17,7 @@ void main() {
     expect(result.track.cues.first.id, '1');
     expect(result.track.cues.first.start, const Duration(milliseconds: 1500));
     expect(result.track.cues.first.text, 'Hello\nworld');
+    expect(result.track.cues.first.hasEmbeddedStyle, isFalse);
     expect(result.track.cues.last.text, 'Overlap');
   });
 
@@ -37,6 +38,7 @@ void main() {
     expect(result.track.cues.single.end, const Duration(milliseconds: 3250));
     expect(result.track.cues.single.settings['align'], 'center');
     expect(result.track.cues.single.settings['line'], '90%');
+    expect(result.track.cues.single.hasEmbeddedStyle, isTrue);
   });
 
   test('basic ASS parser extracts dialogue text and ignores override tags',
@@ -56,6 +58,21 @@ void main() {
     expect(result.track.cues.single.end, const Duration(milliseconds: 3400));
     expect(result.track.cues.single.text, 'Hello, world\nLine 2');
     expect(result.track.cues.single.settings['style'], 'Default');
+    expect(result.track.cues.single.hasEmbeddedStyle, isTrue);
+  });
+
+  test('WebVTT STYLE block marks later cues as embedded style', () async {
+    const WebVttSubtitleParser parser = WebVttSubtitleParser();
+
+    final SubtitleParseResult result = await parser.parse(
+      SubtitleParseRequest(
+        source: _source(SubtitleFormat.vtt),
+        content:
+            'WEBVTT\n\nSTYLE\n::cue { color: yellow }\n\n00:01.000 --> 00:03.000\nHello\n',
+      ),
+    );
+
+    expect(result.track.cues.single.hasEmbeddedStyle, isTrue);
   });
 
   test('parser registry exposes default parsers and empty results warn',

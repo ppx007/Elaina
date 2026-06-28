@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/media/media_library_folder_preferences.dart';
 import '../../domain/playback/playback_backend_selection.dart';
+import '../../domain/playback/subtitle_style.dart';
 import '../../domain/profile/bangumi_login_domain.dart';
 import '../../domain/settings/settings_domain.dart';
 import '../testing/ui_element_ids.dart';
@@ -144,6 +147,8 @@ class _SettingsPageState extends State<SettingsPage> {
   PlaybackBackendSelectionSnapshot? _playbackBackendSnapshot;
   String? _playbackBackendMessage;
   bool _isPlaybackBackendSaving = false;
+  SubtitleStyleProfile _subtitleStyleProfile = SubtitleStyleProfile.defaults;
+  String? _subtitleStyleMessage;
 
   @override
   void initState() {
@@ -185,6 +190,8 @@ class _SettingsPageState extends State<SettingsPage> {
           .getPreference(SettingsPreferenceKeys.playbackBackendMode);
       final String? vlcRuntimeDirectoryStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.vlcRuntimeDirectory);
+      final String? subtitleStyleStr = await widget.settingsRuntime
+          .getPreference(SettingsPreferenceKeys.subtitleStyleProfile);
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
       final PlaybackBackendSelectionSnapshot? backendSnapshot =
@@ -209,6 +216,7 @@ class _SettingsPageState extends State<SettingsPage> {
             PlaybackBackendModeSettings.parse(playbackBackendModeStr);
         _vlcRuntimeDirectoryController.text = vlcRuntimeDirectoryStr ?? '';
         _playbackBackendSnapshot = backendSnapshot;
+        _subtitleStyleProfile = SubtitleStyleSettings.parse(subtitleStyleStr);
         _mediaLibraryFolders = decodedFolders.folders;
         _mediaLibraryMessage = decodedFolders.message;
         _isLoading = false;
@@ -240,6 +248,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _savePreference(String key, String value) {
     return widget.settingsRuntime.setPreference(key: key, value: value);
+  }
+
+  Future<void> _updateSubtitleStyle(SubtitleStyleProfile profile) async {
+    setState(() {
+      _subtitleStyleProfile = profile;
+      _subtitleStyleMessage = null;
+    });
+    try {
+      await _savePreference(
+        SettingsPreferenceKeys.subtitleStyleProfile,
+        SubtitleStyleSettings.serialize(profile),
+      );
+      if (!mounted) return;
+      setState(() {
+        _subtitleStyleMessage = '字幕样式默认值已保存';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _subtitleStyleMessage = '字幕样式保存失败：$error';
+      });
+    }
   }
 
   Future<void> _startBangumiOAuth() async {
@@ -1006,6 +1036,15 @@ class _SettingsPageState extends State<SettingsPage> {
           snapshot: _playbackBackendSnapshot,
           theme: theme,
         ),
+        const _SettingsDivider(),
+        _SubtitleStyleSettingsPanel(
+          profile: _subtitleStyleProfile,
+          message: _subtitleStyleMessage,
+          theme: theme,
+          onChanged: (SubtitleStyleProfile profile) {
+            unawaited(_updateSubtitleStyle(profile));
+          },
+        ),
       ],
     );
   }
@@ -1586,6 +1625,261 @@ class _ReferencedProjectRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubtitleStyleSettingsPanel extends StatelessWidget {
+  const _SubtitleStyleSettingsPanel({
+    required this.profile,
+    required this.message,
+    required this.theme,
+    required this.onChanged,
+  });
+
+  static const double _fontSizeMin = 14;
+  static const double _fontSizeMax = 42;
+  static const double _outlineMin = 0;
+  static const double _outlineMax = 8;
+  static const double _opacityMin = 0.35;
+  static const double _opacityMax = 1;
+  static const double _lineHeightMin = 1;
+  static const double _lineHeightMax = 1.8;
+  static const double _bottomInsetMin = 48;
+  static const double _bottomInsetMax = 220;
+
+  static const List<int> _colorSwatches = <int>[
+    0xFFFFFFFF,
+    0xFFFFF176,
+    0xFF80DEEA,
+    0xFFFFAB91,
+    0xFFE1BEE7,
+  ];
+
+  final SubtitleStyleProfile profile;
+  final String? message;
+  final ElainaThemeData theme;
+  final ValueChanged<SubtitleStyleProfile> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey<String>(UiElementIds.settingsSubtitleStylePanel),
+      decoration: BoxDecoration(
+        color: theme.surface.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(_panelRadius),
+        border: Border.all(color: theme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(_panelPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              '字幕样式默认值',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '默认只应用到无内置样式字幕；开启强制覆盖后，ASS/VTT 内置样式也会按播放器样式显示。',
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.68),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: _rowGap),
+            _SettingsStyleSlider(
+              label: '字号',
+              value: profile.fontSize,
+              min: _fontSizeMin,
+              max: _fontSizeMax,
+              divisions: 28,
+              displayValue: '${profile.fontSize.round()} px',
+              onChanged: (double value) =>
+                  onChanged(profile.copyWith(fontSize: value)),
+            ),
+            _SettingsStyleSlider(
+              label: '透明度',
+              value: profile.textOpacity,
+              min: _opacityMin,
+              max: _opacityMax,
+              divisions: 13,
+              displayValue: '${(profile.textOpacity * 100).round()}%',
+              onChanged: (double value) =>
+                  onChanged(profile.copyWith(textOpacity: value)),
+            ),
+            _SettingsStyleSlider(
+              label: '描边',
+              value: profile.outlineStrength,
+              min: _outlineMin,
+              max: _outlineMax,
+              divisions: 8,
+              displayValue: profile.outlineStrength.toStringAsFixed(1),
+              onChanged: (double value) =>
+                  onChanged(profile.copyWith(outlineStrength: value)),
+            ),
+            _SettingsStyleSlider(
+              label: '行距',
+              value: profile.lineHeight,
+              min: _lineHeightMin,
+              max: _lineHeightMax,
+              divisions: 8,
+              displayValue: profile.lineHeight.toStringAsFixed(1),
+              onChanged: (double value) =>
+                  onChanged(profile.copyWith(lineHeight: value)),
+            ),
+            _SettingsStyleSlider(
+              label: '底部位置',
+              value: profile.bottomInset,
+              min: _bottomInsetMin,
+              max: _bottomInsetMax,
+              divisions: 43,
+              displayValue: '${profile.bottomInset.round()} px',
+              onChanged: (double value) =>
+                  onChanged(profile.copyWith(bottomInset: value)),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final int swatch in _colorSwatches)
+                  _SettingsColorSwatch(
+                    colorArgb: swatch,
+                    selected: profile.textColorArgb == swatch,
+                    theme: theme,
+                    onTap: () =>
+                        onChanged(profile.copyWith(textColorArgb: swatch)),
+                  ),
+              ],
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('背景', style: TextStyle(color: theme.onSurface)),
+                value: profile.backgroundEnabled,
+                onChanged: (bool value) =>
+                    onChanged(profile.copyWith(backgroundEnabled: value)),
+              ),
+            ),
+            if (profile.backgroundEnabled)
+              _SettingsStyleSlider(
+                label: '背景透明',
+                value: profile.backgroundOpacity,
+                min: 0.1,
+                max: 0.8,
+                divisions: 7,
+                displayValue:
+                    '${(profile.backgroundOpacity * 100).round()}%',
+                onChanged: (double value) =>
+                    onChanged(profile.copyWith(backgroundOpacity: value)),
+              ),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  '强制覆盖字幕内置样式',
+                  style: TextStyle(color: theme.onSurface),
+                ),
+                value: profile.forceOverrideEmbeddedStyle,
+                onChanged: (bool value) => onChanged(
+                  profile.copyWith(forceOverrideEmbeddedStyle: value),
+                ),
+              ),
+            ),
+            if (message != null) _StatusText(text: message!, theme: theme),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsStyleSlider extends StatelessWidget {
+  const _SettingsStyleSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.displayValue,
+    required this.onChanged,
+    this.divisions,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int? divisions;
+  final String displayValue;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: displayValue,
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 64,
+          child: Text(displayValue, textAlign: TextAlign.end),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsColorSwatch extends StatelessWidget {
+  const _SettingsColorSwatch({
+    required this.colorArgb,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final int colorArgb;
+  final bool selected;
+  final ElainaThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(_panelRadius),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Color(colorArgb),
+          borderRadius: BorderRadius.circular(_panelRadius),
+          border: Border.all(
+            color: selected ? theme.primary : theme.border,
+            width: selected ? 2 : 1,
+          ),
         ),
       ),
     );

@@ -79,6 +79,40 @@ void main() {
     runtime.dispose();
   });
 
+  test('subtitle style source respects embedded style override flag', () {
+    final PlaybackSubtitleStateSnapshot embeddedSubtitle =
+        PlaybackSubtitleStateSnapshot(
+      activeCues: <DomainSubtitleCueDescriptor>[
+        DomainSubtitleCueDescriptor(
+          start: Duration.zero,
+          end: Duration(seconds: 2),
+          text: 'Styled',
+          hasEmbeddedStyle: true,
+        ),
+      ],
+      styleProfile: SubtitleStyleProfile.defaults.copyWith(fontSize: 30),
+    );
+
+    final PlaybackPageSubtitleOverlayDescriptor defaultOverlay =
+        PlaybackPageSubtitleOverlayDescriptor.fromState(embeddedSubtitle);
+
+    expect(defaultOverlay.cues.single.styleSource,
+        DomainSubtitleStyleSource.embedded);
+
+    final PlaybackPageSubtitleOverlayDescriptor forcedOverlay =
+        PlaybackPageSubtitleOverlayDescriptor.fromState(
+      PlaybackSubtitleStateSnapshot(
+        activeCues: embeddedSubtitle.activeCues,
+        styleProfile: embeddedSubtitle.styleProfile.copyWith(
+          forceOverrideEmbeddedStyle: true,
+        ),
+      ),
+    );
+
+    expect(forcedOverlay.cues.single.styleSource,
+        DomainSubtitleStyleSource.forcedUserOverride);
+  });
+
   test('runtime snapshots are defensive and disposed operations normalize',
       () async {
     final BasicSubtitleRuntime runtime = BasicSubtitleRuntime();

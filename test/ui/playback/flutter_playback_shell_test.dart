@@ -211,8 +211,31 @@ void main() {
     await tester.pumpWidget(_productionHost(controller));
 
     expect(ElainaFinders.playbackSeekBar, findsOneWidget);
-    expect(find.byType(Slider), findsOneWidget);
+    expect(tester.widget<Slider>(ElainaFinders.playbackSeekBar), isA<Slider>());
     expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production subtitle overlay uses saved default style',
+      (WidgetTester tester) async {
+    final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+    await settingsRuntime.setPreference(
+      key: SettingsPreferenceKeys.subtitleStyleProfile,
+      value: SubtitleStyleSettings.serialize(
+        SubtitleStyleProfile.defaults.copyWith(fontSize: 30),
+      ),
+    );
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(
+      _productionHost(controller, settingsRuntime: settingsRuntime),
+    );
+    await tester.pumpAndSettle();
+
+    final Text subtitle = tester.widget<Text>(
+      find.text('主字幕对白').first,
+    );
+    expect(subtitle.style?.fontSize, 30);
     expect(tester.takeException(), isNull);
   });
 
@@ -399,11 +422,13 @@ MockFlutterPlaybackShellDriver _driver() {
 Widget _productionHost(
   MockPlaybackController controller, {
   Widget videoSurface = const ColoredBox(color: Colors.black),
+  SettingsRuntime? settingsRuntime,
 }) {
   return MaterialApp(
     home: ProductionPlaybackPage(
       controller: controller,
       videoSurface: videoSurface,
+      settingsRuntime: settingsRuntime,
     ),
   );
 }

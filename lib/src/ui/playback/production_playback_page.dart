@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
+import '../../domain/playback/subtitle_style.dart';
+import '../../domain/settings/settings_domain.dart';
 import '../testing/ui_element_ids.dart';
 import '../theme/elaina_theme.dart';
 import 'playback_page_contract.dart';
@@ -20,10 +22,12 @@ class ProductionPlaybackPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.videoSurface,
+    this.settingsRuntime,
   });
 
   final PlaybackControllerContract controller;
   final Widget videoSurface;
+  final SettingsRuntime? settingsRuntime;
 
   @override
   State<ProductionPlaybackPage> createState() => _ProductionPlaybackPageState();
@@ -51,8 +55,6 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   static const double _panelRadius = 8;
   static const double _sectionGap = 14;
   static const double _sectionPadding = 14;
-  static const double _subtitleBottomInset = 138;
-  static const double _subtitleHiddenControlsBottomInset = 64;
   static const double _subtitleMaxWidth = 920;
   static const double _failurePanelMaxWidth = 520;
   static const double _danmakuTopInset = 92;
@@ -64,7 +66,6 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   static const double _busyIndicatorSize = 22;
   static const double _inlineBusyIndicatorSize = 16;
   static const double _failureIconSize = 34;
-  static const double _subtitleFontSize = 22;
   static const double _danmakuFontSize = 16;
   static const double _microGap = 2;
   static const double _cueGap = 4;
@@ -120,7 +121,10 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   @override
   void initState() {
     super.initState();
-    _driver = ControllerPlaybackPageDriver(controller: widget.controller);
+    _driver = ControllerPlaybackPageDriver(
+      controller: widget.controller,
+      settingsRuntime: widget.settingsRuntime,
+    );
     _driver.addListener(_handleDriverChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncControlsForPlaybackState();
@@ -130,10 +134,14 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   @override
   void didUpdateWidget(ProductionPlaybackPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.settingsRuntime != widget.settingsRuntime) {
       _driver.removeListener(_handleDriverChanged);
       _driver.dispose();
-      _driver = ControllerPlaybackPageDriver(controller: widget.controller);
+      _driver = ControllerPlaybackPageDriver(
+        controller: widget.controller,
+        settingsRuntime: widget.settingsRuntime,
+      );
       _driver.addListener(_handleDriverChanged);
       _showControlsAndMaybeScheduleHide();
     }
@@ -882,13 +890,16 @@ class _SubtitleOverlay extends StatelessWidget {
     if (!visible || !view.surface.subtitleOverlay.hasVisibleCues) {
       return const SizedBox.shrink();
     }
+    final SubtitleStyleProfile profile =
+        view.surface.subtitleOverlay.styleProfile;
     return Positioned(
       key: const ValueKey<String>(UiElementIds.playbackSubtitleOverlay),
       left: _ProductionPlaybackPageState._horizontalInset,
       right: _ProductionPlaybackPageState._horizontalInset,
-      bottom: controlsVisible
-          ? _ProductionPlaybackPageState._subtitleBottomInset
-          : _ProductionPlaybackPageState._subtitleHiddenControlsBottomInset,
+      bottom: profile.bottomInset +
+          (controlsVisible
+              ? _ProductionPlaybackPageState._bottomBarVerticalPadding * 2
+              : 0),
       child: IgnorePointer(
         child: Center(
           child: ConstrainedBox(
@@ -904,21 +915,26 @@ class _SubtitleOverlay extends StatelessWidget {
                     padding: const EdgeInsets.only(
                       bottom: _ProductionPlaybackPageState._cueGap,
                     ),
-                    child: Text(
-                      cue.text,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize:
-                            _ProductionPlaybackPageState._subtitleFontSize,
-                        fontWeight: FontWeight.w800,
-                        shadows: <Shadow>[
-                          Shadow(
-                            blurRadius: 4,
-                            offset: Offset(0, 1),
-                            color: Colors.black,
-                          ),
-                        ],
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _subtitleBackgroundColor(cue, profile),
+                        borderRadius: BorderRadius.circular(
+                          _ProductionPlaybackPageState._panelRadius,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: profile.backgroundEnabled
+                            ? const EdgeInsets.symmetric(
+                                horizontal:
+                                    _ProductionPlaybackPageState._smallGap,
+                                vertical: 2,
+                              )
+                            : EdgeInsets.zero,
+                        child: Text(
+                          cue.text,
+                          textAlign: TextAlign.center,
+                          style: _subtitleTextStyle(cue, profile),
+                        ),
                       ),
                     ),
                   ),
@@ -1427,6 +1443,7 @@ class _PlaybackInspector extends StatelessWidget {
                         height: _ProductionPlaybackPageState._sectionGap),
                     _SubtitleSection(
                       view: view,
+                      driver: driver,
                       visible: subtitlesVisible,
                       onToggle: onToggleSubtitles,
                     ),
@@ -1674,11 +1691,13 @@ class _TrackButton extends StatelessWidget {
 class _SubtitleSection extends StatelessWidget {
   const _SubtitleSection({
     required this.view,
+    required this.driver,
     required this.visible,
     required this.onToggle,
   });
 
   final PlaybackPageViewSnapshot view;
+  final PlaybackPageDriver driver;
   final bool visible;
   final VoidCallback onToggle;
 
@@ -1706,7 +1725,330 @@ class _SubtitleSection extends StatelessWidget {
           else
             for (final PlaybackPageSubtitleCueDescriptor cue in subtitles.cues)
               _InspectorMessage(cue.text),
+          const SizedBox(height: _ProductionPlaybackPageState._standardGap),
+          _SubtitleStyleControls(
+            driver: driver,
+            snapshot: view.subtitleStyle,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _SubtitleStyleControls extends StatelessWidget {
+  const _SubtitleStyleControls({
+    required this.driver,
+    required this.snapshot,
+  });
+
+  static const double _fontSizeMin = 14;
+  static const double _fontSizeMax = 42;
+  static const double _outlineMin = 0;
+  static const double _outlineMax = 8;
+  static const double _opacityMin = 0.35;
+  static const double _opacityMax = 1;
+  static const double _lineHeightMin = 1;
+  static const double _lineHeightMax = 1.8;
+  static const double _bottomInsetMin = 48;
+  static const double _bottomInsetMax = 220;
+
+  static const List<int> _colorSwatches = <int>[
+    0xFFFFFFFF,
+    0xFFFFF176,
+    0xFF80DEEA,
+    0xFFFFAB91,
+    0xFFE1BEE7,
+  ];
+
+  final PlaybackPageDriver driver;
+  final PlaybackSubtitleStylePanelSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final SubtitleStyleProfile profile = snapshot.profile;
+    return DecoratedBox(
+      key: const ValueKey<String>(UiElementIds.playbackSubtitleStylePanel),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(
+          alpha: _ProductionPlaybackPageState._sectionSurfaceAlpha,
+        ),
+        borderRadius:
+            BorderRadius.circular(_ProductionPlaybackPageState._panelRadius),
+        border: Border.all(
+          color: Colors.white.withValues(
+            alpha: _ProductionPlaybackPageState._sectionBorderAlpha,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding:
+            const EdgeInsets.all(_ProductionPlaybackPageState._sectionPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Expanded(
+                  child: Text(
+                    '字幕样式',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => unawaited(
+                    driver.dispatch(
+                      const PlaybackPageIntent.resetSubtitleStyle(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.restart_alt, size: 16),
+                  label: const Text('重置'),
+                ),
+              ],
+            ),
+            _StyleSlider(
+              key: const ValueKey<String>(
+                UiElementIds.playbackSubtitleFontSizeSlider,
+              ),
+              label: '字号',
+              value: profile.fontSize,
+              min: _fontSizeMin,
+              max: _fontSizeMax,
+              divisions: 28,
+              displayValue: '${profile.fontSize.round()} px',
+              onChanged: (double value) => _update(
+                profile.copyWith(fontSize: value),
+              ),
+            ),
+            _StyleSlider(
+              label: '透明度',
+              value: profile.textOpacity,
+              min: _opacityMin,
+              max: _opacityMax,
+              divisions: 13,
+              displayValue: '${(profile.textOpacity * 100).round()}%',
+              onChanged: (double value) => _update(
+                profile.copyWith(textOpacity: value),
+              ),
+            ),
+            _StyleSlider(
+              label: '描边',
+              value: profile.outlineStrength,
+              min: _outlineMin,
+              max: _outlineMax,
+              divisions: 8,
+              displayValue: profile.outlineStrength.toStringAsFixed(1),
+              onChanged: (double value) => _update(
+                profile.copyWith(outlineStrength: value),
+              ),
+            ),
+            _StyleSlider(
+              label: '行距',
+              value: profile.lineHeight,
+              min: _lineHeightMin,
+              max: _lineHeightMax,
+              divisions: 8,
+              displayValue: profile.lineHeight.toStringAsFixed(1),
+              onChanged: (double value) => _update(
+                profile.copyWith(lineHeight: value),
+              ),
+            ),
+            _StyleSlider(
+              label: '底部位置',
+              value: profile.bottomInset,
+              min: _bottomInsetMin,
+              max: _bottomInsetMax,
+              divisions: 43,
+              displayValue: '${profile.bottomInset.round()} px',
+              onChanged: (double value) => _update(
+                profile.copyWith(bottomInset: value),
+              ),
+            ),
+            Row(
+              children: <Widget>[
+                const SizedBox(
+                  width: 64,
+                  child: Text(
+                    '颜色',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Wrap(
+                    key: const ValueKey<String>(
+                      UiElementIds.playbackSubtitleColorPicker,
+                    ),
+                    spacing: _ProductionPlaybackPageState._smallGap,
+                    runSpacing: _ProductionPlaybackPageState._smallGap,
+                    children: <Widget>[
+                      for (final int swatch in _colorSwatches)
+                        _SubtitleColorSwatch(
+                          colorArgb: swatch,
+                          selected: profile.textColorArgb == swatch,
+                          onTap: () => _update(
+                            profile.copyWith(textColorArgb: swatch),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  '背景',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                value: profile.backgroundEnabled,
+                onChanged: (bool value) => _update(
+                  profile.copyWith(backgroundEnabled: value),
+                ),
+              ),
+            ),
+            if (profile.backgroundEnabled)
+              _StyleSlider(
+                label: '背景透明',
+                value: profile.backgroundOpacity,
+                min: 0.1,
+                max: 0.8,
+                divisions: 7,
+                displayValue:
+                    '${(profile.backgroundOpacity * 100).round()}%',
+                onChanged: (double value) => _update(
+                  profile.copyWith(backgroundOpacity: value),
+                ),
+              ),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                key: const ValueKey<String>(
+                  UiElementIds.playbackSubtitleStyleOverrideToggle,
+                ),
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  '强制覆盖内置样式',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                value: profile.forceOverrideEmbeddedStyle,
+                onChanged: (bool value) => _update(
+                  profile.copyWith(forceOverrideEmbeddedStyle: value),
+                ),
+              ),
+            ),
+            if (snapshot.message != null) _InspectorMessage(snapshot.message!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _update(SubtitleStyleProfile profile) {
+    unawaited(
+      driver.dispatch(PlaybackPageIntent.updateSubtitleStyle(profile)),
+    );
+  }
+}
+
+class _StyleSlider extends StatelessWidget {
+  const _StyleSlider({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.displayValue,
+    required this.onChanged,
+    this.divisions,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int? divisions;
+  final String displayValue;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: displayValue,
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 56,
+          child: Text(
+            displayValue,
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubtitleColorSwatch extends StatelessWidget {
+  const _SubtitleColorSwatch({
+    required this.colorArgb,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int colorArgb;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(
+        _ProductionPlaybackPageState._panelRadius,
+      ),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: Color(colorArgb),
+          borderRadius: BorderRadius.circular(
+            _ProductionPlaybackPageState._panelRadius,
+          ),
+          border: Border.all(
+            color: selected ? Colors.white : Colors.white38,
+            width: selected ? 2 : 1,
+          ),
+        ),
       ),
     );
   }
@@ -2382,6 +2724,60 @@ String _danmakuModeLabel(DomainDanmakuMode mode) {
 Color _danmakuColor(int? colorArgb) {
   if (colorArgb == null) return Colors.white;
   return Color(colorArgb);
+}
+
+TextStyle _subtitleTextStyle(
+  PlaybackPageSubtitleCueDescriptor cue,
+  SubtitleStyleProfile profile,
+) {
+  final bool useUserStyle = cue.styleSource != DomainSubtitleStyleSource.embedded;
+  final SubtitleStyleProfile effective =
+      useUserStyle ? profile : SubtitleStyleProfile.defaults;
+  final Color textColor = Color(effective.textColorArgb).withValues(
+    alpha: effective.textOpacity,
+  );
+  final double outline = effective.outlineStrength;
+  return TextStyle(
+    color: textColor,
+    fontFamily:
+        effective.fontFamily.trim().isEmpty ? null : effective.fontFamily,
+    fontSize: effective.fontSize,
+    fontWeight: _subtitleFontWeight(effective.fontWeight),
+    height: effective.lineHeight,
+    shadows: outline <= 0
+        ? const <Shadow>[]
+        : <Shadow>[
+            Shadow(
+              blurRadius: outline,
+              offset: const Offset(0, 1),
+              color: Colors.black,
+            ),
+            Shadow(
+              blurRadius: outline / 2,
+              offset: const Offset(1, 0),
+              color: Colors.black,
+            ),
+          ],
+  );
+}
+
+Color _subtitleBackgroundColor(
+  PlaybackPageSubtitleCueDescriptor cue,
+  SubtitleStyleProfile profile,
+) {
+  if (cue.styleSource == DomainSubtitleStyleSource.embedded ||
+      !profile.backgroundEnabled) {
+    return Colors.transparent;
+  }
+  return Colors.black.withValues(alpha: profile.backgroundOpacity);
+}
+
+FontWeight _subtitleFontWeight(SubtitleStyleFontWeight weight) {
+  return switch (weight) {
+    SubtitleStyleFontWeight.normal => FontWeight.w400,
+    SubtitleStyleFontWeight.medium => FontWeight.w600,
+    SubtitleStyleFontWeight.bold => FontWeight.w800,
+  };
 }
 
 double? _normalizedFraction(double? value) {

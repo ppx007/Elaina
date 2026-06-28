@@ -107,6 +107,8 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsAnime4kDefaultPreset);
   static Finder get settingsAnime4kSave =>
       byId(UiElementIds.settingsAnime4kSave);
+  static Finder get settingsSubtitleStylePanel =>
+      byId(UiElementIds.settingsSubtitleStylePanel);
   static Finder get settingsAddMediaFolder =>
       byId(UiElementIds.settingsAddMediaFolder);
   static Finder get diagnosticsRefresh => byId(UiElementIds.diagnosticsRefresh);
@@ -199,6 +201,14 @@ abstract final class ElainaFinders {
       byId(UiElementIds.playbackVideoEnhancementPanel);
   static Finder get playbackAnime4kPresetMenu =>
       byId(UiElementIds.playbackAnime4kPresetMenu);
+  static Finder get playbackSubtitleStylePanel =>
+      byId(UiElementIds.playbackSubtitleStylePanel);
+  static Finder get playbackSubtitleStyleOverrideToggle =>
+      byId(UiElementIds.playbackSubtitleStyleOverrideToggle);
+  static Finder get playbackSubtitleFontSizeSlider =>
+      byId(UiElementIds.playbackSubtitleFontSizeSlider);
+  static Finder get playbackSubtitleColorPicker =>
+      byId(UiElementIds.playbackSubtitleColorPicker);
 
   static Finder heroCarouselItem(String subjectId) {
     return byId(UiElementIds.heroCarouselItem(subjectId));

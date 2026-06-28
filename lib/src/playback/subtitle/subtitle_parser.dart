@@ -130,6 +130,7 @@ final class WebVttSubtitleParser implements SubtitleParser {
     if (lines.isEmpty || !lines.first.trimLeft().startsWith('WEBVTT')) {
       warnings.add('WebVTT content does not start with WEBVTT.');
     }
+    bool hasStyleOrRegionBlock = false;
 
     for (int index =
             lines.isNotEmpty && lines.first.trimLeft().startsWith('WEBVTT')
@@ -146,6 +147,7 @@ final class WebVttSubtitleParser implements SubtitleParser {
         continue;
       }
       if (line == 'STYLE' || line == 'REGION') {
+        hasStyleOrRegionBlock = true;
         while (index + 1 < lines.length && !_isBlank(lines[index + 1])) {
           index += 1;
         }
@@ -173,12 +175,16 @@ final class WebVttSubtitleParser implements SubtitleParser {
         warnings.add(
             'Ignored WebVTT cue with end before start at line ${index + 1}.');
       } else {
+        final String cueText = textLines.join('\n').trim();
         cues.add(SubtitleCue(
           start: timing.start,
           end: timing.end,
-          text: textLines.join('\n').trim(),
+          text: cueText,
           id: cueId,
           settings: timing.settings,
+          hasEmbeddedStyle: hasStyleOrRegionBlock ||
+              timing.settings.isNotEmpty ||
+              _containsWebVttInlineTag(cueText),
         ));
       }
       index = cursor;
@@ -256,14 +262,17 @@ final class BasicAssSubtitleParser implements SubtitleParser {
             'Ignored ASS dialogue with invalid timing at line ${index + 1}.');
         continue;
       }
+      final String rawText = values['Text'] ?? '';
+      final String style = values['Style'] ?? '';
       cues.add(SubtitleCue(
         start: start,
         end: end,
-        text: _normalizeAssText(values['Text'] ?? ''),
+        text: _normalizeAssText(rawText),
         settings: <String, String>{
-          if ((values['Style'] ?? '').isNotEmpty) 'style': values['Style']!,
+          if (style.isNotEmpty) 'style': style,
           if ((values['Layer'] ?? '').isNotEmpty) 'layer': values['Layer']!,
         },
+        hasEmbeddedStyle: style.isNotEmpty || _containsAssOverrideTag(rawText),
       ));
     }
     return _resultForParsedCues(
@@ -408,4 +417,12 @@ String _normalizeAssText(String text) {
       .replaceAll(r'\N', '\n')
       .replaceAll(r'\n', '\n')
       .trim();
+}
+
+bool _containsAssOverrideTag(String text) {
+  return RegExp(r'\{[^}]*\}').hasMatch(text);
+}
+
+bool _containsWebVttInlineTag(String text) {
+  return RegExp(r'<[^>\n]+>').hasMatch(text);
 }

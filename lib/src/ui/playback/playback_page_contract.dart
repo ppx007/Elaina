@@ -1,5 +1,6 @@
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
+import '../../domain/playback/subtitle_style.dart';
 
 const String playbackPageMatrixDanmakuRendererSource =
     'flutter-custom-painter-overlay';
@@ -50,11 +51,15 @@ final class PlaybackPageSubtitleCueDescriptor {
     required this.text,
     required this.start,
     required this.end,
+    this.hasEmbeddedStyle = false,
+    this.styleSource = DomainSubtitleStyleSource.userDefault,
   });
 
   final String text;
   final Duration start;
   final Duration end;
+  final bool hasEmbeddedStyle;
+  final DomainSubtitleStyleSource styleSource;
 }
 
 final class PlaybackPageSubtitleOverlayDescriptor {
@@ -63,6 +68,7 @@ final class PlaybackPageSubtitleOverlayDescriptor {
     List<PlaybackPageSubtitleCueDescriptor> cues =
         const <PlaybackPageSubtitleCueDescriptor>[],
     this.offset = Duration.zero,
+    this.styleProfile = SubtitleStyleProfile.defaults,
     this.failureReason,
   }) : cues = List<PlaybackPageSubtitleCueDescriptor>.unmodifiable(cues);
 
@@ -70,6 +76,7 @@ final class PlaybackPageSubtitleOverlayDescriptor {
       : selectedTrackId = null,
         cues = const <PlaybackPageSubtitleCueDescriptor>[],
         offset = Duration.zero,
+        styleProfile = SubtitleStyleProfile.defaults,
         failureReason = null;
 
   factory PlaybackPageSubtitleOverlayDescriptor.fromState(
@@ -79,9 +86,15 @@ final class PlaybackPageSubtitleOverlayDescriptor {
       cues: <PlaybackPageSubtitleCueDescriptor>[
         for (final DomainSubtitleCueDescriptor cue in state.activeCues)
           PlaybackPageSubtitleCueDescriptor(
-              text: cue.text, start: cue.start, end: cue.end),
+            text: cue.text,
+            start: cue.start,
+            end: cue.end,
+            hasEmbeddedStyle: cue.hasEmbeddedStyle,
+            styleSource: _styleSourceForCue(cue, state.styleProfile),
+          ),
       ],
       offset: state.offset,
+      styleProfile: state.styleProfile,
       failureReason: state.failureReason,
     );
   }
@@ -89,9 +102,20 @@ final class PlaybackPageSubtitleOverlayDescriptor {
   final String? selectedTrackId;
   final List<PlaybackPageSubtitleCueDescriptor> cues;
   final Duration offset;
+  final SubtitleStyleProfile styleProfile;
   final String? failureReason;
 
   bool get hasVisibleCues => cues.isNotEmpty;
+}
+
+DomainSubtitleStyleSource _styleSourceForCue(
+  DomainSubtitleCueDescriptor cue,
+  SubtitleStyleProfile profile,
+) {
+  if (!cue.hasEmbeddedStyle) return DomainSubtitleStyleSource.userDefault;
+  return profile.forceOverrideEmbeddedStyle
+      ? DomainSubtitleStyleSource.forcedUserOverride
+      : DomainSubtitleStyleSource.embedded;
 }
 
 final class PlaybackPageDanmakuCommentDescriptor {
@@ -351,6 +375,8 @@ enum PlaybackPageIntentKind {
   openPanel,
   selectTrack,
   applyVideoEnhancement,
+  updateSubtitleStyle,
+  resetSubtitleStyle,
 }
 
 final class PlaybackPageIntent {
@@ -361,6 +387,7 @@ final class PlaybackPageIntent {
     this.trackId,
     this.trackType,
     this.videoEnhancementProfile,
+    this.subtitleStyleProfile,
   });
 
   const PlaybackPageIntent.noop() : this._(kind: PlaybackPageIntentKind.noop);
@@ -399,12 +426,23 @@ final class PlaybackPageIntent {
           videoEnhancementProfile: profile,
         );
 
+  const PlaybackPageIntent.updateSubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) : this._(
+          kind: PlaybackPageIntentKind.updateSubtitleStyle,
+          subtitleStyleProfile: profile,
+        );
+
+  const PlaybackPageIntent.resetSubtitleStyle()
+      : this._(kind: PlaybackPageIntentKind.resetSubtitleStyle);
+
   final PlaybackPageIntentKind kind;
   final Duration? position;
   final PlaybackPagePanelId? panelId;
   final DomainMediaTrackId? trackId;
   final DomainMediaTrackType? trackType;
   final DomainVideoEnhancementProfileDescriptor? videoEnhancementProfile;
+  final SubtitleStyleProfile? subtitleStyleProfile;
 }
 
 enum PlaybackPageIntentOutcome {
@@ -572,6 +610,11 @@ final class PlaybackPageContract {
           profile.preset == VideoEnhancementPresetSelection.off
               ? await _controller.disableVideoEnhancement()
               : await _controller.applyVideoEnhancement(profile),
+        );
+      case PlaybackPageIntentKind.updateSubtitleStyle:
+      case PlaybackPageIntentKind.resetSubtitleStyle:
+        return const PlaybackPageIntentResult.ignored(
+          'Subtitle style intents are handled by the page driver.',
         );
     }
   }
