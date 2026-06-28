@@ -1723,6 +1723,13 @@ class _SubtitleSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _MetricLine(label: '当前轨道', value: subtitles.selectedTrackId ?? '未选择'),
+          _MetricLine(label: '渲染路径', value: view.subtitleStyle.renderPath),
+          _MetricLine(
+            label: '样式状态',
+            value: _subtitleStyleApplicationText(
+              view.subtitleStyle.application,
+            ),
+          ),
           _SubtitleAutoSelectionStatusLine(
             snapshot: view.subtitleAutoSelection,
           ),
@@ -1858,6 +1865,11 @@ class _SubtitleStyleControls extends StatelessWidget {
                   label: const Text('重置'),
                 ),
               ],
+            ),
+            _MetricLine(label: 'Basic parser', value: snapshot.basicParserFormats),
+            _MetricLine(
+              label: 'MPV native',
+              value: snapshot.nativeSubtitleFormats,
             ),
             _StyleSlider(
               key: const ValueKey<String>(
@@ -2747,6 +2759,22 @@ String _formatSignedDuration(Duration duration) {
   if (duration == Duration.zero) return '0:00';
   final String sign = duration.isNegative ? '-' : '+';
   return '$sign${_formatDuration(duration.abs())}';
+}
+
+String _subtitleStyleApplicationText(
+  DomainSubtitleStyleApplicationSnapshot snapshot,
+) {
+  final String message = snapshot.message ?? '等待应用';
+  return switch (snapshot.status) {
+    DomainSubtitleStyleApplicationStatus.idle =>
+      '${snapshot.rendererLabel}：等待应用',
+    DomainSubtitleStyleApplicationStatus.applied =>
+      '${snapshot.rendererLabel}：$message',
+    DomainSubtitleStyleApplicationStatus.unsupported =>
+      '${snapshot.rendererLabel}：$message',
+    DomainSubtitleStyleApplicationStatus.failed =>
+      '${snapshot.rendererLabel}：$message',
+  };
 }
 
 String _statusLabel(PlaybackLifecycleStatus status) {

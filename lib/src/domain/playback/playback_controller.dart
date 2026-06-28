@@ -129,6 +129,78 @@ final class DomainVideoEnhancementApplyResult {
       status == DomainVideoEnhancementApplyStatus.disabled;
 }
 
+enum DomainSubtitleStyleApplicationStatus {
+  idle,
+  applied,
+  unsupported,
+  failed,
+}
+
+const List<String> domainBasicSubtitleParserFormats = <String>[
+  'SRT',
+  'WebVTT/VTT',
+  'basic ASS text',
+];
+
+const List<String> domainMpvNativeSubtitleExtensions = <String>[
+  '.srt',
+  '.ass',
+  '.ssa',
+  '.vtt',
+  '.webvtt',
+  '.sup',
+  '.idx',
+  '.sub',
+  '.smi',
+  '.sami',
+  '.ttml',
+  '.dfxp',
+];
+
+final class DomainSubtitleStyleApplicationSnapshot {
+  const DomainSubtitleStyleApplicationSnapshot({
+    required this.status,
+    required this.rendererLabel,
+    this.message,
+  });
+
+  const DomainSubtitleStyleApplicationSnapshot.idle()
+      : status = DomainSubtitleStyleApplicationStatus.idle,
+        rendererLabel = 'MPV native / Flutter overlay',
+        message = null;
+
+  const DomainSubtitleStyleApplicationSnapshot.applied({
+    String rendererLabel = 'MPV native',
+    String? message,
+  }) : this(
+          status: DomainSubtitleStyleApplicationStatus.applied,
+          rendererLabel: rendererLabel,
+          message: message ?? 'Subtitle style applied to native renderer.',
+        );
+
+  const DomainSubtitleStyleApplicationSnapshot.unsupported({
+    required String message,
+    String rendererLabel = 'Unsupported backend',
+  }) : this(
+          status: DomainSubtitleStyleApplicationStatus.unsupported,
+          rendererLabel: rendererLabel,
+          message: message,
+        );
+
+  const DomainSubtitleStyleApplicationSnapshot.failed({
+    required String message,
+    String rendererLabel = 'MPV native',
+  }) : this(
+          status: DomainSubtitleStyleApplicationStatus.failed,
+          rendererLabel: rendererLabel,
+          message: message,
+        );
+
+  final DomainSubtitleStyleApplicationStatus status;
+  final String rendererLabel;
+  final String? message;
+}
+
 final class DomainPlaybackCapabilityStatus {
   const DomainPlaybackCapabilityStatus({
     required this.isSupported,
@@ -263,6 +335,8 @@ abstract interface class PlaybackControllerContract
   );
 
   SubtitleAutoSelectionSnapshot get subtitleAutoSelection;
+
+  DomainSubtitleStyleApplicationSnapshot get subtitleStyleApplication;
 }
 
 DomainPlaybackCapabilitySummary domainPlaybackCapabilitySummaryFromMatrix(
@@ -466,6 +540,10 @@ final class PlaybackController implements PlaybackControllerContract {
   @override
   SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
       const SubtitleAutoSelectionSnapshot.idle();
+
+  @override
+  DomainSubtitleStyleApplicationSnapshot get subtitleStyleApplication =>
+      const DomainSubtitleStyleApplicationSnapshot.idle();
 }
 
 final class MockPlaybackController implements PlaybackControllerContract {
@@ -485,6 +563,8 @@ final class MockPlaybackController implements PlaybackControllerContract {
   SubtitleAutoSelectionSnapshot _subtitleAutoSelection =
       const SubtitleAutoSelectionSnapshot.idle();
   SubtitleStyleProfile? appliedSubtitleStyle;
+  DomainSubtitleStyleApplicationSnapshot _subtitleStyleApplication =
+      const DomainSubtitleStyleApplicationSnapshot.idle();
 
   @override
   PlaybackCapabilityMatrix get matrix => _matrix;
@@ -664,12 +744,18 @@ final class MockPlaybackController implements PlaybackControllerContract {
     SubtitleStyleProfile profile,
   ) async {
     appliedSubtitleStyle = profile;
+    _subtitleStyleApplication =
+        const DomainSubtitleStyleApplicationSnapshot.applied();
     return const PlaybackCommandResult.success();
   }
 
   @override
   SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
       _subtitleAutoSelection;
+
+  @override
+  DomainSubtitleStyleApplicationSnapshot get subtitleStyleApplication =>
+      _subtitleStyleApplication;
 
   PlaybackStateSnapshot _snapshotWith({
     PlaybackLifecycleStatus? status,

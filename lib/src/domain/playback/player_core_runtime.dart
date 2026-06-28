@@ -177,6 +177,9 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   bool _subtitleAutoSelectionAttempted = false;
   bool _subtitleManualOverride = false;
   bool _subtitleAutoSelectionInFlight = false;
+  SubtitleStyleProfile? _latestSubtitleStyleProfile;
+  DomainSubtitleStyleApplicationSnapshot _subtitleStyleApplication =
+      const DomainSubtitleStyleApplicationSnapshot.idle();
   bool _closed = false;
 
   @override
@@ -188,6 +191,10 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   @override
   SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
       _subtitleAutoSelection;
+
+  @override
+  DomainSubtitleStyleApplicationSnapshot get subtitleStyleApplication =>
+      _subtitleStyleApplication;
 
   @override
   void addPlaybackStateObserver(PlaybackStateObserver observer) {
@@ -235,6 +242,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     if (result.isSuccess) {
       _publish(_snapshotWith(
           status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
+      await _replaySubtitleStyleIfKnown();
       final PlayerTelemetrySource? telemetrySource = _runtime._telemetrySource;
       if (telemetrySource != null) {
         unawaited(_maybeAutoSelectSubtitle(telemetrySource.currentTelemetry));
@@ -409,6 +417,9 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
           selectedTrackId: trackId,
         );
       }
+      if (trackType == DomainMediaTrackType.subtitle) {
+        await _replaySubtitleStyleIfKnown();
+      }
     }
     return result;
   }
@@ -422,7 +433,43 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
         PlaybackOperation.applySubtitleStyle,
       );
     }
-    return _runtime._activeAdapter.applySubtitleStyle(profile);
+    _latestSubtitleStyleProfile = profile;
+    final DomainPlaybackCommandResult result =
+        await _runtime._activeAdapter.applySubtitleStyle(profile);
+    _recordSubtitleStyleApplication(result);
+    _publish(currentState);
+    return result;
+  }
+
+  Future<void> _replaySubtitleStyleIfKnown() async {
+    final SubtitleStyleProfile? profile = _latestSubtitleStyleProfile;
+    if (_closed || profile == null) return;
+    final DomainPlaybackCommandResult result =
+        await _runtime._activeAdapter.applySubtitleStyle(profile);
+    _recordSubtitleStyleApplication(result);
+    _publish(currentState);
+  }
+
+  void _recordSubtitleStyleApplication(
+    DomainPlaybackCommandResult result,
+  ) {
+    if (result.isSuccess) {
+      _subtitleStyleApplication =
+          const DomainSubtitleStyleApplicationSnapshot.applied(
+        message: '字幕样式已应用到 MPV 原生渲染。',
+      );
+      return;
+    }
+    final PlaybackFailure? failure = result.failure;
+    final String message = failure?.message ?? '字幕样式应用失败。';
+    _subtitleStyleApplication =
+        failure?.kind == PlaybackFailureKind.unsupported
+            ? DomainSubtitleStyleApplicationSnapshot.unsupported(
+                message: message,
+              )
+            : DomainSubtitleStyleApplicationSnapshot.failed(
+                message: message,
+              );
   }
 
   Future<void> _maybeAutoSelectSubtitle(

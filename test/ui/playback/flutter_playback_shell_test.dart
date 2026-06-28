@@ -303,6 +303,9 @@ void main() {
         'subtitle-ja');
     expect(controller.currentState.subtitles.selectedTrackId, 'subtitle-ja');
     expect(find.text('subtitle-ja'), findsOneWidget);
+    expect(find.textContaining('MPV native'), findsWidgets);
+    expect(find.textContaining('SRT, WebVTT/VTT, basic ASS text'), findsWidgets);
+    expect(find.textContaining('.srt, .ass, .ssa'), findsWidgets);
     expect(ElainaFinders.playbackTrackPanel, findsOneWidget);
     expect(find.text('音轨'), findsWidgets);
     expect(find.text('字幕轨'), findsWidgets);

@@ -735,8 +735,32 @@ void main() {
         '$mpvSubtitleFontSizeProperty=28',
         '$mpvSubtitleColorProperty=#BFFFFFFF',
         '$mpvSubtitleBorderSizeProperty=3',
+        '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOutlineAndShadowValue',
         '$mpvSubtitleBackColorProperty=$mpvSubtitleTransparentColorValue',
         '$mpvSubtitleAssOverrideProperty=$mpvSubtitleAssOverrideForceValue',
+      ]),
+    );
+  });
+
+  test('subtitle style bridge enables MPV opaque background box', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result = await binding.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(
+        backgroundEnabled: true,
+        backgroundOpacity: 0.5,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(
+      backend.propertyCalls.map(
+        (_PropertyCall call) => '${call.property}=${call.value}',
+      ),
+      containsAll(<String>[
+        '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOpaqueBoxValue',
+        '$mpvSubtitleBackColorProperty=#80000000',
       ]),
     );
   });

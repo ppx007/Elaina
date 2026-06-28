@@ -76,15 +76,33 @@ const String mpvSubtitleFontSizeProperty = 'sub-font-size';
 const String mpvSubtitleColorProperty = 'sub-color';
 const String mpvSubtitleBorderColorProperty = 'sub-border-color';
 const String mpvSubtitleBorderSizeProperty = 'sub-border-size';
+const String mpvSubtitleBorderStyleProperty = 'sub-border-style';
 const String mpvSubtitleBackColorProperty = 'sub-back-color';
 const String mpvSubtitleBoldProperty = 'sub-bold';
 const String mpvSubtitlePositionProperty = 'sub-pos';
 const String mpvSubtitleAssOverrideProperty = 'sub-ass-override';
 const String mpvSubtitleAssOverrideNoValue = 'no';
 const String mpvSubtitleAssOverrideForceValue = 'force';
+const String mpvSubtitleBorderStyleOutlineAndShadowValue =
+    'outline-and-shadow';
+const String mpvSubtitleBorderStyleOpaqueBoxValue = 'opaque-box';
 const String mpvSubtitleBoldEnabledValue = 'yes';
 const String mpvSubtitleBoldDisabledValue = 'no';
 const String mpvSubtitleTransparentColorValue = '#00000000';
+const List<String> mpvNativeSubtitleExtensions = <String>[
+  '.srt',
+  '.ass',
+  '.ssa',
+  '.vtt',
+  '.webvtt',
+  '.sup',
+  '.idx',
+  '.sub',
+  '.smi',
+  '.sami',
+  '.ttml',
+  '.dfxp',
+];
 const String mpvAvSyncProperty = 'avsync';
 const String mpvTimePositionProperty = 'time-pos';
 const String mpvFrameDropCountProperty = 'frame-drop-count';
@@ -287,6 +305,12 @@ final class MpvSubtitleStylePlanner {
       MpvSubtitleCommand.setProperty(
         property: mpvSubtitleBorderSizeProperty,
         value: _mpvDouble(profile.outlineStrength),
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleBorderStyleProperty,
+        value: profile.backgroundEnabled
+            ? mpvSubtitleBorderStyleOpaqueBoxValue
+            : mpvSubtitleBorderStyleOutlineAndShadowValue,
       ),
       MpvSubtitleCommand.setProperty(
         property: mpvSubtitleBackColorProperty,

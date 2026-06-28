@@ -471,6 +471,59 @@ void main() {
     await telemetry.close();
   });
 
+  test('runtime replays subtitle style after source load and subtitle switch',
+      () async {
+    final DeterministicMpvBinding binding = DeterministicMpvBinding(
+      tracks: _multiSubtitleTracks,
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+    );
+
+    final PlaybackCommandResult styleResult =
+        await runtime.controller.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(fontSize: 30),
+    );
+    expect(styleResult.isSuccess, isTrue);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.applySubtitleStyle)
+          .length,
+      1,
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.applySubtitleStyle)
+          .length,
+      2,
+    );
+    expect(binding.appliedSubtitleStyle?.fontSize, 30);
+    expect(
+      runtime.controller.subtitleStyleApplication.status,
+      DomainSubtitleStyleApplicationStatus.applied,
+    );
+
+    final TrackSwitchResult switched = await runtime.controller.switchTrack(
+      const DomainMediaTrackId('subtitle-zh-hans'),
+      trackType: DomainMediaTrackType.subtitle,
+    );
+    expect(switched.isSuccess, isTrue);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.applySubtitleStyle)
+          .length,
+      3,
+    );
+
+    await runtime.dispose();
+  });
+
   test('runtime applies and disables video enhancement through adapter',
       () async {
     final DeterministicMpvBinding binding = DeterministicMpvBinding();
@@ -645,6 +698,7 @@ PlaybackCapabilityMatrix _fullPlayerCoreMatrix() {
       PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
       PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
       PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.assSubtitleEnhancement: CapabilityStatus.supported(),
       PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
     },
   );

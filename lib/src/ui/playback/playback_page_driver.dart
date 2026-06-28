@@ -173,11 +173,19 @@ final class PlaybackVideoEnhancementPanelSnapshot {
 final class PlaybackSubtitleStylePanelSnapshot {
   const PlaybackSubtitleStylePanelSnapshot({
     required this.profile,
+    required this.application,
+    required this.renderPath,
+    required this.basicParserFormats,
+    required this.nativeSubtitleFormats,
     this.message,
     this.isSaving = false,
   });
 
   final SubtitleStyleProfile profile;
+  final DomainSubtitleStyleApplicationSnapshot application;
+  final String renderPath;
+  final String basicParserFormats;
+  final String nativeSubtitleFormats;
   final String? message;
   final bool isSaving;
 }
@@ -272,6 +280,10 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       ),
       subtitleStyle: PlaybackSubtitleStylePanelSnapshot(
         profile: _subtitleStyleProfile,
+        application: _controller.subtitleStyleApplication,
+        renderPath: _subtitleRenderPath(capabilities),
+        basicParserFormats: _basicSubtitleParserFormats,
+        nativeSubtitleFormats: _mpvNativeSubtitleFormats,
         message: _subtitleStyleMessage,
         isSaving: _subtitleStyleSaving,
       ),
@@ -455,6 +467,22 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   void _notifyIfActive() {
     if (!_disposed) notifyListeners();
   }
+}
+
+const String _basicSubtitleParserFormats = 'SRT, WebVTT/VTT, basic ASS text';
+final String _mpvNativeSubtitleFormats =
+    domainMpvNativeSubtitleExtensions.join(', ');
+
+String _subtitleRenderPath(DomainPlaybackCapabilitySummary capabilities) {
+  final DomainPlaybackCapabilityStatus nativeStyle =
+      capabilities.statusOf(DomainPlaybackCapabilityId.assSubtitleEnhancement);
+  if (nativeStyle.isSupported) return 'MPV native subtitle renderer';
+  final DomainPlaybackCapabilityStatus subtitleTracks =
+      capabilities.statusOf(DomainPlaybackCapabilityId.subtitleTrackDiscovery);
+  if (!subtitleTracks.isSupported) {
+    return 'Flutter overlay / unsupported native backend';
+  }
+  return 'Flutter overlay / native styling unavailable';
 }
 
 const List<DomainPlaybackCapabilityId> playbackPageCapabilities =
