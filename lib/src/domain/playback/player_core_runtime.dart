@@ -302,6 +302,8 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
 
   void applyTelemetry(PlayerTelemetrySnapshot telemetry) {
     if (_closed) return;
+    final DomainMediaTrackId? previousSubtitleTrackId =
+        currentState.activeTracks.subtitleTrackId;
     final Duration? duration =
         telemetry.duration > Duration.zero ? telemetry.duration : null;
     final Duration? bufferedPosition =
@@ -350,6 +352,12 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
         failureReason: telemetry.failureReason,
       ),
     );
+    final DomainMediaTrackId? currentSubtitleTrackId =
+        currentState.activeTracks.subtitleTrackId;
+    if (currentSubtitleTrackId != null &&
+        currentSubtitleTrackId != previousSubtitleTrackId) {
+      unawaited(_replaySubtitleStyleIfKnown());
+    }
     unawaited(_maybeAutoSelectSubtitle(telemetry));
   }
 
@@ -462,14 +470,13 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     }
     final PlaybackFailure? failure = result.failure;
     final String message = failure?.message ?? '字幕样式应用失败。';
-    _subtitleStyleApplication =
-        failure?.kind == PlaybackFailureKind.unsupported
-            ? DomainSubtitleStyleApplicationSnapshot.unsupported(
-                message: message,
-              )
-            : DomainSubtitleStyleApplicationSnapshot.failed(
-                message: message,
-              );
+    _subtitleStyleApplication = failure?.kind == PlaybackFailureKind.unsupported
+        ? DomainSubtitleStyleApplicationSnapshot.unsupported(
+            message: message,
+          )
+        : DomainSubtitleStyleApplicationSnapshot.failed(
+            message: message,
+          );
   }
 
   Future<void> _maybeAutoSelectSubtitle(

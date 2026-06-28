@@ -81,14 +81,19 @@ const String mpvSubtitleBackColorProperty = 'sub-back-color';
 const String mpvSubtitleBoldProperty = 'sub-bold';
 const String mpvSubtitlePositionProperty = 'sub-pos';
 const String mpvSubtitleAssOverrideProperty = 'sub-ass-override';
+const String mpvSubtitleAssStyleOverridesProperty = 'sub-ass-style-overrides';
 const String mpvSubtitleAssOverrideNoValue = 'no';
 const String mpvSubtitleAssOverrideForceValue = 'force';
-const String mpvSubtitleBorderStyleOutlineAndShadowValue =
-    'outline-and-shadow';
+const String mpvSubtitleBorderStyleOutlineAndShadowValue = 'outline-and-shadow';
 const String mpvSubtitleBorderStyleOpaqueBoxValue = 'opaque-box';
 const String mpvSubtitleBoldEnabledValue = 'yes';
 const String mpvSubtitleBoldDisabledValue = 'no';
 const String mpvSubtitleTransparentColorValue = '#00000000';
+const String mpvSubtitleAssOpaqueBlackColorValue = '&H00000000';
+const String mpvSubtitleAssTransparentBlackColorValue = '&HFF000000';
+const int mpvSubtitleAssOutlineBorderStyle = 1;
+const int mpvSubtitleAssOpaqueBoxBorderStyle = 3;
+const int mpvSubtitleAssBottomCenterAlignment = 2;
 const List<String> mpvNativeSubtitleExtensions = <String>[
   '.srt',
   '.ass',
@@ -332,7 +337,36 @@ final class MpvSubtitleStylePlanner {
             ? mpvSubtitleAssOverrideForceValue
             : mpvSubtitleAssOverrideNoValue,
       ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleAssStyleOverridesProperty,
+        value: _mpvAssStyleOverrides(profile),
+      ),
     ]);
+  }
+
+  static String _mpvAssStyleOverrides(SubtitleStyleProfile profile) {
+    final String fontFamily = profile.fontFamily.trim();
+    final String backColor = profile.backgroundEnabled
+        ? _mpvAssColor(0xFF000000, opacity: profile.backgroundOpacity)
+        : mpvSubtitleAssTransparentBlackColorValue;
+    final int borderStyle = profile.backgroundEnabled
+        ? mpvSubtitleAssOpaqueBoxBorderStyle
+        : mpvSubtitleAssOutlineBorderStyle;
+    return <String>[
+      if (fontFamily.isNotEmpty) 'FontName=$fontFamily',
+      'FontSize=${_mpvDouble(profile.fontSize)}',
+      'PrimaryColour=${_mpvAssColor(
+        profile.textColorArgb,
+        opacity: profile.textOpacity,
+      )}',
+      'OutlineColour=$mpvSubtitleAssOpaqueBlackColorValue',
+      'BackColour=$backColor',
+      'Outline=${_mpvDouble(profile.outlineStrength)}',
+      'Bold=${_mpvAssBoldValue(profile.fontWeight)}',
+      'BorderStyle=$borderStyle',
+      'Alignment=$mpvSubtitleAssBottomCenterAlignment',
+      'MarginV=${profile.bottomInset.round()}',
+    ].join(',');
   }
 
   static String _mpvColor(int argb, {required double opacity}) {
@@ -341,6 +375,15 @@ final class MpvSubtitleStylePlanner {
     final int green = (argb >> 8) & 0xFF;
     final int blue = argb & 0xFF;
     return '#${_hex2(alpha)}${_hex2(red)}${_hex2(green)}${_hex2(blue)}';
+  }
+
+  static String _mpvAssColor(int argb, {required double opacity}) {
+    final int sourceAlpha = (argb >> 24) & 0xFF;
+    final int alpha = 255 - (sourceAlpha * opacity.clamp(0, 1)).round();
+    final int red = (argb >> 16) & 0xFF;
+    final int green = (argb >> 8) & 0xFF;
+    final int blue = argb & 0xFF;
+    return '&H${_hex2(alpha)}${_hex2(blue)}${_hex2(green)}${_hex2(red)}';
   }
 
   static String _hex2(int value) {
@@ -357,6 +400,13 @@ final class MpvSubtitleStylePlanner {
       SubtitleStyleFontWeight.medium ||
       SubtitleStyleFontWeight.bold =>
         mpvSubtitleBoldEnabledValue,
+    };
+  }
+
+  static String _mpvAssBoldValue(SubtitleStyleFontWeight weight) {
+    return switch (weight) {
+      SubtitleStyleFontWeight.normal => '0',
+      SubtitleStyleFontWeight.medium || SubtitleStyleFontWeight.bold => '1',
     };
   }
 

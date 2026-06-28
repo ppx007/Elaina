@@ -738,6 +738,10 @@ void main() {
         '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOutlineAndShadowValue',
         '$mpvSubtitleBackColorProperty=$mpvSubtitleTransparentColorValue',
         '$mpvSubtitleAssOverrideProperty=$mpvSubtitleAssOverrideForceValue',
+        '$mpvSubtitleAssStyleOverridesProperty=FontName=Noto Sans CJK SC,'
+            'FontSize=28,PrimaryColour=&H40FFFFFF,'
+            'OutlineColour=&H00000000,BackColour=&HFF000000,'
+            'Outline=3,Bold=1,BorderStyle=1,Alignment=2,MarginV=120',
       ]),
     );
   });
@@ -762,6 +766,15 @@ void main() {
         '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOpaqueBoxValue',
         '$mpvSubtitleBackColorProperty=#80000000',
       ]),
+    );
+    expect(
+      backend.propertyCalls
+          .singleWhere(
+            (_PropertyCall call) =>
+                call.property == mpvSubtitleAssStyleOverridesProperty,
+          )
+          .value,
+      contains('BackColour=&H7F000000'),
     );
   });
 

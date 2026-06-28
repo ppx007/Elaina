@@ -524,6 +524,57 @@ void main() {
     await runtime.dispose();
   });
 
+  test('runtime replays subtitle style when telemetry selects subtitle track',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(),
+    );
+    final DeterministicMpvBinding binding = DeterministicMpvBinding(
+      tracks: _multiSubtitleTracks,
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+
+    expect(
+      (await runtime.controller.applySubtitleStyle(
+        SubtitleStyleProfile.defaults.copyWith(fontSize: 32),
+      ))
+          .isSuccess,
+      isTrue,
+    );
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.applySubtitleStyle)
+          .length,
+      2,
+    );
+
+    telemetry.emit(
+      PlayerTelemetrySnapshot(
+        tracks: _multiSubtitleTracks,
+        activeSubtitleTrackId: const MediaTrackId('subtitle-zh-hans'),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(binding.appliedSubtitleStyle?.fontSize, 32);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.applySubtitleStyle)
+          .length,
+      3,
+    );
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
   test('runtime applies and disables video enhancement through adapter',
       () async {
     final DeterministicMpvBinding binding = DeterministicMpvBinding();
