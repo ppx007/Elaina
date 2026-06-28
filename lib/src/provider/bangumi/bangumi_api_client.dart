@@ -15,7 +15,7 @@ import 'bangumi_registration.dart';
 import 'bangumi_runtime.dart';
 
 const String defaultBangumiApiUserAgent =
-    'ppx007/Elaina/0.1.0 (Windows; Flutter) '
+    'ppx007/Elaina/0.11 (Windows; Flutter) '
     '(https://github.com/ppx007/Elaina)';
 const int bangumiApiDefaultSearchLimit = 20;
 const int bangumiApiDefaultSearchOffset = 0;

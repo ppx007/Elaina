@@ -26,7 +26,7 @@ const MediaLibraryFolderPreferenceCodec _folderPreferenceCodec =
     MediaLibraryFolderPreferenceCodec();
 const String _appDisplayName = 'Elaina';
 const String _appCodeName = '1017';
-const String _appVersion = '0.1.0';
+const String _appVersion = '0.11';
 const String _appRepositoryUrl = 'https://github.com/ppx007/Elaina';
 const String _appPositioning = '端侧优先的跨平台 ACG 播放、媒体库、Bangumi 元数据、RSS 与 BT 管理工具。';
 const String _appLicenseStatus = 'GPL-3.0-only';

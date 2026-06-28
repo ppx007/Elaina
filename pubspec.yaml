@@ -1,6 +1,6 @@
 name: elaina
 description: Phase 0 foundation contracts for the Elaina cross-platform ACG player.
-version: 0.1.0
+version: 0.11.0
 publish_to: none
 
 environment:

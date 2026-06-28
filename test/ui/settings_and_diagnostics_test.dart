@@ -382,7 +382,7 @@ void main() {
     expect(ElainaFinders.settingsAboutAppInfo, findsOneWidget);
     expect(find.text('Elaina'), findsOneWidget);
     expect(find.text('1017'), findsOneWidget);
-    expect(find.text('0.1.0'), findsOneWidget);
+    expect(find.text('0.11'), findsOneWidget);
     expect(find.text('https://github.com/ppx007/Elaina'), findsOneWidget);
     expect(find.text('项目许可证'), findsOneWidget);
     expect(find.textContaining('GPL-3.0-only'), findsOneWidget);

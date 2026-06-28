@@ -15,7 +15,7 @@ import 'dandanplay_runtime.dart';
 ///
 /// They are named even when the upstream API uses numeric modes so future
 /// maintainers do not need to rediscover response-mode semantics from samples.
-const String defaultDandanplayApiUserAgent = 'Elaina/0.1';
+const String defaultDandanplayApiUserAgent = 'Elaina/0.11';
 const String dandanplayMatchModeFileNameOnly = 'fileNameOnly';
 const int dandanplayCommentsFromOffset = 0;
 const bool dandanplayCommentsWithRelated = true;
