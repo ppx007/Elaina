@@ -305,14 +305,115 @@ void main() {
     await runtime.dispose();
   });
 
+  test('runtime auto-selects simplified Chinese subtitle once per source',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(),
+    );
+    final DeterministicMpvBinding binding = DeterministicMpvBinding(
+      tracks: _multiSubtitleTracks,
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    telemetry.emit(PlayerTelemetrySnapshot(tracks: _multiSubtitleTracks));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(binding.switchedTrackId?.value, 'subtitle-zh-hans');
+    expect(
+      runtime.controller.subtitleAutoSelection.rule,
+      SubtitleAutoSelectionRule.simplifiedChinese,
+    );
+    expect(
+      runtime.currentState.activeTracks.subtitleTrackId?.value,
+      'subtitle-zh-hans',
+    );
+
+    telemetry.emit(PlayerTelemetrySnapshot(tracks: _customRegexTracks));
+    await Future<void>.delayed(Duration.zero);
+    expect(binding.switchedTrackId?.value, 'subtitle-zh-hans');
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
+  test('runtime custom subtitle regex has priority over built-in preference',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(),
+    );
+    final DeterministicMpvBinding binding = DeterministicMpvBinding(
+      tracks: _customRegexTracks,
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+      subtitleAutoSelectPreferencesProvider: () async {
+        return const SubtitleAutoSelectPreferences(
+          customPattern: 'Signs',
+        );
+      },
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    telemetry.emit(PlayerTelemetrySnapshot(tracks: _customRegexTracks));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(binding.switchedTrackId?.value, 'subtitle-signs');
+    expect(
+      runtime.controller.subtitleAutoSelection.rule,
+      SubtitleAutoSelectionRule.customRegex,
+    );
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
+  test('runtime manual subtitle selection prevents later auto-selection',
+      () async {
+    final _FakeTelemetrySource telemetry = _FakeTelemetrySource(
+      PlayerTelemetrySnapshot(),
+    );
+    final DeterministicMpvBinding binding = DeterministicMpvBinding(
+      tracks: _multiSubtitleTracks,
+    );
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+      telemetrySource: telemetry,
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    final TrackSwitchResult manual = await runtime.controller.switchTrack(
+      const DomainMediaTrackId('subtitle-ja'),
+      trackType: DomainMediaTrackType.subtitle,
+    );
+    expect(manual.isSuccess, isTrue);
+    telemetry.emit(PlayerTelemetrySnapshot(tracks: _multiSubtitleTracks));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(binding.switchedTrackId?.value, 'subtitle-ja');
+    expect(
+      runtime.controller.subtitleAutoSelection.status,
+      SubtitleAutoSelectionStatus.manualOverride,
+    );
+
+    await runtime.dispose();
+    await telemetry.close();
+  });
+
   test('runtime applies and disables video enhancement through adapter',
       () async {
     final DeterministicMpvBinding binding = DeterministicMpvBinding();
     final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
       binding: binding,
       capabilities: _matrix(<PlaybackCapability, CapabilityStatus>{
-        PlaybackCapability.videoEnhancement:
-            const CapabilityStatus.supported(),
+        PlaybackCapability.videoEnhancement: const CapabilityStatus.supported(),
         PlaybackCapability.anime4kPreset: const CapabilityStatus.supported(),
       }),
     );
@@ -521,6 +622,49 @@ const List<MediaTrackDescriptor> _tracks = <MediaTrackDescriptor>[
     type: MediaTrackType.subtitle,
     label: 'Japanese Subtitle',
     languageCode: 'ja',
+  ),
+];
+
+const List<MediaTrackDescriptor> _multiSubtitleTracks = <MediaTrackDescriptor>[
+  MediaTrackDescriptor(
+    id: MediaTrackId('audio-main'),
+    type: MediaTrackType.audio,
+    label: 'Main Audio',
+    languageCode: 'ja',
+    isSelected: true,
+  ),
+  MediaTrackDescriptor(
+    id: MediaTrackId('subtitle-ja'),
+    type: MediaTrackType.subtitle,
+    label: 'Japanese Subtitle',
+    languageCode: 'ja',
+  ),
+  MediaTrackDescriptor(
+    id: MediaTrackId('subtitle-zh-hant'),
+    type: MediaTrackType.subtitle,
+    label: '繁体中文',
+    languageCode: 'zh-Hant',
+  ),
+  MediaTrackDescriptor(
+    id: MediaTrackId('subtitle-zh-hans'),
+    type: MediaTrackType.subtitle,
+    label: '简体中文 CHS',
+    languageCode: 'zh-Hans',
+  ),
+];
+
+const List<MediaTrackDescriptor> _customRegexTracks = <MediaTrackDescriptor>[
+  MediaTrackDescriptor(
+    id: MediaTrackId('subtitle-zh-hans'),
+    type: MediaTrackType.subtitle,
+    label: '简体中文',
+    languageCode: 'zh-Hans',
+  ),
+  MediaTrackDescriptor(
+    id: MediaTrackId('subtitle-signs'),
+    type: MediaTrackType.subtitle,
+    label: 'Signs and Songs',
+    languageCode: 'en',
   ),
 ];
 

@@ -46,33 +46,45 @@ final class PlayerCoreBootstrap {
     required MpvAdapterBinding binding,
     PlaybackCapabilityMatrix? capabilities,
     Object? foundationDependency,
+    SubtitleAutoSelectPreferencesProvider?
+        subtitleAutoSelectPreferencesProvider,
   }) {
     _runtime = PlayerCoreRuntime.bound(
       binding: binding,
       capabilities: capabilities,
       foundationDependency: foundationDependency,
+      subtitleAutoSelectPreferencesProvider:
+          subtitleAutoSelectPreferencesProvider,
     );
   }
 
   PlayerCoreBootstrap.withComposition({
     required PlayerRuntimeCompositionContract composition,
     Object? foundationDependency,
+    SubtitleAutoSelectPreferencesProvider?
+        subtitleAutoSelectPreferencesProvider,
   }) {
     _runtime = PlayerCoreRuntime(
       activeAdapter: composition.adapter,
       foundationDependency: foundationDependency,
       telemetrySource: composition.telemetrySource,
       capabilityProbeSource: composition.capabilityProbeSource,
+      subtitleAutoSelectPreferencesProvider:
+          subtitleAutoSelectPreferencesProvider,
     );
   }
 
   PlayerCoreBootstrap.withDependencies({
     required PlayerAdapter activeAdapter,
     Object? foundationDependency,
+    SubtitleAutoSelectPreferencesProvider?
+        subtitleAutoSelectPreferencesProvider,
   }) {
     _runtime = PlayerCoreRuntime(
       activeAdapter: activeAdapter,
       foundationDependency: foundationDependency,
+      subtitleAutoSelectPreferencesProvider:
+          subtitleAutoSelectPreferencesProvider,
     );
   }
 

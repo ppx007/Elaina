@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
+import '../../domain/playback/subtitle_auto_selection.dart';
 import '../../domain/playback/subtitle_style.dart';
 import '../../domain/settings/settings_domain.dart';
 import 'playback_page_contract.dart';
@@ -194,6 +195,7 @@ final class PlaybackPageViewSnapshot {
     required this.capabilities,
     required this.videoEnhancement,
     required this.subtitleStyle,
+    required this.subtitleAutoSelection,
     this.lastIntentResult,
   });
 
@@ -203,6 +205,7 @@ final class PlaybackPageViewSnapshot {
   final PlaybackCapabilityPanelSnapshot capabilities;
   final PlaybackVideoEnhancementPanelSnapshot videoEnhancement;
   final PlaybackSubtitleStylePanelSnapshot subtitleStyle;
+  final SubtitleAutoSelectionSnapshot subtitleAutoSelection;
   final PlaybackPageIntentResult? lastIntentResult;
 }
 
@@ -272,6 +275,7 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
         message: _subtitleStyleMessage,
         isSaving: _subtitleStyleSaving,
       ),
+      subtitleAutoSelection: _controller.subtitleAutoSelection,
       lastIntentResult: _lastIntentResult,
     );
   }
@@ -303,9 +307,8 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
             ? '视频增强已关闭'
             : '已应用 ${videoEnhancementPresetSelectionLabel(enhancementResult.preset)}';
       } else {
-        _videoEnhancementMessage = enhancementResult?.message ??
-            result.reason ??
-            'Anime4K 预设应用失败。';
+        _videoEnhancementMessage =
+            enhancementResult?.message ?? result.reason ?? 'Anime4K 预设应用失败。';
       }
     }
     _notifyIfActive();
@@ -403,6 +406,11 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       );
       _subtitleStyleProfile = SubtitleStyleSettings.parse(raw);
       _subtitleStyleMessage = null;
+      final DomainPlaybackCommandResult result =
+          await _controller.applySubtitleStyle(_subtitleStyleProfile);
+      if (!result.isSuccess) {
+        _subtitleStyleMessage = result.failure?.message ?? '字幕样式应用到播放器失败。';
+      }
     } on Object catch (error) {
       _subtitleStyleProfile = SubtitleStyleProfile.defaults;
       _subtitleStyleMessage = '字幕样式设置无效，已使用默认值：$error';
@@ -425,7 +433,13 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
           value: SubtitleStyleSettings.serialize(profile),
         );
       }
-      _subtitleStyleMessage = '字幕样式已保存';
+      final DomainPlaybackCommandResult applyResult =
+          await _controller.applySubtitleStyle(profile);
+      if (!applyResult.isSuccess) {
+        _subtitleStyleMessage = applyResult.failure?.message ?? '字幕样式应用到播放器失败。';
+        return PlaybackPageIntentResult.ignored(_subtitleStyleMessage!);
+      }
+      _subtitleStyleMessage = '字幕样式已保存并应用';
       return const PlaybackPageIntentResult.executedPanel(
         PlaybackPagePanelId.tracks,
       );

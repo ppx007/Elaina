@@ -4,6 +4,7 @@
 import 'capability_matrix.dart';
 import 'fallback_adapter.dart';
 import 'player_adapter.dart';
+import 'subtitle_style.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 
@@ -21,6 +22,8 @@ const String vlcFallbackUnverifiedCapabilityReason =
 const String vlcFallbackProbeSource = 'windows-libvlc-fallback-probe';
 const String vlcFallbackMpvOnlyEnhancementReason =
     'VLC fallback does not expose MPV shader/property enhancement commands.';
+const String vlcFallbackMpvOnlySubtitleStyleReason =
+    'VLC fallback does not expose MPV subtitle style property commands.';
 const String vlcFallbackAvSyncSamplerReason =
     'VLC fallback does not expose MPV avsync property sampling.';
 const String vlcFallbackMatrixDanmakuReason =
@@ -230,6 +233,19 @@ final class VlcFallbackAdapter
       failure: EnhancementPipelineFailure(
         kind: EnhancementPipelineFailureKind.capabilityUnsupported,
         message: vlcFallbackUnverifiedCapabilityReason,
+      ),
+    );
+  }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    return const PlaybackCommandResult.failure(
+      PlaybackFailure(
+        operation: PlaybackOperation.applySubtitleStyle,
+        kind: PlaybackFailureKind.unsupported,
+        message: vlcFallbackMpvOnlySubtitleStyleReason,
       ),
     );
   }

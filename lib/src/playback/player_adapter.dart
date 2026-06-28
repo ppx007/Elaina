@@ -1,5 +1,6 @@
 import '../foundation/extension_points.dart';
 import 'capability_matrix.dart';
+import 'subtitle_style.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 
@@ -34,6 +35,7 @@ enum PlaybackOperation {
   switchTrack,
   applyEnhancement,
   disableEnhancement,
+  applySubtitleStyle,
 }
 
 enum PlaybackFailureKind {
@@ -92,6 +94,9 @@ abstract interface class PlayerAdapter implements ElainaAdapter {
       VideoEnhancementProfile profile);
 
   Future<EnhancementDisableOutcome> disableEnhancement();
+
+  Future<PlaybackCommandResult> applySubtitleStyle(
+      SubtitleStyleProfile profile);
 }
 
 PlaybackCapability? playbackCapabilityForSource(PlaybackSource source) {

@@ -7,6 +7,7 @@ import '../../playback/track_management.dart';
 import '../../playback/video_enhancement_pipeline.dart';
 import '../../playback/vlc_fallback_adapter.dart';
 import '../settings/settings_domain.dart';
+import 'subtitle_style.dart';
 
 const String playbackBackendMediaKitMpvId = 'media-kit-mpv';
 const String playbackBackendVlcFallbackId = vlcFallbackAdapterId;
@@ -495,6 +496,13 @@ final class PlaybackBackendSelectionRuntime
   @override
   Future<EnhancementDisableOutcome> disableEnhancement() {
     return _activeAdapter.disableEnhancement();
+  }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) {
+    return _activeAdapter.applySubtitleStyle(profile);
   }
 
   PlayerAdapter get _activeAdapter {

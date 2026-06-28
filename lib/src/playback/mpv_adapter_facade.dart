@@ -2,6 +2,7 @@
 // binding. Keep libmpv-specific loading and command quirks behind this file.
 import 'capability_matrix.dart';
 import 'player_adapter.dart';
+import 'subtitle_style.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 
@@ -26,6 +27,9 @@ abstract interface class MpvAdapterBinding {
       VideoEnhancementProfile profile);
 
   Future<EnhancementDisableOutcome> disableEnhancement();
+
+  Future<PlaybackCommandResult> applySubtitleStyle(
+      SubtitleStyleProfile profile);
 }
 
 final class MpvPlayerAdapterFacade implements PlayerAdapter {
@@ -198,6 +202,28 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
     return binding.disableEnhancement();
   }
 
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.applySubtitleStyle);
+    }
+    final CapabilityStatus subtitleStyling =
+        capabilities.statusOf(PlaybackCapability.assSubtitleEnhancement);
+    if (!subtitleStyling.isSupported) {
+      return PlaybackCommandResult.failure(
+        PlaybackFailure(
+          operation: PlaybackOperation.applySubtitleStyle,
+          kind: PlaybackFailureKind.unsupported,
+          message: subtitleStyling.reason ?? 'Subtitle styling is unsupported.',
+        ),
+      );
+    }
+    return binding.applySubtitleStyle(profile);
+  }
+
   PlaybackCommandResult _unsupported(PlaybackOperation operation) {
     return PlaybackCommandResult.failure(
       PlaybackFailure(
@@ -235,8 +261,7 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
         status.debandFiltering.reason ?? 'Deband filtering is unsupported.',
       if (profile.anime4kPreset != Anime4kPresetIntent.off &&
           !status.anime4kPreset.isSupported)
-        status.anime4kPreset.reason ??
-            'Anime4K-style presets are unsupported.',
+        status.anime4kPreset.reason ?? 'Anime4K-style presets are unsupported.',
     ];
     if (reasons.isEmpty) return null;
     return EnhancementPipelineFailure(

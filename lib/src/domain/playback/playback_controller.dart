@@ -3,6 +3,8 @@ import '../../playback/player_adapter.dart';
 import '../../playback/track_management.dart';
 import '../../playback/video_enhancement_pipeline.dart';
 import 'playback_state.dart';
+import 'subtitle_auto_selection.dart';
+import 'subtitle_style.dart';
 
 typedef DomainPlaybackCommandResult = PlaybackCommandResult;
 typedef DomainTrackSwitchResult = TrackSwitchResult;
@@ -255,6 +257,12 @@ abstract interface class PlaybackControllerContract
   );
 
   Future<DomainVideoEnhancementApplyResult> disableVideoEnhancement();
+
+  Future<DomainPlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  );
+
+  SubtitleAutoSelectionSnapshot get subtitleAutoSelection;
 }
 
 DomainPlaybackCapabilitySummary domainPlaybackCapabilitySummaryFromMatrix(
@@ -277,14 +285,15 @@ DomainPlaybackCapabilitySummary domainPlaybackCapabilitySummaryFromMatrix(
 DomainTrackDiscoveryResult domainTrackDiscoveryResultFromPlayback(
   TrackDiscoveryResult result,
 ) {
-  final bool supported =
-      result.capabilityMatrix.supports(PlaybackCapability.audioTrackDiscovery) ||
-          result.capabilityMatrix
-              .supports(PlaybackCapability.subtitleTrackDiscovery);
+  final bool supported = result.capabilityMatrix
+          .supports(PlaybackCapability.audioTrackDiscovery) ||
+      result.capabilityMatrix
+          .supports(PlaybackCapability.subtitleTrackDiscovery);
   return DomainTrackDiscoveryResult(
     isSupported: supported,
-    unsupportedReason:
-        supported ? null : _trackDiscoveryUnsupportedReason(result.capabilityMatrix),
+    unsupportedReason: supported
+        ? null
+        : _trackDiscoveryUnsupportedReason(result.capabilityMatrix),
     tracks: <DomainMediaTrackDescriptor>[
       for (final MediaTrackDescriptor descriptor in result.tracks)
         DomainMediaTrackDescriptor(
@@ -443,9 +452,20 @@ final class PlaybackController implements PlaybackControllerContract {
       );
     }
     return activeAdapter.disableEnhancement().then(
-      domainVideoEnhancementResultFromDisableOutcome,
-    );
+          domainVideoEnhancementResultFromDisableOutcome,
+        );
   }
+
+  @override
+  Future<DomainPlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) {
+    return activeAdapter.applySubtitleStyle(profile);
+  }
+
+  @override
+  SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
+      const SubtitleAutoSelectionSnapshot.idle();
 }
 
 final class MockPlaybackController implements PlaybackControllerContract {
@@ -462,6 +482,9 @@ final class MockPlaybackController implements PlaybackControllerContract {
   final List<PlaybackStateObserver> _observers = <PlaybackStateObserver>[];
   final List<MediaTrackDescriptor> _tracks;
   PlaybackStateSnapshot _currentState;
+  SubtitleAutoSelectionSnapshot _subtitleAutoSelection =
+      const SubtitleAutoSelectionSnapshot.idle();
+  SubtitleStyleProfile? appliedSubtitleStyle;
 
   @override
   PlaybackCapabilityMatrix get matrix => _matrix;
@@ -591,6 +614,11 @@ final class MockPlaybackController implements PlaybackControllerContract {
         ),
       );
     }
+    if (trackType == DomainMediaTrackType.subtitle) {
+      _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.manualOverride(
+        selectedTrackId: trackId,
+      );
+    }
     return Future<TrackSwitchResult>.value(const TrackSwitchResult.success());
   }
 
@@ -627,6 +655,18 @@ final class MockPlaybackController implements PlaybackControllerContract {
     activeVideoEnhancementPreset = VideoEnhancementPresetSelection.off;
     return const DomainVideoEnhancementApplyResult.disabled();
   }
+
+  @override
+  Future<DomainPlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    appliedSubtitleStyle = profile;
+    return const PlaybackCommandResult.success();
+  }
+
+  @override
+  SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
+      _subtitleAutoSelection;
 
   PlaybackStateSnapshot _snapshotWith({
     PlaybackLifecycleStatus? status,
@@ -788,8 +828,7 @@ String _videoEnhancementPresetLabel(VideoEnhancementPresetSelection preset) {
   };
 }
 
-DomainVideoEnhancementApplyResult
-    domainVideoEnhancementResultFromApplyOutcome({
+DomainVideoEnhancementApplyResult domainVideoEnhancementResultFromApplyOutcome({
   required VideoEnhancementPresetSelection preset,
   required EnhancementApplyOutcome outcome,
 }) {

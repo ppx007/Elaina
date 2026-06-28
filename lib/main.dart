@@ -30,6 +30,31 @@ void main() {
   runApp(const MyApp());
 }
 
+Future<SubtitleAutoSelectPreferences> _loadSubtitleAutoSelectPreferences(
+  SettingsRuntime settingsRuntime,
+) async {
+  final bool enabled = SubtitleAutoSelectSettings.parseEnabled(
+    await settingsRuntime.getPreference(
+      SettingsPreferenceKeys.subtitleAutoSelectEnabled,
+    ),
+  );
+  final String? rawPattern = await settingsRuntime.getPreference(
+    SettingsPreferenceKeys.subtitleAutoSelectPattern,
+  );
+  try {
+    return SubtitleAutoSelectPreferences(
+      enabled: enabled,
+      customPattern: SubtitleAutoSelectSettings.parsePattern(rawPattern),
+    );
+  } on FormatException catch (error) {
+    return SubtitleAutoSelectPreferences(
+      enabled: enabled,
+      invalidPatternReason:
+          'Invalid subtitle auto-select regex, using Simplified Chinese default: ${error.message}',
+    );
+  }
+}
+
 class MyApp extends StatefulWidget {
   const MyApp({
     super.key,
@@ -133,6 +158,11 @@ class _MyAppState extends State<MyApp> {
       _composition = AppComposition();
       _bootstrap = PlayerCoreBootstrap.withComposition(
         composition: _composition!.playbackComposition,
+        subtitleAutoSelectPreferencesProvider: () {
+          return _loadSubtitleAutoSelectPreferences(
+            _composition!.settingsRuntime,
+          );
+        },
       );
       _playbackController = _bootstrap!.controller;
       _composition!.startAvSyncGuardMonitor(_playbackController);
@@ -193,8 +223,7 @@ class _MyAppState extends State<MyApp> {
               rssEngineRuntime: _rssEngineRuntime,
               downloadRuntime: _downloadRuntime,
               settingsRuntime: _settingsRuntime,
-              playbackBackendSelectionRuntime:
-                  _playbackBackendSelectionRuntime,
+              playbackBackendSelectionRuntime: _playbackBackendSelectionRuntime,
               diagnosticsRuntime: _diagnosticsRuntime,
               diagnosticsWorkbenchRuntime: _diagnosticsWorkbenchRuntime,
               profileProvider: _profileProvider,
@@ -202,9 +231,8 @@ class _MyAppState extends State<MyApp> {
               bangumiLoginController: _bangumiLoginController,
               homeRecommendationProvider: _homeRecommendationProvider,
               homeSearchProvider: _homeSearchProvider,
-              onAnime4kSettingsChanged: _composition == null
-                  ? null
-                  : _refreshAnime4kShaders,
+              onAnime4kSettingsChanged:
+                  _composition == null ? null : _refreshAnime4kShaders,
             ),
           );
         },

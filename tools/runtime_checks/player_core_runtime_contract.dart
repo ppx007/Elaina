@@ -2911,6 +2911,14 @@ final class _InMemoryMpvBinding implements MpvAdapterBinding {
     operations.add(PlaybackOperation.disableEnhancement);
     return const EnhancementDisableOutcome.disabled();
   }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    operations.add(PlaybackOperation.applySubtitleStyle);
+    return const PlaybackCommandResult.success();
+  }
 }
 
 final class _ConfigurablePlayerAdapter implements PlayerAdapter {
@@ -2933,6 +2941,7 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   int switchCount = 0;
   int applyEnhancementCount = 0;
   int disableEnhancementCount = 0;
+  int applySubtitleStyleCount = 0;
   MediaTrackId? switchedTrackId;
 
   @override
@@ -3000,6 +3009,14 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   Future<EnhancementDisableOutcome> disableEnhancement() async {
     disableEnhancementCount += 1;
     return const EnhancementDisableOutcome.disabled();
+  }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    applySubtitleStyleCount += 1;
+    return const PlaybackCommandResult.success();
   }
 }
 

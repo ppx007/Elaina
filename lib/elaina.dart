@@ -27,6 +27,7 @@ export 'src/domain/playback/playback_source_handoff.dart';
 export 'src/domain/playback/playback_state.dart';
 export 'src/domain/playback/player_core_bootstrap.dart';
 export 'src/domain/playback/player_core_runtime.dart';
+export 'src/domain/playback/subtitle_auto_selection.dart';
 export 'src/domain/playback/subtitle_style.dart';
 export 'src/domain/profile/bangumi_login_domain.dart';
 export 'src/domain/profile/bangumi_tracking_domain.dart';

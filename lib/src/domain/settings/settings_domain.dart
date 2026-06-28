@@ -7,6 +7,13 @@ import '../../foundation/constants.dart';
 import '../../foundation/storage/storage_contracts.dart';
 import '../playback/subtitle_style.dart';
 
+export '../playback/subtitle_auto_selection.dart'
+    show
+        SubtitleAutoSelectPreferences,
+        SubtitleAutoSelectSettings,
+        subtitleAutoSelectDisabledValue,
+        subtitleAutoSelectEnabledValue;
+
 abstract final class SettingsPreferenceKeys {
   static const String themeMode = 'theme_mode';
   static const String bangumiAccessToken = 'bangumi_access_token';
@@ -21,6 +28,10 @@ abstract final class SettingsPreferenceKeys {
   static const String playbackBackendMode = 'playback_backend_mode';
   static const String vlcRuntimeDirectory = 'vlc_runtime_directory';
   static const String subtitleStyleProfile = 'subtitle_style_profile';
+  static const String subtitleAutoSelectEnabled =
+      'subtitle_auto_select_enabled';
+  static const String subtitleAutoSelectPattern =
+      'subtitle_auto_select_pattern';
 }
 
 abstract final class SettingsThemeModePreference {
@@ -126,8 +137,7 @@ abstract final class SubtitleStyleSettings {
       backgroundOpacity: _double(decoded, _backgroundOpacity),
       lineHeight: _double(decoded, _lineHeight),
       bottomInset: _double(decoded, _bottomInset),
-      forceOverrideEmbeddedStyle:
-          _bool(decoded, _forceOverrideEmbeddedStyle),
+      forceOverrideEmbeddedStyle: _bool(decoded, _forceOverrideEmbeddedStyle),
     );
   }
 

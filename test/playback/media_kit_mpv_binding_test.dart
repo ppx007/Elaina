@@ -708,6 +708,54 @@ void main() {
     expect(backend.commandCalls.single, <String>[mpvSubtitleRemoveCommand]);
   });
 
+  test('subtitle style bridge applies MPV subtitle properties', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result = await binding.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(
+        fontFamily: 'Noto Sans CJK SC',
+        fontSize: 28,
+        textColorArgb: 0xFFFFFFFF,
+        textOpacity: 0.75,
+        outlineStrength: 3,
+        backgroundEnabled: false,
+        bottomInset: 120,
+        forceOverrideEmbeddedStyle: true,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(
+      backend.propertyCalls.map(
+        (_PropertyCall call) => '${call.property}=${call.value}',
+      ),
+      containsAll(<String>[
+        '$mpvSubtitleFontProperty=Noto Sans CJK SC',
+        '$mpvSubtitleFontSizeProperty=28',
+        '$mpvSubtitleColorProperty=#BFFFFFFF',
+        '$mpvSubtitleBorderSizeProperty=3',
+        '$mpvSubtitleBackColorProperty=$mpvSubtitleTransparentColorValue',
+        '$mpvSubtitleAssOverrideProperty=$mpvSubtitleAssOverrideForceValue',
+      ]),
+    );
+  });
+
+  test('subtitle style bridge reports unsupported without native properties',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      supportsNativeMpvCommands: false,
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result =
+        await binding.applySubtitleStyle(SubtitleStyleProfile.defaults);
+
+    expect(result.isSuccess, isFalse);
+    expect(result.failure?.kind, PlaybackFailureKind.unsupported);
+    expect(backend.propertyCalls, isEmpty);
+  });
+
   test('subtitle bridge normalizes backend failures', () async {
     final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
       failOnProperty: mpvSubtitleSecondaryProperty,

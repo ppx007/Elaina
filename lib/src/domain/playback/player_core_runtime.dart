@@ -9,6 +9,11 @@ import '../../playback/track_management.dart';
 import '../../playback/video_enhancement_pipeline.dart';
 import 'playback_controller.dart';
 import 'playback_state.dart';
+import 'subtitle_auto_selection.dart';
+import 'subtitle_style.dart';
+
+typedef SubtitleAutoSelectPreferencesProvider
+    = Future<SubtitleAutoSelectPreferences> Function();
 
 const double _bufferFractionMin = 0;
 const double _bufferFractionMax = 1;
@@ -25,12 +30,16 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     PlayerClock? clock,
     PlayerTelemetrySource? telemetrySource,
     PlaybackCapabilityProbeSource? capabilityProbeSource,
+    SubtitleAutoSelectPreferencesProvider?
+        subtitleAutoSelectPreferencesProvider,
     DateTime Function()? now,
   })  : _activeAdapter = activeAdapter,
         _foundationDependency = foundationDependency,
         _clock = clock ?? DeterministicPlayerClock(),
         _telemetrySource = telemetrySource,
         _capabilityProbeSource = capabilityProbeSource,
+        _subtitleAutoSelectPreferencesProvider =
+            subtitleAutoSelectPreferencesProvider,
         _now = now ?? DateTime.now {
     _controller = _RuntimePlaybackController(this);
     final PlayerTelemetrySource? source = _telemetrySource;
@@ -58,6 +67,8 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
     Object? foundationDependency,
     PlayerTelemetrySource? telemetrySource,
     PlaybackCapabilityProbeSource? capabilityProbeSource,
+    SubtitleAutoSelectPreferencesProvider?
+        subtitleAutoSelectPreferencesProvider,
     DateTime Function()? now,
   }) {
     return PlayerCoreRuntime(
@@ -68,6 +79,8 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
       foundationDependency: foundationDependency,
       telemetrySource: telemetrySource,
       capabilityProbeSource: capabilityProbeSource,
+      subtitleAutoSelectPreferencesProvider:
+          subtitleAutoSelectPreferencesProvider,
       now: now,
     );
   }
@@ -77,6 +90,8 @@ final class PlayerCoreRuntime implements ActivePlayerAdapterResolver {
   final PlayerClock _clock;
   final PlayerTelemetrySource? _telemetrySource;
   final PlaybackCapabilityProbeSource? _capabilityProbeSource;
+  final SubtitleAutoSelectPreferencesProvider?
+      _subtitleAutoSelectPreferencesProvider;
   final DateTime Function() _now;
   StreamSubscription<PlayerTelemetrySnapshot>? _telemetrySubscription;
   late final _RuntimePlaybackController _controller;
@@ -156,6 +171,12 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   final List<PlaybackStateObserver> _observers = <PlaybackStateObserver>[];
   PlaybackStateSnapshot _currentState =
       const PlaybackStateSnapshot(status: PlaybackLifecycleStatus.idle);
+  SubtitleAutoSelectionSnapshot _subtitleAutoSelection =
+      const SubtitleAutoSelectionSnapshot.idle();
+  Uri? _subtitleAutoSelectionSourceUri;
+  bool _subtitleAutoSelectionAttempted = false;
+  bool _subtitleManualOverride = false;
+  bool _subtitleAutoSelectionInFlight = false;
   bool _closed = false;
 
   @override
@@ -163,6 +184,10 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
 
   @override
   PlaybackStateSnapshot get currentState => _currentState;
+
+  @override
+  SubtitleAutoSelectionSnapshot get subtitleAutoSelection =>
+      _subtitleAutoSelection;
 
   @override
   void addPlaybackStateObserver(PlaybackStateObserver observer) {
@@ -194,6 +219,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   @override
   Future<PlaybackCommandResult> open(PlaybackSource source) async {
     if (_closed) return _runtime.disposedCommandResult(PlaybackOperation.load);
+    _resetSubtitleAutoSelection(source.uri);
     _publish(_snapshotWith(
         status: PlaybackLifecycleStatus.opening, sourceUri: source.uri));
     final PlaybackCommandResult sourceSupport = playbackSourceSupportResult(
@@ -209,6 +235,10 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     if (result.isSuccess) {
       _publish(_snapshotWith(
           status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
+      final PlayerTelemetrySource? telemetrySource = _runtime._telemetrySource;
+      if (telemetrySource != null) {
+        unawaited(_maybeAutoSelectSubtitle(telemetrySource.currentTelemetry));
+      }
     } else {
       _publishFailure(result);
     }
@@ -297,6 +327,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
         failureReason: telemetry.failureReason,
       ),
     );
+    unawaited(_maybeAutoSelectSubtitle(telemetry));
   }
 
   @override
@@ -353,8 +384,129 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
           },
         ),
       );
+      if (trackType == DomainMediaTrackType.subtitle &&
+          !_subtitleAutoSelectionInFlight) {
+        _subtitleManualOverride = true;
+        _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.manualOverride(
+          selectedTrackId: trackId,
+        );
+      }
     }
     return result;
+  }
+
+  @override
+  Future<DomainPlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    if (_closed) {
+      return _runtime.disposedCommandResult(
+        PlaybackOperation.applySubtitleStyle,
+      );
+    }
+    return _runtime._activeAdapter.applySubtitleStyle(profile);
+  }
+
+  Future<void> _maybeAutoSelectSubtitle(
+    PlayerTelemetrySnapshot telemetry,
+  ) async {
+    if (_closed || _subtitleAutoSelectionInFlight) return;
+    final Uri? sourceUri = currentState.sourceUri;
+    if (sourceUri == null) return;
+    if (_subtitleAutoSelectionSourceUri != sourceUri) {
+      _resetSubtitleAutoSelection(sourceUri);
+    }
+    if (_subtitleManualOverride || _subtitleAutoSelectionAttempted) return;
+    final List<DomainMediaTrackDescriptor> subtitleTracks =
+        _domainSubtitleTracks(telemetry.tracks);
+    if (subtitleTracks.isEmpty) return;
+
+    _subtitleAutoSelectionInFlight = true;
+    _subtitleAutoSelectionAttempted = true;
+    try {
+      final SubtitleAutoSelectPreferences preferences =
+          await _subtitleAutoSelectPreferences();
+      final SubtitleTrackAutoSelectionResult selection =
+          SubtitleTrackAutoSelectionPolicy(preferences: preferences).select(
+        subtitleTracks,
+      );
+      if (_closed || _subtitleManualOverride) return;
+      if (selection.isFailure) {
+        _subtitleAutoSelection =
+            SubtitleAutoSelectionSnapshot.failed(selection.failure!);
+        return;
+      }
+      final DomainMediaTrackDescriptor? selected = selection.track;
+      if (selected == null || selection.rule == null) {
+        _subtitleAutoSelection = preferences.enabled
+            ? SubtitleAutoSelectionSnapshot.noMatch(
+                selection.message ?? 'No subtitle track matched.',
+              )
+            : const SubtitleAutoSelectionSnapshot.disabled();
+        return;
+      }
+      if (currentState.activeTracks.subtitleTrackId?.value ==
+          selected.id.value) {
+        _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.selected(
+          selectedTrackId: selected.id,
+          rule: selection.rule!,
+          message: selection.message ?? 'Subtitle track already selected.',
+        );
+        return;
+      }
+      final TrackSwitchResult result = await switchTrack(
+        selected.id,
+        trackType: DomainMediaTrackType.subtitle,
+      );
+      if (result.isSuccess) {
+        _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.selected(
+          selectedTrackId: selected.id,
+          rule: selection.rule!,
+          message: selection.message ?? 'Subtitle track selected.',
+        );
+      } else {
+        _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.failed(
+          result.failure ?? 'Subtitle auto-selection failed.',
+        );
+      }
+    } on Object catch (error) {
+      _subtitleAutoSelection = SubtitleAutoSelectionSnapshot.failed(
+        'Subtitle auto-selection failed: $error',
+      );
+    } finally {
+      _subtitleAutoSelectionInFlight = false;
+    }
+  }
+
+  Future<SubtitleAutoSelectPreferences> _subtitleAutoSelectPreferences() async {
+    final SubtitleAutoSelectPreferencesProvider? provider =
+        _runtime._subtitleAutoSelectPreferencesProvider;
+    if (provider == null) return const SubtitleAutoSelectPreferences();
+    return provider();
+  }
+
+  List<DomainMediaTrackDescriptor> _domainSubtitleTracks(
+    Iterable<MediaTrackDescriptor> tracks,
+  ) {
+    return <DomainMediaTrackDescriptor>[
+      for (final MediaTrackDescriptor track in tracks)
+        if (track.type == MediaTrackType.subtitle)
+          DomainMediaTrackDescriptor(
+            id: DomainMediaTrackId(track.id.value),
+            type: DomainMediaTrackType.subtitle,
+            label: track.label,
+            languageCode: track.languageCode,
+            isSelected: track.isSelected,
+          ),
+    ];
+  }
+
+  void _resetSubtitleAutoSelection(Uri sourceUri) {
+    _subtitleAutoSelectionSourceUri = sourceUri;
+    _subtitleAutoSelectionAttempted = false;
+    _subtitleManualOverride = false;
+    _subtitleAutoSelectionInFlight = false;
+    _subtitleAutoSelection = const SubtitleAutoSelectionSnapshot.idle();
   }
 
   @override

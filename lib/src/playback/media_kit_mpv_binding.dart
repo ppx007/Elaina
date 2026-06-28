@@ -13,6 +13,7 @@ import 'player_adapter.dart';
 import 'player_runtime_composition.dart';
 import 'player_telemetry.dart';
 import 'subtitle/subtitle_source.dart';
+import 'subtitle_style.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 import 'virtual_stream_playback_source.dart';
@@ -70,6 +71,20 @@ const String mpvSubtitleAutoValue = 'auto';
 const String mpvSubtitleNoValue = 'no';
 const String mpvSubtitleEnabledValue = 'yes';
 const String mpvSubtitleDisabledValue = 'no';
+const String mpvSubtitleFontProperty = 'sub-font';
+const String mpvSubtitleFontSizeProperty = 'sub-font-size';
+const String mpvSubtitleColorProperty = 'sub-color';
+const String mpvSubtitleBorderColorProperty = 'sub-border-color';
+const String mpvSubtitleBorderSizeProperty = 'sub-border-size';
+const String mpvSubtitleBackColorProperty = 'sub-back-color';
+const String mpvSubtitleBoldProperty = 'sub-bold';
+const String mpvSubtitlePositionProperty = 'sub-pos';
+const String mpvSubtitleAssOverrideProperty = 'sub-ass-override';
+const String mpvSubtitleAssOverrideNoValue = 'no';
+const String mpvSubtitleAssOverrideForceValue = 'force';
+const String mpvSubtitleBoldEnabledValue = 'yes';
+const String mpvSubtitleBoldDisabledValue = 'no';
+const String mpvSubtitleTransparentColorValue = '#00000000';
 const String mpvAvSyncProperty = 'avsync';
 const String mpvTimePositionProperty = 'time-pos';
 const String mpvFrameDropCountProperty = 'frame-drop-count';
@@ -234,6 +249,101 @@ final class MpvSubtitlePlanner {
   static String _subtitlePath(Uri uri) {
     if (uri.scheme == 'file') return uri.toFilePath();
     return uri.toString();
+  }
+}
+
+final class MpvSubtitleStylePlan {
+  MpvSubtitleStylePlan(Iterable<MpvSubtitleCommand> commands)
+      : commands = List<MpvSubtitleCommand>.unmodifiable(commands);
+
+  final List<MpvSubtitleCommand> commands;
+}
+
+final class MpvSubtitleStylePlanner {
+  const MpvSubtitleStylePlanner();
+
+  MpvSubtitleStylePlan build(SubtitleStyleProfile profile) {
+    return MpvSubtitleStylePlan(<MpvSubtitleCommand>[
+      if (profile.fontFamily.trim().isNotEmpty)
+        MpvSubtitleCommand.setProperty(
+          property: mpvSubtitleFontProperty,
+          value: profile.fontFamily.trim(),
+        ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleFontSizeProperty,
+        value: _mpvDouble(profile.fontSize),
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleColorProperty,
+        value: _mpvColor(
+          profile.textColorArgb,
+          opacity: profile.textOpacity,
+        ),
+      ),
+      const MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleBorderColorProperty,
+        value: '#FF000000',
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleBorderSizeProperty,
+        value: _mpvDouble(profile.outlineStrength),
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleBackColorProperty,
+        value: profile.backgroundEnabled
+            ? _mpvColor(0xFF000000, opacity: profile.backgroundOpacity)
+            : mpvSubtitleTransparentColorValue,
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleBoldProperty,
+        value: _mpvBoldValue(profile.fontWeight),
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitlePositionProperty,
+        value: _mpvDouble(_mpvSubtitlePosition(profile.bottomInset)),
+      ),
+      MpvSubtitleCommand.setProperty(
+        property: mpvSubtitleAssOverrideProperty,
+        value: profile.forceOverrideEmbeddedStyle
+            ? mpvSubtitleAssOverrideForceValue
+            : mpvSubtitleAssOverrideNoValue,
+      ),
+    ]);
+  }
+
+  static String _mpvColor(int argb, {required double opacity}) {
+    final int alpha = (((argb >> 24) & 0xFF) * opacity.clamp(0, 1)).round();
+    final int red = (argb >> 16) & 0xFF;
+    final int green = (argb >> 8) & 0xFF;
+    final int blue = argb & 0xFF;
+    return '#${_hex2(alpha)}${_hex2(red)}${_hex2(green)}${_hex2(blue)}';
+  }
+
+  static String _hex2(int value) {
+    return value.clamp(0, 255).toRadixString(16).padLeft(2, '0').toUpperCase();
+  }
+
+  static String _mpvDouble(double value) {
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.00$'), '');
+  }
+
+  static String _mpvBoldValue(SubtitleStyleFontWeight weight) {
+    return switch (weight) {
+      SubtitleStyleFontWeight.normal => mpvSubtitleBoldDisabledValue,
+      SubtitleStyleFontWeight.medium ||
+      SubtitleStyleFontWeight.bold =>
+        mpvSubtitleBoldEnabledValue,
+    };
+  }
+
+  static double _mpvSubtitlePosition(double bottomInset) {
+    const double minPosition = 70;
+    const double maxPosition = 100;
+    const double maxInset = 240;
+    return (maxPosition -
+            (bottomInset / maxInset * (maxPosition - minPosition)))
+        .clamp(minPosition, maxPosition)
+        .toDouble();
   }
 }
 
@@ -859,13 +969,15 @@ final class MediaKitMpvBinding
           shaderChainsByPreset: anime4kShaderChainsByPreset,
         ),
         _anime4kShaderSource = anime4kShaderSource,
-        _subtitlePlanner = const MpvSubtitlePlanner();
+        _subtitlePlanner = const MpvSubtitlePlanner(),
+        _subtitleStylePlanner = const MpvSubtitleStylePlanner();
 
   MediaKitMpvBackend? _backend;
   final MediaKitMpvBackendFactory _backendFactory;
   Map<Anime4kPresetIntent, List<Uri>> _anime4kShaderChainsByPreset;
   String _anime4kShaderSource;
   final MpvSubtitlePlanner _subtitlePlanner;
+  final MpvSubtitleStylePlanner _subtitleStylePlanner;
   int? _previousAvSyncDropCounterTotal;
   bool _disposed = false;
 
@@ -1216,6 +1328,43 @@ final class MediaKitMpvBinding
       return EnhancementDisableOutcome.rejected(failure: failure);
     }
     return const EnhancementDisableOutcome.disabled();
+  }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.applySubtitleStyle);
+    if (disposed != null) return disposed;
+
+    final CapabilityStatus subtitleStyling =
+        currentCapabilityProbe.capabilities.statusOf(
+      PlaybackCapability.assSubtitleEnhancement,
+    );
+    if (!subtitleStyling.isSupported) {
+      return _failure(
+        operation: PlaybackOperation.applySubtitleStyle,
+        kind: PlaybackFailureKind.unsupported,
+        message:
+            subtitleStyling.reason ?? 'MPV subtitle styling is unsupported.',
+      );
+    }
+
+    try {
+      final MediaKitMpvBackend backend = _backend ??= _backendFactory();
+      final MpvSubtitleStylePlan plan = _subtitleStylePlanner.build(profile);
+      for (final MpvSubtitleCommand command in plan.commands) {
+        await backend.setProperty(command.property!, command.value!);
+      }
+      return const PlaybackCommandResult.success();
+    } on Object catch (error) {
+      return _failure(
+        operation: PlaybackOperation.applySubtitleStyle,
+        kind: PlaybackFailureKind.operationFailed,
+        message: 'Concrete MPV subtitle style operation failed: $error',
+      );
+    }
   }
 
   @override

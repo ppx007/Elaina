@@ -330,4 +330,19 @@ final class _TestFallbackAdapter implements PlayerAdapter {
           ),
         ),
       );
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) {
+    return Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.failure(
+        PlaybackFailure(
+          operation: PlaybackOperation.applySubtitleStyle,
+          kind: PlaybackFailureKind.unsupported,
+          message: 'Subtitle styling unsupported.',
+        ),
+      ),
+    );
+  }
 }

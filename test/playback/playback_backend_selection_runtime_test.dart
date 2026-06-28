@@ -290,6 +290,14 @@ final class _RecordingAdapter implements PlayerAdapter {
   Future<EnhancementDisableOutcome> disableEnhancement() async {
     return const EnhancementDisableOutcome.disabled();
   }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    calls.add('subtitle-style');
+    return const PlaybackCommandResult.success();
+  }
 }
 
 final class _ManualTelemetrySource implements PlayerTelemetrySource {

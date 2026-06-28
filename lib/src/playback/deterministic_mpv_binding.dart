@@ -1,6 +1,7 @@
 import 'capability_matrix.dart';
 import 'mpv_adapter_facade.dart';
 import 'player_adapter.dart';
+import 'subtitle_style.dart';
 import 'track_management.dart';
 import 'video_enhancement_pipeline.dart';
 
@@ -25,6 +26,7 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
   MediaTrackId? switchedTrackId;
   VideoEnhancementProfile? activeEnhancementProfile;
   bool enhancementDisabled = false;
+  SubtitleStyleProfile? appliedSubtitleStyle;
 
   bool get isDisposed => _disposed;
 
@@ -149,6 +151,19 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
     activeEnhancementProfile = null;
     enhancementDisabled = true;
     return const EnhancementDisableOutcome.disabled();
+  }
+
+  @override
+  Future<PlaybackCommandResult> applySubtitleStyle(
+    SubtitleStyleProfile profile,
+  ) async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.applySubtitleStyle);
+    if (disposed != null) return disposed;
+    operations.add(PlaybackOperation.applySubtitleStyle);
+    appliedSubtitleStyle = profile;
+    return _resultFor?.call(PlaybackOperation.applySubtitleStyle) ??
+        const PlaybackCommandResult.success();
   }
 
   Future<PlaybackCommandResult> _recordCommand(
