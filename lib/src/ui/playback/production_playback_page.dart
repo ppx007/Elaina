@@ -36,6 +36,7 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   static const Duration _overlayAnimationDuration = Duration(milliseconds: 220);
   static const Duration _playButtonAnimationDuration =
       Duration(milliseconds: 160);
+  static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
   static const double _topBarHeight = 72;
   static const double _topBarHiddenOffset = -88;
   static const double _bottomBarHiddenOffset = -140;
@@ -112,12 +113,18 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
   bool _isInspectorVisible = false;
   bool _areSubtitlesVisible = true;
   bool _isDanmakuVisible = true;
+  bool _isTimelineScrubbing = false;
+  bool _controlsRevealedByPointerActivity = false;
+  Timer? _controlsAutoHideTimer;
 
   @override
   void initState() {
     super.initState();
     _driver = ControllerPlaybackPageDriver(controller: widget.controller);
     _driver.addListener(_handleDriverChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncControlsForPlaybackState();
+    });
   }
 
   @override
@@ -128,27 +135,37 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
       _driver.dispose();
       _driver = ControllerPlaybackPageDriver(controller: widget.controller);
       _driver.addListener(_handleDriverChanged);
+      _showControlsAndMaybeScheduleHide();
     }
   }
 
   @override
   void dispose() {
+    _controlsAutoHideTimer?.cancel();
     _driver.removeListener(_handleDriverChanged);
     _driver.dispose();
     super.dispose();
   }
 
   void _handleDriverChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _syncControlsForPlaybackState();
   }
 
   void _toggleControls() {
+    _controlsRevealedByPointerActivity = false;
+    _controlsAutoHideTimer?.cancel();
     setState(() {
       _areControlsVisible = !_areControlsVisible;
     });
+    if (_areControlsVisible) {
+      _scheduleControlsAutoHideIfNeeded();
+    }
   }
 
   void _openInspector() {
+    _controlsAutoHideTimer?.cancel();
     setState(() {
       _areControlsVisible = true;
       _isInspectorVisible = true;
@@ -166,6 +183,93 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
     setState(() {
       _isInspectorVisible = false;
     });
+    _scheduleControlsAutoHideIfNeeded();
+  }
+
+  void _showControlsAndMaybeScheduleHide() {
+    if (!mounted) return;
+    if (!_areControlsVisible) {
+      setState(() {
+        _areControlsVisible = true;
+      });
+    }
+    _scheduleControlsAutoHideIfNeeded();
+  }
+
+  void _syncControlsForPlaybackState() {
+    if (!_shouldAutoHideControls()) {
+      _controlsAutoHideTimer?.cancel();
+      if (!_areControlsVisible) {
+        setState(() {
+          _areControlsVisible = true;
+        });
+      }
+      return;
+    }
+    if (_areControlsVisible) {
+      _scheduleControlsAutoHideIfNeeded(restart: false);
+    }
+  }
+
+  bool _shouldAutoHideControls() {
+    final PlaybackStateSnapshot playback = _driver.view.playback;
+    return playback.status == PlaybackLifecycleStatus.playing &&
+        !playback.buffering.isBuffering &&
+        !_isInspectorVisible &&
+        !_isTimelineScrubbing;
+  }
+
+  void _scheduleControlsAutoHideIfNeeded({bool restart = true}) {
+    if (!restart && (_controlsAutoHideTimer?.isActive ?? false)) return;
+    _controlsAutoHideTimer?.cancel();
+    if (!_shouldAutoHideControls()) return;
+    _controlsAutoHideTimer = Timer(_controlsAutoHideDelay, () {
+      if (!mounted || !_shouldAutoHideControls()) return;
+      setState(() {
+        _areControlsVisible = false;
+      });
+    });
+  }
+
+  void _handlePointerActivity() {
+    if (!_areControlsVisible) {
+      _controlsRevealedByPointerActivity = true;
+    }
+    _showControlsAndMaybeScheduleHide();
+  }
+
+  void _handleVideoSurfacePointerDown() {
+    if (_areControlsVisible) {
+      if (_controlsRevealedByPointerActivity) {
+        _controlsRevealedByPointerActivity = false;
+        _scheduleControlsAutoHideIfNeeded();
+        return;
+      }
+      _toggleControls();
+      return;
+    }
+    _showControlsAndMaybeScheduleHide();
+  }
+
+  void _handlePagePointerDown() {
+    if (_areControlsVisible) return;
+    _controlsRevealedByPointerActivity = true;
+    _showControlsAndMaybeScheduleHide();
+  }
+
+  void _handleTimelineScrubStart() {
+    _controlsAutoHideTimer?.cancel();
+    setState(() {
+      _isTimelineScrubbing = true;
+      _areControlsVisible = true;
+    });
+  }
+
+  void _handleTimelineScrubEnd(Duration _) {
+    setState(() {
+      _isTimelineScrubbing = false;
+    });
+    _scheduleControlsAutoHideIfNeeded();
   }
 
   @override
@@ -186,80 +290,98 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
         ),
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Stack(
-            children: <Widget>[
-              // Layer order matters: the native surface stays at the bottom,
-              // passive overlays sit above it, and interactive controls/inspector
-              // own the top hit-test regions.
-              Positioned.fill(child: Center(child: widget.videoSurface)),
-              Positioned.fill(
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _toggleControls,
+          body: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (_) => _handlePagePointerDown(),
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                // Layer order matters: the native surface stays at the bottom,
+                // passive overlays sit above it, and interactive controls/inspector
+                // own the top hit-test regions.
+                Positioned.fill(child: Center(child: widget.videoSurface)),
+                _SubtitleOverlay(
+                  view: view,
+                  controlsVisible: _areControlsVisible,
+                  visible: _areSubtitlesVisible,
+                ),
+                _MatrixDanmakuOverlay(
+                  view: view,
+                  visible: _isDanmakuVisible,
+                  repaint: _driver,
+                ),
+                _DanmakuOverlay(view: view, visible: _isDanmakuVisible),
+                Positioned.fill(
+                  child: SizedBox.expand(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      onHover: (_) => _handlePointerActivity(),
+                      child: GestureDetector(
+                        key: const ValueKey<String>(
+                          UiElementIds.playbackControlsWakeLayer,
+                        ),
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (_) => _handleVideoSurfacePointerDown(),
+                        child: const ColoredBox(color: Colors.transparent),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              _SubtitleOverlay(
-                view: view,
-                controlsVisible: _areControlsVisible,
-                visible: _areSubtitlesVisible,
-              ),
-              _MatrixDanmakuOverlay(
-                view: view,
-                visible: _isDanmakuVisible,
-                repaint: _driver,
-              ),
-              _DanmakuOverlay(view: view, visible: _isDanmakuVisible),
-              _CenterPlaybackStatus(
-                view: view,
-                driver: _driver,
-                controlsVisible: _areControlsVisible,
-              ),
-              _TopPlaybackBar(
-                view: view,
-                visible: _areControlsVisible,
-                onStop: () => _driver.dispatch(const PlaybackPageIntent.stop()),
-              ),
-              _BottomTransportBar(
-                view: view,
-                driver: _driver,
-                visible: _areControlsVisible,
-                subtitlesVisible: _areSubtitlesVisible,
-                danmakuVisible: _isDanmakuVisible,
-                onOpenInspector: _openInspector,
-                onToggleSubtitles: () {
-                  setState(() {
-                    _areSubtitlesVisible = !_areSubtitlesVisible;
-                  });
-                },
-                onToggleDanmaku: () {
-                  setState(() {
-                    _isDanmakuVisible = !_isDanmakuVisible;
-                  });
-                },
-              ),
-              _InspectorLayer(
-                view: view,
-                driver: _driver,
-                visible: _isInspectorVisible,
-                subtitlesVisible: _areSubtitlesVisible,
-                danmakuVisible: _isDanmakuVisible,
-                onClose: _closeInspector,
-                onRefreshTracks: _driver.loadTracks,
-                onToggleSubtitles: () {
-                  setState(() {
-                    _areSubtitlesVisible = !_areSubtitlesVisible;
-                  });
-                },
-                onToggleDanmaku: () {
-                  setState(() {
-                    _isDanmakuVisible = !_isDanmakuVisible;
-                  });
-                },
-              ),
-            ],
+                _CenterPlaybackStatus(
+                  view: view,
+                  driver: _driver,
+                  controlsVisible: _areControlsVisible,
+                ),
+                _TopPlaybackBar(
+                  view: view,
+                  visible: _areControlsVisible,
+                  onStop: () =>
+                      _driver.dispatch(const PlaybackPageIntent.stop()),
+                ),
+                _BottomTransportBar(
+                  view: view,
+                  driver: _driver,
+                  visible: _areControlsVisible,
+                  subtitlesVisible: _areSubtitlesVisible,
+                  danmakuVisible: _isDanmakuVisible,
+                  onOpenInspector: _openInspector,
+                  onInteraction: _handlePointerActivity,
+                  onTimelineScrubStart: _handleTimelineScrubStart,
+                  onTimelineScrubEnd: _handleTimelineScrubEnd,
+                  onToggleSubtitles: () {
+                    _handlePointerActivity();
+                    setState(() {
+                      _areSubtitlesVisible = !_areSubtitlesVisible;
+                    });
+                  },
+                  onToggleDanmaku: () {
+                    _handlePointerActivity();
+                    setState(() {
+                      _isDanmakuVisible = !_isDanmakuVisible;
+                    });
+                  },
+                ),
+                _InspectorLayer(
+                  view: view,
+                  driver: _driver,
+                  visible: _isInspectorVisible,
+                  subtitlesVisible: _areSubtitlesVisible,
+                  danmakuVisible: _isDanmakuVisible,
+                  onClose: _closeInspector,
+                  onRefreshTracks: _driver.loadTracks,
+                  onToggleSubtitles: () {
+                    setState(() {
+                      _areSubtitlesVisible = !_areSubtitlesVisible;
+                    });
+                  },
+                  onToggleDanmaku: () {
+                    setState(() {
+                      _isDanmakuVisible = !_isDanmakuVisible;
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -281,6 +403,7 @@ class _TopPlaybackBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedPositioned(
+      key: const ValueKey<String>(UiElementIds.playbackTopControls),
       duration: _ProductionPlaybackPageState._overlayAnimationDuration,
       top: visible ? 0 : _ProductionPlaybackPageState._topBarHiddenOffset,
       left: 0,
@@ -359,6 +482,9 @@ class _BottomTransportBar extends StatelessWidget {
     required this.subtitlesVisible,
     required this.danmakuVisible,
     required this.onOpenInspector,
+    required this.onInteraction,
+    required this.onTimelineScrubStart,
+    required this.onTimelineScrubEnd,
     required this.onToggleSubtitles,
     required this.onToggleDanmaku,
   });
@@ -369,6 +495,9 @@ class _BottomTransportBar extends StatelessWidget {
   final bool subtitlesVisible;
   final bool danmakuVisible;
   final VoidCallback onOpenInspector;
+  final VoidCallback onInteraction;
+  final VoidCallback onTimelineScrubStart;
+  final ValueChanged<Duration> onTimelineScrubEnd;
   final VoidCallback onToggleSubtitles;
   final VoidCallback onToggleDanmaku;
 
@@ -388,6 +517,7 @@ class _BottomTransportBar extends StatelessWidget {
             view.surface.hasActiveControl(PlaybackPageControlId.seek);
 
     return AnimatedPositioned(
+      key: const ValueKey<String>(UiElementIds.playbackBottomControls),
       duration: _ProductionPlaybackPageState._overlayAnimationDuration,
       bottom: visible ? 0 : _ProductionPlaybackPageState._bottomBarHiddenOffset,
       left: 0,
@@ -423,6 +553,8 @@ class _BottomTransportBar extends StatelessWidget {
                       unawaited(
                           driver.dispatch(PlaybackPageIntent.seek(target)));
                     },
+                    onScrubStart: onTimelineScrubStart,
+                    onScrubEnd: onTimelineScrubEnd,
                   ),
                 Row(
                   children: <Widget>[
@@ -441,6 +573,7 @@ class _BottomTransportBar extends StatelessWidget {
                             : Icons.play_arrow,
                         size: _ProductionPlaybackPageState._transportButtonSize,
                         onPressed: () {
+                          onInteraction();
                           final PlaybackPageIntent intent =
                               playback.status == PlaybackLifecycleStatus.playing
                                   ? const PlaybackPageIntent.pause()
@@ -456,6 +589,7 @@ class _BottomTransportBar extends StatelessWidget {
                         icon: Icons.stop,
                         size: _ProductionPlaybackPageState._transportButtonSize,
                         onPressed: () {
+                          onInteraction();
                           unawaited(
                             driver.dispatch(const PlaybackPageIntent.stop()),
                           );
@@ -513,7 +647,10 @@ class _BottomTransportBar extends StatelessWidget {
                       tooltip: '打开播放信息',
                       icon: Icons.tune,
                       size: _ProductionPlaybackPageState._iconOnlyButtonSize,
-                      onPressed: onOpenInspector,
+                      onPressed: () {
+                        onInteraction();
+                        onOpenInspector();
+                      },
                     ),
                   ],
                 ),
@@ -534,6 +671,8 @@ class _TimelineControl extends StatelessWidget {
     required this.sliderMax,
     required this.canSeek,
     required this.onSeek,
+    required this.onScrubStart,
+    required this.onScrubEnd,
   });
 
   final Duration position;
@@ -542,48 +681,136 @@ class _TimelineControl extends StatelessWidget {
   final double sliderMax;
   final bool canSeek;
   final ValueChanged<Duration> onSeek;
+  final VoidCallback onScrubStart;
+  final ValueChanged<Duration> onScrubEnd;
 
   @override
   Widget build(BuildContext context) {
     final double sliderValue =
         position.inMilliseconds.toDouble().clamp(0.0, sliderMax).toDouble();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        ClipRRect(
-          borderRadius: BorderRadius.circular(
-            _ProductionPlaybackPageState._bufferBarHeight,
-          ),
-          child: LinearProgressIndicator(
-            minHeight: _ProductionPlaybackPageState._bufferBarHeight,
-            value: _normalizedFraction(bufferedFraction),
-            backgroundColor: Colors.white.withValues(
-              alpha: _ProductionPlaybackPageState._bufferTrackAlpha,
-            ),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Colors.white.withValues(
-                alpha: _ProductionPlaybackPageState._bufferValueAlpha,
-              ),
-            ),
-          ),
+    final double? normalizedBuffered = _normalizedFraction(bufferedFraction);
+    final double? bufferedValue = normalizedBuffered == null
+        ? null
+        : (normalizedBuffered * sliderMax)
+            .clamp(sliderValue, sliderMax)
+            .toDouble();
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        trackHeight: _ProductionPlaybackPageState._bufferBarHeight,
+        trackShape: const _BufferedPlaybackSliderTrackShape(),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+        activeTrackColor: Colors.white,
+        inactiveTrackColor: Colors.white.withValues(
+          alpha: _ProductionPlaybackPageState._bufferTrackAlpha,
         ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: _ProductionPlaybackPageState._bufferBarHeight,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-          ),
-          child: Slider(
-            key: const ValueKey<String>(UiElementIds.playbackSeekBar),
-            value: sliderValue,
-            max: sliderMax,
-            onChanged: canSeek
-                ? (double value) {
-                    onSeek(Duration(milliseconds: value.round()));
-                  }
-                : null,
-          ),
+        secondaryActiveTrackColor: Colors.white.withValues(
+          alpha: _ProductionPlaybackPageState._bufferValueAlpha,
         ),
-      ],
+      ),
+      child: Slider(
+        key: const ValueKey<String>(UiElementIds.playbackSeekBar),
+        value: sliderValue,
+        max: sliderMax,
+        secondaryTrackValue: bufferedValue,
+        onChangeStart: canSeek ? (_) => onScrubStart() : null,
+        onChangeEnd: canSeek
+            ? (double value) {
+                onScrubEnd(Duration(milliseconds: value.round()));
+              }
+            : null,
+        onChanged: canSeek
+            ? (double value) {
+                onSeek(Duration(milliseconds: value.round()));
+              }
+            : null,
+      ),
+    );
+  }
+}
+
+class _BufferedPlaybackSliderTrackShape extends SliderTrackShape
+    with BaseSliderTrackShape {
+  const _BufferedPlaybackSliderTrackShape();
+
+  @override
+  bool get isRounded => true;
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+  }) {
+    final Rect trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final Radius radius = Radius.circular(trackRect.height / 2);
+    final Canvas canvas = context.canvas;
+    final Paint inactivePaint = Paint()
+      ..color = sliderTheme.inactiveTrackColor ?? Colors.transparent;
+    final Paint bufferedPaint = Paint()
+      ..color = sliderTheme.secondaryActiveTrackColor ?? Colors.transparent;
+    final Paint playedPaint = Paint()
+      ..color = sliderTheme.activeTrackColor ?? Colors.transparent;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(trackRect, radius),
+      inactivePaint,
+    );
+
+    final bool isLeftToRight = textDirection == TextDirection.ltr;
+    final double start = isLeftToRight ? trackRect.left : trackRect.right;
+    final double playedEnd = thumbCenter.dx
+        .clamp(
+          trackRect.left,
+          trackRect.right,
+        )
+        .toDouble();
+    final double? bufferedEnd = secondaryOffset?.dx
+        .clamp(
+          trackRect.left,
+          trackRect.right,
+        )
+        .toDouble();
+
+    if (bufferedEnd != null) {
+      final Rect bufferedRect = isLeftToRight
+          ? Rect.fromLTRB(
+              trackRect.left,
+              trackRect.top,
+              bufferedEnd,
+              trackRect.bottom,
+            )
+          : Rect.fromLTRB(
+              bufferedEnd,
+              trackRect.top,
+              trackRect.right,
+              trackRect.bottom,
+            );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bufferedRect, radius),
+        bufferedPaint,
+      );
+    }
+
+    final Rect playedRect = isLeftToRight
+        ? Rect.fromLTRB(start, trackRect.top, playedEnd, trackRect.bottom)
+        : Rect.fromLTRB(playedEnd, trackRect.top, start, trackRect.bottom);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(playedRect, radius),
+      playedPaint,
     );
   }
 }
@@ -1060,59 +1287,63 @@ class _InspectorLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final bool compact = constraints.maxWidth <
-              _ProductionPlaybackPageState._compactInspectorBreakpoint;
-          // Wide screens use a persistent right inspector; compact screens use
-          // a bottom sheet so the video surface remains the primary target.
-          return Stack(
-            children: <Widget>[
-              if (compact)
-                AnimatedPositioned(
-                  duration:
-                      _ProductionPlaybackPageState._overlayAnimationDuration,
-                  left: 0,
-                  right: 0,
-                  bottom: visible
-                      ? 0
-                      : -_ProductionPlaybackPageState._compactInspectorHeight,
-                  height: _ProductionPlaybackPageState._compactInspectorHeight,
-                  child: _PlaybackInspector(
-                    view: view,
-                    driver: driver,
-                    subtitlesVisible: subtitlesVisible,
-                    danmakuVisible: danmakuVisible,
-                    onClose: onClose,
-                    onRefreshTracks: onRefreshTracks,
-                    onToggleSubtitles: onToggleSubtitles,
-                    onToggleDanmaku: onToggleDanmaku,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool compact = constraints.maxWidth <
+                _ProductionPlaybackPageState._compactInspectorBreakpoint;
+            // Wide screens use a persistent right inspector; compact screens use
+            // a bottom sheet so the video surface remains the primary target.
+            return Stack(
+              children: <Widget>[
+                if (compact)
+                  AnimatedPositioned(
+                    duration:
+                        _ProductionPlaybackPageState._overlayAnimationDuration,
+                    left: 0,
+                    right: 0,
+                    bottom: visible
+                        ? 0
+                        : -_ProductionPlaybackPageState._compactInspectorHeight,
+                    height:
+                        _ProductionPlaybackPageState._compactInspectorHeight,
+                    child: _PlaybackInspector(
+                      view: view,
+                      driver: driver,
+                      subtitlesVisible: subtitlesVisible,
+                      danmakuVisible: danmakuVisible,
+                      onClose: onClose,
+                      onRefreshTracks: onRefreshTracks,
+                      onToggleSubtitles: onToggleSubtitles,
+                      onToggleDanmaku: onToggleDanmaku,
+                    ),
+                  )
+                else
+                  AnimatedPositioned(
+                    duration:
+                        _ProductionPlaybackPageState._overlayAnimationDuration,
+                    top: 0,
+                    bottom: 0,
+                    right: visible
+                        ? 0
+                        : -_ProductionPlaybackPageState._inspectorWidth,
+                    width: _ProductionPlaybackPageState._inspectorWidth,
+                    child: _PlaybackInspector(
+                      view: view,
+                      driver: driver,
+                      subtitlesVisible: subtitlesVisible,
+                      danmakuVisible: danmakuVisible,
+                      onClose: onClose,
+                      onRefreshTracks: onRefreshTracks,
+                      onToggleSubtitles: onToggleSubtitles,
+                      onToggleDanmaku: onToggleDanmaku,
+                    ),
                   ),
-                )
-              else
-                AnimatedPositioned(
-                  duration:
-                      _ProductionPlaybackPageState._overlayAnimationDuration,
-                  top: 0,
-                  bottom: 0,
-                  right: visible
-                      ? 0
-                      : -_ProductionPlaybackPageState._inspectorWidth,
-                  width: _ProductionPlaybackPageState._inspectorWidth,
-                  child: _PlaybackInspector(
-                    view: view,
-                    driver: driver,
-                    subtitlesVisible: subtitlesVisible,
-                    danmakuVisible: danmakuVisible,
-                    onClose: onClose,
-                    onRefreshTracks: onRefreshTracks,
-                    onToggleSubtitles: onToggleSubtitles,
-                    onToggleDanmaku: onToggleDanmaku,
-                  ),
-                ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

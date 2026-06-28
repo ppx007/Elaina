@@ -178,6 +178,12 @@ abstract final class ElainaFinders {
       byId(UiElementIds.heroCarouselCachePin);
 
   static Finder get playbackPage => byId(UiElementIds.playbackPage);
+  static Finder get playbackTopControls =>
+      byId(UiElementIds.playbackTopControls);
+  static Finder get playbackBottomControls =>
+      byId(UiElementIds.playbackBottomControls);
+  static Finder get playbackControlsWakeLayer =>
+      byId(UiElementIds.playbackControlsWakeLayer);
   static Finder get playbackPlayPause => byId(UiElementIds.playbackPlayPause);
   static Finder get playbackSeekBar => byId(UiElementIds.playbackSeekBar);
   static Finder get playbackStop => byId(UiElementIds.playbackStop);

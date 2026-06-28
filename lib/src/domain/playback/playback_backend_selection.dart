@@ -255,6 +255,8 @@ final class PlaybackBackendSelectionRuntime
   final DateTime Function() _now;
   final StreamController<PlayerTelemetrySnapshot> _telemetryController =
       StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
+  final StreamController<String> _activeBackendIdController =
+      StreamController<String>.broadcast(sync: true);
   final List<StreamSubscription<PlayerTelemetrySnapshot>>
       _telemetrySubscriptions = <StreamSubscription<PlayerTelemetrySnapshot>>[];
 
@@ -272,6 +274,9 @@ final class PlaybackBackendSelectionRuntime
   String get displayName => 'Playback backend selection';
 
   String get activeBackendId => _activeBackendId;
+
+  Stream<String> get activeBackendIdChanges =>
+      _activeBackendIdController.stream;
 
   @override
   PlaybackCapabilityMatrix get capabilities =>
@@ -464,6 +469,7 @@ final class PlaybackBackendSelectionRuntime
       await subscription.cancel();
     }
     await _telemetryController.close();
+    await _activeBackendIdController.close();
     final PlaybackCommandResult primary = await _mediaKitMpvAdapter.dispose();
     final PlaybackCommandResult fallback = await _vlcFallbackAdapter.dispose();
     return primary.isSuccess ? fallback : primary;
@@ -548,7 +554,8 @@ final class PlaybackBackendSelectionRuntime
     String? reason,
     bool clearFallbackReason = false,
   }) {
-    if (_activeBackendId != backendId) {
+    final bool backendChanged = _activeBackendId != backendId;
+    if (backendChanged) {
       _lastSwitchedAt = _now();
     }
     _activeBackendId = backendId;
@@ -560,6 +567,9 @@ final class PlaybackBackendSelectionRuntime
     final PlayerTelemetrySnapshot telemetry = currentTelemetry;
     if (!_telemetryController.isClosed) {
       _telemetryController.add(telemetry);
+    }
+    if (backendChanged && !_activeBackendIdController.isClosed) {
+      _activeBackendIdController.add(backendId);
     }
   }
 

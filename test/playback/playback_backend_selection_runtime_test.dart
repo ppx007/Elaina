@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:elaina/elaina.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -60,6 +62,55 @@ void main() {
     await runtime.dispose();
   });
 
+  test('active backend id stream only emits for real backend switches',
+      () async {
+    final _ManualTelemetrySource mpvTelemetry = _ManualTelemetrySource();
+    final _RecordingAdapter mpv = _RecordingAdapter(
+      id: playbackBackendMediaKitMpvId,
+      displayName: 'MPV',
+      capabilities: _mpvCapabilities(),
+    );
+    final _RecordingVlcBackend vlcBackend = _RecordingVlcBackend();
+    final VlcFallbackAdapter vlc = VlcFallbackAdapter(backend: vlcBackend);
+    final FakeSettingsRuntime settings = FakeSettingsRuntime();
+    final PlaybackBackendSelectionRuntime runtime = _runtime(
+      settings: settings,
+      mpv: mpv,
+      vlc: vlc,
+      mpvTelemetry: mpvTelemetry,
+    );
+    final List<String> activeBackendIds = <String>[];
+    final StreamSubscription<String> subscription =
+        runtime.activeBackendIdChanges.listen(activeBackendIds.add);
+
+    mpvTelemetry.emit(
+      PlayerTelemetrySnapshot(position: const Duration(seconds: 1)),
+    );
+    await pumpEventQueue();
+    expect(activeBackendIds, isEmpty);
+
+    await runtime.selectMode(PlaybackBackendMode.vlcFallback);
+    await pumpEventQueue();
+    expect(activeBackendIds, <String>[playbackBackendVlcFallbackId]);
+
+    mpvTelemetry.emit(
+      PlayerTelemetrySnapshot(position: const Duration(seconds: 2)),
+    );
+    await pumpEventQueue();
+    expect(activeBackendIds, <String>[playbackBackendVlcFallbackId]);
+
+    await runtime.selectMode(PlaybackBackendMode.mediaKitMpv);
+    await pumpEventQueue();
+    expect(activeBackendIds, <String>[
+      playbackBackendVlcFallbackId,
+      playbackBackendMediaKitMpvId,
+    ]);
+
+    await subscription.cancel();
+    await runtime.dispose();
+    await mpvTelemetry.dispose();
+  });
+
   test('auto fallback switches to VLC after compatible MPV load failure',
       () async {
     final _RecordingAdapter mpv = _RecordingAdapter(
@@ -110,6 +161,7 @@ PlaybackBackendSelectionRuntime _runtime({
   required FakeSettingsRuntime settings,
   required _RecordingAdapter mpv,
   required VlcFallbackAdapter vlc,
+  PlayerTelemetrySource? mpvTelemetry,
 }) {
   return PlaybackBackendSelectionRuntime(
     settingsRuntime: settings,
@@ -118,6 +170,7 @@ PlaybackBackendSelectionRuntime _runtime({
       label: mpv.displayName,
       matrix: mpv.capabilities,
     ),
+    mediaKitMpvTelemetrySource: mpvTelemetry,
     vlcFallbackAdapter: vlc,
     vlcFallbackProbeSource: vlc,
   );
@@ -236,6 +289,28 @@ final class _RecordingAdapter implements PlayerAdapter {
   @override
   Future<EnhancementDisableOutcome> disableEnhancement() async {
     return const EnhancementDisableOutcome.disabled();
+  }
+}
+
+final class _ManualTelemetrySource implements PlayerTelemetrySource {
+  final StreamController<PlayerTelemetrySnapshot> _controller =
+      StreamController<PlayerTelemetrySnapshot>.broadcast(sync: true);
+
+  PlayerTelemetrySnapshot _current = PlayerTelemetrySnapshot();
+
+  @override
+  PlayerTelemetrySnapshot get currentTelemetry => _current;
+
+  @override
+  Stream<PlayerTelemetrySnapshot> get telemetry => _controller.stream;
+
+  void emit(PlayerTelemetrySnapshot snapshot) {
+    _current = snapshot;
+    _controller.add(snapshot);
+  }
+
+  Future<void> dispose() {
+    return _controller.close();
   }
 }
 

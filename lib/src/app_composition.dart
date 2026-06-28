@@ -39,7 +39,6 @@ import 'playback/capability_matrix.dart';
 import 'playback/matrix_danmaku_overlay.dart';
 import 'playback/media_kit_mpv_binding.dart';
 import 'playback/player_runtime_composition.dart';
-import 'playback/player_telemetry.dart';
 import 'playback/vlc_fallback_adapter.dart';
 import 'playback/windows_libvlc_fallback_backend.dart';
 import 'provider/bangumi/bangumi_api_client.dart';
@@ -661,12 +660,11 @@ class ElainaBackendVideoSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<PlayerTelemetrySnapshot>(
-      stream: backendSelectionRuntime.telemetry,
-      builder:
-          (BuildContext context, AsyncSnapshot<PlayerTelemetrySnapshot> _) {
-        if (backendSelectionRuntime.activeBackendId !=
-            playbackBackendVlcFallbackId) {
+    return StreamBuilder<String>(
+      stream: backendSelectionRuntime.activeBackendIdChanges,
+      initialData: backendSelectionRuntime.activeBackendId,
+      builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+        if (snapshot.data != playbackBackendVlcFallbackId) {
           return buildElainaMediaKitVideoSurface(mediaKitController);
         }
         return ValueListenableBuilder<int?>(

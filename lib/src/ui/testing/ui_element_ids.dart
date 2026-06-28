@@ -116,6 +116,10 @@ abstract final class UiElementIds {
   static const String heroCarouselCachePin = 'hero-carousel-cache-pin';
 
   static const String playbackPage = 'playback-page';
+  static const String playbackTopControls = 'playback-top-controls';
+  static const String playbackBottomControls = 'playback-bottom-controls';
+  static const String playbackControlsWakeLayer =
+      'playback-controls-wake-layer';
   static const String playbackPlayPause = 'playback-play-pause';
   static const String playbackSeekBar = 'playback-seek-bar';
   static const String playbackStop = 'playback-stop';

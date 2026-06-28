@@ -158,6 +158,64 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('production page auto-hides controls while playing',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController(
+      status: PlaybackLifecycleStatus.playing,
+    );
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.pump();
+    expect(tester.getTopLeft(ElainaFinders.playbackTopControls).dy,
+        greaterThanOrEqualTo(0));
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+        tester.getTopLeft(ElainaFinders.playbackTopControls).dy, lessThan(0));
+    expect(ElainaFinders.playbackControlsWakeLayer, findsOneWidget);
+    expect(
+      tester.getSize(ElainaFinders.playbackControlsWakeLayer),
+      const Size(800, 600),
+    );
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(tester.getTopLeft(ElainaFinders.playbackTopControls).dy,
+        greaterThanOrEqualTo(0));
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('production page keeps controls visible while paused',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(ElainaFinders.playbackTopControls).dy,
+        greaterThanOrEqualTo(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production timeline uses a single slider track',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+
+    expect(ElainaFinders.playbackSeekBar, findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'production page falls back to basic danmaku when matrix is unsupported',
       (WidgetTester tester) async {
