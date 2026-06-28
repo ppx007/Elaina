@@ -409,7 +409,10 @@ final class MpvEnhancementPlanner {
     List<MpvEnhancementCommand> commands,
     Anime4kPresetIntent preset,
   ) {
-    if (preset == Anime4kPresetIntent.off) return null;
+    if (preset == Anime4kPresetIntent.off) {
+      _clearAnime4kShaders(commands);
+      return null;
+    }
 
     final List<Uri>? shaders = _anime4kShaderChainsByPreset[preset];
     if (shaders == null || shaders.isEmpty) {
@@ -421,6 +424,7 @@ final class MpvEnhancementPlanner {
       );
     }
 
+    _clearAnime4kShaders(commands);
     for (final Uri shader in shaders) {
       commands.add(MpvEnhancementCommand.command(<String>[
         mpvEnhancementChangeListCommand,
@@ -430,6 +434,15 @@ final class MpvEnhancementPlanner {
       ]));
     }
     return null;
+  }
+
+  void _clearAnime4kShaders(List<MpvEnhancementCommand> commands) {
+    commands.add(MpvEnhancementCommand.command(<String>[
+      mpvEnhancementChangeListCommand,
+      mpvEnhancementGlslShadersOption,
+      mpvEnhancementClearOperation,
+      mpvEnhancementClearValue,
+    ]));
   }
 
   static String _shaderPath(Uri shader) {

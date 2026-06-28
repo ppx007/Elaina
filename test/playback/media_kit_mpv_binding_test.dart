@@ -279,17 +279,29 @@ void main() {
       ],
     );
     expect(
-      plan.commands.last.arguments,
-      <String>[
-        mpvEnhancementChangeListCommand,
-        mpvEnhancementGlslShadersOption,
-        mpvEnhancementAppendOperation,
-        shader.toString(),
+      plan.commands
+          .where((MpvEnhancementCommand command) =>
+              command.kind == MpvEnhancementCommandKind.command)
+          .map((MpvEnhancementCommand command) => command.arguments),
+      <List<String>>[
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementClearOperation,
+          mpvEnhancementClearValue,
+        ],
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementAppendOperation,
+          shader.toString(),
+        ],
       ],
     );
   });
 
-  test('enhancement planner appends Restore and Upscale shaders in order', () {
+  test('enhancement planner clears stale shaders before preset append order',
+      () {
     final Uri restore = Uri.parse('mpv-shader://anime4k/restore');
     final Uri upscale = Uri.parse('mpv-shader://anime4k/upscale');
     final MpvEnhancementPlanResult result = MpvEnhancementPlanner(
@@ -307,8 +319,27 @@ void main() {
       result.plan!.commands
           .where((MpvEnhancementCommand command) =>
               command.kind == MpvEnhancementCommandKind.command)
-          .map((MpvEnhancementCommand command) => command.arguments.last),
-      <String>[restore.toString(), upscale.toString()],
+          .map((MpvEnhancementCommand command) => command.arguments),
+      <List<String>>[
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementClearOperation,
+          mpvEnhancementClearValue,
+        ],
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementAppendOperation,
+          restore.toString(),
+        ],
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementAppendOperation,
+          upscale.toString(),
+        ],
+      ],
     );
   });
 
@@ -354,14 +385,47 @@ void main() {
       ],
     );
     expect(
-      backend.commandCalls.single,
-      <String>[
-        mpvEnhancementChangeListCommand,
-        mpvEnhancementGlslShadersOption,
-        mpvEnhancementAppendOperation,
-        shader.toString(),
+      backend.commandCalls,
+      <List<String>>[
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementClearOperation,
+          mpvEnhancementClearValue,
+        ],
+        <String>[
+          mpvEnhancementChangeListCommand,
+          mpvEnhancementGlslShadersOption,
+          mpvEnhancementAppendOperation,
+          shader.toString(),
+        ],
       ],
     );
+    expect(backend.shaderList, <String>[shader.toString()]);
+  });
+
+  test('enhancement binding replaces stale Anime4K shader chain', () async {
+    final Uri restore = Uri.parse('mpv-shader://anime4k/restore');
+    final Uri upscale = Uri.parse('mpv-shader://anime4k/upscale');
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(
+      backend: backend,
+      anime4kShaderChainsByPreset: <Anime4kPresetIntent, List<Uri>>{
+        Anime4kPresetIntent.restore: <Uri>[restore],
+        Anime4kPresetIntent.upscale: <Uri>[upscale],
+      },
+    );
+
+    final EnhancementApplyOutcome restoreResult =
+        await binding.applyEnhancement(_enhancementProfile());
+    final EnhancementApplyOutcome upscaleResult =
+        await binding.applyEnhancement(
+      _enhancementProfile(anime4kPreset: Anime4kPresetIntent.upscale),
+    );
+
+    expect(restoreResult.isSuccess, isTrue);
+    expect(upscaleResult.isSuccess, isTrue);
+    expect(backend.shaderList, <String>[upscale.toString()]);
   });
 
   test('enhancement binding rejects Anime4K intent without shader path',
@@ -419,7 +483,8 @@ void main() {
       final EnhancementApplyOutcome applied =
           await adapter.applyEnhancement(_enhancementProfile());
       expect(applied.isSuccess, isTrue);
-      expect(backend.commandCalls.single.last, shader.path);
+      expect(backend.commandCalls.last.last, shader.path);
+      expect(backend.shaderList, <String>[shader.path]);
     } finally {
       if (await directory.exists()) {
         await directory.delete(recursive: true);
@@ -1101,6 +1166,7 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   final List<_PropertyCall> propertyCalls = <_PropertyCall>[];
   final List<String> propertyReadCalls = <String>[];
   final List<List<String>> commandCalls = <List<String>>[];
+  final List<String> shaderList = <String>[];
   final Map<String, String> _properties;
   PlayerTelemetrySnapshot _currentTelemetry;
   Uri? openedUri;
@@ -1190,6 +1256,16 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
       throw StateError('native MPV commands are unavailable');
     }
     commandCalls.add(List<String>.unmodifiable(arguments));
+    if (arguments.length >= 4 &&
+        arguments[0] == mpvEnhancementChangeListCommand &&
+        arguments[1] == mpvEnhancementGlslShadersOption) {
+      switch (arguments[2]) {
+        case mpvEnhancementClearOperation:
+          shaderList.clear();
+        case mpvEnhancementAppendOperation:
+          shaderList.add(arguments[3]);
+      }
+    }
   }
 
   @override

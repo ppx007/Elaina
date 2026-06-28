@@ -52,6 +52,47 @@ void main() {
     expect(events.whereType<MediaScanCompleted>(), hasLength(1));
   });
 
+  test('local file scanner attaches probed duration without failing scan',
+      () async {
+    final Directory root = await Directory.systemTemp.createTemp(
+      'elaina-media-duration-scan-',
+    );
+    addTearDown(() async {
+      if (root.existsSync()) await root.delete(recursive: true);
+    });
+    final File first =
+        await File(_join(root.path, 'episode-1.mkv')).writeAsString('first');
+    final File second =
+        await File(_join(root.path, 'episode-2.mkv')).writeAsString('second');
+    const MediaScanId scanId = MediaScanId('local-duration-scan-test');
+    final LocalFileMediaLibraryScanner scanner = LocalFileMediaLibraryScanner(
+      scanIdFactory: () => scanId,
+      durationProbe: _FakeLocalMediaDurationProbe(
+        durations: <Uri, Duration>{
+          first.uri: const Duration(minutes: 24, seconds: 3),
+        },
+        failingUris: <Uri>{second.uri},
+      ),
+    );
+
+    final MediaScanResult result = await scanner.scan(
+      MediaScanScope(
+        roots: <Uri>[root.uri],
+        extensions: const <String>{'mkv'},
+      ),
+    );
+    final List<MediaScanCandidate> candidates = result.candidates.toList()
+      ..sort((MediaScanCandidate left, MediaScanCandidate right) =>
+          left.identity.basename.compareTo(right.identity.basename));
+
+    expect(result.failures, isEmpty);
+    expect(candidates, hasLength(2));
+    expect(candidates.first.identity.uri, first.uri);
+    expect(candidates.first.duration, const Duration(minutes: 24, seconds: 3));
+    expect(candidates.last.identity.uri, second.uri);
+    expect(candidates.last.duration, isNull);
+  });
+
   test('storage-backed media library runtime replays state after reopen',
       () async {
     final Directory root = await Directory.systemTemp.createTemp(
@@ -156,6 +197,24 @@ void main() {
     );
     expect(replayedPlay.isSuccess, isTrue);
   });
+}
+
+final class _FakeLocalMediaDurationProbe implements LocalMediaDurationProbe {
+  const _FakeLocalMediaDurationProbe({
+    required this.durations,
+    this.failingUris = const <Uri>{},
+  });
+
+  final Map<Uri, Duration> durations;
+  final Set<Uri> failingUris;
+
+  @override
+  Future<Duration?> durationFor(Uri uri) async {
+    if (failingUris.contains(uri)) {
+      throw StateError('duration probe failed');
+    }
+    return durations[uri];
+  }
 }
 
 String _join(String directory, String name) {

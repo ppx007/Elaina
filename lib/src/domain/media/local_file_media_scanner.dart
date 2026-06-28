@@ -12,15 +12,22 @@ const String localFileMediaScannerMediaIdPrefix = 'local-file';
 
 typedef MediaScanIdFactory = MediaScanId Function();
 
+abstract interface class LocalMediaDurationProbe {
+  Future<Duration?> durationFor(Uri uri);
+}
+
 final class LocalFileMediaLibraryScanner implements MediaLibraryScanner {
   LocalFileMediaLibraryScanner({
     MediaScanIdFactory? scanIdFactory,
     DateTime Function()? clock,
+    LocalMediaDurationProbe? durationProbe,
   })  : _scanIdFactory = scanIdFactory ?? _defaultScanIdFactory,
-        _clock = clock ?? _defaultClock;
+        _clock = clock ?? _defaultClock,
+        _durationProbe = durationProbe;
 
   final MediaScanIdFactory _scanIdFactory;
   final DateTime Function() _clock;
+  final LocalMediaDurationProbe? _durationProbe;
   final Map<String, List<MediaScanEvent>> _eventsByScanId =
       <String, List<MediaScanEvent>>{};
   final Set<String> _cancelledScanIds = <String>{};
@@ -142,6 +149,7 @@ final class LocalFileMediaLibraryScanner implements MediaLibraryScanner {
         final String basename = _basenameFromUri(uri);
         if (!scope.accepts(uri, basename: basename)) continue;
         final FileStat stat = await entity.stat();
+        final Duration? duration = await _probeDuration(uri);
         final MediaScanCandidate candidate = MediaScanCandidate(
           identity: LocalMediaIdentity(
             id: LocalMediaId(_mediaIdFor(uri)),
@@ -149,6 +157,7 @@ final class LocalFileMediaLibraryScanner implements MediaLibraryScanner {
             basename: basename,
           ),
           sizeBytes: stat.size,
+          duration: duration,
           discoveredAt: _clock(),
         );
         candidates.add(candidate);
@@ -177,6 +186,16 @@ final class LocalFileMediaLibraryScanner implements MediaLibraryScanner {
           message: 'Media scan root could not be read: ${error.message}',
         ),
       );
+    }
+  }
+
+  Future<Duration?> _probeDuration(Uri uri) async {
+    final LocalMediaDurationProbe? probe = _durationProbe;
+    if (probe == null) return null;
+    try {
+      return await probe.durationFor(uri);
+    } on Object {
+      return null;
     }
   }
 

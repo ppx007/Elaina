@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart' as media_kit;
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'domain/detail/video_detail_bootstrap.dart';
@@ -61,6 +62,7 @@ const String _rssTorrentAcceptHeader =
     'application/x-bittorrent, application/octet-stream;q=0.9, */*;q=0.1';
 const String _rssTorrentUserAgent = 'Elaina RSS Torrent Resolver';
 const int _rssTorrentCacheKeyLength = 96;
+const Duration _localMediaDurationProbeTimeout = Duration(seconds: 5);
 // media_kit exposes NoVideoControls as a dynamic null; keep a typed constant
 // here so analyzer can protect the production surface configuration.
 const VideoControlsBuilder? elainaMediaKitVideoControls = null;
@@ -277,7 +279,9 @@ class AppComposition {
     ).createRuntime();
 
     // 3. Media Library Runtime
-    final scanner = LocalFileMediaLibraryScanner();
+    final scanner = LocalFileMediaLibraryScanner(
+      durationProbe: const _MediaKitLocalMediaDurationProbe(),
+    );
     final catalogRepository =
         StorageMediaLibraryCatalogRepository(foundation.storage.mediaLibrary);
     final importer =
@@ -630,6 +634,51 @@ class AppComposition {
     rssEngineRuntime.dispose();
     btTaskCoreRuntime.dispose();
     foundation.dispose();
+  }
+}
+
+typedef _MediaKitPlayerFactory = media_kit.Player Function();
+
+final class _MediaKitLocalMediaDurationProbe
+    implements LocalMediaDurationProbe {
+  const _MediaKitLocalMediaDurationProbe({
+    _MediaKitPlayerFactory? playerFactory,
+    Duration timeout = _localMediaDurationProbeTimeout,
+  })  : _playerFactory = playerFactory ?? _defaultPlayerFactory,
+        _timeout = timeout;
+
+  final _MediaKitPlayerFactory _playerFactory;
+  final Duration _timeout;
+
+  @override
+  Future<Duration?> durationFor(Uri uri) async {
+    if (!uri.isScheme('file')) return null;
+    final media_kit.Player player = _playerFactory();
+    try {
+      await player
+          .open(media_kit.Media(uri.toString()), play: false)
+          .timeout(_timeout);
+      final Duration stateDuration = player.state.duration;
+      if (_isReadableDuration(stateDuration)) return stateDuration;
+      return await player.stream.duration
+          .firstWhere(_isReadableDuration)
+          .timeout(_timeout, onTimeout: () => Duration.zero)
+          .then((Duration duration) =>
+              _isReadableDuration(duration) ? duration : null);
+    } on Object {
+      return null;
+    } finally {
+      await player.dispose();
+    }
+  }
+
+  static media_kit.Player _defaultPlayerFactory() {
+    media_kit.MediaKit.ensureInitialized();
+    return media_kit.Player();
+  }
+
+  static bool _isReadableDuration(Duration duration) {
+    return duration > Duration.zero;
   }
 }
 
