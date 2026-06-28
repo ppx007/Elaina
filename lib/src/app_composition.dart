@@ -688,10 +688,17 @@ final class _MediaKitLocalMediaDurationProbe
 /// dark hover/pause layer. The production playback page already owns transport
 /// controls, so enabling both control systems makes pause look like the entire
 /// page turned black.
+///
+/// media_kit_video also owns a Flutter [SubtitleView] by default. Elaina keeps
+/// subtitle rendering behind its playback contracts and MPV native controls;
+/// leaving the package subtitle view enabled draws a second subtitle layer with
+/// an opaque black text background that cannot be controlled by our subtitle
+/// toggle.
 Video buildElainaMediaKitVideoSurface(VideoController controller) {
   return Video(
     controller: controller,
     controls: elainaMediaKitVideoControls,
+    subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
   );
 }
 

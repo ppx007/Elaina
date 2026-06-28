@@ -377,6 +377,7 @@ enum PlaybackPageIntentKind {
   applyVideoEnhancement,
   updateSubtitleStyle,
   resetSubtitleStyle,
+  setSubtitleVisibility,
 }
 
 final class PlaybackPageIntent {
@@ -388,6 +389,7 @@ final class PlaybackPageIntent {
     this.trackType,
     this.videoEnhancementProfile,
     this.subtitleStyleProfile,
+    this.subtitleVisible,
   });
 
   const PlaybackPageIntent.noop() : this._(kind: PlaybackPageIntentKind.noop);
@@ -436,6 +438,12 @@ final class PlaybackPageIntent {
   const PlaybackPageIntent.resetSubtitleStyle()
       : this._(kind: PlaybackPageIntentKind.resetSubtitleStyle);
 
+  const PlaybackPageIntent.setSubtitleVisibility(bool visible)
+      : this._(
+          kind: PlaybackPageIntentKind.setSubtitleVisibility,
+          subtitleVisible: visible,
+        );
+
   final PlaybackPageIntentKind kind;
   final Duration? position;
   final PlaybackPagePanelId? panelId;
@@ -443,6 +451,7 @@ final class PlaybackPageIntent {
   final DomainMediaTrackType? trackType;
   final DomainVideoEnhancementProfileDescriptor? videoEnhancementProfile;
   final SubtitleStyleProfile? subtitleStyleProfile;
+  final bool? subtitleVisible;
 }
 
 enum PlaybackPageIntentOutcome {
@@ -615,6 +624,10 @@ final class PlaybackPageContract {
       case PlaybackPageIntentKind.resetSubtitleStyle:
         return const PlaybackPageIntentResult.ignored(
           'Subtitle style intents are handled by the page driver.',
+        );
+      case PlaybackPageIntentKind.setSubtitleVisibility:
+        return PlaybackPageIntentResult.executedCommand(
+          await _controller.setSubtitleVisibility(intent.subtitleVisible!),
         );
     }
   }

@@ -421,4 +421,17 @@ final class _FallbackTestAdapter implements PlayerAdapter {
       ),
     );
   }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) {
+    return Future<PlaybackCommandResult>.value(
+      const PlaybackCommandResult.failure(
+        PlaybackFailure(
+          operation: PlaybackOperation.setSubtitleVisibility,
+          kind: PlaybackFailureKind.unsupported,
+          message: 'Subtitle visibility unsupported.',
+        ),
+      ),
+    );
+  }
 }

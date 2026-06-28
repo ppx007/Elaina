@@ -5,6 +5,7 @@ import '../../domain/playback/playback_state.dart';
 import 'playback_page_contract.dart';
 
 final DateTime mockPlaybackShellObservedAt = DateTime.utc(2026, 6, 3, 12, 0);
+
 /// Demo seek target used by the legacy shell driver.
 ///
 /// Production playback controls use the controller contract and redesigned
@@ -113,6 +114,10 @@ final class MockFlutterPlaybackShellDriver extends ChangeNotifier
       case PlaybackPageIntentKind.resetSubtitleStyle:
         _lastIntentResult = const PlaybackPageIntentResult.ignored(
           'Mock shell leaves subtitle style intents to the production driver.',
+        );
+      case PlaybackPageIntentKind.setSubtitleVisibility:
+        _lastIntentResult = const PlaybackPageIntentResult.executedCommand(
+          DomainPlaybackCommandResult.success(),
         );
     }
     notifyListeners();

@@ -505,6 +505,11 @@ final class PlaybackBackendSelectionRuntime
     return _activeAdapter.applySubtitleStyle(profile);
   }
 
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) {
+    return _activeAdapter.setSubtitleVisibility(visible);
+  }
+
   PlayerAdapter get _activeAdapter {
     return _activeBackendId == playbackBackendVlcFallbackId
         ? _vlcFallbackAdapter

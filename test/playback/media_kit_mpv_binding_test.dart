@@ -9,6 +9,8 @@ import 'package:media_kit/media_kit.dart';
 //
 // The libmpv resolver and media-kit binding are tested with injected filesystem
 // and player doubles so CI does not need to launch a native player process.
+const String _mpvSubtitleBorderStyleOutlineAndShadowReadbackForTest = '1';
+
 void main() {
   group('bundled libmpv resolver', () {
     test('prefers explicit dll path when it exists', () {
@@ -727,23 +729,65 @@ void main() {
 
     expect(result.isSuccess, isTrue);
     expect(
-      backend.propertyCalls.map(
-        (_PropertyCall call) => '${call.property}=${call.value}',
-      ),
+      backend.commandCalls.map((List<String> call) => call.join('=')),
       containsAll(<String>[
-        '$mpvSubtitleFontProperty=Noto Sans CJK SC',
-        '$mpvSubtitleFontSizeProperty=28',
-        '$mpvSubtitleColorProperty=#BFFFFFFF',
-        '$mpvSubtitleBorderSizeProperty=3',
-        '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOutlineAndShadowValue',
-        '$mpvSubtitleBackColorProperty=$mpvSubtitleTransparentColorValue',
-        '$mpvSubtitleAssOverrideProperty=$mpvSubtitleAssOverrideForceValue',
-        '$mpvSubtitleAssStyleOverridesProperty=FontName=Noto Sans CJK SC,'
+        '$mpvSetCommand=$mpvSubtitleFontProperty=Noto Sans CJK SC',
+        '$mpvSetCommand=$mpvSubtitleFontSizeProperty=28',
+        '$mpvSetCommand=$mpvSubtitleColorProperty=#BFFFFFFF',
+        '$mpvSetCommand=$mpvSubtitleBorderSizeProperty=3',
+        '$mpvSetCommand=$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOutlineAndShadowValue',
+        '$mpvSetCommand=$mpvSubtitleBackColorProperty=$mpvSubtitleTransparentColorValue',
+        '$mpvSetCommand=$mpvSubtitlePositionProperty=85',
+        '$mpvSetCommand=$mpvSubtitleVerticalMarginProperty=120',
+        '$mpvSetCommand=$mpvSubtitleAssOverrideProperty=$mpvSubtitleAssOverrideForceValue',
+        '$mpvSetCommand=$mpvSubtitleAssStyleOverridesProperty=FontName=Noto Sans CJK SC,'
             'FontSize=28,PrimaryColour=&H40FFFFFF,'
             'OutlineColour=&H00000000,BackColour=&HFF000000,'
-            'Outline=3,Bold=1,BorderStyle=1,Alignment=2,MarginV=120',
+            'Outline=3,Bold=-1,BorderStyle=1,Alignment=2,MarginV=120',
       ]),
     );
+    expect(backend.propertyReadCalls, contains(mpvSubtitleAssOverrideProperty));
+  });
+
+  test('subtitle style bridge distinguishes medium and heavy font weight',
+      () async {
+    final _FakeMediaKitMpvBackend mediumBackend = _FakeMediaKitMpvBackend();
+    final _FakeMediaKitMpvBackend boldBackend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding mediumBinding =
+        MediaKitMpvBinding(backend: mediumBackend);
+    final MediaKitMpvBinding boldBinding =
+        MediaKitMpvBinding(backend: boldBackend);
+
+    expect(
+      (await mediumBinding.applySubtitleStyle(
+        SubtitleStyleProfile.defaults.copyWith(
+          fontWeight: SubtitleStyleFontWeight.medium,
+        ),
+      ))
+          .isSuccess,
+      isTrue,
+    );
+    expect(
+      (await boldBinding.applySubtitleStyle(
+        SubtitleStyleProfile.defaults.copyWith(
+          fontWeight: SubtitleStyleFontWeight.bold,
+        ),
+      ))
+          .isSuccess,
+      isTrue,
+    );
+
+    final String mediumForceStyle = mediumBackend.commandCalls.singleWhere(
+      (List<String> call) =>
+          call.length == 3 && call[1] == mpvSubtitleAssStyleOverridesProperty,
+    )[2];
+    final String boldForceStyle = boldBackend.commandCalls.singleWhere(
+      (List<String> call) =>
+          call.length == 3 && call[1] == mpvSubtitleAssStyleOverridesProperty,
+    )[2];
+
+    expect(mediumForceStyle, contains('Bold=1'));
+    expect(boldForceStyle, contains('Bold=-1'));
   });
 
   test('subtitle style bridge enables MPV opaque background box', () async {
@@ -759,22 +803,64 @@ void main() {
 
     expect(result.isSuccess, isTrue);
     expect(
-      backend.propertyCalls.map(
-        (_PropertyCall call) => '${call.property}=${call.value}',
-      ),
+      backend.commandCalls.map((List<String> call) => call.join('=')),
       containsAll(<String>[
-        '$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOpaqueBoxValue',
-        '$mpvSubtitleBackColorProperty=#80000000',
+        '$mpvSetCommand=$mpvSubtitleBorderStyleProperty=$mpvSubtitleBorderStyleOpaqueBoxValue',
+        '$mpvSetCommand=$mpvSubtitleBackColorProperty=#80000000',
       ]),
     );
     expect(
-      backend.propertyCalls
-          .singleWhere(
-            (_PropertyCall call) =>
-                call.property == mpvSubtitleAssStyleOverridesProperty,
-          )
-          .value,
+      backend.commandCalls.singleWhere(
+        (List<String> call) =>
+            call.length == 3 && call[1] == mpvSubtitleAssStyleOverridesProperty,
+      )[2],
       contains('BackColour=&H7F000000'),
+    );
+  });
+
+  test('subtitle style bridge accepts normalized numeric readback', () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      properties: <String, String>{
+        mpvSubtitleFontSizeProperty: '22.000000',
+      },
+    );
+    backend.lockPropertyReadback = mpvSubtitleFontSizeProperty;
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result = await binding.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(fontSize: 22),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(backend.propertyReadCalls, contains(mpvSubtitleFontSizeProperty));
+  });
+
+  test('subtitle style bridge does not hard-fail on border style readback',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      properties: <String, String>{
+        mpvSubtitleBorderStyleProperty:
+            _mpvSubtitleBorderStyleOutlineAndShadowReadbackForTest,
+      },
+    );
+    backend.lockPropertyReadback = mpvSubtitleBorderStyleProperty;
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result = await binding.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(backgroundEnabled: false),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(
+      backend.propertyReadCalls,
+      isNot(contains(mpvSubtitleBorderStyleProperty)),
+    );
+    expect(
+      backend.commandCalls.map((List<String> call) => call.join('=')),
+      containsAll(<String>[
+        '$mpvSetCommand=$mpvSubtitlePositionProperty=98.75',
+        '$mpvSetCommand=$mpvSubtitleVerticalMarginProperty=10',
+      ]),
     );
   });
 
@@ -791,6 +877,65 @@ void main() {
     expect(result.isSuccess, isFalse);
     expect(result.failure?.kind, PlaybackFailureKind.unsupported);
     expect(backend.propertyCalls, isEmpty);
+    expect(backend.commandCalls, isEmpty);
+  });
+
+  test('subtitle style bridge reports unsupported without property readback',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      supportsPropertyRead: false,
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult result =
+        await binding.applySubtitleStyle(SubtitleStyleProfile.defaults);
+
+    expect(result.isSuccess, isFalse);
+    expect(result.failure?.kind, PlaybackFailureKind.unsupported);
+    expect(backend.commandCalls, isEmpty);
+  });
+
+  test('subtitle style bridge fails when MPV readback does not match',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend(
+      properties: <String, String>{
+        mpvSubtitleFontSizeProperty: '22',
+      },
+    );
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    backend.lockPropertyReadback = mpvSubtitleFontSizeProperty;
+    final PlaybackCommandResult result = await binding.applySubtitleStyle(
+      SubtitleStyleProfile.defaults.copyWith(fontSize: 30),
+    );
+
+    expect(result.isSuccess, isFalse);
+    expect(result.failure?.kind, PlaybackFailureKind.operationFailed);
+  });
+
+  test('subtitle visibility bridge toggles MPV native subtitle rendering',
+      () async {
+    final _FakeMediaKitMpvBackend backend = _FakeMediaKitMpvBackend();
+    final MediaKitMpvBinding binding = MediaKitMpvBinding(backend: backend);
+
+    final PlaybackCommandResult hidden =
+        await binding.setSubtitleVisibility(false);
+    final PlaybackCommandResult visible =
+        await binding.setSubtitleVisibility(true);
+
+    expect(hidden.isSuccess, isTrue);
+    expect(visible.isSuccess, isTrue);
+    expect(
+      backend.propertyCalls.map(
+        (_PropertyCall call) => '${call.property}=${call.value}',
+      ),
+      containsAllInOrder(<String>[
+        '$mpvSubtitleVisibilityProperty=$mpvSubtitleDisabledValue',
+        '$mpvSecondarySubtitleVisibilityProperty=$mpvSubtitleDisabledValue',
+        '$mpvSubtitleVisibilityProperty=$mpvSubtitleEnabledValue',
+        '$mpvSecondarySubtitleVisibilityProperty=$mpvSubtitleEnabledValue',
+      ]),
+    );
   });
 
   test('subtitle bridge normalizes backend failures', () async {
@@ -1254,6 +1399,7 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
   final List<String> shaderList = <String>[];
   final Map<String, String> _properties;
   PlayerTelemetrySnapshot _currentTelemetry;
+  String? lockPropertyReadback;
   Uri? openedUri;
   Duration? seekPosition;
   MediaTrackDescriptor? switchedTrack;
@@ -1320,6 +1466,7 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
     if (failOnProperty == property) {
       throw StateError('forced $property failure');
     }
+    _properties[property] = value;
   }
 
   @override
@@ -1341,6 +1488,15 @@ final class _FakeMediaKitMpvBackend implements MediaKitMpvBackend {
       throw StateError('native MPV commands are unavailable');
     }
     commandCalls.add(List<String>.unmodifiable(arguments));
+    if (arguments.length == 3 && arguments[0] == mpvSetCommand) {
+      final String property = arguments[1];
+      if (failOnProperty == property) {
+        throw StateError('forced $property failure');
+      }
+      if (lockPropertyReadback != property) {
+        _properties[property] = arguments[2];
+      }
+    }
     if (arguments.length >= 4 &&
         arguments[0] == mpvEnhancementChangeListCommand &&
         arguments[1] == mpvEnhancementGlslShadersOption) {

@@ -36,6 +36,7 @@ enum PlaybackOperation {
   applyEnhancement,
   disableEnhancement,
   applySubtitleStyle,
+  setSubtitleVisibility,
 }
 
 enum PlaybackFailureKind {
@@ -97,6 +98,8 @@ abstract interface class PlayerAdapter implements ElainaAdapter {
 
   Future<PlaybackCommandResult> applySubtitleStyle(
       SubtitleStyleProfile profile);
+
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible);
 }
 
 PlaybackCapability? playbackCapabilityForSource(PlaybackSource source) {

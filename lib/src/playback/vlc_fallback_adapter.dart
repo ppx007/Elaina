@@ -250,6 +250,17 @@ final class VlcFallbackAdapter
     );
   }
 
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    return const PlaybackCommandResult.failure(
+      PlaybackFailure(
+        operation: PlaybackOperation.setSubtitleVisibility,
+        kind: PlaybackFailureKind.unsupported,
+        message: vlcFallbackMpvOnlySubtitleStyleReason,
+      ),
+    );
+  }
+
   Future<PlaybackCommandResult> _recordCommand(
     PlaybackOperation operation,
     Future<void> Function(VlcFallbackBackend backend) command,

@@ -62,6 +62,7 @@ const String mpvEnhancementDebandMediumIterations = '2';
 const String mpvEnhancementDebandStrongIterations = '3';
 const String mpvSubtitleAddCommand = 'sub-add';
 const String mpvSubtitleRemoveCommand = 'sub-remove';
+const String mpvSetCommand = 'set';
 const String mpvSubtitlePrimaryProperty = 'sid';
 const String mpvSubtitleSecondaryProperty = 'secondary-sid';
 const String mpvSubtitleAssProperty = 'sub-ass';
@@ -80,8 +81,12 @@ const String mpvSubtitleBorderStyleProperty = 'sub-border-style';
 const String mpvSubtitleBackColorProperty = 'sub-back-color';
 const String mpvSubtitleBoldProperty = 'sub-bold';
 const String mpvSubtitlePositionProperty = 'sub-pos';
+const String mpvSubtitleVerticalMarginProperty = 'sub-margin-y';
+const String mpvSubtitleVisibilityProperty = 'sub-visibility';
+const String mpvSecondarySubtitleVisibilityProperty =
+    'secondary-sub-visibility';
 const String mpvSubtitleAssOverrideProperty = 'sub-ass-override';
-const String mpvSubtitleAssStyleOverridesProperty = 'sub-ass-style-overrides';
+const String mpvSubtitleAssStyleOverridesProperty = 'sub-ass-force-style';
 const String mpvSubtitleAssOverrideNoValue = 'no';
 const String mpvSubtitleAssOverrideForceValue = 'force';
 const String mpvSubtitleBorderStyleOutlineAndShadowValue = 'outline-and-shadow';
@@ -94,6 +99,9 @@ const String mpvSubtitleAssTransparentBlackColorValue = '&HFF000000';
 const int mpvSubtitleAssOutlineBorderStyle = 1;
 const int mpvSubtitleAssOpaqueBoxBorderStyle = 3;
 const int mpvSubtitleAssBottomCenterAlignment = 2;
+const String mpvSubtitleAssBoldDisabledValue = '0';
+const String mpvSubtitleAssBoldEnabledValue = '1';
+const String mpvSubtitleAssBoldHeavyValue = '-1';
 const List<String> mpvNativeSubtitleExtensions = <String>[
   '.srt',
   '.ass',
@@ -150,18 +158,35 @@ final class MpvSubtitleCommand {
   })  : kind = MpvSubtitleCommandKind.setProperty,
         property = property,
         value = value,
-        arguments = const <String>[];
+        arguments = const <String>[],
+        verifyReadback = false;
 
   MpvSubtitleCommand.command(Iterable<String> arguments)
       : kind = MpvSubtitleCommandKind.command,
         property = null,
         value = null,
-        arguments = List<String>.unmodifiable(arguments);
+        arguments = List<String>.unmodifiable(arguments),
+        verifyReadback = false;
+
+  MpvSubtitleCommand.setOption({
+    required String property,
+    required String value,
+    bool verifyReadback = true,
+  })  : kind = MpvSubtitleCommandKind.command,
+        property = property,
+        value = value,
+        arguments = List<String>.unmodifiable(<String>[
+          mpvSetCommand,
+          property,
+          value,
+        ]),
+        verifyReadback = verifyReadback;
 
   final MpvSubtitleCommandKind kind;
   final String? property;
   final String? value;
   final List<String> arguments;
+  final bool verifyReadback;
 }
 
 final class MpvSubtitlePlan {
@@ -288,58 +313,68 @@ final class MpvSubtitleStylePlanner {
   MpvSubtitleStylePlan build(SubtitleStyleProfile profile) {
     return MpvSubtitleStylePlan(<MpvSubtitleCommand>[
       if (profile.fontFamily.trim().isNotEmpty)
-        MpvSubtitleCommand.setProperty(
+        MpvSubtitleCommand.setOption(
           property: mpvSubtitleFontProperty,
           value: profile.fontFamily.trim(),
         ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleFontSizeProperty,
         value: _mpvDouble(profile.fontSize),
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleColorProperty,
         value: _mpvColor(
           profile.textColorArgb,
           opacity: profile.textOpacity,
         ),
+        verifyReadback: false,
       ),
-      const MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleBorderColorProperty,
         value: '#FF000000',
+        verifyReadback: false,
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleBorderSizeProperty,
         value: _mpvDouble(profile.outlineStrength),
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleBorderStyleProperty,
         value: profile.backgroundEnabled
             ? mpvSubtitleBorderStyleOpaqueBoxValue
             : mpvSubtitleBorderStyleOutlineAndShadowValue,
+        verifyReadback: false,
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleBackColorProperty,
         value: profile.backgroundEnabled
             ? _mpvColor(0xFF000000, opacity: profile.backgroundOpacity)
             : mpvSubtitleTransparentColorValue,
+        verifyReadback: false,
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleBoldProperty,
         value: _mpvBoldValue(profile.fontWeight),
+        verifyReadback: false,
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitlePositionProperty,
         value: _mpvDouble(_mpvSubtitlePosition(profile.bottomInset)),
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
+        property: mpvSubtitleVerticalMarginProperty,
+        value: _mpvDouble(profile.bottomInset),
+      ),
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleAssOverrideProperty,
         value: profile.forceOverrideEmbeddedStyle
             ? mpvSubtitleAssOverrideForceValue
             : mpvSubtitleAssOverrideNoValue,
       ),
-      MpvSubtitleCommand.setProperty(
+      MpvSubtitleCommand.setOption(
         property: mpvSubtitleAssStyleOverridesProperty,
         value: _mpvAssStyleOverrides(profile),
+        verifyReadback: false,
       ),
     ]);
   }
@@ -405,8 +440,9 @@ final class MpvSubtitleStylePlanner {
 
   static String _mpvAssBoldValue(SubtitleStyleFontWeight weight) {
     return switch (weight) {
-      SubtitleStyleFontWeight.normal => '0',
-      SubtitleStyleFontWeight.medium || SubtitleStyleFontWeight.bold => '1',
+      SubtitleStyleFontWeight.normal => mpvSubtitleAssBoldDisabledValue,
+      SubtitleStyleFontWeight.medium => mpvSubtitleAssBoldEnabledValue,
+      SubtitleStyleFontWeight.bold => mpvSubtitleAssBoldHeavyValue,
     };
   }
 
@@ -827,6 +863,7 @@ final class MediaKitMpvBackendAdapter implements MediaKitMpvBackend {
       capabilityMatrix: mediaKitLocalFilePlaybackCapabilities(
         supportsUriPlayback: supportsUriPlayback,
         supportsNativeMpvCommands: supportsNativeMpvCommands,
+        supportsPropertyRead: supportsPropertyRead,
         supportsAvSyncSampling: supportsPropertyRead,
         supportsTrackApi: supportsTrackDiscovery && supportsTrackSwitching,
         supportsTelemetry: supportsTelemetry,
@@ -1222,6 +1259,7 @@ final class MediaKitMpvBinding
         capabilities: mediaKitLocalFilePlaybackCapabilities(
           supportsUriPlayback: currentBackend.supportsUriPlayback,
           supportsNativeMpvCommands: currentBackend.supportsNativeMpvCommands,
+          supportsPropertyRead: currentBackend.supportsPropertyRead,
           supportsAvSyncSampling: avSyncSampler,
           supportsTrackApi: trackApi,
           supportsTelemetry: currentBackend.supportsTelemetry,
@@ -1429,7 +1467,27 @@ final class MediaKitMpvBinding
       final MediaKitMpvBackend backend = _backend ??= _backendFactory();
       final MpvSubtitleStylePlan plan = _subtitleStylePlanner.build(profile);
       for (final MpvSubtitleCommand command in plan.commands) {
-        await backend.setProperty(command.property!, command.value!);
+        switch (command.kind) {
+          case MpvSubtitleCommandKind.setProperty:
+            await backend.setProperty(command.property!, command.value!);
+          case MpvSubtitleCommandKind.command:
+            await backend.command(command.arguments);
+        }
+        if (command.verifyReadback) {
+          final String property = command.property!;
+          final String expected = command.value!;
+          final String actual = await backend.getProperty(property);
+          if (!_mpvOptionReadbackMatches(
+            property: property,
+            expected: expected,
+            actual: actual,
+          )) {
+            throw StateError(
+              'MPV option $property readback mismatch: expected '
+              '$expected, got $actual.',
+            );
+          }
+        }
       }
       return const PlaybackCommandResult.success();
     } on Object catch (error) {
@@ -1437,6 +1495,44 @@ final class MediaKitMpvBinding
         operation: PlaybackOperation.applySubtitleStyle,
         kind: PlaybackFailureKind.operationFailed,
         message: 'Concrete MPV subtitle style operation failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.setSubtitleVisibility);
+    if (disposed != null) return disposed;
+
+    final CapabilityStatus subtitleSwitching =
+        currentCapabilityProbe.capabilities.statusOf(
+      PlaybackCapability.subtitleTrackSwitching,
+    );
+    if (!subtitleSwitching.isSupported) {
+      return _failure(
+        operation: PlaybackOperation.setSubtitleVisibility,
+        kind: PlaybackFailureKind.unsupported,
+        message: subtitleSwitching.reason ??
+            'MPV subtitle visibility is unsupported.',
+      );
+    }
+
+    try {
+      final MediaKitMpvBackend backend = _backend ??= _backendFactory();
+      final String visibilityValue =
+          visible ? mpvSubtitleEnabledValue : mpvSubtitleDisabledValue;
+      await backend.setProperty(mpvSubtitleVisibilityProperty, visibilityValue);
+      await backend.setProperty(
+        mpvSecondarySubtitleVisibilityProperty,
+        visibilityValue,
+      );
+      return const PlaybackCommandResult.success();
+    } on Object catch (error) {
+      return _failure(
+        operation: PlaybackOperation.setSubtitleVisibility,
+        kind: PlaybackFailureKind.operationFailed,
+        message: 'Concrete MPV subtitle visibility operation failed: $error',
       );
     }
   }
@@ -1630,6 +1726,76 @@ final class MediaKitMpvBinding
   }
 }
 
+bool _mpvOptionReadbackMatches({
+  required String property,
+  required String expected,
+  required String actual,
+}) {
+  final String normalizedExpected = expected.trim();
+  final String normalizedActual = actual.trim();
+  if (_mpvNumericSubtitleOptions.contains(property)) {
+    final double? expectedNumber = double.tryParse(normalizedExpected);
+    final double? actualNumber = double.tryParse(normalizedActual);
+    if (expectedNumber == null || actualNumber == null) return false;
+    return (expectedNumber - actualNumber).abs() <= _mpvReadbackEpsilon;
+  }
+  if (property == mpvSubtitleBorderStyleProperty) {
+    return _canonicalMpvSubtitleBorderStyle(normalizedExpected) ==
+        _canonicalMpvSubtitleBorderStyle(normalizedActual);
+  }
+  if (property == mpvSubtitleBoldProperty) {
+    return _canonicalMpvBooleanOption(normalizedExpected) ==
+        _canonicalMpvBooleanOption(normalizedActual);
+  }
+  if (_mpvColorSubtitleOptions.contains(property)) {
+    return normalizedExpected.toUpperCase() == normalizedActual.toUpperCase();
+  }
+  return normalizedExpected == normalizedActual;
+}
+
+const Set<String> _mpvNumericSubtitleOptions = <String>{
+  mpvSubtitleFontSizeProperty,
+  mpvSubtitleBorderSizeProperty,
+  mpvSubtitlePositionProperty,
+  mpvSubtitleVerticalMarginProperty,
+};
+
+const Set<String> _mpvColorSubtitleOptions = <String>{
+  mpvSubtitleColorProperty,
+  mpvSubtitleBorderColorProperty,
+  mpvSubtitleBackColorProperty,
+};
+
+String _canonicalMpvSubtitleBorderStyle(String value) {
+  return switch (value.toLowerCase()) {
+    mpvSubtitleBorderStyleOutlineAndShadowValue ||
+    _mpvSubtitleBorderStyleOutlineAndShadowReadback =>
+      mpvSubtitleBorderStyleOutlineAndShadowValue,
+    mpvSubtitleBorderStyleOpaqueBoxValue ||
+    _mpvSubtitleBorderStyleOpaqueBoxReadback =>
+      mpvSubtitleBorderStyleOpaqueBoxValue,
+    _ => value.toLowerCase(),
+  };
+}
+
+String _canonicalMpvBooleanOption(String value) {
+  return switch (value.toLowerCase()) {
+    mpvSubtitleEnabledValue ||
+    _mpvBooleanEnabledReadback =>
+      mpvSubtitleEnabledValue,
+    mpvSubtitleDisabledValue ||
+    _mpvBooleanDisabledReadback =>
+      mpvSubtitleDisabledValue,
+    _ => value.toLowerCase(),
+  };
+}
+
+const double _mpvReadbackEpsilon = 0.000001;
+const String _mpvSubtitleBorderStyleOutlineAndShadowReadback = '1';
+const String _mpvSubtitleBorderStyleOpaqueBoxReadback = '3';
+const String _mpvBooleanEnabledReadback = '1';
+const String _mpvBooleanDisabledReadback = '0';
+
 final class BundledMpvLibraryResolver {
   const BundledMpvLibraryResolver._();
 
@@ -1719,6 +1885,7 @@ final class BundledMpvLibraryResolver {
 PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
   bool supportsUriPlayback = true,
   bool supportsNativeMpvCommands = true,
+  bool supportsPropertyRead = true,
   bool supportsAvSyncSampling = false,
   bool supportsTrackApi = true,
   bool supportsTelemetry = true,
@@ -1730,6 +1897,14 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
   final CapabilityStatus nativeCommands = supportsNativeMpvCommands
       ? const CapabilityStatus.supported()
       : const CapabilityStatus.unsupported(mediaKitMpvNativeBackendReason);
+  final CapabilityStatus nativeCommandReadback =
+      supportsNativeMpvCommands && supportsPropertyRead
+          ? const CapabilityStatus.supported()
+          : CapabilityStatus.unsupported(
+              supportsNativeMpvCommands
+                  ? 'MPV subtitle styling requires native property readback.'
+                  : mediaKitMpvNativeBackendReason,
+            );
   final CapabilityStatus trackApi = supportsTrackApi
       ? const CapabilityStatus.supported()
       : const CapabilityStatus.unsupported(mediaKitMpvTrackApiReason);
@@ -1773,7 +1948,7 @@ PlaybackCapabilityMatrix mediaKitLocalFilePlaybackCapabilities({
           const CapabilityStatus.unsupported(mediaKitMpvMatrixDanmakuReason),
       PlaybackCapability.dualSubtitles: nativeCommands,
       PlaybackCapability.pgsSubtitleRendering: nativeCommands,
-      PlaybackCapability.assSubtitleEnhancement: nativeCommands,
+      PlaybackCapability.assSubtitleEnhancement: nativeCommandReadback,
       PlaybackCapability.fallbackAdapter:
           const CapabilityStatus.unsupported(mediaKitMpvFallbackReason),
     },

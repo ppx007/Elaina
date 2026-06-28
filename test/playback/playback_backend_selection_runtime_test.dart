@@ -298,6 +298,12 @@ final class _RecordingAdapter implements PlayerAdapter {
     calls.add('subtitle-style');
     return const PlaybackCommandResult.success();
   }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    calls.add('subtitle-visible:$visible');
+    return const PlaybackCommandResult.success();
+  }
 }
 
 final class _ManualTelemetrySource implements PlayerTelemetrySource {

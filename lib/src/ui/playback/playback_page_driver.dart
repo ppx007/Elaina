@@ -173,21 +173,31 @@ final class PlaybackVideoEnhancementPanelSnapshot {
 final class PlaybackSubtitleStylePanelSnapshot {
   const PlaybackSubtitleStylePanelSnapshot({
     required this.profile,
+    required this.loadedDefaultProfile,
     required this.application,
     required this.renderPath,
+    required this.currentSubtitleStatus,
+    required this.currentRendererStatus,
     required this.basicParserFormats,
     required this.nativeSubtitleFormats,
     this.message,
     this.isSaving = false,
+    this.isSessionOverride = false,
+    this.usesNativeSubtitleRenderer = false,
   });
 
   final SubtitleStyleProfile profile;
+  final SubtitleStyleProfile loadedDefaultProfile;
   final DomainSubtitleStyleApplicationSnapshot application;
   final String renderPath;
+  final String currentSubtitleStatus;
+  final String currentRendererStatus;
   final String basicParserFormats;
   final String nativeSubtitleFormats;
   final String? message;
   final bool isSaving;
+  final bool isSessionOverride;
+  final bool usesNativeSubtitleRenderer;
 }
 
 /// Complete UI read model for the production playback page.
@@ -252,6 +262,8 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   PlaybackPageIntentResult? _lastIntentResult;
   PlaybackTrackPanelSnapshot _trackPanel;
   SubtitleStyleProfile _subtitleStyleProfile = SubtitleStyleProfile.defaults;
+  SubtitleStyleProfile _loadedDefaultSubtitleStyleProfile =
+      SubtitleStyleProfile.defaults;
   String? _subtitleStyleMessage;
   bool _subtitleStyleSaving = false;
   VideoEnhancementPresetSelection _selectedVideoEnhancementPreset =
@@ -264,9 +276,10 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   PlaybackPageViewSnapshot get view {
     final DomainPlaybackCapabilitySummary capabilities =
         _controller.resolveCapabilitySummary();
+    final PlaybackPageSurfaceDescriptor surface = _resolveSurface(capabilities);
     return PlaybackPageViewSnapshot(
       playback: _controller.currentState,
-      surface: _resolveSurface(capabilities),
+      surface: surface,
       tracks: _trackPanel,
       capabilities: PlaybackCapabilityPanelSnapshot.fromMatrix(capabilities),
       videoEnhancement: PlaybackVideoEnhancementPanelSnapshot(
@@ -280,12 +293,23 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       ),
       subtitleStyle: PlaybackSubtitleStylePanelSnapshot(
         profile: _subtitleStyleProfile,
+        loadedDefaultProfile: _loadedDefaultSubtitleStyleProfile,
         application: _controller.subtitleStyleApplication,
         renderPath: _subtitleRenderPath(capabilities),
+        currentSubtitleStatus: _currentSubtitleStatus(surface.subtitleOverlay),
+        currentRendererStatus: _currentSubtitleRendererStatus(
+          capabilities,
+          surface.subtitleOverlay,
+        ),
         basicParserFormats: _basicSubtitleParserFormats,
         nativeSubtitleFormats: _mpvNativeSubtitleFormats,
         message: _subtitleStyleMessage,
         isSaving: _subtitleStyleSaving,
+        usesNativeSubtitleRenderer: _usesNativeSubtitleRenderer(capabilities),
+        isSessionOverride: !_sameSubtitleStyle(
+          _subtitleStyleProfile,
+          _loadedDefaultSubtitleStyleProfile,
+        ),
       ),
       subtitleAutoSelection: _controller.subtitleAutoSelection,
       lastIntentResult: _lastIntentResult,
@@ -298,7 +322,7 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       return _updateSubtitleStyle(intent.subtitleStyleProfile!);
     }
     if (intent.kind == PlaybackPageIntentKind.resetSubtitleStyle) {
-      return _updateSubtitleStyle(SubtitleStyleProfile.defaults);
+      return _updateSubtitleStyle(_loadedDefaultSubtitleStyleProfile);
     }
     if (intent.kind == PlaybackPageIntentKind.applyVideoEnhancement) {
       _videoEnhancementApplying = true;
@@ -416,7 +440,8 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
       final String? raw = await settingsRuntime.getPreference(
         SettingsPreferenceKeys.subtitleStyleProfile,
       );
-      _subtitleStyleProfile = SubtitleStyleSettings.parse(raw);
+      _loadedDefaultSubtitleStyleProfile = SubtitleStyleSettings.parse(raw);
+      _subtitleStyleProfile = _loadedDefaultSubtitleStyleProfile;
       _subtitleStyleMessage = null;
       final DomainPlaybackCommandResult result =
           await _controller.applySubtitleStyle(_subtitleStyleProfile);
@@ -424,6 +449,7 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
         _subtitleStyleMessage = result.failure?.message ?? '字幕样式应用到播放器失败。';
       }
     } on Object catch (error) {
+      _loadedDefaultSubtitleStyleProfile = SubtitleStyleProfile.defaults;
       _subtitleStyleProfile = SubtitleStyleProfile.defaults;
       _subtitleStyleMessage = '字幕样式设置无效，已使用默认值：$error';
     }
@@ -433,30 +459,28 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   Future<PlaybackPageIntentResult> _updateSubtitleStyle(
     SubtitleStyleProfile profile,
   ) async {
-    final SettingsRuntime? settingsRuntime = _settingsRuntime;
     _subtitleStyleProfile = profile;
     _subtitleStyleMessage = null;
-    _subtitleStyleSaving = settingsRuntime != null;
+    _subtitleStyleSaving = true;
     _notifyIfActive();
     try {
-      if (settingsRuntime != null) {
-        await settingsRuntime.setPreference(
-          key: SettingsPreferenceKeys.subtitleStyleProfile,
-          value: SubtitleStyleSettings.serialize(profile),
-        );
-      }
       final DomainPlaybackCommandResult applyResult =
           await _controller.applySubtitleStyle(profile);
       if (!applyResult.isSuccess) {
         _subtitleStyleMessage = applyResult.failure?.message ?? '字幕样式应用到播放器失败。';
         return PlaybackPageIntentResult.ignored(_subtitleStyleMessage!);
       }
-      _subtitleStyleMessage = '字幕样式已保存并应用';
+      _subtitleStyleMessage = _sameSubtitleStyle(
+        profile,
+        _loadedDefaultSubtitleStyleProfile,
+      )
+          ? '已恢复设置页默认字幕样式并应用'
+          : '字幕样式已临时应用到当前播放';
       return const PlaybackPageIntentResult.executedPanel(
         PlaybackPagePanelId.tracks,
       );
     } on Object catch (error) {
-      _subtitleStyleMessage = '字幕样式保存失败：$error';
+      _subtitleStyleMessage = '字幕样式应用失败：$error';
       return PlaybackPageIntentResult.ignored(_subtitleStyleMessage!);
     } finally {
       _subtitleStyleSaving = false;
@@ -469,20 +493,80 @@ final class ControllerPlaybackPageDriver extends ChangeNotifier
   }
 }
 
+bool _sameSubtitleStyle(
+  SubtitleStyleProfile left,
+  SubtitleStyleProfile right,
+) {
+  return left.fontFamily == right.fontFamily &&
+      left.fontSize == right.fontSize &&
+      left.fontWeight == right.fontWeight &&
+      left.textColorArgb == right.textColorArgb &&
+      left.textOpacity == right.textOpacity &&
+      left.outlineStrength == right.outlineStrength &&
+      left.backgroundEnabled == right.backgroundEnabled &&
+      left.backgroundOpacity == right.backgroundOpacity &&
+      left.lineHeight == right.lineHeight &&
+      left.bottomInset == right.bottomInset &&
+      left.forceOverrideEmbeddedStyle == right.forceOverrideEmbeddedStyle;
+}
+
 const String _basicSubtitleParserFormats = 'SRT, WebVTT/VTT, basic ASS text';
 final String _mpvNativeSubtitleFormats =
     domainMpvNativeSubtitleExtensions.join(', ');
 
 String _subtitleRenderPath(DomainPlaybackCapabilitySummary capabilities) {
-  final DomainPlaybackCapabilityStatus nativeStyle =
-      capabilities.statusOf(DomainPlaybackCapabilityId.assSubtitleEnhancement);
-  if (nativeStyle.isSupported) return 'MPV native subtitle renderer';
+  if (_usesNativeSubtitleRenderer(capabilities)) {
+    return 'MPV native subtitle renderer';
+  }
   final DomainPlaybackCapabilityStatus subtitleTracks =
       capabilities.statusOf(DomainPlaybackCapabilityId.subtitleTrackDiscovery);
   if (!subtitleTracks.isSupported) {
     return 'Flutter overlay / unsupported native backend';
   }
   return 'Flutter overlay / native styling unavailable';
+}
+
+String _currentSubtitleStatus(
+  PlaybackPageSubtitleOverlayDescriptor subtitleOverlay,
+) {
+  if (subtitleOverlay.failureReason != null) {
+    return '失败：${subtitleOverlay.failureReason}';
+  }
+  final String? selectedTrackId = subtitleOverlay.selectedTrackId;
+  if (selectedTrackId == null || selectedTrackId.isEmpty) {
+    return '未选择字幕轨';
+  }
+  if (subtitleOverlay.hasVisibleCues) {
+    return '$selectedTrackId，当前有可见字幕';
+  }
+  return '$selectedTrackId，等待当前时间点字幕';
+}
+
+String _currentSubtitleRendererStatus(
+  DomainPlaybackCapabilitySummary capabilities,
+  PlaybackPageSubtitleOverlayDescriptor subtitleOverlay,
+) {
+  if (subtitleOverlay.selectedTrackId == null) {
+    return '未激活';
+  }
+  if (_usesNativeSubtitleRenderer(capabilities)) {
+    return 'MPV native，样式下发到原生字幕';
+  }
+  if (subtitleOverlay.hasVisibleCues) {
+    return 'Flutter basic parser，渲染当前解析字幕';
+  }
+  final DomainPlaybackCapabilityStatus subtitleTracks =
+      capabilities.statusOf(DomainPlaybackCapabilityId.subtitleTrackDiscovery);
+  if (!subtitleTracks.isSupported) {
+    return '不可用：${subtitleTracks.reason ?? '当前后端未报告字幕轨能力'}';
+  }
+  return 'Flutter basic parser，等待可见字幕';
+}
+
+bool _usesNativeSubtitleRenderer(DomainPlaybackCapabilitySummary capabilities) {
+  final DomainPlaybackCapabilityStatus nativeStyle =
+      capabilities.statusOf(DomainPlaybackCapabilityId.assSubtitleEnhancement);
+  return nativeStyle.isSupported;
 }
 
 const List<DomainPlaybackCapabilityId> playbackPageCapabilities =

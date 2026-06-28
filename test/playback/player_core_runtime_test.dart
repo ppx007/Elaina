@@ -575,6 +575,62 @@ void main() {
     await telemetry.close();
   });
 
+  test('runtime toggles native subtitle visibility through adapter', () async {
+    final DeterministicMpvBinding binding = DeterministicMpvBinding();
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+    );
+
+    expect(
+      (await runtime.controller.setSubtitleVisibility(false)).isSuccess,
+      isTrue,
+    );
+
+    expect(binding.subtitleVisible, isFalse);
+    expect(
+      binding.operations,
+      contains(PlaybackOperation.setSubtitleVisibility),
+    );
+
+    await runtime.dispose();
+  });
+
+  test('runtime replays subtitle visibility after source load', () async {
+    final DeterministicMpvBinding binding = DeterministicMpvBinding();
+    final PlayerCoreRuntime runtime = PlayerCoreRuntime.bound(
+      binding: binding,
+      capabilities: _fullPlayerCoreMatrix(),
+    );
+
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+    expect(binding.subtitleVisible, isTrue);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.setSubtitleVisibility)
+          .length,
+      1,
+    );
+
+    expect(
+      (await runtime.controller.setSubtitleVisibility(false)).isSuccess,
+      isTrue,
+    );
+    expect((await runtime.controller.open(_localSource())).isSuccess, isTrue);
+
+    expect(binding.subtitleVisible, isFalse);
+    expect(
+      binding.operations
+          .where((PlaybackOperation operation) =>
+              operation == PlaybackOperation.setSubtitleVisibility)
+          .length,
+      3,
+    );
+
+    await runtime.dispose();
+  });
+
   test('runtime applies and disables video enhancement through adapter',
       () async {
     final DeterministicMpvBinding binding = DeterministicMpvBinding();
@@ -719,7 +775,10 @@ void main() {
     );
 
     expect(unsupportedSourceResult.isSuccess, isTrue);
-    expect(binding.operations, <PlaybackOperation>[PlaybackOperation.load]);
+    expect(binding.operations, <PlaybackOperation>[
+      PlaybackOperation.load,
+      PlaybackOperation.setSubtitleVisibility,
+    ]);
     expect(runtime.currentState.status, PlaybackLifecycleStatus.paused);
     expect(runtime.currentState.failureReason, isNull);
     expect(

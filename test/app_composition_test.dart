@@ -49,6 +49,7 @@ void main() {
         buildElainaMediaKitVideoSurface(_FakeVideoController());
 
     expect(surface.controls, isNull);
+    expect(surface.subtitleViewConfiguration.visible, isFalse);
     expect(elainaMediaKitVideoControls, isNull);
   });
 }

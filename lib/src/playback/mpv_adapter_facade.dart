@@ -30,6 +30,8 @@ abstract interface class MpvAdapterBinding {
 
   Future<PlaybackCommandResult> applySubtitleStyle(
       SubtitleStyleProfile profile);
+
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible);
 }
 
 final class MpvPlayerAdapterFacade implements PlayerAdapter {
@@ -222,6 +224,27 @@ final class MpvPlayerAdapterFacade implements PlayerAdapter {
       );
     }
     return binding.applySubtitleStyle(profile);
+  }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    final MpvAdapterBinding? binding = _binding;
+    if (binding == null) {
+      return _unsupported(PlaybackOperation.setSubtitleVisibility);
+    }
+    final CapabilityStatus subtitleSwitching =
+        capabilities.statusOf(PlaybackCapability.subtitleTrackSwitching);
+    if (!subtitleSwitching.isSupported) {
+      return PlaybackCommandResult.failure(
+        PlaybackFailure(
+          operation: PlaybackOperation.setSubtitleVisibility,
+          kind: PlaybackFailureKind.unsupported,
+          message:
+              subtitleSwitching.reason ?? 'Subtitle visibility is unsupported.',
+        ),
+      );
+    }
+    return binding.setSubtitleVisibility(visible);
   }
 
   PlaybackCommandResult _unsupported(PlaybackOperation operation) {

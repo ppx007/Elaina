@@ -178,6 +178,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
   bool _subtitleManualOverride = false;
   bool _subtitleAutoSelectionInFlight = false;
   SubtitleStyleProfile? _latestSubtitleStyleProfile;
+  bool _latestSubtitleVisibility = true;
   DomainSubtitleStyleApplicationSnapshot _subtitleStyleApplication =
       const DomainSubtitleStyleApplicationSnapshot.idle();
   bool _closed = false;
@@ -242,6 +243,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     if (result.isSuccess) {
       _publish(_snapshotWith(
           status: PlaybackLifecycleStatus.paused, sourceUri: source.uri));
+      await _replaySubtitleVisibility();
       await _replaySubtitleStyleIfKnown();
       final PlayerTelemetrySource? telemetrySource = _runtime._telemetrySource;
       if (telemetrySource != null) {
@@ -449,6 +451,26 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     return result;
   }
 
+  @override
+  Future<DomainPlaybackCommandResult> setSubtitleVisibility(bool visible) {
+    if (_closed) {
+      return Future<DomainPlaybackCommandResult>.value(
+        _runtime.disposedCommandResult(
+          PlaybackOperation.setSubtitleVisibility,
+        ),
+      );
+    }
+    _latestSubtitleVisibility = visible;
+    return _runtime._activeAdapter.setSubtitleVisibility(visible);
+  }
+
+  Future<void> _replaySubtitleVisibility() async {
+    if (_closed) return;
+    await _runtime._activeAdapter.setSubtitleVisibility(
+      _latestSubtitleVisibility,
+    );
+  }
+
   Future<void> _replaySubtitleStyleIfKnown() async {
     final SubtitleStyleProfile? profile = _latestSubtitleStyleProfile;
     if (_closed || profile == null) return;
@@ -464,7 +486,7 @@ final class _RuntimePlaybackController implements PlaybackControllerContract {
     if (result.isSuccess) {
       _subtitleStyleApplication =
           const DomainSubtitleStyleApplicationSnapshot.applied(
-        message: '字幕样式已应用到 MPV 原生渲染。',
+        message: '字幕样式已写入并读回 MPV 原生渲染器。',
       );
       return;
     }

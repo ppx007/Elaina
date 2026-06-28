@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -281,6 +281,16 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
     _scheduleControlsAutoHideIfNeeded();
   }
 
+  Future<void> _setSubtitlesVisible(bool visible) async {
+    final PlaybackPageIntentResult result = await _driver.dispatch(
+      PlaybackPageIntent.setSubtitleVisibility(visible),
+    );
+    if (!mounted || !(result.commandResult?.isSuccess ?? false)) return;
+    setState(() {
+      _areSubtitlesVisible = visible;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final PlaybackPageViewSnapshot view = _driver.view;
@@ -359,9 +369,7 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
                   onTimelineScrubEnd: _handleTimelineScrubEnd,
                   onToggleSubtitles: () {
                     _handlePointerActivity();
-                    setState(() {
-                      _areSubtitlesVisible = !_areSubtitlesVisible;
-                    });
+                    unawaited(_setSubtitlesVisible(!_areSubtitlesVisible));
                   },
                   onToggleDanmaku: () {
                     _handlePointerActivity();
@@ -379,9 +387,7 @@ class _ProductionPlaybackPageState extends State<ProductionPlaybackPage> {
                   onClose: _closeInspector,
                   onRefreshTracks: _driver.loadTracks,
                   onToggleSubtitles: () {
-                    setState(() {
-                      _areSubtitlesVisible = !_areSubtitlesVisible;
-                    });
+                    unawaited(_setSubtitlesVisible(!_areSubtitlesVisible));
                   },
                   onToggleDanmaku: () {
                     setState(() {
@@ -889,6 +895,9 @@ class _SubtitleOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible || !view.surface.subtitleOverlay.hasVisibleCues) {
+      return const SizedBox.shrink();
+    }
+    if (view.subtitleStyle.usesNativeSubtitleRenderer) {
       return const SizedBox.shrink();
     }
     final SubtitleStyleProfile profile =
@@ -1723,12 +1732,24 @@ class _SubtitleSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _MetricLine(label: '当前轨道', value: subtitles.selectedTrackId ?? '未选择'),
+          _MetricLine(label: '字幕显示', value: visible ? '显示中' : '已隐藏'),
           _MetricLine(label: '渲染路径', value: view.subtitleStyle.renderPath),
           _MetricLine(
             label: '样式状态',
             value: _subtitleStyleApplicationText(
               view.subtitleStyle.application,
             ),
+          ),
+          _MetricLine(
+            label: '样式来源',
+            value:
+                view.subtitleStyle.isSessionOverride ? '当前播放临时样式' : '设置页默认样式',
+          ),
+          _MetricLine(
+            label: '内嵌样式覆盖',
+            value: view.subtitleStyle.profile.forceOverrideEmbeddedStyle
+                ? '已开启'
+                : '未开启',
           ),
           _SubtitleAutoSelectionStatusLine(
             snapshot: view.subtitleAutoSelection,
@@ -1806,8 +1827,8 @@ class _SubtitleStyleControls extends StatelessWidget {
   static const double _opacityMax = 1;
   static const double _lineHeightMin = 1;
   static const double _lineHeightMax = 1.8;
-  static const double _bottomInsetMin = 48;
-  static const double _bottomInsetMax = 220;
+  static const double _bottomInsetMin = 5;
+  static const double _bottomInsetMax = 120;
 
   static const List<int> _colorSwatches = <int>[
     0xFFFFFFFF,
@@ -1866,10 +1887,17 @@ class _SubtitleStyleControls extends StatelessWidget {
                 ),
               ],
             ),
-            _MetricLine(label: 'Basic parser', value: snapshot.basicParserFormats),
             _MetricLine(
-              label: 'MPV native',
-              value: snapshot.nativeSubtitleFormats,
+              label: '当前字幕',
+              value: snapshot.currentSubtitleStatus,
+            ),
+            _MetricLine(
+              label: '当前渲染',
+              value: snapshot.currentRendererStatus,
+            ),
+            _MetricLine(
+              label: '作用范围',
+              value: snapshot.isSessionOverride ? '当前播放临时生效' : '来自设置页默认值',
             ),
             _StyleSlider(
               key: const ValueKey<String>(
@@ -1883,6 +1911,12 @@ class _SubtitleStyleControls extends StatelessWidget {
               displayValue: '${profile.fontSize.round()} px',
               onChanged: (double value) => _update(
                 profile.copyWith(fontSize: value),
+              ),
+            ),
+            _SubtitleFontWeightControl(
+              value: profile.fontWeight,
+              onChanged: (SubtitleStyleFontWeight value) => _update(
+                profile.copyWith(fontWeight: value),
               ),
             ),
             _StyleSlider(
@@ -1923,7 +1957,7 @@ class _SubtitleStyleControls extends StatelessWidget {
               value: profile.bottomInset,
               min: _bottomInsetMin,
               max: _bottomInsetMax,
-              divisions: 43,
+              divisions: 23,
               displayValue: '${profile.bottomInset.round()} px',
               onChanged: (double value) => _update(
                 profile.copyWith(bottomInset: value),
@@ -1997,7 +2031,7 @@ class _SubtitleStyleControls extends StatelessWidget {
                 ),
                 contentPadding: EdgeInsets.zero,
                 title: const Text(
-                  '强制覆盖内置样式',
+                  '临时强制覆盖内置样式',
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 value: profile.forceOverrideEmbeddedStyle,
@@ -2016,6 +2050,55 @@ class _SubtitleStyleControls extends StatelessWidget {
   void _update(SubtitleStyleProfile profile) {
     unawaited(
       driver.dispatch(PlaybackPageIntent.updateSubtitleStyle(profile)),
+    );
+  }
+}
+
+class _SubtitleFontWeightControl extends StatelessWidget {
+  const _SubtitleFontWeightControl({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final SubtitleStyleFontWeight value;
+  final ValueChanged<SubtitleStyleFontWeight> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const SizedBox(
+          width: 64,
+          child: Text(
+            '粗细',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: DropdownButton<SubtitleStyleFontWeight>(
+            value: value,
+            isExpanded: true,
+            dropdownColor: Colors.black87,
+            underline: const SizedBox.shrink(),
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+            items: <DropdownMenuItem<SubtitleStyleFontWeight>>[
+              for (final SubtitleStyleFontWeight weight
+                  in SubtitleStyleFontWeight.values)
+                DropdownMenuItem<SubtitleStyleFontWeight>(
+                  value: weight,
+                  child: Text(_subtitleFontWeightLabel(weight)),
+                ),
+            ],
+            onChanged: (SubtitleStyleFontWeight? next) {
+              if (next != null) onChanged(next);
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2854,6 +2937,14 @@ FontWeight _subtitleFontWeight(SubtitleStyleFontWeight weight) {
     SubtitleStyleFontWeight.normal => FontWeight.w400,
     SubtitleStyleFontWeight.medium => FontWeight.w600,
     SubtitleStyleFontWeight.bold => FontWeight.w800,
+  };
+}
+
+String _subtitleFontWeightLabel(SubtitleStyleFontWeight weight) {
+  return switch (weight) {
+    SubtitleStyleFontWeight.normal => '常规',
+    SubtitleStyleFontWeight.medium => '中等',
+    SubtitleStyleFontWeight.bold => '加粗',
   };
 }
 

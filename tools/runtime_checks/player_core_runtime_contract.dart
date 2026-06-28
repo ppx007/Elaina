@@ -2919,6 +2919,12 @@ final class _InMemoryMpvBinding implements MpvAdapterBinding {
     operations.add(PlaybackOperation.applySubtitleStyle);
     return const PlaybackCommandResult.success();
   }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    operations.add(PlaybackOperation.setSubtitleVisibility);
+    return const PlaybackCommandResult.success();
+  }
 }
 
 final class _ConfigurablePlayerAdapter implements PlayerAdapter {
@@ -2942,6 +2948,7 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
   int applyEnhancementCount = 0;
   int disableEnhancementCount = 0;
   int applySubtitleStyleCount = 0;
+  int setSubtitleVisibilityCount = 0;
   MediaTrackId? switchedTrackId;
 
   @override
@@ -3016,6 +3023,12 @@ final class _ConfigurablePlayerAdapter implements PlayerAdapter {
     SubtitleStyleProfile profile,
   ) async {
     applySubtitleStyleCount += 1;
+    return const PlaybackCommandResult.success();
+  }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    setSubtitleVisibilityCount += 1;
     return const PlaybackCommandResult.success();
   }
 }

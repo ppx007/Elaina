@@ -14,14 +14,14 @@ final class SubtitleStyleProfile {
   });
 
   static const String defaultFontFamily = '';
-  static const double defaultFontSize = 22;
+  static const double defaultFontSize = 35;
   static const int defaultTextColorArgb = 0xFFFFFFFF;
   static const double defaultTextOpacity = 1;
-  static const double defaultOutlineStrength = 4;
+  static const double defaultOutlineStrength = 1;
   static const bool defaultBackgroundEnabled = false;
   static const double defaultBackgroundOpacity = 0.46;
   static const double defaultLineHeight = 1.2;
-  static const double defaultBottomInset = 96;
+  static const double defaultBottomInset = 10;
   static const bool defaultForceOverrideEmbeddedStyle = false;
 
   static const SubtitleStyleProfile defaults = SubtitleStyleProfile();

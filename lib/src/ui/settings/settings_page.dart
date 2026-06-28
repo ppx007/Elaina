@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -1821,8 +1821,8 @@ class _SubtitleStyleSettingsPanel extends StatelessWidget {
   static const double _opacityMax = 1;
   static const double _lineHeightMin = 1;
   static const double _lineHeightMax = 1.8;
-  static const double _bottomInsetMin = 48;
-  static const double _bottomInsetMax = 220;
+  static const double _bottomInsetMin = 5;
+  static const double _bottomInsetMax = 120;
 
   static const List<int> _colorSwatches = <int>[
     0xFFFFFFFF,
@@ -1879,6 +1879,12 @@ class _SubtitleStyleSettingsPanel extends StatelessWidget {
               onChanged: (double value) =>
                   onChanged(profile.copyWith(fontSize: value)),
             ),
+            _SettingsFontWeightControl(
+              value: profile.fontWeight,
+              theme: theme,
+              onChanged: (SubtitleStyleFontWeight value) =>
+                  onChanged(profile.copyWith(fontWeight: value)),
+            ),
             _SettingsStyleSlider(
               label: '透明度',
               value: profile.textOpacity,
@@ -1914,7 +1920,7 @@ class _SubtitleStyleSettingsPanel extends StatelessWidget {
               value: profile.bottomInset,
               min: _bottomInsetMin,
               max: _bottomInsetMax,
-              divisions: 43,
+              divisions: 23,
               displayValue: '${profile.bottomInset.round()} px',
               onChanged: (double value) =>
                   onChanged(profile.copyWith(bottomInset: value)),
@@ -1976,6 +1982,53 @@ class _SubtitleStyleSettingsPanel extends StatelessWidget {
   }
 }
 
+class _SettingsFontWeightControl extends StatelessWidget {
+  const _SettingsFontWeightControl({
+    required this.value,
+    required this.theme,
+    required this.onChanged,
+  });
+
+  final SubtitleStyleFontWeight value;
+  final ElainaThemeData theme;
+  final ValueChanged<SubtitleStyleFontWeight> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const SizedBox(
+          width: 72,
+          child: Text(
+            '粗细',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
+        Expanded(
+          child: DropdownButton<SubtitleStyleFontWeight>(
+            value: value,
+            isExpanded: true,
+            dropdownColor: theme.surface,
+            underline: const SizedBox.shrink(),
+            style: TextStyle(color: theme.onSurface, fontSize: 12),
+            items: <DropdownMenuItem<SubtitleStyleFontWeight>>[
+              for (final SubtitleStyleFontWeight weight
+                  in SubtitleStyleFontWeight.values)
+                DropdownMenuItem<SubtitleStyleFontWeight>(
+                  value: weight,
+                  child: Text(_settingsSubtitleFontWeightLabel(weight)),
+                ),
+            ],
+            onChanged: (SubtitleStyleFontWeight? next) {
+              if (next != null) onChanged(next);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsStyleSlider extends StatelessWidget {
   const _SettingsStyleSlider({
     required this.label,
@@ -2023,6 +2076,14 @@ class _SettingsStyleSlider extends StatelessWidget {
       ],
     );
   }
+}
+
+String _settingsSubtitleFontWeightLabel(SubtitleStyleFontWeight weight) {
+  return switch (weight) {
+    SubtitleStyleFontWeight.normal => '常规',
+    SubtitleStyleFontWeight.medium => '中等',
+    SubtitleStyleFontWeight.bold => '加粗',
+  };
 }
 
 class _SettingsColorSwatch extends StatelessWidget {

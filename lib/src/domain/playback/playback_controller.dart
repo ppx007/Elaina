@@ -334,6 +334,8 @@ abstract interface class PlaybackControllerContract
     SubtitleStyleProfile profile,
   );
 
+  Future<DomainPlaybackCommandResult> setSubtitleVisibility(bool visible);
+
   SubtitleAutoSelectionSnapshot get subtitleAutoSelection;
 
   DomainSubtitleStyleApplicationSnapshot get subtitleStyleApplication;
@@ -535,6 +537,11 @@ final class PlaybackController implements PlaybackControllerContract {
     SubtitleStyleProfile profile,
   ) {
     return activeAdapter.applySubtitleStyle(profile);
+  }
+
+  @override
+  Future<DomainPlaybackCommandResult> setSubtitleVisibility(bool visible) {
+    return activeAdapter.setSubtitleVisibility(visible);
   }
 
   @override
@@ -746,6 +753,15 @@ final class MockPlaybackController implements PlaybackControllerContract {
     appliedSubtitleStyle = profile;
     _subtitleStyleApplication =
         const DomainSubtitleStyleApplicationSnapshot.applied();
+    return const PlaybackCommandResult.success();
+  }
+
+  bool subtitleVisible = true;
+
+  @override
+  Future<DomainPlaybackCommandResult> setSubtitleVisibility(
+      bool visible) async {
+    subtitleVisible = visible;
     return const PlaybackCommandResult.success();
   }
 

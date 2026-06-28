@@ -27,6 +27,7 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
   VideoEnhancementProfile? activeEnhancementProfile;
   bool enhancementDisabled = false;
   SubtitleStyleProfile? appliedSubtitleStyle;
+  bool subtitleVisible = true;
 
   bool get isDisposed => _disposed;
 
@@ -163,6 +164,17 @@ final class DeterministicMpvBinding implements MpvAdapterBinding {
     operations.add(PlaybackOperation.applySubtitleStyle);
     appliedSubtitleStyle = profile;
     return _resultFor?.call(PlaybackOperation.applySubtitleStyle) ??
+        const PlaybackCommandResult.success();
+  }
+
+  @override
+  Future<PlaybackCommandResult> setSubtitleVisibility(bool visible) async {
+    final PlaybackCommandResult? disposed =
+        _rejectIfDisposed(PlaybackOperation.setSubtitleVisibility);
+    if (disposed != null) return disposed;
+    operations.add(PlaybackOperation.setSubtitleVisibility);
+    subtitleVisible = visible;
+    return _resultFor?.call(PlaybackOperation.setSubtitleVisibility) ??
         const PlaybackCommandResult.success();
   }
 

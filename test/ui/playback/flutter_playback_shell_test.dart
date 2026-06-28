@@ -216,6 +216,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('production subtitle toggle controls native subtitle visibility',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+    expect(controller.subtitleVisible, isTrue);
+    expect(ElainaFinders.playbackSubtitleOverlay, findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.subtitles).first);
+    await tester.pumpAndSettle();
+
+    expect(controller.subtitleVisible, isFalse);
+    expect(ElainaFinders.playbackSubtitleOverlay, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production hides Flutter subtitle overlay for native renderer',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController(
+      matrix: _productionMatrix(nativeSubtitleRendererSupported: true),
+    );
+
+    await tester.pumpWidget(_productionHost(controller));
+
+    expect(ElainaFinders.playbackSubtitleOverlay, findsNothing);
+
+    await tester.tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('MPV native subtitle renderer'), findsWidgets);
+    expect(find.text('Basic parser'), findsNothing);
+    expect(find.text('当前字幕'), findsWidgets);
+    expect(find.textContaining('subtitle-ja'), findsWidgets);
+    expect(find.text('当前渲染'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('production subtitle overlay uses saved default style',
       (WidgetTester tester) async {
     final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
@@ -236,6 +273,44 @@ void main() {
       find.text('主字幕对白').first,
     );
     expect(subtitle.style?.fontSize, 30);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production subtitle style changes are session scoped',
+      (WidgetTester tester) async {
+    final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+    final String savedDefault = SubtitleStyleSettings.serialize(
+      SubtitleStyleProfile.defaults.copyWith(fontSize: 24),
+    );
+    await settingsRuntime.setPreference(
+      key: SettingsPreferenceKeys.subtitleStyleProfile,
+      value: savedDefault,
+    );
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(
+      _productionHost(controller, settingsRuntime: settingsRuntime),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开播放信息'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(ElainaFinders.playbackSubtitleFontSizeSlider);
+    final Finder fontSizeSlider = find.descendant(
+      of: ElainaFinders.playbackSubtitleFontSizeSlider,
+      matching: find.byType(Slider),
+    );
+
+    tester.widget<Slider>(fontSizeSlider).onChanged!(30);
+    await tester.pumpAndSettle();
+
+    expect(controller.appliedSubtitleStyle?.fontSize, 30);
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleStyleProfile,
+      ),
+      savedDefault,
+    );
+    expect(find.text('当前播放临时生效'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -303,9 +378,11 @@ void main() {
         'subtitle-ja');
     expect(controller.currentState.subtitles.selectedTrackId, 'subtitle-ja');
     expect(find.text('subtitle-ja'), findsOneWidget);
-    expect(find.textContaining('MPV native'), findsWidgets);
-    expect(find.textContaining('SRT, WebVTT/VTT, basic ASS text'), findsWidgets);
-    expect(find.textContaining('.srt, .ass, .ssa'), findsWidgets);
+    expect(find.text('当前字幕'), findsWidgets);
+    expect(find.text('当前渲染'), findsWidgets);
+    expect(
+        find.textContaining('SRT, WebVTT/VTT, basic ASS text'), findsNothing);
+    expect(find.textContaining('.srt, .ass, .ssa'), findsNothing);
     expect(ElainaFinders.playbackTrackPanel, findsOneWidget);
     expect(find.text('音轨'), findsWidgets);
     expect(find.text('字幕轨'), findsWidgets);
@@ -550,6 +627,7 @@ MockPlaybackController _productionController({
 PlaybackCapabilityMatrix _productionMatrix({
   bool matrixDanmakuSupported = true,
   bool anime4kSupported = true,
+  bool nativeSubtitleRendererSupported = false,
 }) {
   return PlaybackCapabilityMatrix(
     capabilities: <PlaybackCapability, CapabilityStatus>{
@@ -562,6 +640,11 @@ PlaybackCapabilityMatrix _productionMatrix({
       PlaybackCapability.audioTrackSwitching: CapabilityStatus.supported(),
       PlaybackCapability.subtitleTrackDiscovery: CapabilityStatus.supported(),
       PlaybackCapability.subtitleTrackSwitching: CapabilityStatus.supported(),
+      PlaybackCapability.assSubtitleEnhancement: nativeSubtitleRendererSupported
+          ? const CapabilityStatus.supported()
+          : const CapabilityStatus.unsupported(
+              'MPV native subtitle renderer is unavailable.',
+            ),
       PlaybackCapability.secondaryPanels: CapabilityStatus.supported(),
       PlaybackCapability.danmakuRendering: CapabilityStatus.supported(),
       PlaybackCapability.matrixDanmaku: matrixDanmakuSupported
