@@ -481,10 +481,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(ElainaFinders.settingsSubtitleStylePanel, findsOneWidget);
 
-    final Finder fontSizeSlider = find.descendant(
-      of: ElainaFinders.settingsSubtitleStylePanel,
-      matching: find.byType(Slider),
-    ).first;
+    final Finder fontSizeSlider = find
+        .descendant(
+          of: ElainaFinders.settingsSubtitleStylePanel,
+          matching: find.byType(Slider),
+        )
+        .first;
     tester.widget<Slider>(fontSizeSlider).onChanged!(30);
     await tester.pumpAndSettle();
 
@@ -494,6 +496,71 @@ void main() {
       ),
     );
     expect(saved.fontSize, 30);
+  });
+
+  testWidgets('SettingsPage saves and validates subtitle auto-selection regex',
+      (WidgetTester tester) async {
+    final settingsRuntime = FakeSettingsRuntime();
+
+    await _pumpSettingsPage(tester, settingsRuntime: settingsRuntime);
+    await tester.pumpAndSettle();
+
+    await tester.tap(ElainaFinders.settingsSectionPlayback.first);
+    await tester.pumpAndSettle();
+    expect(ElainaFinders.settingsSubtitleAutoSelectPanel, findsOneWidget);
+
+    await tester.ensureVisible(ElainaFinders.settingsSubtitleAutoSelectRegex);
+    await tester.enterText(
+      ElainaFinders.settingsSubtitleAutoSelectRegex,
+      '[',
+    );
+    tester
+        .widget<IconButton>(
+          find
+              .descendant(
+                of: ElainaFinders.settingsSubtitleAutoSelectPanel,
+                matching: find.byType(IconButton),
+              )
+              .last,
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleAutoSelectPattern,
+      ),
+      isNull,
+    );
+    expect(find.textContaining('字幕自动选择正则无效'), findsOneWidget);
+
+    await tester.enterText(
+      ElainaFinders.settingsSubtitleAutoSelectRegex,
+      r'简体|CHS|Signs',
+    );
+    tester
+        .widget<IconButton>(
+          find
+              .descendant(
+                of: ElainaFinders.settingsSubtitleAutoSelectPanel,
+                matching: find.byType(IconButton),
+              )
+              .last,
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleAutoSelectEnabled,
+      ),
+      subtitleAutoSelectEnabledValue,
+    );
+    expect(
+      await settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleAutoSelectPattern,
+      ),
+      r'简体|CHS|Signs',
+    );
   });
 
   testWidgets('SettingsPage validates Bangumi token and refreshes profile',

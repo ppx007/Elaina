@@ -239,6 +239,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('production subtitle overlay draws background only when enabled',
+      (WidgetTester tester) async {
+    final MockPlaybackController controller = _productionController();
+
+    await tester.pumpWidget(_productionHost(controller));
+    await tester.pumpAndSettle();
+
+    expect(_textHasDecoratedBoxAncestor(tester, '主字幕对白'), isFalse);
+
+    final FakeSettingsRuntime settingsRuntime = FakeSettingsRuntime();
+    await settingsRuntime.setPreference(
+      key: SettingsPreferenceKeys.subtitleStyleProfile,
+      value: SubtitleStyleSettings.serialize(
+        SubtitleStyleProfile.defaults.copyWith(backgroundEnabled: true),
+      ),
+    );
+
+    await tester.pumpWidget(
+      _productionHost(controller, settingsRuntime: settingsRuntime),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_textHasDecoratedBoxAncestor(tester, '主字幕对白'), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'production page falls back to basic danmaku when matrix is unsupported',
       (WidgetTester tester) async {
@@ -431,6 +457,20 @@ Widget _productionHost(
       settingsRuntime: settingsRuntime,
     ),
   );
+}
+
+bool _textHasDecoratedBoxAncestor(WidgetTester tester, String text) {
+  bool hasDecoratedBox = false;
+  tester.element(find.text(text).first).visitAncestorElements(
+    (Element ancestor) {
+      if (ancestor.widget is DecoratedBox) {
+        hasDecoratedBox = true;
+        return false;
+      }
+      return true;
+    },
+  );
+  return hasDecoratedBox;
 }
 
 MockPlaybackController _productionController({

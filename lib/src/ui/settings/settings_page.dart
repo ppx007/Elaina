@@ -128,6 +128,8 @@ class _SettingsPageState extends State<SettingsPage> {
       TextEditingController();
   final TextEditingController _vlcRuntimeDirectoryController =
       TextEditingController();
+  final TextEditingController _subtitleAutoSelectRegexController =
+      TextEditingController();
 
   _SettingsSection _selectedSection = _SettingsSection.appearance;
   bool _isLoading = true;
@@ -149,6 +151,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isPlaybackBackendSaving = false;
   SubtitleStyleProfile _subtitleStyleProfile = SubtitleStyleProfile.defaults;
   String? _subtitleStyleMessage;
+  bool _subtitleAutoSelectEnabled = true;
+  String? _subtitleAutoSelectMessage;
+  bool _isSubtitleAutoSelectSaving = false;
 
   @override
   void initState() {
@@ -165,6 +170,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _bangumiMirrorImageController.dispose();
     _anime4kShaderOverrideController.dispose();
     _vlcRuntimeDirectoryController.dispose();
+    _subtitleAutoSelectRegexController.dispose();
     super.dispose();
   }
 
@@ -192,6 +198,14 @@ class _SettingsPageState extends State<SettingsPage> {
           .getPreference(SettingsPreferenceKeys.vlcRuntimeDirectory);
       final String? subtitleStyleStr = await widget.settingsRuntime
           .getPreference(SettingsPreferenceKeys.subtitleStyleProfile);
+      final String? subtitleAutoSelectEnabledStr =
+          await widget.settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleAutoSelectEnabled,
+      );
+      final String? subtitleAutoSelectPatternStr =
+          await widget.settingsRuntime.getPreference(
+        SettingsPreferenceKeys.subtitleAutoSelectPattern,
+      );
       final String? proxyUrl = await widget.settingsRuntime.getProxyUrl();
       final String? dnsPolicy = await widget.settingsRuntime.getDnsPolicy();
       final PlaybackBackendSelectionSnapshot? backendSnapshot =
@@ -217,6 +231,11 @@ class _SettingsPageState extends State<SettingsPage> {
         _vlcRuntimeDirectoryController.text = vlcRuntimeDirectoryStr ?? '';
         _playbackBackendSnapshot = backendSnapshot;
         _subtitleStyleProfile = SubtitleStyleSettings.parse(subtitleStyleStr);
+        _subtitleAutoSelectEnabled = SubtitleAutoSelectSettings.parseEnabled(
+          subtitleAutoSelectEnabledStr,
+        );
+        _subtitleAutoSelectRegexController.text =
+            subtitleAutoSelectPatternStr?.trim() ?? '';
         _mediaLibraryFolders = decodedFolders.folders;
         _mediaLibraryMessage = decodedFolders.message;
         _isLoading = false;
@@ -268,6 +287,50 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       setState(() {
         _subtitleStyleMessage = '字幕样式保存失败：$error';
+      });
+    }
+  }
+
+  Future<void> _saveSubtitleAutoSelectSettings() async {
+    if (_isSubtitleAutoSelectSaving) return;
+    final String rawPattern = _subtitleAutoSelectRegexController.text.trim();
+    try {
+      if (rawPattern.isNotEmpty) {
+        SubtitleAutoSelectSettings.validateRegex(rawPattern);
+      }
+    } on FormatException catch (error) {
+      setState(() {
+        _subtitleAutoSelectMessage = '字幕自动选择正则无效：${error.message}';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubtitleAutoSelectSaving = true;
+      _subtitleAutoSelectMessage = null;
+    });
+    try {
+      await _savePreference(
+        SettingsPreferenceKeys.subtitleAutoSelectEnabled,
+        SubtitleAutoSelectSettings.serializeEnabled(_subtitleAutoSelectEnabled),
+      );
+      await _savePreference(
+        SettingsPreferenceKeys.subtitleAutoSelectPattern,
+        SubtitleAutoSelectSettings.serializePattern(rawPattern),
+      );
+      if (!mounted) return;
+      setState(() {
+        _subtitleAutoSelectMessage = '字幕自动选择设置已保存';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _subtitleAutoSelectMessage = '字幕自动选择设置保存失败：$error';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubtitleAutoSelectSaving = false;
       });
     }
   }
@@ -1037,6 +1100,21 @@ class _SettingsPageState extends State<SettingsPage> {
           theme: theme,
         ),
         const _SettingsDivider(),
+        _SubtitleAutoSelectSettingsPanel(
+          enabled: _subtitleAutoSelectEnabled,
+          regexController: _subtitleAutoSelectRegexController,
+          message: _subtitleAutoSelectMessage,
+          isSaving: _isSubtitleAutoSelectSaving,
+          theme: theme,
+          onEnabledChanged: (bool value) {
+            setState(() {
+              _subtitleAutoSelectEnabled = value;
+              _subtitleAutoSelectMessage = null;
+            });
+          },
+          onSave: _saveSubtitleAutoSelectSettings,
+        ),
+        const _SettingsDivider(),
         _SubtitleStyleSettingsPanel(
           profile: _subtitleStyleProfile,
           message: _subtitleStyleMessage,
@@ -1631,6 +1709,102 @@ class _ReferencedProjectRow extends StatelessWidget {
   }
 }
 
+class _SubtitleAutoSelectSettingsPanel extends StatelessWidget {
+  const _SubtitleAutoSelectSettingsPanel({
+    required this.enabled,
+    required this.regexController,
+    required this.message,
+    required this.isSaving,
+    required this.theme,
+    required this.onEnabledChanged,
+    required this.onSave,
+  });
+
+  final bool enabled;
+  final TextEditingController regexController;
+  final String? message;
+  final bool isSaving;
+  final ElainaThemeData theme;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey<String>(UiElementIds.settingsSubtitleAutoSelectPanel),
+      decoration: BoxDecoration(
+        color: theme.surface.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(_panelRadius),
+        border: Border.all(color: theme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(_panelPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              '字幕自动选择',
+              style: TextStyle(
+                color: theme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '默认优先选择简体中文字幕。自定义正则会先匹配轨道名称、语言代码和轨道 id，未命中时再回退简体中文规则。',
+              style: TextStyle(
+                color: theme.onBackground.withValues(alpha: 0.68),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: _rowGap),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  '打开字幕自动选择',
+                  style: TextStyle(color: theme.onSurface),
+                ),
+                value: enabled,
+                onChanged: onEnabledChanged,
+              ),
+            ),
+            TextField(
+              key: const ValueKey<String>(
+                UiElementIds.settingsSubtitleAutoSelectRegex,
+              ),
+              controller: regexController,
+              decoration: InputDecoration(
+                labelText: '自定义字幕正则',
+                hintText: r'例如：简体|简中|CHS|zh-Hans',
+                helperText: '留空时只使用内置简体中文字幕规则',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: '保存字幕自动选择设置',
+                  onPressed: isSaving ? null : onSave,
+                  icon: isSaving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                ),
+              ),
+            ),
+            if (message != null) ...<Widget>[
+              const SizedBox(height: 8),
+              _StatusText(text: message!, theme: theme),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SubtitleStyleSettingsPanel extends StatelessWidget {
   const _SubtitleStyleSettingsPanel({
     required this.profile,
@@ -1776,8 +1950,7 @@ class _SubtitleStyleSettingsPanel extends StatelessWidget {
                 min: 0.1,
                 max: 0.8,
                 divisions: 7,
-                displayValue:
-                    '${(profile.backgroundOpacity * 100).round()}%',
+                displayValue: '${(profile.backgroundOpacity * 100).round()}%',
                 onChanged: (double value) =>
                     onChanged(profile.copyWith(backgroundOpacity: value)),
               ),

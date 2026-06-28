@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/playback/playback_controller.dart';
 import '../../domain/playback/playback_state.dart';
+import '../../domain/playback/subtitle_auto_selection.dart';
 import '../../domain/playback/subtitle_style.dart';
 import '../../domain/settings/settings_domain.dart';
 import '../testing/ui_element_ids.dart';
@@ -915,33 +916,39 @@ class _SubtitleOverlay extends StatelessWidget {
                     padding: const EdgeInsets.only(
                       bottom: _ProductionPlaybackPageState._cueGap,
                     ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: _subtitleBackgroundColor(cue, profile),
-                        borderRadius: BorderRadius.circular(
-                          _ProductionPlaybackPageState._panelRadius,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: profile.backgroundEnabled
-                            ? const EdgeInsets.symmetric(
-                                horizontal:
-                                    _ProductionPlaybackPageState._smallGap,
-                                vertical: 2,
-                              )
-                            : EdgeInsets.zero,
-                        child: Text(
-                          cue.text,
-                          textAlign: TextAlign.center,
-                          style: _subtitleTextStyle(cue, profile),
-                        ),
-                      ),
-                    ),
+                    child: _buildSubtitleCue(cue, profile),
                   ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubtitleCue(
+    PlaybackPageSubtitleCueDescriptor cue,
+    SubtitleStyleProfile profile,
+  ) {
+    final Text text = Text(
+      cue.text,
+      textAlign: TextAlign.center,
+      style: _subtitleTextStyle(cue, profile),
+    );
+    final Color backgroundColor = _subtitleBackgroundColor(cue, profile);
+    if (backgroundColor == Colors.transparent) return text;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius:
+            BorderRadius.circular(_ProductionPlaybackPageState._panelRadius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: _ProductionPlaybackPageState._smallGap,
+          vertical: 2,
+        ),
+        child: text,
       ),
     );
   }
@@ -1716,6 +1723,9 @@ class _SubtitleSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _MetricLine(label: '当前轨道', value: subtitles.selectedTrackId ?? '未选择'),
+          _SubtitleAutoSelectionStatusLine(
+            snapshot: view.subtitleAutoSelection,
+          ),
           _MetricLine(
               label: '时间偏移', value: _formatSignedDuration(subtitles.offset)),
           if (subtitles.failureReason != null)
@@ -1733,6 +1743,45 @@ class _SubtitleSection extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SubtitleAutoSelectionStatusLine extends StatelessWidget {
+  const _SubtitleAutoSelectionStatusLine({required this.snapshot});
+
+  final SubtitleAutoSelectionSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key:
+          const ValueKey<String>(UiElementIds.playbackSubtitleAutoSelectStatus),
+      child: _MetricLine(
+        label: '自动选择',
+        value: _statusText(snapshot),
+      ),
+    );
+  }
+
+  String _statusText(SubtitleAutoSelectionSnapshot snapshot) {
+    return switch (snapshot.status) {
+      SubtitleAutoSelectionStatus.idle => '等待字幕轨',
+      SubtitleAutoSelectionStatus.disabled => '已关闭',
+      SubtitleAutoSelectionStatus.selected =>
+        '${_ruleLabel(snapshot.rule)}：${snapshot.selectedTrackId?.value ?? '未知轨道'}',
+      SubtitleAutoSelectionStatus.noMatch => snapshot.message ?? '未匹配',
+      SubtitleAutoSelectionStatus.manualOverride =>
+        '手动选择：${snapshot.selectedTrackId?.value ?? '未知轨道'}',
+      SubtitleAutoSelectionStatus.failed => snapshot.message ?? '选择失败',
+    };
+  }
+
+  String _ruleLabel(SubtitleAutoSelectionRule? rule) {
+    return switch (rule) {
+      SubtitleAutoSelectionRule.customRegex => '正则命中',
+      SubtitleAutoSelectionRule.simplifiedChinese => '简体中文',
+      null => '已选择',
+    };
   }
 }
 
@@ -1923,8 +1972,7 @@ class _SubtitleStyleControls extends StatelessWidget {
                 min: 0.1,
                 max: 0.8,
                 divisions: 7,
-                displayValue:
-                    '${(profile.backgroundOpacity * 100).round()}%',
+                displayValue: '${(profile.backgroundOpacity * 100).round()}%',
                 onChanged: (double value) => _update(
                   profile.copyWith(backgroundOpacity: value),
                 ),
@@ -2730,7 +2778,8 @@ TextStyle _subtitleTextStyle(
   PlaybackPageSubtitleCueDescriptor cue,
   SubtitleStyleProfile profile,
 ) {
-  final bool useUserStyle = cue.styleSource != DomainSubtitleStyleSource.embedded;
+  final bool useUserStyle =
+      cue.styleSource != DomainSubtitleStyleSource.embedded;
   final SubtitleStyleProfile effective =
       useUserStyle ? profile : SubtitleStyleProfile.defaults;
   final Color textColor = Color(effective.textColorArgb).withValues(

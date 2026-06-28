@@ -109,6 +109,10 @@ abstract final class ElainaFinders {
       byId(UiElementIds.settingsAnime4kSave);
   static Finder get settingsSubtitleStylePanel =>
       byId(UiElementIds.settingsSubtitleStylePanel);
+  static Finder get settingsSubtitleAutoSelectPanel =>
+      byId(UiElementIds.settingsSubtitleAutoSelectPanel);
+  static Finder get settingsSubtitleAutoSelectRegex =>
+      byId(UiElementIds.settingsSubtitleAutoSelectRegex);
   static Finder get settingsAddMediaFolder =>
       byId(UiElementIds.settingsAddMediaFolder);
   static Finder get diagnosticsRefresh => byId(UiElementIds.diagnosticsRefresh);
@@ -203,6 +207,8 @@ abstract final class ElainaFinders {
       byId(UiElementIds.playbackAnime4kPresetMenu);
   static Finder get playbackSubtitleStylePanel =>
       byId(UiElementIds.playbackSubtitleStylePanel);
+  static Finder get playbackSubtitleAutoSelectStatus =>
+      byId(UiElementIds.playbackSubtitleAutoSelectStatus);
   static Finder get playbackSubtitleStyleOverrideToggle =>
       byId(UiElementIds.playbackSubtitleStyleOverrideToggle);
   static Finder get playbackSubtitleFontSizeSlider =>

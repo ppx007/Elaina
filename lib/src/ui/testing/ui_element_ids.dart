@@ -74,6 +74,10 @@ abstract final class UiElementIds {
   static const String settingsAnime4kSave = 'settings-anime4k-save';
   static const String settingsSubtitleStylePanel =
       'settings-subtitle-style-panel';
+  static const String settingsSubtitleAutoSelectPanel =
+      'settings-subtitle-auto-select-panel';
+  static const String settingsSubtitleAutoSelectRegex =
+      'settings-subtitle-auto-select-regex';
   static const String settingsAddMediaFolder = 'settings-add-media-folder';
 
   static const String diagnosticsRefresh = 'diagnostics-refresh';
@@ -137,6 +141,8 @@ abstract final class UiElementIds {
       'playback-anime4k-preset-menu';
   static const String playbackSubtitleStylePanel =
       'playback-subtitle-style-panel';
+  static const String playbackSubtitleAutoSelectStatus =
+      'playback-subtitle-auto-select-status';
   static const String playbackSubtitleStyleOverrideToggle =
       'playback-subtitle-style-override-toggle';
   static const String playbackSubtitleFontSizeSlider =
