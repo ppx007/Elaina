@@ -1,4 +1,9 @@
-import '../../lib/elaina.dart';
+import 'dart:io';
+
+import '../../lib/src/foundation/cache_invalidation/cache_invalidation_bus.dart';
+import '../../lib/src/foundation/diagnostics/diagnostics_center.dart';
+import '../../lib/src/foundation/diagnostics/diagnostics_center_runtime.dart';
+import '../../lib/src/foundation/storage/diagnostics_storage_contracts.dart';
 
 Future<void> main() async {
   final DeterministicDiagnosticsStore store = DeterministicDiagnosticsStore();
@@ -222,8 +227,7 @@ Future<void> main() async {
       'Fresh runtime must replay stored event count.');
 
   await bus.close();
-  // ignore: avoid_print
-  print('Diagnostics center runtime checks passed.');
+  stdout.writeln('Diagnostics center runtime checks passed.');
 }
 
 Future<void> _expect(bool condition, String message) async {
